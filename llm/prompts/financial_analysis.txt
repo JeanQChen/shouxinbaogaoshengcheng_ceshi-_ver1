@@ -1,0 +1,3 @@
+[占位] 财务分析 agent 的 system prompt。
+输入变量: {metrics_table} {guidance} {company_info}
+注意: 所有指标已在 Python 中算好，LLM 只负责语义解读，禁止让 LLM 做任何数值计算。

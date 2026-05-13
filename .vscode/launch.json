@@ -1,0 +1,65 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Streamlit: Run App",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "streamlit_app.py"],
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
+    {
+      "name": "Module: parsers.excel_parser",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "parsers.excel_parser",
+      "args": ["data/samples/300750/financial/financial_2024.xlsx"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Module: parsers.schema_mapper",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "parsers.schema_mapper",
+      "args": ["data/samples/300750/financial/financial_2024.xlsx", "--company", "300750"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Module: financial.metrics",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "financial.metrics",
+      "args": ["--company", "300750"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Module: financial.analyzer",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "financial.analyzer",
+      "args": ["--company", "300750"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Evals: run_evals",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "evals.run_evals",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Pytest: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v", "-s"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

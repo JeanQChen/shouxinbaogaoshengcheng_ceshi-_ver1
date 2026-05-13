@@ -91,8 +91,7 @@ credit-report-demo/
 │
 ├── external/                 # 外部 API 封装
 │   ├── __init__.py
-│   ├── akshare_client.py
-│   └── tavily_client.py
+│   └── akshare_client.py
 │
 ├── reporting/                # 报告处理
 │   ├── __init__.py
@@ -103,6 +102,10 @@ credit-report-demo/
 ├── templates/                # 报告模板（Markdown）
 │   ├── standard.md
 │   └── simple.md
+│
+├── scripts/                  # 运维脚本（非业务逻辑）
+│   ├── __init__.py
+│   └── prepare_demo_data.py  # 预处理样本数据
 │
 ├── logs/                     # 运行日志
 │   ├── retrieval/
@@ -122,14 +125,14 @@ credit-report-demo/
 | 层 | 选型 |
 |----|------|
 | 前端 | Streamlit |
-| LLM | `anthropic` SDK，model = claude-sonnet-4-20250514 |
+| LLM | `anthropic` SDK，DeepSeek-V4-Pro（Anthropic 兼容接口） |
 | Excel | `openpyxl` + `pandas` |
 | PDF | `pypdf` + 质量检测兜底（无 docling 依赖） |
 | 结构化数据 | `sqlite3` (stdlib) |
 | 向量库 | `chromadb` |
 | Embedding | **BGE-M3**（`FlagEmbedding` 库） |
 | 公开数据 | `akshare` |
-| 互联网检索 | `tavily-python` |
+| 互联网检索 | **Claude built-in web search**（当前）。日后可换 `tavily-python`，改一行。 |
 | Word | `python-docx` |
 
 ---
@@ -271,7 +274,7 @@ def run(company_id: str, section_spec: SectionSpec) -> ReportSection: ...
 
 内部：
 1. 从 `retrieval.retriever` 查 `company_docs__<id>`
-2. 从 `external.tavily_client` 检索近期新闻
+2. 通过 Claude web search tool 检索近期新闻
 3. 合并喂给 LLM 生成章节
 
 ### `agents.industry` (Agent 4)
@@ -280,7 +283,7 @@ def run(company_id: str, section_spec: SectionSpec) -> ReportSection: ...
 def run(company_id: str, industry_code: str, section_spec: SectionSpec) -> ReportSection: ...
 ```
 
-主要用 Tavily，必要时检索 `industry_docs__<id>`。
+主要用 Claude web search tool，必要时检索 `industry_docs__<id>`。
 
 ### `agents.synthesizer` (Agent 5)
 
@@ -443,7 +446,7 @@ make clean-db     # 清掉 data/credit.db （重置财务数据）
 - [ ] Streamlit 接入
 
 ### Week 3: 行业 + 综合 + 并行
-- [ ] `external.tavily_client`
+- [ ] 互联网检索（Claude built-in web search）
 - [ ] `agents.industry`
 - [ ] `agents.synthesizer`
 - [ ] 三 agent 并行调用

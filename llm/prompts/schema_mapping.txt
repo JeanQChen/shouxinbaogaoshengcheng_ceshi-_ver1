@@ -1,0 +1,2 @@
+[占位] Excel 科目 → 标准代码的 mapping prompt。
+输入变量: {raw_items} {standard_codes}

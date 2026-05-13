@@ -1,0 +1,2 @@
+[占位] 公司主体分析 agent 的 system prompt。
+输入变量: {retrieved_chunks} {web_search_results} {guidance}

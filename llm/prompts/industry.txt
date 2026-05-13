@@ -1,0 +1,2 @@
+[占位] 行业分析 agent 的 system prompt。
+输入变量: {industry_code} {web_search_results} {guidance}

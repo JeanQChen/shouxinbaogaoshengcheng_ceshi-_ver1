@@ -1,0 +1,57 @@
+[project]
+name = "credit-report-demo"
+version = "0.1.0"
+description = "授信报告生成器 demo (面试用,非生产)"
+requires-python = ">=3.11"
+
+# 依赖在 requirements.txt 中管理,这里仅作元信息
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".venv",
+    "data",
+    "logs",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (formatter handles it)
+    "B008",   # function call in default arg (FastAPI/Click patterns)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "F401"]
+"evals/*" = ["B011"]
+"**/__init__.py" = ["F401"]   # allow re-exports
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "slow: tests that take >5s",
+    "needs_llm: tests that call LLM API (skip in CI by default)",
+    "needs_network: tests that need internet",
+]

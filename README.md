@@ -12,8 +12,7 @@
 
 - Python 3.11+
 - ~5GB 磁盘空间（含 BGE-M3 模型权重）
-- Tavily API key（[免费注册](https://tavily.com)，每月 1000 次）
-- Anthropic API key
+- DeepSeek API key（[注册](https://platform.deepseek.com)）
 
 ### 1. 准备数据
 
@@ -21,19 +20,31 @@
 
 ### 2. 安装
 
+**推荐先建虚拟环境**（避免依赖污染系统 Python，非必要）：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate    # macOS / Linux
+# .venv\Scripts\activate     # Windows
+```
+
+然后：
+
 ```bash
 make setup
 ```
 
-会做：装依赖、初始化 SQLite、下载 BGE-M3 模型权重（首次较慢）。
+会做：装依赖、初始化 SQLite、下载 BGE-M3 模型权重（首次较慢，~2GB）。
+
+> **VS Code 用户**：项目自带 `.vscode/settings.json`，默认会用 `.venv/bin/python` 作为解释器。打开项目时如果右下角解释器没自动切换，按 `Cmd/Ctrl+Shift+P` → `Python: Select Interpreter` → 选 `.venv`。
 
 ### 3. 配置环境变量
 
 新建 `.env`：
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-TAVILY_API_KEY=tvly-...
+DEEPSEEK_API_KEY=sk-xxxx
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
 ### 4. 预处理演示样本
@@ -99,7 +110,7 @@ data/samples/300750/
 
 ### 行业研报（可选）
 
-如果有手头的新能源汽车行业研报 PDF，可以放到 `industry/` 下。**没有也不影响主流程**——行业分析 agent 主要靠 Tavily 检索互联网研报。
+如果有手头的新能源汽车行业研报 PDF，可以放到 `industry/` 下。**没有也不影响主流程**——行业分析 agent 主要靠 Claude built-in web search 检索互联网研报。
 
 ---
 

@@ -1,0 +1,43 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+
+# --- Test/lint cache ---
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- API keys (CRITICAL: never commit) ---
+.env
+
+# --- Generated data ---
+data/credit.db
+data/credit.db-journal
+data/cache/
+data/chroma/
+
+# --- Logs ---
+logs/
+
+# --- Demo data (用户按 README 自行下载，太大不入 git) ---
+data/samples/**/*.xlsx
+data/samples/**/*.xls
+data/samples/**/*.pdf
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- VS Code: 允许共享的 settings/launch/extensions, 忽略个人配置 ---
+.vscode/*.code-workspace
+.vscode/launch.local.json

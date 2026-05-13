@@ -1,0 +1,3 @@
+[占位] 综合 agent 的 system prompt（轻量）。
+输入变量: {sections} {template}
+任务: 衔接、过渡、保持口径一致，不重写各章节内容。

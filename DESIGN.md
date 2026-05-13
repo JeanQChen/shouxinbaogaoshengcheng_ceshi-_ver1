@@ -43,8 +43,8 @@
 
 面试 demo 的典型 5-7 分钟流程：
 
-1. 面试官在 Streamlit 看到首页，输入"贵州茅台"
-2. 系统调用 akshare 返回"贵州茅台股份有限公司 / 600519"，用户确认
+1. 面试官在 Streamlit 看到首页，输入"宁德时代"
+2. 系统调用 akshare 返回"宁德时代新能源科技股份有限公司 / 300750"，用户确认
 3. 用户上传材料（实际从预置缓存读取，UI 体感是上传）：
    - 财务 Excel：近三年年报附表
    - 公司公告 PDF：2-3 份近期重要公告或年报全文
@@ -84,7 +84,7 @@
     ┌─────────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐
     │ Agent 2:       │  │ Agent 3:    │  │ Agent 4:    │
     │ 财务分析       │  │ 公司主体    │  │ 行业分析    │
-    │ (SQL+计算+LLM) │  │ (RAG+新闻)  │  │ (Tavily)    │
+    │ (SQL+计算+LLM) │  │ (RAG+新闻)  │  │ (Web Search)│
     └─────────┬──────┘  └──────┬──────┘  └──────┬──────┘
               │                │                │
               └────────────────┼────────────────┘
@@ -111,10 +111,10 @@
 | 0 | 公司确认 | 查公司全称/股票代码/行业代码 | akshare |
 | 1 | 解析入库 | Excel→SQLite, PDF→ChromaDB | openpyxl, pypdf, LLM (schema mapping) |
 | 2 | 财务分析 | SQL 取数 + 指标计算 + LLM 解读 | SQLite, pandas, LLM |
-| 3 | 公司主体 | 内部 RAG + 互联网新闻 | ChromaDB, Tavily, LLM |
-| 4 | 行业分析 | 互联网研报检索为主 | Tavily, LLM |
+| 3 | 公司主体 | 内部 RAG + 互联网新闻 | ChromaDB, Web Search, LLM |
+| 4 | 行业分析 | 互联网研报检索为主 | Web Search, LLM |
 | 5 | 综合 | 按模板组装三个章节 | LLM (轻量) |
-| 6 | 回检 | 数值/实体/时效三类规则 | akshare, Tavily, 规则引擎 |
+| 6 | 回检 | 数值/实体/时效三类规则 | akshare, Web Search, 规则引擎 |
 
 ---
 
@@ -222,7 +222,7 @@ class ReportSection:
     generated_at: datetime
 
 class Citation:
-    source_type: str   # "sqlite" | "chromadb" | "tavily" | "akshare"
+    source_type: str   # "sqlite" | "chromadb" | "web_search" | "akshare"
     source_ref: str    # "balance_sheet.id=42" 或 "chunk_id=xxx"
     snippet: str       # 原文片段（用于可解释性展示）
 ```
@@ -317,15 +317,15 @@ class Citation:
 | 层 | 选型 | 理由 |
 |----|------|------|
 | 前端 | Streamlit | 一文件 UI，Python 全栈，演示快 |
-| LLM | Claude API (sonnet) | 长上下文、中文金融领域表现好 |
+| LLM | DeepSeek-V4-Pro（Anthropic 兼容接口） | 成本低、中文表现好 |
 | Excel 解析 | openpyxl + pandas | 标准库组合 |
-| PDF 解析 | pypdf（首选）/ docling（备选） | 上市公司 PDF 均为电子版 |
+| PDF 解析 | pypdf + 质量检测兜底 | 上市公司 PDF 均为电子版 |
 | 结构化存储 | SQLite | 零部署、单文件 |
 | 向量库 | ChromaDB | 本地、API 友好 |
 | Embedding | BGE-M3（本地，FlagEmbedding 库） | 中文友好、免费、演示稳定 |
 | 公开数据 | akshare | 免费 A 股全量数据 |
-| 互联网检索 | Tavily API | LLM 友好搜索 |
-| Word 导出 | python-docx + markdown 中间层 | 控制格式 |
+| 互联网检索 | **Claude built-in web search**（当前方案）。日后如需更稳定的 reranking，可升级为 Tavily API，只需加 `TAVILY_API_KEY` 并改一行调用。 | |
+| Word 导出 | python-docx | 控制格式精细 |
 
 ---
 
@@ -373,7 +373,7 @@ class Citation:
 |----|------|--------|
 | W1 | 财务端到端切片 | 上传 Excel → 入 SQLite → 算 5 个指标 → LLM 写一段 → Streamlit 显示 |
 | W2 | PDF + 公司主体 | 加 PDF 入 ChromaDB，公司主体 agent 跑通 |
-| W3 | 行业 + 综合 + 并行 | 加 Tavily，加综合 agent，三 agent 并行 |
+| W3 | 行业 + 综合 + 并行 | 加互联网检索（Claude built-in web search），加综合 agent，三 agent 并行 |
 | W4 | 回检 + Word + 打磨 | 三类回检规则、Word 导出、演示路径打磨 |
 
 ### 9.2 两周底线版
@@ -397,8 +397,9 @@ class Citation:
 
 | # | 决策点 | 选定 | 备注 |
 |---|--------|------|------|
+| 0 | LLM 模型 | **DeepSeek-V4-Pro** | 通过 Anthropic 兼容接口调用，key 写入 `.env` |
 | 1 | Embedding 模型 | **BGE-M3**（FlagEmbedding） | 本地部署，~2GB 模型权重，中文友好 |
-| 2 | 互联网检索 | **Tavily API** | 免费额度每月 1000 次，足够开发+演示 |
+| 2 | 互联网检索 | **Claude built-in web search** | 当前方案，日后可升级为 Tavily（改一行代码） |
 | 3 | PDF 解析 | **pypdf + 质量检测兜底** | 详见 §11 |
 | 4 | Word 导出 | **python-docx 直接写** | |
 | 5 | 演示样本 | **宁德时代（300750）单家** | 演示深度优先 |
