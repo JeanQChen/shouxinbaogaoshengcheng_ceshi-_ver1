@@ -5,6 +5,7 @@
   2. LLM 兜底匹配 → 批量处理剩余 20%
 """
 
+import math
 import re
 import json
 import logging
@@ -288,7 +289,7 @@ def _build_rows(
                 elif unit == "qian_yuan":
                     amount *= 1_000
 
-                if amount == 0.0:
+                if amount == 0.0 or math.isnan(amount) or math.isinf(amount):
                     continue
 
                 category = default_cat
@@ -409,11 +410,15 @@ if __name__ == "__main__":
 
     file_path = None
     company = None
+    save_db = False
     i = 1
     while i < len(sys.argv):
         if sys.argv[i] == "--company" and i + 1 < len(sys.argv):
             company = sys.argv[i + 1]
             i += 2
+        elif sys.argv[i] == "--save":
+            save_db = True
+            i += 1
         elif not file_path:
             file_path = sys.argv[i]
             i += 1
@@ -421,7 +426,7 @@ if __name__ == "__main__":
             i += 1
 
     if not file_path:
-        print("Usage: python -m parsers.schema_mapper <excel> --company <stock_code>", file=sys.stderr)
+        print("Usage: python -m parsers.schema_mapper <excel> --company <stock_code> [--save]", file=sys.stderr)
         sys.exit(1)
     if not company:
         company = "unknown"
@@ -430,6 +435,13 @@ if __name__ == "__main__":
 
     parsed = _parse(file_path)
     result = map_to_schema(parsed, company)
+
+    if save_db and result.rows:
+        from financial.db import init_db, insert_report
+        init_db()
+        report_id = insert_report(result.report_meta, result.rows)
+        logger.info("Saved %d rows to DB, report_id=%s", len(result.rows), report_id)
+
     summary = {
         "report_meta": result.report_meta,
         "mapped_count": len(result.rows),

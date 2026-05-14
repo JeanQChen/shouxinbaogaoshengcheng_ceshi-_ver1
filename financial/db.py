@@ -1,5 +1,6 @@
 """SQLite 连接 + CRUD。"""
 
+import math
 import sqlite3
 import uuid
 from pathlib import Path
@@ -75,6 +76,8 @@ def insert_report(meta: dict, rows: list[NormalizedRow]) -> str:
             )
 
             for row in period_rows:
+                if math.isnan(row.amount) or math.isinf(row.amount):
+                    continue
                 table = table_for_row(row.category, row.activity_type)
                 conn.execute(
                     insert_row_sql.format(table=table),
