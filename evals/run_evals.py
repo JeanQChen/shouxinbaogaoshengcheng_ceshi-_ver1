@@ -23,6 +23,8 @@ EVAL_MODULES = [
     "evals.test_schema_mapper_llm",
     "evals.test_analyzer",
     "evals.test_assembler",
+    "evals.test_pdf_parser",
+    "evals.test_retrieval",
 ]
 
 

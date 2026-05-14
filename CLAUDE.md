@@ -451,8 +451,8 @@ make clean-db     # 清掉 data/credit.db （重置财务数据）
 - [x] Day 7: 第一版 eval
 
 ### Week 2: PDF + 公司主体
-- [ ] `parsers.pdf_parser`
-- [ ] `retrieval.indexer` + `retrieval.retriever`
+- [x] `parsers.pdf_parser`
+- [x] `retrieval.indexer` + `retrieval.retriever`
 - [ ] `agents.company_subject`
 - [ ] Streamlit 接入
 
