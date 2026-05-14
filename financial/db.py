@@ -96,8 +96,9 @@ def insert_report(meta: dict, rows: list[NormalizedRow]) -> str:
 def query_metric(company_id: str, item_code: str, period: str) -> float | None:
     """查询某公司某报告期某科目的金额。
 
-    跨三张表搜索，返回命中的第一条记录的 amount。
-    如果多条记录匹配，取合计值。
+    item_code 可为英文代码（如 TOTAL_ASSETS）或中文名（如 资产总计），
+    跨三张表搜索，匹配 item_code 和 item_name_cn 两列。
+    多条匹配时取合计值。
     """
     conn = _get_conn()
     try:
@@ -107,8 +108,8 @@ def query_metric(company_id: str, item_code: str, period: str) -> float | None:
             rows = conn.execute(
                 f"SELECT fs.amount FROM {table} fs "
                 "JOIN report_meta rm ON fs.report_id = rm.id "
-                "WHERE rm.company_id = ? AND fs.item_code = ? AND rm.report_period = ?",
-                (company_id, item_code, period),
+                "WHERE rm.company_id = ? AND (fs.item_code = ? OR fs.item_name_cn = ?) AND rm.report_period = ?",
+                (company_id, item_code, item_code, period),
             ).fetchall()
             for r in rows:
                 total += r["amount"]
@@ -128,5 +129,25 @@ def list_periods(company_id: str) -> list[str]:
             (company_id,),
         ).fetchall()
         return [r["report_period"] for r in rows]
+    finally:
+        conn.close()
+
+
+def get_company_info(company_id: str) -> dict[str, str]:
+    """获取公司基本信息（名称、代码、最新报告期）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT company_name, stock_code, report_period FROM report_meta "
+            "WHERE company_id = ? ORDER BY report_period DESC LIMIT 1",
+            (company_id,),
+        ).fetchone()
+        if row:
+            return {
+                "company_name": row["company_name"] or "",
+                "stock_code": row["stock_code"] or company_id,
+                "report_period": row["report_period"] or "",
+            }
+        return {"company_name": "", "stock_code": company_id, "report_period": ""}
     finally:
         conn.close()

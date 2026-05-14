@@ -95,6 +95,10 @@ def _normalize_name(raw: str) -> str:
     s = re.sub(r"^减[：:]\s*", "", s)
     # 去 "其中：" / "其中:" 前缀
     s = re.sub(r"^其中[：:]\s*", "", s)
+    # 去 "加:" / "加：" 前缀（如 "加:期初现金及现金等价物余额"）
+    s = re.sub(r"^加[：:]\s*", "", s)
+    # 去 "的差错金额" 后缀（审计调整行，匹配到基础科目）
+    s = re.sub(r"的差错金额$", "", s)
     # 去 "(合计)" / "（合计）"
     s = re.sub(r"[（(]合计[)）]", "", s)
     # 去剩余括号和空格
@@ -387,6 +391,8 @@ def map_to_schema(
     # 构建 report_meta
     report_meta = {
         "company_id": company_id,
+        "company_name": "",  # 由 akshare 或用户输入填充，当前使用 company_id
+        "stock_code": company_id,
         "report_period": parsed.detected_period or "",
         "report_type": _infer_report_type(parsed.detected_period or ""),
         "statement_scope": parsed.detected_scope or "consolidated",

@@ -158,35 +158,72 @@
 
 ### 4.2 标准化科目代码
 
-定义在 `financial/schema.py`，是 schema_mapper 的映射目标。示例：
+定义在 `financial/schema.py`，是 schema_mapper 的映射目标。当前约 100 个标准代码，覆盖三张表的常见科目。
 
 ```python
-# 资产负债表关键项
+# 资产负债表 ~50 个代码
 TOTAL_ASSETS = "资产总计"
 CURRENT_ASSETS = "流动资产合计"
-NON_CURRENT_ASSETS = "非流动资产合计"
 TOTAL_LIABILITIES = "负债合计"
-CURRENT_LIABILITIES = "流动负债合计"
 TOTAL_EQUITY = "所有者权益合计"
-CASH_AND_EQUIVALENTS = "货币资金"
-ACCOUNTS_RECEIVABLE = "应收账款"
 INVENTORY = "存货"
+ACCOUNTS_RECEIVABLE = "应收账款"
+# ... 还包括：固定资产、在建工程、无形资产、商誉、短期/长期借款、
+#     应付/预收账款、合同资产/负债、租赁负债、预计负债、少数股东权益等
 
-# 利润表关键项
+# 利润表 ~22 个代码
 TOTAL_REVENUE = "营业总收入"
-OPERATING_REVENUE = "营业收入"
 OPERATING_COST = "营业成本"
-GROSS_PROFIT = "毛利润"  # 派生
-OPERATING_PROFIT = "营业利润"
 NET_PROFIT = "净利润"
+OPERATING_PROFIT = "营业利润"
+# ... 还包括：营业总成本、税金及附加、销售/管理/研发/财务费用、
+#     投资收益、公允价值变动收益、信用/资产减值损失、
+#     营业外收入/支出、少数股东损益、综合收益总额、每股收益等
 
-# 现金流量表关键项
+# 现金流量表 ~30 个代码
 OPERATING_CASH_FLOW = "经营活动产生的现金流量净额"
 INVESTING_CASH_FLOW = "投资活动产生的现金流量净额"
 FINANCING_CASH_FLOW = "筹资活动产生的现金流量净额"
+# ... 还包括：三大活动的流入/流出小计和各子项、
+#     汇率变动影响、期初/期末现金余额等
+# 含简称变体（如"经营活动现金流量净额"），兼容不同公司的命名差异
 ```
 
-MVP 阶段约 30-40 个标准代码即可覆盖核心分析。
+### 4.2.1 财务指标体系
+
+定义在 `financial/metrics.py`，纯 Python 计算（LLM 不参与）。当前约 19 个指标：
+
+| 类别 | 指标 | 公式 | 依赖科目 |
+|------|------|------|---------|
+| 偿债 | 流动比率 | CA / CL | CURRENT_ASSETS, CURRENT_LIABILITIES |
+| | 速动比率 | (CA - INV) / CL | 同上 + INVENTORY |
+| | 资产负债率 | TL / TA | TOTAL_LIABILITIES, TOTAL_ASSETS |
+| | 利息保障倍数 | EBIT / FE | TOTAL_PROFIT, FINANCE_EXPENSES |
+| | 权益乘数 | TA / TE | TOTAL_ASSETS, TOTAL_EQUITY |
+| 盈利 | 毛利率 | (REV - COST) / REV | TOTAL_REVENUE, OPERATING_COST |
+| | 净利率 | NP / REV | NET_PROFIT, TOTAL_REVENUE |
+| | ROE | NP / TE | NET_PROFIT, TOTAL_EQUITY |
+| | ROA | NP / TA | NET_PROFIT, TOTAL_ASSETS |
+| | 营业利润率 | OP / REV | OPERATING_PROFIT, TOTAL_REVENUE |
+| 营运 | 总资产周转率 | REV / avg(TA) | TOTAL_REVENUE, TOTAL_ASSETS（需前期） |
+| | 存货周转率 | COST / avg(INV) | OPERATING_COST, INVENTORY（需前期） |
+| | 应收账款周转率 | REV / avg(AR) | TOTAL_REVENUE, ACCOUNTS_RECEIVABLE（需前期） |
+| 现金流 | 经营现金流/净利润 | OCF / NP | OPERATING_CASH_FLOW, NET_PROFIT |
+| | 现金流/总资产 | OCF / TA | OPERATING_CASH_FLOW, TOTAL_ASSETS |
+| | 现金流/营业收入 | OCF / REV | OPERATING_CASH_FLOW, TOTAL_REVENUE |
+| 费用 | 期间费用率 | (SE+AE+RDE+FE) / REV | 四项费用, TOTAL_REVENUE |
+| 成长 | 营收增长率 | (REV - REV_prev) / REV_prev | TOTAL_REVENUE（跨期） |
+| | 净利增长率 | (NP - NP_prev) / NP_prev | NET_PROFIT（跨期） |
+
+> **未来扩展方向**（当前未实现）：
+> - **杜邦分析**：ROE = 净利率 × 总资产周转率 × 权益乘数（三项分解 + 驱动因素分析）
+> - **有息负债率**：需要 SHORT/LONG_TERM_BORROWINGS 明细
+> - **自由现金流**：FCF = OCF - CAPEX（需要资本支出数据，可用投资活动现金流近似）
+> - **EBITDA 相关**：息税折旧摊销前利润率、EV/EBITDA（需要折旧摊销科目）
+> - **每股指标**：EPS、每股净资产、每股经营现金流（需要股本数据）
+> - **Altman Z-Score**：多变量信用风险评分（需留存收益等科目）
+> - **盈利质量**：经营现金流/营业利润、应收账款/营收比率
+> - **人均指标**：人均营收、人均利润（需要员工人数数据）
 
 ### 4.3 ChromaDB 设计
 

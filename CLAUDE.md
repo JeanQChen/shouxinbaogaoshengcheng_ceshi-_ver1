@@ -442,13 +442,13 @@ make clean-db     # 清掉 data/credit.db （重置财务数据）
 每完成一个里程碑勾选，作为 Claude Code 的进度记忆。
 
 ### Week 1: 财务端到端切片
-- [ ] Day 1: 项目骨架 + CLAUDE.md / DESIGN.md / Makefile
-- [ ] Day 2: `financial.schema` + `financial.db`
-- [ ] Day 2-3: `parsers.excel_parser` + `parsers.schema_mapper`
-- [ ] Day 4: `financial.metrics`（5+ 指标）
-- [ ] Day 5: `financial.analyzer`（agent 跑通）
-- [ ] Day 6: Streamlit 接入，端到端跑通
-- [ ] Day 7: 第一版 eval
+- [x] Day 1: 项目骨架 + CLAUDE.md / DESIGN.md / Makefile
+- [x] Day 2: `financial.schema` + `financial.db`
+- [x] Day 2-3: `parsers.excel_parser` + `parsers.schema_mapper`
+- [x] Day 4: `financial.metrics`（5+ 指标）
+- [x] Day 5: `financial.analyzer`（agent 跑通）
+- [x] Day 6: Streamlit 接入，端到端跑通
+- [x] Day 7: 第一版 eval
 
 ### Week 2: PDF + 公司主体
 - [ ] `parsers.pdf_parser`

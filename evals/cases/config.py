@@ -1,0 +1,21 @@
+"""Eval 阈值常量。"""
+
+COMPANY_ID = "300750"
+COMPANY_NAME = "宁德时代"
+DEMO_DATA_DIR = "data/samples/300750/financial"
+
+FINANCIAL_FILES = {
+    "balance_sheet": "NDSD_BALANCESHEET_2023-2026Q1.xlsx",
+    "income_statement": "NDSD_EFFORT_2023-2026Q1.xlsx",
+    "cash_flow": "NDSD_CASH_2023-2026Q1.xlsx",
+}
+
+EXPECTED_MIN_CODE_COUNT = 90
+EXPECTED_MIN_METRIC_COUNT = 15
+EXPECTED_MIN_GROWTH_COUNT = 6
+MATCH_RATE_THRESHOLD = 0.70
+EXPECTED_PERIODS_MIN = 3
+EXPECTED_SHEETS_PER_FILE_MIN = 1
+MIN_CURRENT_RATIO = 0.2
+MAX_CURRENT_RATIO = 20.0
+VALID_TEMPLATE_AGENTS = {"company_subject", "financial", "industry", "synthesizer"}
