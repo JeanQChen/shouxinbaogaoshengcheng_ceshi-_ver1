@@ -23,7 +23,7 @@
 ## Hard Constraints（永不违反）
 
 - ❌ **不接受 PDF 财务报表**，财务数据强制 Excel 输入
-- ❌ **不接受扫描件 PDF、PPT、图片、Word 输入**
+- ❌ **不接受PPT、图片、Word 输入**
 - ❌ **LLM 不算数字**。所有指标、比率、增长率必须 Python 算好再喂 prompt
 - ❌ **不做用户认证、加密、多用户隔离**（demo 不需要）
 - ❌ **不写没有 CLI 的模块**。每个核心模块必须能 `python -m <module>` 独立运行
@@ -172,12 +172,23 @@ def parse(file_path: str) -> ExcelParseResult: ...
 @dataclass
 class ExcelParseResult:
     sheets: dict[str, pd.DataFrame]
-    detected_period: str | None       # 推断的报告期
+    detected_period: str | None       # 推断的主报告期，如 "2024-12-31"
     detected_scope: str | None        # "consolidated" / "parent"
     metadata: dict
+    # metadata 必含字段：
+    #   "format"            — "multi_period" | "single_period"
+    #   "unit"              — "yuan" | "wan_yuan" | "qian_yuan" | "yi_yuan" | "baiwan_yuan" | "qianwan_yuan" | "unknown"
+    #   "detected_periods"  — [str]（multi_period 时列出全部报告期）
 ```
 
+内部检测逻辑：
+- `_detect_format()`：看第一个非空 sheet 的列头是否有 ≥2 个日期匹配 → multi_period
+- `_detect_unit()`：在 sheet 名和前 3 行搜索"单位：万元/千元/元"
+- 金额单位必须在解析阶段确定，结果写入 `metadata["unit"]`，schema_mapper 从 metadata 读取，不自己再扫
+
 CLI: `python -m parsers.excel_parser <file_path>` → prints JSON summary
+
+**已知限制**：当前仅支持 `.xlsx`，不支持旧版 `.xls`（待扩充）。
 
 ### `parsers.schema_mapper`
 
