@@ -127,6 +127,7 @@ def main() -> dict:
     from parsers.pdf_parser import (
         parse, TextChunk, PdfParseResult,
         _split_into_chunks, _CHUNK_CHAR_LIMIT,
+        _detect_repeated_lines, _strip_lines,
     )
 
     # ── Test 1: _split_into_chunks (pure function) ──
@@ -149,7 +150,32 @@ def main() -> dict:
     para_chunks = _split_into_chunks(para_text, page_number=4)
     check(len(para_chunks) >= 1, f"Paragraphs → ≥1 chunk (got {len(para_chunks)})")
 
-    # ── Test 2: dataclass instantiation ──
+    # ── Test 2: _detect_repeated_lines & _strip_lines ──
+    header = "宁德时代新能源科技股份有限公司  2025年年度报告全文"
+    long_body = "本报告涵盖了公司在报告期内的经营成果、财务状况、现金流变化以及未来发展展望等核心内容。公司管理层对报告的真实性、准确性、完整性承担个别和连带的法律责任。"
+    page_texts = []
+    for i in range(100):
+        page_texts.append(f"{header}\n\n第{i+1}页：{long_body}")
+    repeated = _detect_repeated_lines(page_texts)
+    check(header in repeated, f"Header detected as repeated (found: {len(repeated)})")
+
+    # Strip from a page (header << body, so safe to strip)
+    before = page_texts[0]
+    after = _strip_lines(before, repeated)
+    check(header not in after, "Header stripped from page text")
+    check("经营成果" in after, "Body text preserved after strip")
+
+    # No repeated lines → empty set
+    unique_texts = [f"Unique page {i}" for i in range(5)]
+    check(len(_detect_repeated_lines(unique_texts)) == 0,
+          "No false positives with unique pages")
+
+    # Below threshold (3 pages with same header out of 50 = 6% < 20%)
+    below_threshold = [header if i < 3 else f"Other text {i}" for i in range(50)]
+    check(len(_detect_repeated_lines(below_threshold)) == 0,
+          "Below threshold not flagged")
+
+    # ── Test 3: dataclass instantiation ──
     chunk = TextChunk(text="测试", page_number=5, chunk_index=2)
     check(chunk.text == "测试", "TextChunk.text")
     check(chunk.page_number == 5, "TextChunk.page_number")
@@ -192,7 +218,8 @@ def main() -> dict:
         result_single = parse(pdf1)
         for key in ("source_file", "page_count", "low_quality_pages",
                      "low_quality_ratio", "has_text_layer", "total_chunks",
-                     "quality_status", "scanned_pages"):
+                     "quality_status", "scanned_pages",
+                     "header_footer_lines_removed"):
             check(key in result_single.metadata, f"metadata has '{key}'")
 
         # 3d. 5 blank pages → low quality reject (>30%)

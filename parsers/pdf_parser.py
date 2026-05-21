@@ -35,6 +35,7 @@ _CHUNK_OVERLAP = 50           # char overlap between adjacent chunks
 _LOW_QUALITY_CHAR_THRESHOLD = 100   # < 100 chars → low-quality page
 _LOW_QUALITY_WARN_RATIO = 0.10
 _LOW_QUALITY_REJECT_RATIO = 0.30
+_REPEATED_LINE_THRESHOLD = 0.20   # 线在 N% 页面出现 → 页眉/页脚，移除
 
 
 # ── 内部函数 ──
@@ -120,6 +121,82 @@ def _split_into_chunks(text: str, page_number: int, chunk_limit: int = _CHUNK_CH
     return chunks
 
 
+# ── 页眉/页脚检测 ──
+
+def _norm(s: str) -> str:
+    """去空白归一化：去掉所有空白字符后比较，容忍 pypdf 排版差异。"""
+    return re.sub(r"\s+", "", s)
+
+
+def _detect_repeated_lines(page_texts: list[str],
+                           threshold: float = _REPEATED_LINE_THRESHOLD) -> set[str]:
+    """检测跨多页重复出现的行（页眉/页脚/页码）。
+
+    取每页首行和尾行，空白归一化后统计频次。超过 threshold 比例
+    的页面中出现则判定为页眉/页脚，返回原始行的集合。
+    """
+    from collections import Counter
+
+    # norm → first seen original
+    first_originals: dict[str, str] = {}
+    last_originals: dict[str, str] = {}
+    first_counts: Counter[str] = Counter()
+    last_counts: Counter[str] = Counter()
+
+    for text in page_texts:
+        if not text:
+            continue
+        lines = [l.strip() for l in text.split("\n")]
+        lines = [l for l in lines if l]
+        if not lines:
+            continue
+
+        n0 = _norm(lines[0])
+        if n0:
+            first_counts[n0] += 1
+            if n0 not in first_originals:
+                first_originals[n0] = lines[0]
+
+        if len(lines) > 1:
+            n1 = _norm(lines[-1])
+            if n1:
+                last_counts[n1] += 1
+                if n1 not in last_originals:
+                    last_originals[n1] = lines[-1]
+
+    min_pages = max(2, int(len(page_texts) * threshold))
+    repeated: set[str] = set()
+
+    for norm_line, count in first_counts.items():
+        if count >= min_pages:
+            repeated.add(first_originals[norm_line])
+    for norm_line, count in last_counts.items():
+        if count >= min_pages:
+            repeated.add(last_originals[norm_line])
+
+    return repeated
+
+
+def _strip_lines(text: str, to_remove: set[str]) -> str:
+    """从文本中移除指定行（空白归一化匹配）。
+
+    保护：如果待移除行占页面总文字量 >50%，则跳过该页。
+    """
+    if not to_remove:
+        return text
+    # Build norm → original mapping for to_remove
+    remove_norms = {_norm(r): r for r in to_remove}
+
+    lines = text.split("\n")
+    stripped = [l.strip() for l in lines]
+    total_chars = sum(len(s) for s in stripped if s)
+    removable_chars = sum(len(s) for s in stripped if _norm(s) in remove_norms)
+    if total_chars > 0 and removable_chars / total_chars > 0.5:
+        return text
+    kept = [l for l in lines if _norm(l.strip()) not in remove_norms]
+    return "\n".join(kept)
+
+
 # ── 主入口 ──
 
 def parse(file_path: str) -> PdfParseResult:
@@ -127,9 +204,10 @@ def parse(file_path: str) -> PdfParseResult:
 
     流程：
     1. 打开 PDF，逐页提取文本
-    2. 每页进行质量检测（低文本量 / 扫描件）
-    3. 文本按 ~512 token 粒度过行分块
-    4. 汇总 quality metadata
+    2. 检测跨页重复行（页眉/页脚），移除
+    3. 每页进行质量检测（低文本量 / 扫描件）
+    4. 文本按 ~512 token 粒度过行分块
+    5. 汇总 quality metadata
 
     Raises:
         FileNotFoundError: 文件不存在
@@ -158,17 +236,32 @@ def parse(file_path: str) -> PdfParseResult:
             },
         )
 
+    # ── Pass 1: extract text per page ──
+    raw_page_texts: list[str] = []
+    page_has_images: list[bool] = []
+    for page in reader.pages:
+        text = _extract_text_from_page(page)
+        raw_page_texts.append(text)
+        page_has_images.append(_page_has_images(page))
+
+    # ── Detect & strip repeated header/footer lines ──
+    repeated = _detect_repeated_lines(raw_page_texts)
+    if repeated:
+        logger.info("Detected %d repeated header/footer lines: %.80s...",
+                    len(repeated), str(sorted(repeated))[:80])
+
+    stripped_texts = [_strip_lines(t, repeated) for t in raw_page_texts]
+
+    # ── Pass 2: quality check + chunk ──
     all_chunks: list[TextChunk] = []
     low_quality_pages: list[int] = []
     scanned_pages: list[int] = []
     has_text_layer = False
 
-    for i, page in enumerate(reader.pages):
+    for i, text in enumerate(stripped_texts):
         page_num = i + 1
-        text = _extract_text_from_page(page)
         is_lq = len(text) < _LOW_QUALITY_CHAR_THRESHOLD
-        # 扫描件 = 无文本 + 有图片
-        is_scanned = (not text) and _page_has_images(page)
+        is_scanned = (not text) and page_has_images[i]
 
         if is_lq:
             low_quality_pages.append(page_num)
@@ -203,11 +296,12 @@ def parse(file_path: str) -> PdfParseResult:
         "has_text_layer": has_text_layer,
         "total_chunks": len(all_chunks),
         "quality_status": quality_status,
+        "header_footer_lines_removed": len(repeated),
     }
 
-    logger.info("PDF parsed: %d pages → %d chunks, quality=%s (low=%d, scanned=%d)",
+    logger.info("PDF parsed: %d pages → %d chunks, quality=%s (low=%d, scanned=%d, hdr_removed=%d)",
                 page_count, len(all_chunks), quality_status,
-                len(low_quality_pages), len(scanned_pages))
+                len(low_quality_pages), len(scanned_pages), len(repeated))
 
     return PdfParseResult(chunks=all_chunks, page_count=page_count, metadata=metadata)
 

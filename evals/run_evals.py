@@ -25,6 +25,11 @@ EVAL_MODULES = [
     "evals.test_assembler",
     "evals.test_pdf_parser",
     "evals.test_retrieval",
+    "evals.test_company_subject",
+    "evals.test_industry",
+    "evals.test_synthesizer",
+    "evals.test_verifier",
+    "evals.test_word_exporter",
 ]
 
 

@@ -453,20 +453,21 @@ make clean-db     # 清掉 data/credit.db （重置财务数据）
 ### Week 2: PDF + 公司主体
 - [x] `parsers.pdf_parser`
 - [x] `retrieval.indexer` + `retrieval.retriever`
-- [ ] `agents.company_subject`
-- [ ] Streamlit 接入
+- [x] `agents.company_subject`
+- [x] Streamlit 接入
 
 ### Week 3: 行业 + 综合 + 并行
-- [ ] 互联网检索（Claude built-in web search）
-- [ ] `agents.industry`
-- [ ] `agents.synthesizer`
-- [ ] 三 agent 并行调用
+- [x] 互联网检索（Web search + akshare）
+- [x] `agents.industry`
+- [x] `agents.synthesizer`
+- [x] 三 agent 并行调用
 
 ### Week 4: 回检 + Word + 打磨
-- [ ] `agents.verifier`（三类规则）
-- [ ] `reporting.word_exporter`
-- [ ] DEMO_MODE 完整支持
-- [ ] 演示路径打磨
+- [x] `agents.verifier`（三类规则：yellow 数值 >5%、red 实体、orange 时效）
+- [x] `reporting.word_exporter`（Markdown → docx，支持表格/粗斜体/回检标注）
+- [x] DEMO_MODE 完整支持（一键生成、回检集成、网络降级）
+- [x] 演示路径打磨（步骤指示器、友好错误提示、使用指南）
+- [x] 提示词优化（四份 prompt 重构：结构化任务、强制引用、事实/研判区分）
 
 ---
 

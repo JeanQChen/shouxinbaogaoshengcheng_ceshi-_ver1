@@ -4,6 +4,7 @@ BGE-M3 输出 1024 维稠密向量，~2GB 模型权重，首次使用时自动�
 """
 
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class EmbeddingModel:
     @property
     def model(self):
         if self._model is None:
+            # 模型 cache 后离线加载，避免每次连 HuggingFace Hub 超时
+            os.environ.setdefault("HF_HUB_OFFLINE", "1")
             logger.info("Loading BGE-M3 model: %s (fp16=%s)", self._model_name, self._use_fp16)
             from FlagEmbedding import BGEM3FlagModel
             self._model = BGEM3FlagModel(self._model_name, use_fp16=self._use_fp16)

@@ -21,59 +21,43 @@ def assemble(sections: list[ReportSection], template_path: str, **variables: str
         template = template.replace("{{" + key + "}}", str(val))
 
     lines = template.split("\n")
-
-    # Build lookup: section_id → content
-    content_map: dict[str, str] = {s.section_id: s.content for s in sections}
-
-    # Also build a title-based fallback lookup
-    title_map: dict[str, str] = {}
-    for s in sections:
-        # Normalize: strip numbering and whitespace
-        clean = re.sub(r"^[一二三四五六七八九十\d]+[.、．]\s*", "", s.title).strip()
-        title_map[clean] = s.content
-
     result: list[str] = []
     heading_re = re.compile(r"^(#{1,6})\s+(.+)$")
-    agent_re = re.compile(r"<!--\s*agent:\s*\S+\s*-->")
+    agent_re = re.compile(r"<!--\s*agent:\s*(\S+)\s*-->")
+    comment_re = re.compile(r"<!--\s*(agent|guidance):\s*.*?-->")
 
     inserted: set[str] = set()
 
     for line in lines:
+        # Skip HTML comment lines (agent/guidance markers) — they're metadata, not content
+        if comment_re.search(line):
+            # Still trigger content insertion for agent markers
+            a_match = agent_re.search(line)
+            if a_match:
+                heading = None
+                for j in range(len(result) - 1, -1, -1):
+                    h_match = heading_re.match(result[j])
+                    if h_match:
+                        heading = h_match.group(2).strip()
+                        break
+
+                if heading:
+                    content: str | None = None
+                    for section in sections:
+                        clean_title = re.sub(r"^[一二三四五六七八九十\d]+[.、．]\s*", "", section.title).strip()
+                        if clean_title == re.sub(r"^[一二三四五六七八九十\d]+[.、．]\s*", "", heading).strip():
+                            if section.section_id not in inserted:
+                                content = section.content
+                                inserted.add(section.section_id)
+                                break
+
+                    if content:
+                        result.append("")
+                        result.append(content)
+                        result.append("")
+            continue
+
         result.append(line)
-
-        a_match = agent_re.search(line)
-        if not a_match:
-            continue
-
-        # Found an agent comment — find the associated heading (closest preceding heading)
-        heading = None
-        heading_level = 0
-        for j in range(len(result) - 2, -1, -1):
-            h_match = heading_re.match(result[j])
-            if h_match:
-                heading = h_match.group(2).strip()
-                heading_level = len(h_match.group(1))
-                break
-
-        if heading is None:
-            continue
-
-        # Try to find matching section
-        content: str | None = None
-
-        # Method 1: Try section_id match using the heading-plus-agent
-        for section in sections:
-            clean_title = re.sub(r"^[一二三四五六七八九十\d]+[.、．]\s*", "", section.title).strip()
-            if clean_title == re.sub(r"^[一二三四五六七八九十\d]+[.、．]\s*", "", heading).strip():
-                if section.section_id not in inserted:
-                    content = section.content
-                    inserted.add(section.section_id)
-                    break
-
-        if content:
-            result.append("")
-            result.append(content)
-            result.append("")
 
     return "\n".join(result)
 

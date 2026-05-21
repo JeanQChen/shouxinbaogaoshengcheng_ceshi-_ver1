@@ -1,14 +1,43 @@
-"""PDF chunks → ChromaDB 向量化入库。"""
+"""PDF chunks → ChromaDB 向量化入库，含 embedding 缓存加速重复索引。"""
 
+import hashlib
+import json
 import logging
+import os
+from pathlib import Path
 
 from parsers.pdf_parser import TextChunk
 from retrieval.embedding import get_embedding_model
 
 logger = logging.getLogger(__name__)
 
-# Max batch size for embedding.encode to avoid OOM
 _BATCH_SIZE = 256
+_CACHE_DIR = Path("data/cache/embeddings")
+
+
+def _load_cache(source_file: str) -> dict[str, list[float]]:
+    """加载 embedding 缓存文件。"""
+    cache_file = _CACHE_DIR / f"{source_file}.json"
+    if not cache_file.exists():
+        return {}
+    try:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        return {k: v for k, v in raw.items()}
+    except Exception:
+        logger.warning("Failed to load embedding cache, ignoring", exc_info=True)
+        return {}
+
+
+def _save_cache(source_file: str, cache: dict[str, list[float]]) -> None:
+    """保存 embedding 缓存文件。"""
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = _CACHE_DIR / f"{source_file}.json"
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except Exception:
+        logger.warning("Failed to save embedding cache", exc_info=True)
 
 
 def index_pdf(
@@ -19,6 +48,9 @@ def index_pdf(
     source_file: str = "",
 ) -> str:
     """将 PDF 切分后的 text chunks 向量化，存入 ChromaDB 对应 collection。
+
+    Embedding 缓存在 data/cache/embeddings/{source_file}.json，
+    重复索引时只编码新文本，大幅加速。
 
     Collection 命名规则: {collection}__{company_id}
 
@@ -54,18 +86,53 @@ def index_pdf(
         for c in chunks
     ]
 
-    # 分批编码，避免长文本 OOM
+    # ── Embedding cache: hash(text) → vector ──
+    cache = _load_cache(source_file) if source_file else {}
+    text_hashes = [hashlib.sha256(t.encode()).hexdigest() for t in texts]
+
+    cached_count = 0
+    new_indices: list[int] = []
+    for i, t in enumerate(texts):
+        if text_hashes[i] in cache:
+            cached_count += 1
+        else:
+            new_indices.append(i)
+
+    # 按原索引构建完整 embeddings 列表
+    final_embeddings: list[list[float] | None] = [None] * len(texts)
+    for i, t in enumerate(texts):
+        h = text_hashes[i]
+        if h in cache:
+            final_embeddings[i] = cache[h]
+
+    if new_indices:
+        logger.info("Encoding %d new chunks (%d cached, %.0f%% reuse)",
+                     len(new_indices), cached_count,
+                     cached_count / len(texts) * 100 if texts else 0)
+
+        new_texts = [texts[i] for i in new_indices]
+        new_embeddings = embedding.encode(new_texts)
+
+        for idx, emb in zip(new_indices, new_embeddings):
+            final_embeddings[idx] = emb
+            cache[text_hashes[idx]] = emb
+        if source_file:
+            _save_cache(source_file, cache)
+    else:
+        logger.info("All %d chunks served from embedding cache", len(texts))
+
+    embeddings: list[list[float]] = [e for e in final_embeddings]  # type narrowing
+
+    # 分批写入 ChromaDB
     for start in range(0, len(texts), _BATCH_SIZE):
         end = min(start + _BATCH_SIZE, len(texts))
-        batch_texts = texts[start:end]
-        batch_embeddings = embedding.encode(batch_texts)
         coll.add(
-            embeddings=batch_embeddings,
-            documents=batch_texts,
+            embeddings=embeddings[start:end],
+            documents=texts[start:end],
             metadatas=metadatas[start:end],
             ids=ids[start:end],
         )
-        logger.debug("Indexed batch %d-%d (%d chunks)", start, end - 1, len(batch_texts))
+        logger.debug("Indexed batch %d-%d (%d chunks)", start, end - 1, end - start)
 
     logger.info("Indexed %d chunks → collection '%s'", len(chunks), coll_name)
     return coll_name
