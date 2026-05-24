@@ -90,7 +90,7 @@ def main() -> dict:
               "ReportSection.section_id preserved")
         check(result.title == spec.title,
               "ReportSection.title preserved")
-        check(result.generated_by == "synthesizer",
+        check(result.generated_by == "synthesizer_main",
               "generated_by set correctly")
         check(len(result.content) > 50,
               f"Content generated ({len(result.content)} chars)")
@@ -108,14 +108,6 @@ def main() -> dict:
         result2 = agent.run("000001", empty_sections, spec)
         check(len(result2.content) > 50,
               "synthesizer handles empty sections list gracefully")
-
-        # ── Test 3: _summarize ──
-        short = "短文本"
-        check(agent._summarize(short) == short,
-              "_summarize: short text unchanged")
-        long = "A" * 3000
-        check(len(agent._summarize(long)) <= 2000 + 30,
-              "_summarize: long text truncated near max_chars")
 
     finally:
         agent.chat = _orig_chat

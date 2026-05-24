@@ -373,6 +373,85 @@ def _format_balances_table(company_id: str, periods: list[str]) -> str:
     return "\n\n".join(parts)
 
 
+def _compute_oversized_items(company_id: str, periods: list[str]) -> str:
+    """检测单科目占合计超过 20% 的重点科目，返回 Markdown 列表。
+
+    分三张表检查：
+      - 资产科目 / 资产总计
+      - 负债科目 / 负债合计
+      - 利润表科目 / 营业总收入（收入类）或营业总成本（成本类）
+    """
+    if not periods:
+        return "（无数据，跳过。）"
+
+    latest = periods[-1]
+    total_assets = query_metric(company_id, TOTAL_ASSETS, latest)
+    total_liabilities = query_metric(company_id, TOTAL_LIABILITIES, latest)
+    total_revenue = query_metric(company_id, TOTAL_REVENUE, latest)
+    total_cost = query_metric(company_id, TOTAL_OPERATING_COST, latest)
+
+    oversized: list[str] = []
+
+    # 资产科目
+    if total_assets and total_assets > 0:
+        for label, code in _BALANCE_ITEMS:
+            if code in (TOTAL_ASSETS, CURRENT_ASSETS, NON_CURRENT_ASSETS,
+                        TOTAL_LIABILITIES, CURRENT_LIABILITIES, NON_CURRENT_LIABILITIES,
+                        TOTAL_EQUITY, TOTAL_LIABILITIES_AND_EQUITY, MINORITY_INTEREST):
+                continue  # 跳过合计项和权益小计
+            v = _fetch_balance(company_id, code, latest)
+            if v and abs(v) / abs(total_assets) > 0.20:
+                pct = abs(v) / abs(total_assets) * 100
+                oversized.append(f"- **{label}**：占资产总计 {pct:.1f}%（{v/100_000_000:,.2f} 亿元），"
+                                f"需单独分析其构成和变动含义。")
+
+    # 负债科目
+    if total_liabilities and total_liabilities > 0:
+        liability_codes = {
+            "短期借款": SHORT_TERM_BORROWINGS,
+            "应付账款": ACCOUNTS_PAYABLE,
+            "合同负债": CONTRACT_LIABILITIES,
+            "应付职工薪酬": EMPLOYEE_BENEFITS_PAYABLE,
+            "应交税费": TAXES_PAYABLE,
+            "其他应付款": OTHER_PAYABLES,
+            "其他流动负债": OTHER_CURRENT_LIABILITIES,
+            "长期借款": LONG_TERM_BORROWINGS,
+            "租赁负债": LEASE_LIABILITIES,
+            "递延所得税负债": DEFERRED_TAX_LIABILITIES,
+            "递延收益": DEFERRED_INCOME,
+            "预计负债": PROVISIONS,
+        }
+        for label, code in liability_codes.items():
+            v = _fetch_balance(company_id, code, latest)
+            if v and abs(v) / abs(total_liabilities) > 0.20:
+                pct = abs(v) / abs(total_liabilities) * 100
+                oversized.append(f"- **{label}**：占负债合计 {pct:.1f}%（{v/100_000_000:,.2f} 亿元），"
+                                f"需单独分析其结构和偿债影响。")
+
+    # 利润表科目（收入/成本类）
+    if total_revenue and total_revenue > 0:
+        income_detail = {
+            "营业成本": OPERATING_COST,
+            "销售费用": SALES_EXPENSES,
+            "管理费用": ADMIN_EXPENSES,
+            "研发费用": R_AND_D_EXPENSES,
+            "财务费用": FINANCE_EXPENSES,
+            "投资收益": INVESTMENT_INCOME,
+            "信用减值损失": CREDIT_IMPAIRMENT_LOSS,
+        }
+        for label, code in income_detail.items():
+            v = query_metric(company_id, code, latest)
+            if v and abs(v) / abs(total_revenue) > 0.20:
+                pct = abs(v) / abs(total_revenue) * 100
+                oversized.append(f"- **{label}**：占营业总收入 {pct:.1f}%（{v/100_000_000:,.2f} 亿元），"
+                                f"需单独分析其变动原因及对利润的影响。")
+
+    if not oversized:
+        return "（最新一期无单科目占比超过 20% 的项目，无需单独分析。）"
+
+    return "\n".join(oversized)
+
+
 def run(company_id: str, section_spec: SectionSpec) -> ReportSection:
     """执行财务分析 agent。
 
@@ -402,6 +481,10 @@ def run(company_id: str, section_spec: SectionSpec) -> ReportSection:
     logger.info("Account detail retrieval: %d priority accounts, %d chars",
                 len(priority), len(account_details))
 
+    # 单科目占比 >20% 检测
+    oversized_items = _compute_oversized_items(company_id, periods)
+    logger.info("Oversized items (>20%%): %d chars", len(oversized_items))
+
     prompt = load_prompt("financial_analysis")
     prompt = prompt.format(
         company_info=f"公司代码：{company_id}",
@@ -409,6 +492,7 @@ def run(company_id: str, section_spec: SectionSpec) -> ReportSection:
         metrics_table=_format_metrics_table(metrics),
         growth_table=_format_growth_table(metrics),
         account_details=account_details,
+        oversized_items=oversized_items,
         guidance=section_spec.guidance or "分析公司整体财务状况，覆盖偿债、盈利、营运、现金流四个维度。",
     )
 

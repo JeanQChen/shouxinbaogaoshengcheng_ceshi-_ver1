@@ -35,6 +35,7 @@ FINANCIAL_FILES = {
     "现金流量表": "NDSD_CASH_2023-2026Q1.xlsx",
 }
 ANNOUNCEMENT_FILES = [
+    "NDSD_KCZ_2026.pdf",       # 科创债募集说明书（最详细，优先）
     "NDSD_2025_year.pdf",
     "NDSD_2024_year.pdf",
 ]
@@ -135,16 +136,18 @@ def _process_pdf(file_path: str, company_id: str) -> dict:
 
 
 def _generate_report(company_id: str, template_path: str, **variables: str) -> tuple[str, list]:
-    """生成完整报告：解析模板 → 并行调 agent → 综合 → 组装 → 回检。
+    """生成完整报告：解析模板 → 三 agent 并行产出素材 → synthesizer 主笔 → 回检。
+
+    新架构：synthesizer 是报告主笔，拿三份素材 + 模板全文写出完整报告。
+    不再走 assemble() 拼接。
 
     Returns (report_markdown, verification_issues).
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     from reporting.template import parse_template, ReportSection, SectionSpec
-    from reporting.assembler import assemble
 
-    sections_spec, _ = parse_template(template_path)
+    sections_spec, template_text = parse_template(template_path)
 
     # ── 分组 agent ──
     parallel_specs: list[SectionSpec] = []
@@ -161,15 +164,15 @@ def _generate_report(company_id: str, template_path: str, **variables: str) -> t
             parallel_specs.append(spec)
 
     # ── 获取行业信息 ──
-    industry_code = "制造业"
+    industry_code = ""
     try:
         from external.akshare_client import get_company_info
         info = get_company_info(company_id)
-        industry_code = info.get("industry", "") or info.get("所属行业", "") or "制造业"
+        industry_code = info.get("industry", "") or info.get("所属行业", "") or ""
     except Exception:
         pass
 
-    # ── 并行运行三 agent ──
+    # ── 并行运行三 agent（产出素材） ──
     generated: dict[str, ReportSection] = {}
 
     def run_agent(spec: SectionSpec) -> tuple[str, ReportSection]:
@@ -197,31 +200,33 @@ def _generate_report(company_id: str, template_path: str, **variables: str) -> t
                 agent_id, section = future.result()
                 generated[agent_id] = section
 
-    # ── 综合 agent ──
+    # ── 综合 agent（报告主笔） ──
     if synthesizer_spec:
         try:
             from agents.synthesizer import run as synthesizer_run
             all_sections = list(generated.values())
-            synth_section = synthesizer_run(company_id, all_sections, synthesizer_spec)
-            generated["synthesizer"] = synth_section
-        except Exception:
-            generated["synthesizer"] = ReportSection(
-                section_id=synthesizer_spec.section_id,
-                title=synthesizer_spec.title,
-                content="*（综合授信意见生成失败，请重试。）*\n",
-                citations=[],
-                generated_by="synthesizer",
+            report_md = synthesizer_run(
+                company_id,
+                all_sections,
+                synthesizer_spec,
+                template_text=template_text,
+                template_vars=variables,
             )
-
-    # ── 按模板顺序输出 ──
-    ordered: list[ReportSection] = []
-    seen: set[str] = set()
-    for spec in sections_spec:
-        if spec.agent_id not in seen and spec.agent_id in generated:
-            seen.add(spec.agent_id)
-            ordered.append(generated[spec.agent_id])
-
-    report_md = assemble(ordered, template_path, **variables)
+            # synthesizer 现在返回完整报告，直接取 content
+            report_md = report_md.content
+        except Exception:
+            logger.exception("Synthesizer failed")
+            # Fallback: 拼接各素材
+            parts = [f"# 授信分析报告\n\n> 报告对象：{variables.get('company_name', company_id)}"]
+            for s in all_sections:
+                parts.append(f"\n---\n\n{s.content}")
+            report_md = "\n".join(parts)
+    else:
+        # 无 synthesizer spec：拼接素材
+        parts = [f"# 授信分析报告\n\n> 报告对象：{variables.get('company_name', company_id)}"]
+        for s in generated.values():
+            parts.append(f"\n---\n\n{s.content}")
+        report_md = "\n".join(parts)
 
     # ── 回检 ──
     verification_issues = []

@@ -93,7 +93,7 @@ def main() -> dict:
               f"Content generated ({len(result.content)} chars)")
         check("行业概况" in result.content or "景气度" in result.content,
               "Content covers industry overview")
-        check(result.generated_by == "industry_analyzer",
+        check(result.generated_by == "industry_material",
               "generated_by set correctly")
         check(len(result.citations) > 0,
               f"Citations built ({len(result.citations)} citations)")

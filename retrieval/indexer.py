@@ -1,4 +1,8 @@
-"""PDF chunks → ChromaDB 向量化入库，含 embedding 缓存加速重复索引。"""
+"""PDF chunks → ChromaDB 向量化入库，含 embedding 缓存加速重复索引。
+
+支持文档类型标记（年报/债券募集说明书/其他），写入 ChromaDB metadata
+供检索时按优先级加权。
+"""
 
 import hashlib
 import json
@@ -14,6 +18,30 @@ logger = logging.getLogger(__name__)
 _BATCH_SIZE = 256
 _CACHE_DIR = Path("data/cache/embeddings")
 
+# ── 文档类型推断 ──
+
+def _infer_doc_type(filename: str) -> tuple[str, int]:
+    """从文件名推断文档类型和优先级。
+
+    Returns:
+        (source_type, priority)
+        - debt_circular: priority=2（债券募集说明书，最详细）
+        - annual_report:  priority=1（年报/公告）
+        - other:          priority=0（其他）
+    """
+    name_lower = filename.lower()
+    # 债券募集说明书
+    debt_keywords = ["kcz", "债", "募集", "募集说明书", "发行公告", "bond", "offering"]
+    if any(kw in name_lower for kw in debt_keywords):
+        return ("debt_circular", 2)
+    # 年报
+    annual_keywords = ["year", "年报", "年度报告", "annual", "20", "19"]
+    if any(kw in name_lower for kw in annual_keywords):
+        return ("annual_report", 1)
+    return ("other", 0)
+
+
+# ── Embedding cache ──
 
 def _load_cache(source_file: str) -> dict[str, list[float]]:
     """加载 embedding 缓存文件。"""
@@ -46,11 +74,14 @@ def index_pdf(
     collection: str,   # "company_docs" | "industry_docs"
     db_path: str = "data/chroma",
     source_file: str = "",
+    doc_type: str = "",    # "debt_circular" | "annual_report" | "other"，空则自动推断
 ) -> str:
     """将 PDF 切分后的 text chunks 向量化，存入 ChromaDB 对应 collection。
 
-    Embedding 缓存在 data/cache/embeddings/{source_file}.json，
-    重复索引时只编码新文本，大幅加速。
+    新增：
+      - 从文件名或 doc_type 参数推断文档类型，写入 metadata
+      - section_title / section_level 从 TextChunk 获取，写入 metadata
+      - 检索时可利用 priority 字段加权
 
     Collection 命名规则: {collection}__{company_id}
 
@@ -62,6 +93,17 @@ def index_pdf(
     if not chunks:
         logger.warning("index_pdf: empty chunks list, nothing to index")
         return f"{collection}__{company_id}"
+
+    # 推断文档类型
+    fname = source_file or ""
+    inferred_type, priority = _infer_doc_type(fname)
+    if doc_type:
+        inferred_type = doc_type
+        # 根据显式指定的类型设置优先级
+        priority_map = {"debt_circular": 2, "annual_report": 1, "other": 0}
+        priority = priority_map.get(doc_type, 0)
+
+    logger.info("Document type: %s (priority=%d) for '%s'", inferred_type, priority, fname)
 
     embedding = get_embedding_model()
     client = chromadb.PersistentClient(path=db_path)
@@ -82,11 +124,15 @@ def index_pdf(
             "chunk_index": c.chunk_index,
             "source_file": source_file,
             "company_id": company_id,
+            "source_type": inferred_type,
+            "priority": priority,
+            "section_title": c.section_title or "",
+            "section_level": c.section_level,
         }
         for c in chunks
     ]
 
-    # ── Embedding cache: hash(text) → vector ──
+    # ── Embedding cache ──
     cache = _load_cache(source_file) if source_file else {}
     text_hashes = [hashlib.sha256(t.encode()).hexdigest() for t in texts]
 
@@ -98,7 +144,6 @@ def index_pdf(
         else:
             new_indices.append(i)
 
-    # 按原索引构建完整 embeddings 列表
     final_embeddings: list[list[float] | None] = [None] * len(texts)
     for i, t in enumerate(texts):
         h = text_hashes[i]
@@ -121,7 +166,7 @@ def index_pdf(
     else:
         logger.info("All %d chunks served from embedding cache", len(texts))
 
-    embeddings: list[list[float]] = [e for e in final_embeddings]  # type narrowing
+    embeddings: list[list[float]] = [e for e in final_embeddings]
 
     # 分批写入 ChromaDB
     for start in range(0, len(texts), _BATCH_SIZE):
@@ -134,7 +179,15 @@ def index_pdf(
         )
         logger.debug("Indexed batch %d-%d (%d chunks)", start, end - 1, end - start)
 
-    logger.info("Indexed %d chunks → collection '%s'", len(chunks), coll_name)
+    # 统计 section 分布
+    from collections import Counter
+    section_counts = Counter(m["section_title"] for m in metadatas if m["section_title"])
+    if section_counts:
+        logger.info("Top sections indexed: %s",
+                    ", ".join(f"{t}({c})" for t, c in section_counts.most_common(5)))
+
+    logger.info("Indexed %d chunks → collection '%s' (type=%s, priority=%d)",
+                len(chunks), coll_name, inferred_type, priority)
     return coll_name
 
 
@@ -147,22 +200,38 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     if len(sys.argv) < 3:
-        print("Usage: python -m retrieval.indexer <pdf_path> <company_id> [collection]",
+        print("Usage: python -m retrieval.indexer <pdf_path> <company_id> [collection] [--doc-type TYPE]",
+              file=sys.stderr)
+        print("  doc-type: debt_circular | annual_report | other (default: auto-detect)",
               file=sys.stderr)
         sys.exit(1)
 
     pdf_path = sys.argv[1]
     company_id = sys.argv[2]
-    coll = sys.argv[3] if len(sys.argv) > 3 else "company_docs"
+    coll = "company_docs"
+    doc_type = ""
+
+    i = 3
+    while i < len(sys.argv):
+        if sys.argv[i] == "--doc-type" and i + 1 < len(sys.argv):
+            doc_type = sys.argv[i + 1]
+            i += 2
+        elif not sys.argv[i].startswith("--"):
+            coll = sys.argv[i]
+            i += 1
+        else:
+            i += 1
 
     from parsers.pdf_parser import parse as pdf_parse
 
     result = pdf_parse(pdf_path)
     source = result.metadata.get("source_file", "")
-    name = index_pdf(result.chunks, company_id, coll, source_file=source)
+    name = index_pdf(result.chunks, company_id, coll, source_file=source, doc_type=doc_type)
     summary = {
         "collection": name,
         "chunks_indexed": len(result.chunks),
         "page_count": result.page_count,
+        "sections_detected": result.metadata.get("sections_detected", 0),
+        "top_sections": result.metadata.get("top_sections", []),
     }
     print(_json.dumps(summary, ensure_ascii=False, indent=2))
