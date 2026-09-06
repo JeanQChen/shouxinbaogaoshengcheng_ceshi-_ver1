@@ -470,7 +470,7 @@ def _commit_fresh(conn, document, blocks, set_version, run_id, input_hashes, dep
         for b in blocks:
             _insert_block(conn, b)
         # checkpoint 与产物在同一事务内，仅在持久化成功后存在。
-        _insert_checkpoint_row(conn, checkpoint_id, run_id, "persisted",
+        _insert_checkpoint_row(conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE",
                                evidence_ids, input_hashes, dependency_versions, evidence_ids)
 
         # 切换：先降级旧 current，再提升新 current（满足部分唯一索引）。
@@ -517,7 +517,7 @@ def _reuse_existing(conn, document, set_version, run_id, key, set_row):
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
     try:
         _insert_checkpoint_row(
-            conn, checkpoint_id, run_id, "persisted", [],
+            conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", [],
             {"file_sha256": document.file_sha256},
             _json_loads(set_row["dependency_versions"]) or {},
             [],
@@ -552,7 +552,7 @@ def _reactivate(conn, document, blocks, set_version, run_id, input_hashes, depen
 
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
     try:
-        _insert_checkpoint_row(conn, checkpoint_id, run_id, "persisted", [],
+        _insert_checkpoint_row(conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", [],
                                input_hashes, dependency_versions, [])
         conn.execute(
             "UPDATE evidence_sets SET status='retired' "
