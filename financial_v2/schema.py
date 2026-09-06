@@ -56,8 +56,10 @@ STATEMENT_SCOPES = ["consolidated", "parent"]
 # 币种（A 股 demo 以 CNY 为主，白名单可扩展）。
 CURRENCIES = ["CNY"]
 
-# 金额单位（对齐 V1 parsers.excel_parser metadata["unit"] 语义）。
-UNITS = ["yuan", "wan_yuan", "qian_yuan", "yi_yuan", "unknown"]
+# 金额单位（对齐 V1 parsers.excel_parser metadata["unit"] 语义；百/千万为真实
+# 样本「百万元/千万元」所需，A2 提取候选单位校验会用到）。
+UNITS = ["yuan", "wan_yuan", "qian_yuan", "yi_yuan",
+         "baiwan_yuan", "qianwan_yuan", "unknown"]
 
 # 科目映射方式（FA-04：规则唯一匹配自动批准；LLM 仅候选；人工确认后进入快照）。
 MAPPING_MODES = ["rule", "llm_suggested", "human_confirmed"]

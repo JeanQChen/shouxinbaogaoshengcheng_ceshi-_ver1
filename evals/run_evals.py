@@ -37,6 +37,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_store",
     "evals.test_financial_v2_source_registry",
     "evals.test_financial_v2_migration",
+    "evals.test_financial_v2_extractors",
 ]
 
 
