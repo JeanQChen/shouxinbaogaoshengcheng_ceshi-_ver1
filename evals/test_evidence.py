@@ -676,7 +676,7 @@ def test_builder_pure() -> None:
     try:
         summary = builder.run_pipeline_from_parsed(
             parsed, f, "ACME", source_type=None, material_group="company_industry",
-            store_it=True)
+            store_it=True, db_path=str(Path(tmp.name) / "ev.db"))
     finally:
         builder.pdf_parse = orig_parse
 
