@@ -1,0 +1,575 @@
+"""financial_v2 数据模型（dataclass + 枚举白名单 + 纯函数身份派生）。
+
+本模块只定义声明式数据结构与无 I/O 的纯函数（身份/版本/比较键派生），不含
+数据库访问、不含业务计算。所有持久化与编排代码共同引用同一份字段语义，避免
+散落的中文名硬编码。
+
+身份与版本关系（任务书 §7，v3 修订）：
+
+    company_id + source_document_id
+        → 稳定业务文档（financial_source_document）
+    source_document_id + file_sha256
+        → 一次内容版本（financial_source_version，source_version 为其身份）
+    内容版本(source_version) + extractor/mapping/normalization/dependency 版本
+        → record_set_version（financial_record_set）
+    record_set_version + 规范化后记录内容 + 坐标
+        → record_id（source_financial_record，不可变）
+
+source_version 非全局唯一哈希：它是「某业务文档内的一次内容版本身份」，唯一性由
+复合唯一键 UNIQUE(source_document_id, file_sha256) 保证，同一文件用于不同公司/
+业务文档不会碰撞（v3 修订 1）。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass, field
+
+# ---------------------------------------------------------------------------
+# 版本常量（记录集/快照/公式的处理规则身份）
+# ---------------------------------------------------------------------------
+
+SCHEMA_VERSION = "1"
+
+# 抽取 / 映射 / 标准化规则版本。A2/A3/A4 在实现各自抽取与标准化逻辑时替换为真实
+# 版本号；A1 仅声明这些身份字段存在，规则版本变化产生新 record_set_version。
+EXTRACTOR_VERSION_PLACEHOLDER = "0"
+MAPPING_RULE_VERSION_PLACEHOLDER = "0"
+NORMALIZATION_RULE_VERSION_PLACEHOLDER = "0"
+
+
+# ---------------------------------------------------------------------------
+# 枚举白名单
+# ---------------------------------------------------------------------------
+
+# 三张主表。
+STATEMENT_TYPES = ["balance_sheet", "income_statement", "cash_flow"]
+
+# 期间类型。
+PERIOD_TYPES = ["annual", "interim", "quarterly"]
+
+# 合并/母公司口径。v3 修订 5：scope 明确即非不足；仅 scope 缺失/无法确认或
+# 明确请求 consolidated 但只有 parent 数据时才 INSUFFICIENT_SCOPE。
+STATEMENT_SCOPES = ["consolidated", "parent"]
+
+# 币种（A 股 demo 以 CNY 为主，白名单可扩展）。
+CURRENCIES = ["CNY"]
+
+# 金额单位（对齐 V1 parsers.excel_parser metadata["unit"] 语义）。
+UNITS = ["yuan", "wan_yuan", "qian_yuan", "yi_yuan", "unknown"]
+
+# 科目映射方式（FA-04：规则唯一匹配自动批准；LLM 仅候选；人工确认后进入快照）。
+MAPPING_MODES = ["rule", "llm_suggested", "human_confirmed"]
+
+# 来源文件类型。
+FILE_TYPES = ["xlsx", "pdf"]
+
+# 来源业务类别（FA-01：三张主表/附注电子 PDF + 用户上传 xlsx；征信报告仅登记）。
+SOURCE_CLASSES = ["financial_statement", "credit_report", "other"]
+
+# 审计状态。
+AUDIT_STATUSES = ["audited", "unaudited", "unknown"]
+
+# 主体匹配状态（§6.1：主体不一致按 Section Contract 语义 JOB_BLOCKED）。
+SUBJECT_MATCH_STATUSES = ["matched", "mismatch", "unverified"]
+
+# 对账组状态（§10.2）。
+RECONCILE_STATES = ["MATCHED", "CONFLICT", "INSUFFICIENT_SCOPE", "SINGLE_SOURCE"]
+
+# 决议理由代码（FA-05；OTHER_WITH_NOTE 必须填 note）。
+RESOLUTION_REASON_CODES = [
+    "AUDITED_SOURCE",
+    "LATEST_RESTATEMENT",
+    "SCOPE_MATCH",
+    "PERIOD_MATCH",
+    "CORRECTED_MATERIAL",
+    "OTHER_WITH_NOTE",
+]
+
+# 决议有效性状态（存于 resolution_validity 关系表，不修改决议本体）。
+RESOLUTION_VALIDITY_STATUSES = ["active", "stale", "superseded"]
+
+# 快照有效性状态（存于 snapshot_validity 关系表，不修改快照本体）。
+SNAPSHOT_VALIDITY_STATUSES = ["valid", "stale", "superseded"]
+
+# 快照异常类型（固化未纳入计算的状态摘要，MetricResult reason_code 来源）。
+SNAPSHOT_EXCEPTION_TYPES = [
+    "missing_item",        # 缺输入科目
+    "excluded_item",       # 被排除的科目
+    "unresolved_conflict", # 未解决冲突
+    "insufficient_scope",  # scope 不足
+    "unconfirmed_mapping", # 未确认映射（LLM 候选等）
+]
+
+# 指标计算状态与 reason_code。
+METRIC_STATUSES = [
+    "ok",
+    "missing_input",
+    "zero_denominator",
+    "insufficient_period",
+    "conflict_blocked",
+]
+
+# 进度事件状态。
+PROGRESS_STATUSES = ["running", "completed", "failed"]
+
+# 财务阶段名（复用 Phase 1 ProgressEvent 语义，任务书 §14）。
+STAGES = [
+    "SOURCE_VALIDATION",
+    "EXTRACTION",
+    "NORMALIZATION",
+    "RECONCILIATION",
+    "WAITING_CONFIRMATION",
+    "SNAPSHOT_BUILD",
+    "CALCULATION",
+    "COMPLETED",
+    "FAILED",
+]
+
+# 隔离对象类型（quarantine 表，不修改受保护历史行）。
+QUARANTINE_OBJECT_TYPES = [
+    "financial_source_version",
+    "financial_record_set",
+    "source_financial_record",
+    "resolution_record",
+    "financial_snapshot",
+    "snapshot_item",
+]
+
+
+# ---------------------------------------------------------------------------
+# 纯函数：身份 / 版本 / 比较键派生（无 I/O）
+# ---------------------------------------------------------------------------
+
+def _sha256_hex(raw: str, length: int | None = None) -> str:
+    h = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return h if length is None else h[:length]
+
+
+def derive_source_version(source_document_id: str, file_sha256: str) -> str:
+    """内容版本身份：source_document_id + file_sha256 的稳定派生。
+
+    不包含时间戳；同一业务文档的同一文件内容永远得到相同 source_version。
+    唯一性由复合唯一键 UNIQUE(source_document_id, file_sha256) 兜底，而非本哈希
+    的全局唯一性（v3 修订 1）。
+    """
+    return "sv-" + _sha256_hex(f"{source_document_id}|{file_sha256}", 24)
+
+
+def derive_record_set_version(
+    source_version: str,
+    extractor_version: str,
+    mapping_rule_version: str,
+    normalization_rule_version: str,
+    dependency_versions: dict[str, str] | None = None,
+) -> str:
+    """记录集合版本：内容版本 + 处理规则身份 + 依赖版本的稳定派生。"""
+    dep = json.dumps(dependency_versions or {}, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    raw = "|".join([
+        source_version,
+        extractor_version,
+        mapping_rule_version,
+        normalization_rule_version,
+        dep,
+    ])
+    return "rs-" + _sha256_hex(raw, 24)
+
+
+def comparison_key(
+    company_id: str,
+    standard_item_code: str,
+    statement_type: str,
+    report_period: str,
+    period_type: str,
+    statement_scope: str,
+    currency: str,
+    restatement_version: str,
+) -> str:
+    """对账比较键（任务书 §6.4）：只有 8 字段完整一致才可比较。
+
+    未知字段不得用空串互配成同组（v3 修订 5）；本函数返回稳定哈希作为 group 身份。
+    """
+    raw = json.dumps({
+        "company_id": company_id,
+        "standard_item_code": standard_item_code,
+        "statement_type": statement_type,
+        "report_period": report_period,
+        "period_type": period_type,
+        "statement_scope": statement_scope,
+        "currency": currency,
+        "restatement_version": restatement_version,
+    }, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "ck-" + _sha256_hex(raw, 32)
+
+
+def record_identity_fields(record: "SourceFinancialRecord") -> dict:
+    """记录身份字段：规范化内容 + 坐标（不含原始值，原始值属 provenance）。"""
+    return {
+        "company_id": record.company_id,
+        "standard_item_code": record.standard_item_code,
+        "statement_type": record.statement_type,
+        "report_period": record.report_period,
+        "period_type": record.period_type,
+        "statement_scope": record.statement_scope,
+        "currency": record.currency,
+        "restatement_version": record.restatement_version,
+        "std_value": record.std_value,
+        "std_unit": record.std_unit,
+        "std_currency": record.std_currency,
+        "locator": locator_to_dict(record.locator),
+    }
+
+
+def derive_record_id(record_set_version: str, identity: dict) -> str:
+    """记录不可变身份：record_set_version + 规范化内容 + 坐标。"""
+    canonical = json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "rec-" + _sha256_hex(f"{record_set_version}|{canonical}", 32)
+
+
+# ---------------------------------------------------------------------------
+# SourceLocator（显式联合类型，任务书 §6.2）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ExcelCellLocator:
+    """Excel 单元格坐标（1-based 行/列，另存 A1 地址）。"""
+
+    sheet_name: str
+    row_number: int
+    column_number: int
+    cell_address: str
+    row_header: str | None = None
+    column_header: str | None = None
+    unit_text: str | None = None
+
+
+@dataclass
+class PdfCellLocator:
+    """电子 PDF 单元格坐标（1-based 物理页 + 表格/单元格 bbox）。"""
+
+    document_id: str
+    document_version: str
+    pdf_page: int
+    row_index: int
+    column_index: int
+    bbox: list[float]              # [x0, top, x1, bottom]
+    table_id: str | None = None
+    row_header: str | None = None
+    column_header: str | None = None
+    unit_text: str | None = None
+
+
+@dataclass
+class SourceLocator:
+    """显式联合类型容器：kind 决定承载哪种 locator。"""
+
+    kind: str                      # "excel" | "pdf"
+    excel: ExcelCellLocator | None = None
+    pdf: PdfCellLocator | None = None
+
+
+def locator_to_dict(locator: SourceLocator | None) -> dict | None:
+    """把 SourceLocator 序列化为可存储 JSON 的 dict（validator 保证合法性）。"""
+    if locator is None:
+        return None
+    if locator.kind == "excel" and locator.excel is not None:
+        e = locator.excel
+        return {
+            "kind": "excel",
+            "sheet_name": e.sheet_name,
+            "row_number": e.row_number,
+            "column_number": e.column_number,
+            "cell_address": e.cell_address,
+            "row_header": e.row_header,
+            "column_header": e.column_header,
+            "unit_text": e.unit_text,
+        }
+    if locator.kind == "pdf" and locator.pdf is not None:
+        p = locator.pdf
+        return {
+            "kind": "pdf",
+            "document_id": p.document_id,
+            "document_version": p.document_version,
+            "pdf_page": p.pdf_page,
+            "table_id": p.table_id,
+            "row_index": p.row_index,
+            "column_index": p.column_index,
+            "bbox": p.bbox,
+            "row_header": p.row_header,
+            "column_header": p.column_header,
+            "unit_text": p.unit_text,
+        }
+    return {"kind": locator.kind}
+
+
+def locator_from_dict(d: dict | None) -> SourceLocator | None:
+    """从存储 JSON 反序列化 SourceLocator。"""
+    if not d:
+        return None
+    kind = d.get("kind")
+    if kind == "excel":
+        return SourceLocator(kind="excel", excel=ExcelCellLocator(
+            sheet_name=d.get("sheet_name", ""),
+            row_number=d.get("row_number", 0),
+            column_number=d.get("column_number", 0),
+            cell_address=d.get("cell_address", ""),
+            row_header=d.get("row_header"),
+            column_header=d.get("column_header"),
+            unit_text=d.get("unit_text"),
+        ))
+    if kind == "pdf":
+        return SourceLocator(kind="pdf", pdf=PdfCellLocator(
+            document_id=d.get("document_id", ""),
+            document_version=d.get("document_version", ""),
+            pdf_page=d.get("pdf_page", 0),
+            row_index=d.get("row_index", 0),
+            column_index=d.get("column_index", 0),
+            bbox=list(d.get("bbox", [])),
+            table_id=d.get("table_id"),
+            row_header=d.get("row_header"),
+            column_header=d.get("column_header"),
+            unit_text=d.get("unit_text"),
+        ))
+    return SourceLocator(kind=kind)
+
+
+# ---------------------------------------------------------------------------
+# 来源登记 / 内容版本 / 记录集合
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FinancialSourceContext:
+    """登记一份业务文档所需的上下文（CLI / 未来 ingest 层提供）。"""
+
+    company_id: str
+    source_name: str
+    source_class: str
+    source_document_id: str | None = None      # None 时由登记层自动生成
+    declared_company_name: str | None = None
+    detected_company_name: str | None = None
+
+
+@dataclass
+class FinancialSourceDocument:
+    """业务文档登记头（公司范围内稳定身份）。"""
+
+    source_document_id: str
+    company_id: str
+    source_name: str
+    source_class: str
+    declared_company_name: str | None
+    detected_company_name: str | None
+    subject_match_status: str
+    created_at: str
+
+
+@dataclass
+class FinancialSourceVersion:
+    """一次内容版本（已提交后不可变）。"""
+
+    source_version: str
+    source_document_id: str
+    file_sha256: str
+    file_type: str
+    file_size: int
+    document_id: str | None                # PDF 关联 Phase 1 Evidence Registry
+    document_version: str | None
+    report_periods: list[str]
+    currency: str
+    statement_scope: str
+    audit_status: str
+    extractor_name: str
+    extractor_version: str
+    mapping_rule_version: str
+    normalization_rule_version: str
+    quality_flags: list[str]
+    created_at: str
+
+
+@dataclass
+class FinancialRecordSet:
+    """一次抽取/映射/标准化规则组合产生的记录集合（已提交后不可变）。"""
+
+    record_set_version: str
+    source_version: str
+    extractor_version: str
+    mapping_rule_version: str
+    normalization_rule_version: str
+    dependency_versions: dict[str, str]
+    block_count: int
+    record_count: int
+    created_at: str
+
+
+# ---------------------------------------------------------------------------
+# 来源记录 / 对账 / 决议 / 快照 / 公式
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SourceFinancialRecord:
+    """不可覆盖的原始来源记录（§6.3）。"""
+
+    record_id: str
+    record_set_version: str
+    company_id: str
+    standard_item_code: str
+    statement_type: str
+    raw_item_text: str
+    raw_value: float | None
+    raw_unit: str
+    raw_currency: str
+    std_value: float | None
+    std_unit: str
+    std_currency: str
+    conversion_rule_version: str
+    report_period: str
+    period_type: str
+    statement_scope: str
+    currency: str
+    restatement_version: str
+    locator: SourceLocator | None
+    mapping_mode: str
+    confidence: float
+    record_hash: str
+    quality_flags: list[str]
+    created_at: str
+
+
+@dataclass
+class ReconciliationGroup:
+    """对账组（§6.4）：按 comparison_key 聚合的候选事实。"""
+
+    comparison_key: str
+    state: str
+    candidate_record_ids: list[str]
+    std_values: list[float | None]
+    diff_detail: dict
+    created_at: str
+
+
+@dataclass
+class ResolutionRecord:
+    """人工决议审计事件（本体不可变，§6.5 / v3 修订 6）。"""
+
+    resolution_id: str
+    group_id: str
+    candidate_set_hash: str
+    source_hashes: list[str]
+    comparison_key: str
+    rule_versions: dict[str, str]
+    accepted_record_ids: list[str]
+    rejected_record_ids: list[str]
+    reason_code: str
+    note: str | None
+    operator: str
+    confirmed_at: str
+
+
+@dataclass
+class FinancialSnapshot:
+    """财务快照（不可变，§6.6 / v3 修订 3：无 stale/retired 状态列）。"""
+
+    snapshot_id: str
+    snapshot_version: str
+    company_id: str
+    as_of_date: str
+    scope: str
+    currency: str
+    purpose: str
+    source_versions: list[str]
+    resolution_versions: list[str]
+    created_at: str
+
+
+@dataclass
+class SnapshotItem:
+    """快照条目：标准值只出现一次，source_refs 恒非空，resolution_id 可空。"""
+
+    snapshot_id: str
+    comparison_key: str
+    standard_item_code: str
+    amount: float | None
+    unit: str | None
+    source_refs: list[str]       # 至少一个 SourceFinancialRecord.record_id
+    resolution_id: str | None
+
+
+@dataclass
+class SnapshotException:
+    """固化未纳入计算的状态摘要（§6.6 缺失/排除/冲突/scope/未确认）。"""
+
+    snapshot_id: str
+    comparison_key: str
+    standard_item_code: str
+    exception_type: str
+    blocking_reason: str
+    impact_scope: list[str]
+    detail: dict
+
+
+@dataclass
+class FormulaDefinition:
+    """公式定义（§6.7，A6 填充内容）。"""
+
+    formula_id: str
+    formula_version: str
+    input_item_codes: list[str]
+    period_requirement: str
+    scope_requirement: str
+    python_impl: str
+    missing_rule: str
+    zero_denominator_rule: str
+    rounding_rule: str
+    effective_at: str
+
+
+@dataclass
+class MetricResult:
+    """指标计算结果（§6.7，A6 填充）。"""
+
+    snapshot_id: str
+    formula_id: str
+    formula_version: str
+    period: str
+    value: float | None
+    unit: str | None
+    input_refs: list[str]
+    status: str
+    reason_code: str | None
+
+
+# ---------------------------------------------------------------------------
+# 进度事件 / checkpoint（复用 Phase 1 字段语义，任务书 §14）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ProgressEvent:
+    """单次进度事件（真实阶段 / 计数 / 错误，不展示模型思维链）。"""
+
+    event_id: str
+    run_id: str
+    stage_id: str
+    status: str
+    message_code: str
+    completed_units: int | None
+    total_units: int | None
+    error_code: str | None
+    recoverable: bool
+    created_at: str
+
+
+@dataclass
+class Checkpoint:
+    """产物成功持久化后的一次恢复断点。"""
+
+    checkpoint_id: str
+    run_id: str
+    stage_id: str
+    state_version: int
+    artifact_refs: list[str]
+    input_hashes: dict[str, str]
+    dependency_versions: dict[str, str]
+    resolution_refs: list[str]
+    completed_unit_ids: list[str]
+    created_at: str

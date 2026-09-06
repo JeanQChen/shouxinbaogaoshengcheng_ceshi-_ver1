@@ -33,6 +33,7 @@ EVAL_MODULES = [
     "evals.test_baseline_runner",
     "evals.test_contracts",
     "evals.test_evidence",
+    "evals.test_financial_v2_schema",
 ]
 
 
