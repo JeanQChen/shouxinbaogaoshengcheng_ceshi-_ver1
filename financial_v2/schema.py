@@ -169,6 +169,8 @@ EXTRACTION_ISSUE_TYPES = [
     "DEPENDENCY_ERROR",
     "DOCUMENT_LINK_UNAVAILABLE",
     "CHECK_FAILED",              # A4 同源勾稽失败（§7.4：勾稽不满足 → 生成 issue，不改来源值）
+    "RECONCILIATION_CONFLICT",   # A4 跨来源冲突（§7.6 CONFLICT：差异无法由展示舍入解释）
+    "INSUFFICIENT_SCOPE",        # A4 关键维度不完整（§7.6：无法形成有效比较组）
 ]
 
 # 同源勾稽状态（§7.4）。

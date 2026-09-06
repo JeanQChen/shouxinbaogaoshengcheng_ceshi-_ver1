@@ -42,6 +42,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_mapping",
     "evals.test_financial_v2_normalization",
     "evals.test_financial_v2_checks",
+    "evals.test_financial_v2_reconciliation",
 ]
 
 

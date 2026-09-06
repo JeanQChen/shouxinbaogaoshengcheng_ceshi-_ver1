@@ -91,6 +91,16 @@ class CommitCandidatesResult:
     reused: bool
 
 
+@dataclass
+class CommitReconciliationResult:
+    """commit_reconciliation_atomic 的返回结果。"""
+    run_id: str
+    run_reused: bool
+    groups_inserted: int
+    issues_inserted: int
+    current_switched: bool
+
+
 # ---------------------------------------------------------------------------
 # DDL（v1 冻结 + v2 当前）
 # ---------------------------------------------------------------------------
@@ -2161,6 +2171,163 @@ def list_reconciliation_checks(run_id: str) -> list[S.ReconciliationCheck]:
             "SELECT * FROM reconciliation_check WHERE run_id=? ORDER BY check_id", (run_id,)
         ).fetchall()
         return [_row_to_reconciliation_check(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def _reconciliation_group_result_identical(row: sqlite3.Row, g: S.ReconciliationGroupResult) -> bool:
+    return (
+        row["run_id"] == g.run_id
+        and row["comparison_key"] == g.comparison_key
+        and row["state"] == g.state
+        and _json_loads(row["candidate_record_ids"]) == g.candidate_record_ids
+        and _json_loads(row["std_values"]) == g.std_values
+        and _json_loads(row["diff_detail"]) == g.diff_detail
+        and _json_loads(row["impact_item_codes"]) == g.impact_item_codes
+        and _json_loads(row["impact_section_contracts"]) == g.impact_section_contracts
+    )
+
+
+def _set_current_reconciliation_conn(conn: sqlite3.Connection, company_id: str,
+                                     run_id: str, switched_at: str) -> bool:
+    """原子切换 current_reconciliation 指针；已是同一 run 返回 False（未切换）。"""
+    existing = conn.execute(
+        "SELECT run_id FROM current_reconciliation WHERE company_id=?", (company_id,)
+    ).fetchone()
+    if existing is not None and existing["run_id"] == run_id:
+        return False
+    conn.execute(
+        "INSERT INTO current_reconciliation (company_id, run_id, switched_at) VALUES (?,?,?) "
+        "ON CONFLICT(company_id) DO UPDATE SET "
+        "run_id=excluded.run_id, switched_at=excluded.switched_at",
+        (company_id, run_id, switched_at),
+    )
+    return True
+
+
+def commit_reconciliation_atomic(
+    run: S.ReconciliationRun,
+    groups: list[S.ReconciliationGroupResult],
+    issues: list[S.ExtractionIssue],
+    *,
+    set_current: bool = True,
+) -> "CommitReconciliationResult":
+    """单事务原子提交一次对账运行（§7.8）。
+
+    在同一事务内：校验 → 幂等插入/复用 reconciliation_run → 幂等插入
+    reconciliation_group_result → 幂等插入 extraction_issue（允许跨多个 record_set，
+    与 commit_issues 的单 record_set 约束不同）→ 原子切换 current_reconciliation 指针
+    → commit。任一步失败全部回滚，旧 current 保持不变，半成品不可见。
+
+    新运行不覆盖旧运行（run_id 确定性派生，历史 run 保留）；current 用独立指针表示。
+    """
+    validator.validate_reconciliation_run(run)
+    for g in groups:
+        validator.validate_reconciliation_group_result(g)
+        if g.run_id != run.run_id:
+            raise validator.ValidationError(
+                f"group.run_id 与 run.run_id 不一致: {g.run_id!r} != {run.run_id!r}")
+    for iss in issues:
+        validator.validate_extraction_issue(iss)
+
+    conn = _get_conn()
+    try:
+        # 1. run（幂等；run_id 已存在则逐字段核对）。
+        run_reused = False
+        existing_run = conn.execute(
+            "SELECT * FROM reconciliation_run WHERE run_id=?", (run.run_id,)
+        ).fetchone()
+        if existing_run is not None:
+            if not _reconciliation_run_identical(existing_run, run):
+                raise StorageConflictError(f"run_id 已存在但内容不一致: {run.run_id}")
+            run_reused = True
+        else:
+            conn.execute(
+                "INSERT INTO reconciliation_run (run_id, company_id, input_record_set_ids, "
+                "rule_versions, input_hash, created_at) VALUES (?,?,?,?,?,?)",
+                (run.run_id, run.company_id, _json_dumps(run.input_record_set_ids),
+                 _json_dumps(run.rule_versions), run.input_hash, run.created_at),
+            )
+
+        # 2. group results（幂等；主键 (run_id, comparison_key)）。
+        groups_inserted = 0
+        for g in groups:
+            existing = conn.execute(
+                "SELECT * FROM reconciliation_group_result WHERE run_id=? AND comparison_key=?",
+                (g.run_id, g.comparison_key),
+            ).fetchone()
+            if existing is not None:
+                if not _reconciliation_group_result_identical(existing, g):
+                    raise StorageConflictError(
+                        f"group result 已存在但内容不一致: {g.run_id}/{g.comparison_key}")
+            else:
+                conn.execute(
+                    "INSERT INTO reconciliation_group_result (run_id, comparison_key, state, "
+                    "candidate_record_ids, std_values, diff_detail, impact_item_codes, "
+                    "impact_section_contracts, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (g.run_id, g.comparison_key, g.state,
+                     _json_dumps(g.candidate_record_ids), _json_dumps(g.std_values),
+                     _json_dumps(g.diff_detail), _json_dumps(g.impact_item_codes),
+                     _json_dumps(g.impact_section_contracts), g.created_at),
+                )
+                groups_inserted += 1
+
+        # 3. issues（幂等；候选引用由 validator 校验，跨 record_set 不限制同属）。
+        issues_inserted = 0
+        for iss in issues:
+            existing = conn.execute(
+                "SELECT * FROM extraction_issue WHERE issue_id=?", (iss.issue_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _extraction_issue_identical(existing, iss):
+                    raise StorageConflictError(
+                        f"issue_id 已存在但内容不一致: {iss.issue_id}")
+            else:
+                _insert_extraction_issue_conn(conn, iss)
+                issues_inserted += 1
+
+        # 4. current 指针原子切换。
+        current_switched = False
+        if set_current:
+            current_switched = _set_current_reconciliation_conn(
+                conn, run.company_id, run.run_id, run.created_at)
+
+        conn.commit()
+        return CommitReconciliationResult(
+            run_id=run.run_id,
+            run_reused=run_reused,
+            groups_inserted=groups_inserted,
+            issues_inserted=issues_inserted,
+            current_switched=current_switched,
+        )
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def list_reconciliation_group_results(run_id: str) -> list[S.ReconciliationGroupResult]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM reconciliation_group_result WHERE run_id=? ORDER BY comparison_key",
+            (run_id,),
+        ).fetchall()
+        return [_row_to_reconciliation_group_result(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_current_reconciliation(company_id: str) -> S.ReconciliationRun | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT r.* FROM current_reconciliation c "
+            "JOIN reconciliation_run r ON r.run_id = c.run_id WHERE c.company_id=?",
+            (company_id,),
+        ).fetchone()
+        return _row_to_reconciliation_run(row) if row else None
     finally:
         conn.close()
 
