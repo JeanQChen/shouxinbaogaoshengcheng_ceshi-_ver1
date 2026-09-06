@@ -1,0 +1,96 @@
+{
+  "dataset_path": "evaluation/datasets/v1_baseline.jsonl",
+  "dataset_sha256": "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8",
+  "corpus_manifest_path": "evaluation/datasets/corpus_manifest.json",
+  "corpus_manifest_sha256": "506da03158e13d4b6b2c811eae3f08163e551ae1d4f4db4e726bb844d1d6afca",
+  "company_id": "300750",
+  "collection": "company_docs",
+  "ks": [
+    1,
+    5,
+    10
+  ],
+  "db_path": "data/chroma",
+  "corpus_fingerprint": "a1ddde625514207f43ceb128eeb05f8d7ff72a8bfb908aa5514847f8d372275e",
+  "model_load_ms": 12553.704999998445,
+  "embedding_model": {
+    "model_name": "BAAI/bge-m3",
+    "use_fp16": true,
+    "device": "cpu"
+  },
+  "git": {
+    "commit": "c0e5f3ef36ec2d7149984b71b99827babbad2ff7",
+    "dirty": true,
+    "porcelain": "M evals/run_evals.py\n?? .claude/\n?? AGENTS.md\n?? BASELINE_RUNNER_DEVELOPMENT_TASK.md\n?? DESIGN_V2.md\n?? NDSD_baseline41.html\n?? OPTIMIZE.md\n?? agent_baseline_NDSD_41-v4.jsonl\n?? evals/test_baseline_runner.py\n?? evaluation/\n?? shouxin_cj_zongjie.md\n?? toClaude.zip\n?? \"\\351\\233\\252\\344\\272\\272\\350\\202\\241\\344\\273\\275\\350\\264\\242\\345\\212\\241\\345\\210\\206\\346\\236\\220.docx\""
+  },
+  "code_hashes": {
+    "retrieval/retriever.py": "79f9c8e9fc025b4662cbc9906943b6d8807ae1c474521ff563a5f474bc0c8bae",
+    "retrieval/indexer.py": "3e1220c2ef464f94f5a470030d054e8af8a89a54cfb59148413f94a8fb2a8093",
+    "retrieval/embedding.py": "6349c33a6304de0e2fa36198d99521b8b6f26011d9887d8a5699e46fbf0eda06",
+    "parsers/pdf_parser.py": "1d3bd0e534d7c6252d4111e96c4bee546c8533895ad2d9211908ea5c979fbdfc"
+  },
+  "dependencies": {
+    "chromadb": "1.5.9",
+    "pypdf": "6.11.0",
+    "pandas": "3.0.3",
+    "openpyxl": "3.1.5",
+    "FlagEmbedding": "unknown",
+    "anthropic": "0.101.0"
+  },
+  "generated_at": "2026-09-05T17:04:13Z",
+  "run_id": "20260905T170350Z_f7cd9d44",
+  "status": "completed",
+  "completed": true,
+  "manifest_snapshot": {
+    "company_id": "300750",
+    "page_system": "pdf_1based",
+    "page_system_note": "引用页码即 PDF 1-based 页序，无印刷偏移（已确认 2026-09-06）。『年报』统一指向 2025 年年报 NDSD_2025_year.pdf；NDSD_2024_year.pdf 入语料但 41 问无 gold 引用。",
+    "documents": [
+      {
+        "document_id": "NDSD_2025_year",
+        "aliases": [
+          "年报",
+          "年度报告",
+          "2025年报",
+          "年报2025",
+          "2025年年度报告"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_2025_year.pdf",
+        "source_type": "annual_report",
+        "sha256": "c15272977147dee7e6935a38ea0e4fd6855370aabb106f54cfe20f7cf6048ec9",
+        "page_count": 232,
+        "page_system": "pdf"
+      },
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "aliases": [
+          "募书",
+          "募集说明书",
+          "绿色科创债",
+          "科创债",
+          "募集说明书(绿色科创债2026)",
+          "募集说明书(2026绿色科创债)",
+          "2026绿色科创债"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_KCZ_2026.pdf",
+        "source_type": "debt_circular",
+        "sha256": "2b3a1fb3de97f23c9e6fc8c0d54adf0633265bb1b452a881d15bd3a0ba286dae",
+        "page_count": 141,
+        "page_system": "pdf"
+      },
+      {
+        "document_id": "NDSD_2024_year",
+        "aliases": [
+          "2024年报",
+          "年报2024",
+          "2024年年度报告"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_2024_year.pdf",
+        "source_type": "annual_report",
+        "sha256": "b4f1713d7b821eb076c102711d177fe942ccc2bc8dd171ae5d7a95799a65b0ad",
+        "page_count": 229,
+        "page_system": "pdf"
+      }
+    ]
+  }
+}

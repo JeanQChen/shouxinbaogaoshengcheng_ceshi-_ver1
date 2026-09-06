@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -m evaluation.dataset normalize agent_baseline_NDSD_41-v4.jsonl evaluation/datasets/corpus_manifest.json evaluation/datasets/v1_baseline.jsonl)",
+      "Read(//tmp/**)",
+      "Bash(python -m evals.test_baseline_runner)",
+      "Bash(python -m evaluation.run_baseline --dataset evaluation/datasets/v1_baseline.jsonl --corpus-manifest evaluation/datasets/corpus_manifest.json --company 300750 --collection company_docs --validate-only)",
+      "Bash(python -m evaluation.run_baseline --dataset evaluation/datasets/v1_baseline.jsonl --corpus-manifest evaluation/datasets/corpus_manifest.json --company 300750 --collection company_docs --k 1 5 10)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('evaluation/results/20260905T170105Z_609837d6/run_manifest.json',encoding='utf-8'\\)\\); print\\(json.dumps\\({k:d[k] for k in ['run_id','status','ks','corpus_fingerprint','model_load_ms','embedding_model','git','code_hashes']}, ensure_ascii=False, indent=2\\)\\)\")",
+      "Bash(python -)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m evaluation.run_baseline --dataset evaluation/datasets/v1_baseline.jsonl --corpus-manifest evaluation/datasets/corpus_manifest.json --company 300750 --collection company_docs --k 1 5 10 --recompute-from evaluation/results/20260905T170350Z_f7cd9d44/case_results.jsonl)",
+      "Bash(PYTHONIOENCODING=utf-8 python evals/test_baseline_runner.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m evals.run_evals)",
+      "Bash(rm -f \"雪人股份财务分析.docx\")",
+      "Bash(rm -rf \"evaluation/results/20260906T015829Z_fd52c20f\")"
+    ]
+  }
+}

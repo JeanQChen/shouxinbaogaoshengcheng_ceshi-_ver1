@@ -1,0 +1,34 @@
+{
+  "company_id": "300750",
+  "page_system": "pdf_1based",
+  "page_system_note": "引用页码即 PDF 1-based 页序，无印刷偏移（已确认 2026-09-06）。『年报』统一指向 2025 年年报 NDSD_2025_year.pdf；NDSD_2024_year.pdf 入语料但 41 问无 gold 引用。",
+  "documents": [
+    {
+      "document_id": "NDSD_2025_year",
+      "aliases": ["年报", "年度报告", "2025年报", "年报2025", "2025年年度报告"],
+      "file_path": "data/samples/300750/announcements/NDSD_2025_year.pdf",
+      "source_type": "annual_report",
+      "sha256": "c15272977147dee7e6935a38ea0e4fd6855370aabb106f54cfe20f7cf6048ec9",
+      "page_count": 232,
+      "page_system": "pdf"
+    },
+    {
+      "document_id": "NDSD_KCZ_2026",
+      "aliases": ["募书", "募集说明书", "绿色科创债", "科创债", "募集说明书(绿色科创债2026)", "募集说明书(2026绿色科创债)", "2026绿色科创债"],
+      "file_path": "data/samples/300750/announcements/NDSD_KCZ_2026.pdf",
+      "source_type": "debt_circular",
+      "sha256": "2b3a1fb3de97f23c9e6fc8c0d54adf0633265bb1b452a881d15bd3a0ba286dae",
+      "page_count": 141,
+      "page_system": "pdf"
+    },
+    {
+      "document_id": "NDSD_2024_year",
+      "aliases": ["2024年报", "年报2024", "2024年年度报告"],
+      "file_path": "data/samples/300750/announcements/NDSD_2024_year.pdf",
+      "source_type": "annual_report",
+      "sha256": "b4f1713d7b821eb076c102711d177fe942ccc2bc8dd171ae5d7a95799a65b0ad",
+      "page_count": 229,
+      "page_system": "pdf"
+    }
+  ]
+}

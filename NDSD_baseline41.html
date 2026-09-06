@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>宁德时代授信报告评测 · Baseline 41问总览</title>
+<style>
+:root{--navy:#071B3A;--navy2:#0D2C55;--bg:#F3F7FB;--card:#fff;--line:#dfe7f0;--gold:#D5A84D;--gold-soft:#f4e8cf;--teal:#2BC4B6;--teal-soft:#e0f6f4;--ink:#102033;--sub:#65758A;--faint:#8a97a8;--p0:#C0392B;--p0b:#fbeae6;--p1:#2B6CB0;--p1b:#e8f0fa;--p2:#7a8794;--radius:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:84px}
+body{font-family:'IBM Plex Sans','Inter','Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:15px;-webkit-font-smoothing:antialiased}
+a{color:var(--p1);text-decoration:none}a:hover{text-decoration:underline}
+h1,h2,h3,h4{line-height:1.3}
+.hero{background:linear-gradient(135deg,#071B3A 0%,#0D2C55 55%,#123a6b 100%);color:#fff;padding:54px 24px 44px;border-bottom:3px solid var(--gold)}
+.hero-inner{max-width:1200px;margin:0 auto}
+.kicker{display:inline-block;letter-spacing:.24em;font-size:12px;color:var(--gold);text-transform:uppercase;border:1px solid rgba(213,168,77,.5);padding:4px 12px;border-radius:100px;margin-bottom:18px}
+.hero h1{font-size:clamp(24px,4vw,38px);font-weight:700;max-width:880px;letter-spacing:.01em}
+.hero .lead{margin-top:14px;max-width:780px;color:#c7d3e4;font-size:15px}
+.hero-meta{margin-top:18px;display:flex;flex-wrap:wrap;gap:10px 22px;color:#9fb2cc;font-size:13px}
+.hero-meta b{color:#fff;font-weight:600}
+.stat-grid{max-width:1200px;margin:20px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:var(--radius);padding:16px 18px}
+.stat-num{font-size:30px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+.stat-l{font-size:12.5px;color:#aebfda;margin-top:4px}
+.toolbar{position:sticky;top:0;z-index:50;background:rgba(247,250,253,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.toolbar-inner{max-width:1200px;margin:0 auto;padding:10px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.toolbar nav{display:flex;gap:6px;flex-wrap:wrap}
+.toolbar nav a{padding:6px 14px;border-radius:100px;border:1px solid var(--line);background:#fff;font-size:13px;color:var(--ink);font-weight:500}
+.toolbar nav a:hover{border-color:var(--gold);color:var(--navy);text-decoration:none}
+.toolbar nav a b{color:var(--gold);font-variant-numeric:tabular-nums}
+.filters{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.fbtn{padding:6px 13px;border-radius:100px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;color:var(--sub);font-family:inherit;transition:background .15s,border-color .15s}
+.fbtn:hover{border-color:var(--teal);color:var(--navy)}
+.fbtn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+main{max-width:1200px;margin:0 auto;padding:30px 24px 60px}
+.section{margin-top:44px;scroll-margin-top:90px}
+.sec-head{border-left:4px solid var(--gold);padding:2px 0 2px 18px;margin-bottom:20px}
+.sec-title{font-size:24px;font-weight:700;color:var(--navy)}
+.sec-sub{color:var(--sub);font-size:13.5px;margin-top:6px;max-width:900px}
+.sec-count{margin-top:10px;font-size:12.5px;color:var(--faint)}
+.sec-count .dot{margin:0 8px;color:#cdd6e0}
+.sec-body{display:grid;gap:18px}
+.case{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:0 1px 2px rgba(7,27,58,.04)}
+.case-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.case-id{font-family:'IBM Plex Mono',Consolas,monospace;font-weight:700;color:var(--navy);background:var(--gold-soft);border:1px solid #e6d3a4;padding:3px 10px;border-radius:6px;font-size:13px;letter-spacing:.02em}
+.case-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{font-size:11px;padding:3px 9px;border-radius:100px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.badge-prio.p0{background:var(--p0b);color:var(--p0)}
+.badge-prio.p1{background:var(--p1b);color:var(--p1)}
+.badge-prio.p2{background:#eef1f5;color:var(--p2)}
+.badge-route.rt-structured{background:#eef3fa;color:#3a5c8a}
+.badge-route.rt-external{background:#fdf3e5;color:#a06a13}
+.badge-route.rt-topic{background:#eaf6f5;color:#12827b}
+.badge-route.rt-multi{background:#f2eefb;color:#6b4fc0}
+.badge-exp{background:var(--teal-soft);color:#12827b;border:1px solid #b7e5e1}
+.badge-pt{background:#eef1f5;color:#6b7887}
+.badge-ts{background:#fff7e8;color:#a06a13}
+.badge-reason{background:#f0f2f5;color:#7a8794;font-weight:500}
+.q{font-size:16.5px;font-weight:700;color:var(--ink);margin:4px 0 12px;padding-left:10px;border-left:3px solid var(--teal)}
+.answer{background:#fbfcfe;border:1px solid #e8eef5;border-left:3px solid var(--gold);border-radius:8px;padding:14px 16px;white-space:pre-wrap;font-size:14.5px;color:#22334a}
+.is-point .answer{background:#f8fafc;border-left-color:#c7d2e0;font-size:14px}
+.evidence{margin-top:12px;display:grid;gap:4px;background:#f6f8fb;border:1px dashed #d6dfe9;border-radius:8px;padding:10px 14px;font-size:13px}
+.ev-row{display:grid;grid-template-columns:70px 1fr;gap:8px}
+.ev-k{color:var(--faint);font-weight:600;font-size:12px;letter-spacing:.03em}
+.ev-v{color:#31445c;overflow-wrap:anywhere}
+.ev-page{font-weight:600;color:var(--navy)}
+.ev-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;padding-top:8px;border-top:1px dashed #d3dde8}
+.ev-links a{font-size:12.5px;font-weight:600;overflow-wrap:anywhere}
+.notes{margin-top:10px;font-size:12.5px;color:var(--sub);background:#fffdf5;border:1px solid #f0e9d4;border-radius:8px;padding:8px 12px}
+.notes-k{font-weight:700;color:#9a7a2c;margin-right:6px}
+.route-panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-top:8px}
+.route-panel h2{font-size:17px;color:var(--navy);margin-bottom:14px}
+.route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.route-chip{padding:12px 14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;gap:3px}
+.route-chip .rc{font-weight:700;color:var(--navy);font-size:14px}
+.route-chip b{color:var(--gold);font-variant-numeric:tabular-nums;font-size:16px}
+.route-chip em{font-style:normal;font-size:12px;color:var(--sub)}
+.sources{margin-top:48px}
+.sources h2{font-size:20px;color:var(--navy);border-left:4px solid var(--gold);padding-left:14px;margin-bottom:16px}
+.src-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.src-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;font-size:13.5px}
+.src-card b{color:var(--navy);display:block;margin-bottom:4px}
+.src-card p{color:var(--sub);font-size:12.5px}
+.gold-note{margin-top:16px;background:var(--navy);color:#c9d6e8;border-radius:var(--radius);padding:18px 22px;font-size:13.5px}
+.gold-note b{color:var(--gold)}
+footer{text-align:center;color:var(--faint);font-size:12px;padding:26px 20px 40px;border-top:1px solid var(--line)}
+@media(max-width:640px){.toolbar-inner,.stat-grid,main{padding-left:14px;padding-right:14px}.case{padding:16px}.filters{margin-left:0;width:100%}.ev-row{grid-template-columns:56px 1fr}.sec-title{font-size:20px}.hero{padding:38px 18px 34px}}
+@media print{.toolbar{position:static;background:none}.hero{background:var(--navy);-webkit-print-color-adjust:exact;print-color-adjust:exact}.case,.route-chip,.src-card,.gold-note{box-shadow:none}.filters{display:none}body{font-size:12px}main{max-width:100%;padding:8px}.section{margin-top:24px;break-inside:auto}.case,.sec-head{break-inside:avoid}}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+a:focus-visible,button:focus-visible,.fbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <span class="kicker">授信报告 Agent · Baseline 评测集</span>
+    <h1>宁德时代授信报告生成器 · 41 问评测总览</h1>
+    <p class="lead">面向“授信报告生成”的信息需求全集（Information Needs）：<b style="color:#fff">企业信用 20 · 财务表现 13 · 行业分析 8</b>，共 41 问。每题均锚定 2025 年年报 / 2026 绿色科创债募集说明书真实页码，强时效事项附外部权威来源；其中 <b style="color:#D5A84D">20 条已扩写</b>为可直接复制进授信报告正文的完整段落。</p>
+    <div class="hero-meta">
+      <span>主体 <b>宁德时代 300750</b></span>
+      <span>数据口径 <b>2025 年年报 · 2026 绿债募集书</b></span>
+      <span>用例版本 <b>Baseline 41问 v2（纠错融合版）</b></span>
+      <span>更新 <b>2026-09-05</b></span>
+    </div>
+  </div>
+</header>
+<div class="stat-grid">
+      <div class="stat"><div class="stat-num">41</div><div class="stat-l">20 企业信用 · 13 财务 · 8 行业</div></div>
+      <div class="stat"><div class="stat-num">20</div><div class="stat-l">问答已扩写成可直接进报告正文的完整段落</div></div>
+      <div class="stat"><div class="stat-num">P0</div><div class="stat-l">14 条必考核心指标（授信硬约束）</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-l">题含可点击外部权威来源（年报/募书/SNE/新华网/新浪等）</div></div>
+    </div>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <nav><a href="#company">企业信用 <b>20</b></a><a href="#financial">财务表现 <b>13</b></a><a href="#industry">行业分析 <b>8</b></a></nav>
+    <div class="filters">
+      <button class="fbtn on" data-f="all">全部</button>
+      <button class="fbtn" data-f="expanded">仅看展开正文</button>
+      <button class="fbtn" data-f="p0">仅看 P0 核心</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="route-panel">
+    <h2>评测路由分布（为何这样出题）</h2>
+    <div class="route-grid"><div class="route-chip"><span class="rc">STRUCTURED</span><b>14</b><em>按固定结构检索字段，答案锚定具体页码</em></div><div class="route-chip"><span class="rc">EXTERNAL</span><b>7</b><em>强时效事实，须外部验证并标注来源</em></div><div class="route-chip"><span class="rc">TOPIC</span><b>11</b><em>专题综述，多材料合并成段</em></div><div class="route-chip"><span class="rc">MULTI_HOP</span><b>9</b><em>跨页/跨源多跳推理，需拼接证据</em></div></div>
+  </div>
+
+  <section id="company" class="section" data-sec="company">
+      <div class="sec-head">
+        <h2 class="sec-title">一、企业信用</h2>
+        <div class="sec-sub">主体资质、股权与控制、经营基本面、授信关键事项——回答“这家企业值不值得授信”的信用底色</div>
+        <div class="sec-count"><span>20 题</span><span class="dot">·</span><span>P0×7</span><span class="dot">·</span><span>展开 12</span></div>
+      </div>
+      <div class="sec-body"><article class="case is-point is-p0" id="COMP-S1">
+      <div class="case-top">
+        <div class="case-id">COMP-S1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的成立时间（工商注册日期）是什么时候？</h4>
+      <div class="answer">{&#x27;成立日期&#x27;: &#x27;2011-12-16&#x27;, &#x27;设立方式&#x27;: &#x27;万和投资货币出资100万元设立(宁德时代有限),后改制为股份公司&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(绿色科创债2026) 第五章 发行人基本情况</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P36</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">明确&#x27;设立(工商注册)日期:2011年12月16日&#x27;</span></div></div><div class="notes"><span class="notes-k">注</span>成立时间独立成问,field级精确回答。</div>
+      </article>
+<article class="case is-point is-p0" id="COMP-S2">
+      <div class="case-top">
+        <div class="case-id">COMP-S2</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的实际控制人是谁？其与实际控制人的关联关系及控制链条如何？</h4>
+      <div class="answer">{&#x27;实际控制人&#x27;: &#x27;曾毓群&#x27;, &#x27;控制链条&#x27;: &#x27;曾毓群直接及间接合计持有控股股东厦门瑞庭100%股权;厦门瑞庭持有宁德时代1,024,704,949股占22.45%&#x27;, &#x27;注&#x27;: &#x27;曾毓群直接持厦门瑞庭55%,另经100%控制的香港瑞华持45%&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募书第五章(三)实际控制人 + 年报P97前十大股东</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P39 / 年报P97</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">曾毓群直接和间接合计持有控股股东厦门瑞庭100%股权</span></div></div><div class="notes"><span class="notes-k">注</span>控制链条多跳:实控人→控股股东→上市公司;占比以年报精确值22.45%为准。</div>
+      </article>
+<article class="case is-point " id="COMP-S3">
+      <div class="case-top">
+        <div class="case-id">COMP-S3</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代最新的股票质押率（尤其是控股股东/实际控制人层面）是多少？</h4>
+      <div class="answer">{&#x27;整体质押水平&#x27;: &#x27;期末被质押股份合计约占总股本0.713%,质押率极低&#x27;, &#x27;李平&#x27;: &#x27;持股比例4.33%(197,460,277股),质押31,920,000股,占其所持股份16.1652%、占总股本约0.70%&#x27;, &#x27;易方达创业板交易型开放式指数基金&#x27;: &#x27;持股比例1.07%(49,005,734股),质押600,000股,占总股本约0.013%&#x27;, &#x27;控股股东厦门瑞庭&#x27;: &#x27;所持股份无质押(质押率0)&#x27;, &#x27;判断&#x27;: &#x27;控股股东及实控人层面基本无质押,整体质押风险极低&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 股东数量和持股情况(前十大股东)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P97</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">明确披露李平质押31,920,000股、易方达创业板ETF质押600,000股</span></div></div><div class="notes"><span class="notes-k">注</span>接口径按年报P97前十大股东质押明细;控股股东厦门瑞庭零质押。总股本4,563,803千股。</div>
+      </article>
+<article class="case is-expanded " id="COMP-D1">
+      <div class="case-top">
+        <div class="case-id">COMP-D1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的发展历史沿革是怎样的？</h4>
+      <div class="answer">宁德时代成立于2011年12月16日，由万和投资以货币出资100万元设立（设立时名称为宁德时代有限），2011年12月16日取得企业法人营业执照。2015年11月25日，宁德时代有限召开股东会，决定以2015年10月31日为基准日整体变更设立股份有限公司，公司名称变更为“宁德时代新能源科技股份有限公司”；2015年12月15日完成整体变更设立，以经审计净资产68,937.17万元为基础，按1.723429141575:1比例折合股本4亿股，其余计入资本公积。股改后发起人股权结构为：瑞庭投资50%、黄世霖25%、宁波联创15%、李平10%。
+2018年6月11日，公司首次公开发行的A股在深圳证券交易所创业板上市（股票代码300750），新增发行217,243,733股，上市后总股本增至2,172,437,000股。2021年8月启动向特定对象发行股票（定增），2022年6月30日完成，发行A股109,756,097股，发行前总股本2,330,851,200股，发行后总股本增至2,440,607,297股，募集资金总额约450亿元。2025年5月20日，公司发行的135,578,600股H股（行使超额配售权前）在香港联交所主板挂牌上市，同日行使超额配售权，2025年5月23日完成20,336,700股H股发行，悉数行使后共发行155,915,300股H股。
+公司治理层面，2024年2月8日，实际控制人曾毓群与李平签署《〈一致行动人协议〉之终止协议》，解除一致行动关系，公司实际控制人由曾毓群、李平变更为曾毓群一人。截至2025年末，公司总股本为456,380.3万股，控股股东厦门瑞庭持股22.5%（1,024,704,949股），实际控制人为曾毓群。
+综上，公司经历了“有限公司设立（2011）—整体变更股份公司（2015）—A股创业板上市（2018）—定向增发（2022）—H股港股上市（2025）”的完整资本演进历程，实控人由二人一致行动变更为曾毓群单一控制，治理架构与股权资本结构持续优化。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 第五章 历史沿革</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P35-40</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">含设立/整体变更/A股上市/定增/H股上市完整沿革+2024一致行动解除</span></div></div><div class="notes"><span class="notes-k">注</span>授信用于了解主体沿革与治理稳定性。</div>
+      </article>
+<article class="case is-point " id="COMP-MS1">
+      <div class="case-top">
+        <div class="case-id">COMP-MS1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代贡献最大的子公司（业务/体量层面）是哪一家？</h4>
+      <div class="answer">{&#x27;主营制造型子公司&#x27;: &#x27;四川时代、江苏时代、福鼎时代、宜春时代等百GWh级生产基地为核心(多为全资/控股制造主体)&#x27;, &#x27;注&#x27;: &#x27;年报未单独披露各子公司净利排名精确数值,需结合产能/员工(母公司16,233 vs 子公司合计169,606)/生产基地体量佐证&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报(八)财务报告-合并范围主要子公司 + 员工/产能披露</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P56/P205-207</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">主要子公司均为电池制造基地;集团产能772GWh分布于多基地</span></div></div><div class="notes"><span class="notes-k">注</span>精确&#x27;第一贡献&#x27;依赖集团内部数据,评测以披露充分性为准不虚构排名。</div>
+      </article>
+<article class="case is-expanded is-p0" id="COMP-R1">
+      <div class="case-top">
+        <div class="case-id">COMP-R1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的主营业务是什么？各业务的收入占比如何？</h4>
+      <div class="answer">【主营业务及构成】
+宁德时代是全球领先的零碳新能源科技公司，主要从事动力电池、储能电池的研发、生产与销售，以推动移动式化石能源替代、固定式化石能源替代，并通过电动化和智能化实现市场应用的集成创新。截至2025年末，公司已在全球设立六大研发中心、24家电池工厂，具备从电池材料、电池系统到电池回收的全链条自主研发与产业化能力。公司将锂电池领域的深厚沉淀延展至钠电池等其他化学体系，产品可应用于乘用车、商用车、表前储能、表后储能，以及船舶、航空器、数据中心等新兴应用场景。
+【产品与技术结构】动力电池系统方面，公司产品包括电芯、模组/电箱及电池包，可提供磷酸铁锂、三元高压中镍、三元高镍、超混电池、钠离子电池、凝聚态电池等覆盖不同能量密度区间的多种化学体系产品，满足快充、长寿命、长续航、高安全、宽温度适应性等功能需求，并可采用双核/多核架构实现多元化学体系集成，产品广泛应用于BEV、REV、PHEV、HEV及商用车、船舶、航空器、电动工具等领域。储能电池系统方面，公司提供电芯、电池柜、储能集装箱及系统集成等解决方案，覆盖表前储能（公用事业、工商业及数据中心储能）与表后储能（家庭储能等），推出了EnerOne、EnerC、TENER系列液冷电池柜、单体6.25MWh天恒储能系统及全球首款可量产的9MWh超大容量储能系统TENERStack等。电池材料、回收及矿产资源方面，产品包括锂盐、前驱体及正极材料等，并通过回收废旧电池提炼镍、钴、锰、锂等关键金属材料实现资源循环利用，同时通过自建、参股、合资方式布局锂、镍、钴、磷等上游矿产资源。
+【经营模式】公司拥有独立、研发、采购、生产和销售体系，主要通过销售动力电池、储能电池和电池材料等产品与解决方案实现盈利。研发上以自主研发为主、外部合作为辅，紧密围绕材料及材料体系、系统结构、绿色极限制造及商业模式领域开展创新；采购上通过严格的评估和考核程序遴选合格供应商，通过快速导入机制、长期协议、合资合作保障供应稳定，并强化大宗金属管理、推进低成本替代方案降本；生产上持续加大境内外锂电池生产基地建设投入，报告期内公司锂电池产能772GWh、期末在建产能321GWh。销售方面，公司产品广泛应用于乘用车、商用车、储能及新兴领域，客户覆盖国内外主流整车厂及储能集成商，报告期内境外收入129,641,258千元，占营业收入30.60%，主要销往境外的产品为电池系统。
+【收入构成与占比分析】2025年公司实现营业收入423,701,834千元，同比增长17.04%。分行业看，电气机械及器材制造业收入417,723,738千元、占比98.59%，采选冶炼行业收入5,978,096千元、占比1.41%。分产品看，动力电池系统收入316,506,369千元、占比74.70%（收入同比增长25.08%，为第一大收入来源）；储能电池系统收入62,439,820千元、占比14.74%（同比增长8.99%）；电池材料及回收收入21,860,936千元、占比5.16%（同比下降23.83%）；电池矿产资源收入5,978,096千元、占比1.41%；其他业务收入16,916,612千元、占比3.99%。分地区看，境内收入294,060,576千元、占比69.40%，境外收入129,641,258千元、占比30.60%，境外收入同比增长17.50%。
+毛利率方面，公司整体毛利率约26.49%（电气机械及器材制造业），其中动力电池系统毛利率23.84%（较上年微降0.10个百分点）、储能电池系统毛利率26.71%、电池材料及回收毛利率27.27%（同比提升16.76个百分点）。【各业务板块经营情况（募书P51-54）】①动力电池板块：2025年动力电池系统销售收入3165.06亿元、占营业收入的74.7%，为最大收入来源，销量541GWh；据SNE Research，2025年公司全球动力电池使用量市占率39.2%（较上年提升1.2个百分点）、连续9年全球第一，国内动力电池装机量市占率43.42%，海外动力电池使用量市占率30.0%；产能772GWh、产量748GWh、产能利用率96.9%。产品覆盖BEV/REV/PHEV/HEV及商用车、船舶、航空器等领域，销售货款多采用传统汽车零部件行业回款方式，给予下游车企一定账期、用承兑汇票结算。②储能电池系统板块：2025年销售收入624.40亿元、占收入14.7%、同比+9.0%，覆盖表前储能（公用事业、工商业、数据中心，EnerOne/EnerOnePlus/EnerC/EnerD等液冷电池柜、单体6.25MWh天恒储能系统、全球首款可量产9MWh TENERStack）与表后储能（家庭/工商/数据中心，PR、Unic、安鑫、PU系列）。③电池材料及回收：2025年收入218.61亿元、占5.2%（占比逐年下降），通过废旧电池回收提炼镍、钴、锰、锂、磷等并生产正极材料、前驱体、锂盐，同时以参股、合资方式布局锂、镍、钴、磷上游资源。④电池矿产资源：2025年收入59.78亿元、占1.4%。
+整体来看，动力电池系统是公司营收的绝对主力，储能电池系统作为第二增长曲线维持稳健增长，公司境内收入为基本盘、境外收入占比三成且增长较快，业务结构呈现“动力为主、储能为翼、多线并进”的特征。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报(主要业务/经营模式/收入构成/主营构成 P14-15/P20-25) + 募书(五)主营业务情况及各业务板块经营情况</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P14-15/P24-25 + 募书P50-54(PDF页;含收入构成表5-10与(三)各业务板块经营情况)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书表5-10:动力74.7%/储能14.7%/材料及回收5.2%/矿产1.4%/其他4.0%;P51-54各板块收入·销量·市占·产能;与年报P24-25口径一致(多源交叉验证)</span></div></div><div class="notes"><span class="notes-k">注</span>主营业务占比为核心授信判断,结构化表格数据。</div>
+      </article>
+<article class="case is-point is-p0" id="COMP-MV1">
+      <div class="case-top">
+        <div class="case-id">COMP-MV1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2026-08</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代2026年8月31日的总市值是多少？</h4>
+      <div class="answer">{&#x27;日期&#x27;: &#x27;2026-08-31&#x27;, &#x27;收盘价&#x27;: &#x27;约363.55元/股&#x27;, &#x27;总市值&#x27;: &#x27;约16,820亿元(约1.68万亿元)&#x27;, &#x27;流通市值&#x27;: &#x27;约15,488亿元&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">新浪财经-宁德时代历史曲线(2026-08-31)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">外部行情(新浪/东财)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">当日收盘/市值数据</span></div></div><div class="notes"><span class="notes-k">注</span>强时效行情类,必须外部验证,不可静态推算。</div>
+      </article>
+<article class="case is-expanded " id="COMP-E1">
+      <div class="case-top">
+        <div class="case-id">COMP-E1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2026</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代最近是否有收购、处罚等重大新闻？具体是什么？</h4>
+      <div class="answer">【处罚事项】2026年8月24日，宁德时代位于匈牙利德布勒森的工厂因违反综合环境使用许可受到处罚。据媒体报道，该工厂废水处理环节存在重金属（含镍、钴、锰等）及NMP污染问题，被处以1,000万福林（折合约21.7万元人民币）的罚款，废水预处理许可被撤销，涉事产线被叫停；同时匈牙利德布勒森工厂二期、三期扩建项目被当地否决。该事件属于海外工厂环保合规层面的行政处罚，涉及金额相对公司体量很小，但反映出公司在海外产能建设中环保合规管理需进一步加强。
+【收购事项】2026年（5月），宁德时代经由非控股、非合并范围的关联方参与了对世纪互联（VNET，美股上市公司）的跨境收购。该收购交易总代价9.42亿美元（折合约64亿元人民币），对应收购世纪互联约38.78%的A类普通股，交易目的系布局“电力+算力”融合场景，是公司在数据中心能源等新兴领域延伸产业链的重要资本运作。
+【其他股东动态】报告期前后，宁波联合创新新能源投资管理合伙企业（有限合伙）减持约5,800万股、套现约238亿元，股东黄世霖此前亦进行减持累计套现约171.63亿元，该等为股东个人行为，非公司经营层负面事项。
+【授信评估视角】匈牙利处罚为海外合规事件（金额影响有限、但涉及产线叫停与扩建受阻），联合创新/黄世霖减持为股东个体行为，公司层面主业经营与偿债能力未受实质影响；需结合海外产能建设合规风险综合评估。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">外部财经媒体(新浪财经处罚/收购报道)+公开公告</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">外部URL</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">处罚:sina/roll/2026-09-02(); 收购:sina/wm/2026-05-24()</span></div><div class="ev-links"><a href="https://finance.sina.com.cn/roll/2026-09-02/doc-iniqmshw7676808.shtml" target="_blank" rel="noopener noreferrer">新浪财经·处罚报道 ↗</a><a href="https://finance.sina.com.cn/wm/2026-05-24/doc-inhyypen3462068.shtml" target="_blank" rel="noopener noreferrer">新浪财经·收购报道 ↗</a></div></div><div class="notes"><span class="notes-k">注</span>强时效外部事件,评测须验证Agent是否更新到2026年最新重大事项。</div>
+      </article>
+<article class="case is-point is-p0" id="COMP-S1b">
+      <div class="case-top">
+        <div class="case-id">COMP-S1b</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">历史上</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代是什么时候挂牌上市的？股票代码是什么？</h4>
+      <div class="answer">{&#x27;A股上市&#x27;: &#x27;2018-06-11深交所创业板上市,股票代码300750&#x27;, &#x27;H股上市&#x27;: &#x27;2025-05-20香港联交所主板挂牌,全球发售(行使超额配售后)155,915,300股,发行价263.00港元/股,募集资金总额410亿港元,用于匈牙利项目建设及营运资金/一般企业用途&#x27;, &#x27;总股本&#x27;: &#x27;约45.64亿股(4,563,803千股)&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募书P36-39公司基本信息 + 年报P20主营业务分析(概述)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P36-39 / 年报P20</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报P20明确2025-05-20港股上市、263港元、410亿港元</span></div></div><div class="notes"><span class="notes-k">注</span>双市场上市:A股(300750)+H股(2025)。</div>
+      </article>
+<article class="case is-expanded " id="COMP-C1">
+      <div class="case-top">
+        <div class="case-id">COMP-C1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的核心竞争力是什么？</h4>
+      <div class="answer">宁德时代的长期核心竞争力，根植于以技术创新和领先产品为基石，持续驱动商业模式的进化和客户市场的拓展，并形成正向反馈循环，以“飞轮效应”推动公司整体价值持续增长，不断加固“全球领先的零碳新能源科技公司”的竞争壁垒。具体而言，公司核心竞争力体现在以下五个方面：
+一是研发为核，产品矩阵持续迭代。依托行业顶尖的研发团队与持续高强度的研发投入，公司构建起覆盖材料、电芯、系统及回收的全链条自主研发能力，是行业唯一入选“全球百强创新机构”的企业，助力宁德市跻身全球创新强度第四名。报告期内，公司拥有及申请的国内外专利总数达54,538项，创新成果密集落地。基于此，公司相继推出“二代神行超充”、“骁遥双核”及“钠新电池”等前沿产品，以全面领先的产品力为市场拓展提供坚实支撑。
+二是市场领跑，全球化根基稳固。公司动力与储能电池市占率已连续多年领跑全球。在乘用车领域，中高端市场主导地位稳固，经济型市场持续突破；在储能领域，系统集成能力不断增强，并与多家全球领先的科技企业建立合作。同时，公司稳步推进海外工厂建设，持续完善全球服务网络，以坚实的全球化布局巩固长期竞争优势。
+三是极限制造，铸就品质与效率标杆。公司拥有全球规模最大的现有及在建产能，并以严苛的品控标准与自主研发的超级拉线PSL，持续探索制造效率、质量及安全的一致极限，电芯缺陷率水平较同行实现数量级领先。公司拥有行业最多的“灯塔工厂”及唯一“可持续灯塔工厂”。
+四是全域增量，拓宽生态护城河。公司将电动化延伸至低空、船舶等更广阔领域，吨级eVTOL已完成关键性飞行验证，电动船舶安全运营规模持续扩大。同时，巧克力换电、骐骥换电等创新解决方案快速拓展，协同产业链伙伴共同构筑开放、共赢的产业生态，为全面电动化注入持续动能。
+五是零碳引领，重构产业价值链条。公司已率先实现核心运营碳中和，并实现废旧电池的大规模综合回收利用。通过携手多地推进零碳示范项目，助力高碳排产业实现新能源转型。公司正以“零碳”理念深度重构产业生态，发掘并释放全产业链的绿色价值。
+综合来看，公司以“技术—产品—制造—市场—生态—零碳”的正向循环构建了全方位、深层次的竞争护城河，研发创新为根基、全球市场为牵引、极限制造为保障、全域增量为延展、零碳引领为价值重构，是其在全球动力与储能电池领域保持绝对领先地位的根本支撑。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 第三节 三核心竞争力分析 + 募书(四)公司竞争优势</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P19-20 + 募书P59(PDF页;(四)公司竞争优势)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">两源对五大竞争力表述一致:研发为核/市场领跑/极限制造/全域增量/零碳引领,募书P59含54,538项专利、行业唯一全球百强创新机构、吨级eVTOL等</span></div></div><div class="notes"><span class="notes-k">注</span>主题概览题,证据以年报经营讨论为主。</div>
+      </article>
+<article class="case is-expanded " id="COMP-SW1">
+      <div class="case-top">
+        <div class="case-id">COMP-SW1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2026</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的换电业务开展得如何？</h4>
+      <div class="answer">公司换电业务以“巧克力换电”（乘用车）和“骐骥换电”（商用车）两大品牌为载体，报告期内换电产业生态初具势能，是公司商业模式创新的重要组成部分。
+【乘用车-巧克力换电】为提升补能效率、优化用户体验，公司携手产业各方加速构建巧克力换电生态。截至2025年末，公司巧克力换电建站超1,000座，分布于全国45座城市，涵盖长三角、京津冀、川渝、大湾区四大核心经济带，并已率先在重庆实现盈利。公司已与广汽、长安、一汽、上汽、奇瑞等多家车企达成换电战略合作，上述车企已发布20款以上换电车型，包括埃安UT Super等多款轿车及SUV，覆盖营运出行、家庭出行、行政商务、年轻化代步等多元场景。报告期内，公司与中石化、国网、南网、滴滴、京东、神州租车、招银金租等生态伙伴达成战略合作，在换电网络建设、运营车辆应用、电池租赁方案优化等领域深化合作，形成资源共享、优势互补的生态协同效应。
+【商用车-骐骥换电】截至报告期末，公司骐骥换电业务建站超300座，分布于全国26个省份，实现多条国家高速公路关键节点覆盖，为核心物流线路的电动化转型提供基础支撑。报告期内，骐骥换电与整车企业的战略合作持续深化，与一汽解放、陕重汽等10余家企业共同推出30余款标准化换电车型，涵盖牵引车、载货车等多品系车辆。公司还与重庆高速、赣粤高速、河南交投等全国30多家高速及交投公司建立战略合作，共同布局重卡换电网络新基建。
+【运营成果】报告期内，巧克力换电及骐骥换电为用户提供的换电服务合计超115万次，累计换电量约8,000万度。2026年以来公司进一步加快建站：2026年4月发布“超换一体”全场景补能网络，巧克力换电站由4月超1,470座（99城）扩充至6月底约2,000座（180城），计划2026年底突破3,000座、覆盖近190城，2028年建成10万座共享换电网络；已与11家车企18个品牌25款车型达成合作，北汽极狐S3巧克力换电版可实现约99秒超快补能，香港亦已投建换电站。
+整体来看，公司换电业务已从“建站试点”进入“生态成型”阶段，乘用车（巧克力）+商用车（骐骥）双线并进，覆盖网络快速扩张、战略伙伴持续扩充、运营规模放量，是公司从单一电池制造商向“补能网络+电池资产运营”综合服务商转型的关键抓手。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 经营讨论(换电产业生态)+外部官网/媒体</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P22-23 + 外部URL + 募书P56(商业模式创新提及巧克力/骐骥换电)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">P22-23巧克力/骐骥换电原文;2026建站数据来自宁德时代官网/华尔街见闻；募书P56商业模式创新佐证换电生态</span></div><div class="ev-links"><a href="https://www.catl.com/news/9846.html" target="_blank" rel="noopener noreferrer">宁德时代官网·换电 ↗</a></div></div><div class="notes"><span class="notes-k">注</span>换电是新业务第二曲线,强时效需外部动态。</div>
+      </article>
+<article class="case is-expanded " id="COMP-FP1">
+      <div class="case-top">
+        <div class="case-id">COMP-FP1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025-2026</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的未来发展计划（战略方向）是什么？</h4>
+      <div class="answer">公司按照“三大战略方向”和“四大创新体系”的指引，推动各项业务发展，致力于以革命性的电池技术创新和规模化的商业落地，不断推广动力电池及储能电池的应用，通过集成式创新及零碳解决方案，减少全人类对化石能源的依赖，助力全球实现可持续发展。
+【三大战略方向】(1)以“电化学储能+可再生能源发电”为核心，实现对固定式化石能源的替代，摆脱对火力发电的依赖；(2)以“动力电池+新能源车”为核心，实现对移动式化石能源的替代，摆脱交通出行领域对石油的依赖；(3)以“电动化+智能化”为核心，推动市场应用的集成创新，为各行各业提供可持续、可普及、可信赖的能量来源，推动区域零碳生态建设及各领域绿色低碳转型。
+【四大创新体系】公司根据“三大战略方向”构建了“材料及材料体系创新”“系统结构创新”“绿色极限制造创新”和“商业模式创新”四大创新体系，并以“开放式创新”践行。材料及材料体系创新方面：继续完善高通量材料集成计算平台，借助先进算法算力在原子层级对材料进行模拟计算与设计仿真，高效筛选潜质材料体系，并推进智能电芯设计平台应用，通过智能化和数据驱动实现电池研发范式变革；系统结构创新方面：通过数字化设计工具优化电池包和底盘集成系统结构设计，对CTP、CTC等不断迭代升级，提升集成度，推出更高效、更安全、更经济的产品；绿色极限制造创新方面：持续升级超级拉线并在新基地应用，电芯单体失效率达行业内领先的DPPB级，未来利用大数据、云计算、数字孪生、3D打印等技术提升工业数字化能力，打造“TWh”级高质量交付能力；商业模式创新方面：拓展船舶、航空器等更多应用场景，推出巧克力换电、骐骥换电等创新解决方案，以区域性试点项目为切入点推动零碳科技产品与解决方案落地，助力区域零碳生态建设。
+【经营计划】公司秉持“创新驱动、绿色发展、开放合作、共享共赢”的核心理念，致力于打造世界一流的零碳新能源科技企业，构建全场景、全链条的新能源产业生态圈。落地重点包括：巩固动力+储能全球领先优势；推进换电“超换一体”补能网络扩张（2026年底超4,000座超换一体站、2028年10万座共享网络）；深化零碳电网/零碳产业园/算电协同（AIDC储能）；推动钠离子等新体系规模化量产；加快全球化产能布局（匈牙利、印尼等）；做大电池回收循环经济。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 第四节经营情况讨论(公司未来发展的展望) + 募书十、未来发展规划</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P37-38 + 募书P55-57(PDF页;十、未来发展规划) + 外部(2026发布会)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报与募书三大战略方向/四大创新体系一致;募书P55-57另含数智化/全球化/低碳化三大经营维度</span></div></div><div class="notes"><span class="notes-k">注</span>战略计划题,成体系阐述。</div>
+      </article>
+<article class="case is-point " id="COMP-R3">
+      <div class="case-top">
+        <div class="case-id">COMP-R3</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代前五大客户集中度是多少？</h4>
+      <div class="answer">{&#x27;前五名客户销售占比&#x27;: &#x27;38.96%&#x27;, &#x27;金额&#x27;: &#x27;165,061,533千元&#x27;, &#x27;其中关联方占年度销售额比例&#x27;: &#x27;0.00%&#x27;, &#x27;客户1-5占比&#x27;: &#x27;13.73%/11.12%/7.13%/3.64%/3.34%&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 前五名客户情况</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P28</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">前五名客户合计销售金额占年度销售总额比例38.96%</span></div></div><div class="notes"><span class="notes-k">注</span>集中度是授信重要风险维度,精确字段。</div>
+      </article>
+<article class="case is-expanded " id="COMP-RD1">
+      <div class="case-top">
+        <div class="case-id">COMP-RD1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代目前主要的研发项目有哪些？</h4>
+      <div class="answer">报告期内公司主要研发项目及进展如下（均以“产品已发布，与客户推进落地中”为主）：
+1．骁遥双核电池：通过跨化学体系组合（在电池包内组合不同化学体系电芯），突破单一化学体系边界，实现解决方案性能全面提升，助力新能源车实现安全冗余和多场景应用突破；确保动力输出连续性与安全性、灵活适配不同场景。
+2．钠新电池：突破常规锂电体系，推动电化学体系多元化，适用更丰富应用场景，通过钠电池实现应用场景广域化、加速全面电动化，降低对锂资源依赖；2026年推进规模化量产，已推出钠新乘用车动力电池及面向重卡领域的钠新启驻一体蓄电池。
+3．超混电池：通过材料层级混合创新，超越单一化学体系实现更高比能、更长寿命及更高安全，为新能源乘用车、商用车细分市场打造更具竞争力产品。
+4．凝聚态电池：超越常规体系，实现高安全、高比能、高功率，为高端新能源车、航空器等提供先进解决方案，助力拓展低空、航空等新兴应用场景。
+5．神行电池系列：进一步提升能量密度、快充性能、循环寿命，已推出神行二代、神行Pro产品；其中二代神行超充为全球首款兼具800公里续航和峰值12C超充速度的磷酸铁锂电池，神行Pro搭载NP3.0技术可提供12C超充版本。
+6．天行电池系列：提升能量密度、快充性能、温度适应性与循环寿命，已发布天行II轻商产品，拓宽场景适配性，服务商用车/轻商市场。
+7．大容量储能电芯：定义行业下一代大容量电芯标准，全面提升各项性能，助力降低储能系统成本（如587Ah大容量储能专用电芯），引领下一代储能电池技术方向。
+8．储能系统TENER Stack：开发“Two in One”模块化方案突破运输限制，助力整站高集成和快速安装，提升海外储能产品竞争力。
+9．自生成负极：超越常规体系打造高比能产品，通过自生成负极助力能量密度跃升。
+10．智能电芯设计平台：通过AI+数据驱动实现电池研发范式变革，重塑电池设计底层逻辑，保障高效研发的领先性。
+【研发投入】报告期内公司研发投入合计22,146,581千元，占营业收入比例5.23%（2024年为18,606,756千元/5.14%）；研发人员22,901人，同比增长12.56%，占在职员工比例12.32%（其中硕士5,242人、博士745人）。公司拥有及申请的国内外专利总数达54,538项，为行业唯一入选“全球百强创新机构”的企业。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 研发投入(主要研发项目表/研发人员/投入比例)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P29-30</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报P29主要研发项目表+P30研发人员/投入</span></div></div><div class="notes"><span class="notes-k">注</span>研发项目主题,结合年报研发表与新产品发布。</div>
+      </article>
+<article class="case is-point is-p0" id="COMP-BD1">
+      <div class="case-top">
+        <div class="case-id">COMP-BD1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代现在一共有几位执行董事？</h4>
+      <div class="answer">{&#x27;现任执行董事人数&#x27;: &#x27;6位&#x27;, &#x27;名单&#x27;: &#x27;曾毓群(董事长兼执行董事、总经理)、潘健(联席董事长兼执行董事)、李平(副董事长兼执行董事)、周佳(副董事长兼执行董事)、欧阳楚英(职工代表董事兼执行董事)、吴映明(执行董事)&#x27;, &#x27;独立非执行董事&#x27;: &#x27;3位(吴育辉/林小雄/赵蓓)&#x27;, &#x27;董事会合计&#x27;: &#x27;9人(第四届董事会)&#x27;, &#x27;报告期变动&#x27;: &#x27;赵丰刚2025-12-05离任;公司治理结构调整(取消监事会),2025-12-25欧阳楚英当选职工代表董事兼执行董事、吴映明当选执行董事&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 董事会成员/董事简历/现任董监高名单</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P46-48(简历)/P53(名单)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报P53明确曾毓群/潘健/李平/周佳/欧阳楚英/吴映明现任执行董事</span></div></div><div class="notes"><span class="notes-k">注</span>现任执行董事=6位;此前版本漏潘健(联席董事长兼执行董事)。</div>
+      </article>
+<article class="case is-expanded " id="COMP-EQ1">
+      <div class="case-top">
+        <div class="case-id">COMP-EQ1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代股权激励计划的内容和进展情况如何？</h4>
+      <div class="answer">公司自上市以来累计推出六期股权激励计划，激励工具涵盖一类/二类限制性股票及股票期权，覆盖董事、高级管理人员与核心技术/业务骨干。报告期末（2025年）共有三期股权激励计划处于实施状态，具体情况如下：
+【2021年股票期权与限制性股票激励计划】含股票期权与第二类限制性股票两类。股票期权：2021年11月19日授予，初始授予人数350人、初始授予数量2,412,050份，行权价格（调整后）326.46元/份，归属/行使期48/60个月；截至报告期末已解除行权条件但尚未行权525,419份。第二类限制性股票：2021年11月19日授予，初始授予4,254人、1,879,180股，授予价格156.44元/股，归属期48/60个月，截至报告期末尚未解除归属/行权条件0股（已全部归属/作废）。2025年进展：第四个归属期归属条件成就（2025-10-20董事会审议通过，实际归属212人、300,382股，2025-11-20上市流通）；作废部分已授予尚未归属的46,294股；2021年激励计划期权第三行权期实际行权1,190,698股（至2025-11-18）、第四行权期（2025-12-19至2026-11-18）自2025-12-31前已行权190,145股；注销111,405份及2,404份尚未行权期权。
+【2022年股票期权与限制性股票激励计划】股票期权2022年9月8日授予，初始1,660,619份（167人），行权价278.90元/份，行使期48/60/72个月；第二类限制性股票初始授予4,609人、2,906,129股，授予价132.66元/股。2025年进展：第三个归属期归属条件成就（2025-09-08审议，实际归属3,711人、1,650,424股，2025-09-16上市流通）；作废221,079股；期权第三个行权期（2025-09-22至2026-09-07）截至年底已行权630,062股；注销297,857份期权。
+【2023年限制性股票激励计划】第二类限制性股票2023年9月8日授予，初始426人、11,130,003股，授予价100.89元/股，归属期36/72个月，截至报告期末尚未解除归属/行权条件5,199,548股。2025年进展：作废已授予尚未归属的2,918,365股。
+【董监高激励情况】报告期末部分董事及高管持有公司股权激励权益，如：周佳期末持有股票期权379,403份、本期已行权306,970股、期末持有限制性股票249,200股；副总经理谭立斌持有限制性股票163,481股；副总经理蒋理持有限制性股票119,424股；财务总监郑舒持有限制性股票121,924股；离任执行董事赵丰刚期末持有限制性股票174,175股。本期董监高激励合计行权302,928股、锁定579,004股。
+公司通过多期、多工具、覆盖骨干的股权激励机制，实现了核心团队与公司利益的深度绑定，激励设置与业绩考核挂钩，是公司维持管理层及核心技术团队稳定、驱动长期发展的重要治理安排。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 十二公司股权激励实施情况+董监高激励</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P60-62</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">P60-62三期激励概览与实施进展</span></div></div><div class="notes"><span class="notes-k">注</span>股权激励为治理与利益绑定,报告期实施进展。</div>
+      </article>
+<article class="case is-expanded " id="COMP-ZB1">
+      <div class="case-top">
+        <div class="case-id">COMP-ZB1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">赵蓓在宁德时代有哪些职务？她的履历与背景是什么？</h4>
+      <div class="answer">赵蓓女士，68岁，现任公司独立非执行董事，主要负责监督董事会并向其提供独立意见及判断。赵女士于2023年8月24日起担任公司独立非执行董事（任期至2027年12月25日）。
+【教育与学术背景】赵女士于1982年7月在厦门大学获得经济学学士学位，于1986年2月在达尔豪西大学获得工商管理硕士学位，并于2003年12月在香港大学获得博士学位。自2005年起于厦门大学管理学院担任教授及博士生导师。
+【早年经历】赵女士曾于1989年至1990年、1990年至1994年及1994年至1996年分别在阿卡迪亚大学、阿尔格玛大学和蒙特爱立森大学任教；并于1995年至1996年在加拿大皇家银行担任个人理财经理。
+【在其他上市公司任职情况】赵女士在多家上市公司担任或曾任独立董事职务，包括：(i)于2017年4月至2022年7月在福建七匹狼实业股份有限公司担任独立董事；(ii)于2016年12月至2022年12月在华厦眼科医院集团股份有限公司（深圳证券交易所上市公司，股票代码：301267）担任独立董事；(iii)于2020年9月起在厦门金龙汽车集团股份有限公司担任独立董事；及(iv)于2023年5月起在安井食品集团股份有限公司（上海证券交易所上市公司，股票代码：603345；香港联交所上市公司，股票代码：2648）担任独立董事。
+赵女士具备扎实的经济学与财务管理学术背景、丰富的海内外任教经验及多年上市公司独立董事履职经验，其财务与公司治理专业背景为公司董事会提供独立、专业的监督与决策支持。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 董事简历(9.赵蓓)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P49</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">完整引用年报P49赵蓓简历原文</span></div></div><div class="notes"><span class="notes-k">注</span>特定董事背景尽调,个人履历精确字段。</div>
+      </article>
+<article class="case is-expanded " id="COMP-RP1">
+      <div class="case-top">
+        <div class="case-id">COMP-RP1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代关联采购的情况如何？</h4>
+      <div class="answer">【关联采购（采购商品/接受劳务）】报告期内公司与关联方发生的采购类关联交易明细如下（单位：千元）：
+1．采购商品：向联营企业采购商品13,899,432千元（上期16,355,995千元）；向合营企业采购商品1,670千元（上期—）。
+2．采购材料：向联营企业采购材料17,066,845千元（上期11,026,643千元）；向合营企业采购材料4,723千元（上期—）。
+3．采购劳务及其他：向联营企业采购劳务及其他199,830千元（上期299,951千元）；向合营企业采购劳务及其他3,439千元；向关联自然人直接或间接控制、或担任董事或高级管理人员的其他企业采购劳务及其他4,841千元。
+【关联销售（出售商品/提供劳务）】向合营企业销售商品87,340千元（上期11,786千元）、销售服务及其他4,551千元（上期8,368千元）；向联营企业销售商品6,248,366千元（上期5,389,551千元）、销售材料1,760,164千元（上期1,661,404千元）、销售服务及其他905,895千元（上期1,109,221千元）。
+【其他关联交易】公司下属控股公司香港邦普时代新能源有限公司本期收购Hong Kong CBC International Holding Limited（原CMOC Beta Limited）100%股权（目标公司尚未实际运营，收购对价1元，交易对手为洛阳栾川钼业集团下属子公司）；贵州时代思康新材料有限公司本期出售给联营公司，交易对价5,500万元。关联担保方面，公司作为担保方向晋江闽投电力储能、佛山华普气体、宜春龙蟠时代锂业、青美邦新能源材料等联营/参股企业提供多笔担保，部分已履行完毕、部分仍在担保期内。
+【分析与评价】报告期末关联采购中，向联营企业采购商品13,899,432千元（约139亿元）、采购材料17,066,845千元（约171亿元），合计约310亿元；对比公司2025年总营收4,237亿元，关联采购占营业成本比重相对有限，关联交易主要发生于供应链上下游联营/合营企业之间，属于正常产业协同安排。授信评估需关注关联交易的定价公允性与决策程序合规性，但整体关联交易规模可控、占比有限，不构成本次授信的重大不利因素。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 第十二节 关联方及关联交易(购销商品提供和接受劳务的关联交易/关联担保/其他关联交易)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P217-219</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">P217购销数据+P218关联担保</span></div></div><div class="notes"><span class="notes-k">注</span>关联交易合规审查,精确金额+占比判断。</div>
+      </article>
+<article class="case is-expanded " id="COMP-DZ1">
+      <div class="case-top">
+        <div class="case-id">COMP-DZ1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2022</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">2022年7月4日宁德时代定增了多少钱，募集资金如何使用？</h4>
+      <div class="answer">【定增基本情况】宁德时代2022年向特定对象发行A股股票（定增）。该定增于2021年8月12日经第二届董事会第三十二次会议审议启动，2021年8月31日经2021年第一次临时股东大会审议通过，2022年4月29日获中国证监会同意注册批复（证监许可〔2022〕901号）。2022年6月30日定增完成：实际增发人民币普通股（A股）109,756,097股，发行价格410元/股，募集资金总额约450亿元（44,999,999,770元），扣除发行费用后募集资金净额约448.70亿元；发行前总股本2,330,851,200股，发行后总股本增至2,440,607,297股。
+【时间口径说明】需注意：定增实际发行、认购资金到账及缴款均在2022年6月（6月中旬完成发行、6月30日募资到位）；市场及媒体所称“7月4日”系2022年7月4日（中金公司）宣布该项目落地完成、发布相关公告的时间，并非资金到账日。尽调中应区分“实际到账（2022-06-21前后）”与“公告宣布（2022-07-04）”两个时间点，避免误读为7月才募集到位。
+【募集资金投向】本次定增募集资金主要用于产能扩建与研发，具体投向为：福鼎时代基地152亿元、广东瑞庆时代一期117亿元、江苏时代动力及储能（四期）65亿元、宁德蕉城时代（车里湾）46亿元、新能源先进技术研发与应用70亿元，其中约84.4%用于产能扩建。募投项目中，广东瑞庆时代一期等后续存在投向变更情形（据年报募集资金存放与使用情况，广东瑞庆已变更投向至“时代新能厦门电池产业基地项目”等）。
+【评价】本次定增是公司上市以来规模最大的股权融资之一，显著扩充了公司锂电池产能与研发投入，为后续业务放量与全球化扩张提供了资金基础；募集资金使用在年报中存有专项披露，尽调可进一步核对募集资金存放与使用的合规性。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">外部公告(中国经济网/中金)+年报募集资金存放与使用</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">外部URL + 年报募集资金章节</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">定增450亿净额448.7亿;中国经网2022-06-23报道;投向后变更见年报</span></div><div class="ev-links"><a href="http://finance.ce.cn/stock/gsgdbd/202206/23/t20220623_37788011.shtml" target="_blank" rel="noopener noreferrer">中国经济网·定增 ↗</a></div></div><div class="notes"><span class="notes-k">注</span>历史再融资尽调;注意用户口径&#x27;7月4日&#x27;实为宣布/完成,发行落地6月,需如实澄清时点。</div>
+      </article>
+<article class="case is-expanded is-p0" id="COMP-CR1">
+      <div class="case-top">
+        <div class="case-id">COMP-CR1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代合计授信金额和对外担保金额是多少？</h4>
+      <div class="answer">【授信情况】公司2025年度银行授信额度上限为6,000亿元，该授信额度于2025年4月经公司股东大会审议批准。截至2025年末，公司实际已使用授信2,918.37亿元，未使用授信约3,081.63亿元，授信额度利用率约48.6%，整体授信储备充足，尚余较大议价与调剂空间。
+【对外担保情况】报告期末公司实际对外担保余额（合并范围内口径）合计66,683,600千元（约666.84亿元），占期末净资产的比例为19.78%。从担保结构看：公司（本部）对外担保（不含对子公司）为4,663,512千元（约46.64亿元）；对子公司担保49,555,686千元（约495.56亿元）；子公司对子公司担保12,464,402千元（约124.64亿元）。其中，为股东、实际控制人及其关联方提供担保的金额（D项）为0，不存在违规对外担保情形。
+【分析与评价】公司授信额度规模大、已用比例适中，融资渠道与备用流动性充裕；对外担保余额较大（约667亿元，占净资产约两成），但基本集中于对子公司及合并范围内主体的担保，为经营扩张所需的正常融资增信安排，为股东/实控人担保与违规担保均为零，担保结构与风险管理透明、合规。授信评估中，需关注对外担保的到期结构与被担保方偿债能力，但当前担保安排对集团整体偿债安全边际影响可控。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(授信,第七章资信状况)+年报(对外担保,担保情况汇总)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P111(授信) / 年报P77/P86-87/P220-221(担保)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">授信6000亿/已用2918.37亿;对外担保66,683,600千元占净资产19.78%</span></div></div><div class="notes"><span class="notes-k">注</span>授信与担保是银行授信评审最核心两道数据,精确金额+占比。</div>
+      </article></div>
+    </section>
+
+  <section id="financial" class="section" data-sec="financial">
+      <div class="sec-head">
+        <h2 class="sec-title">二、财务表现</h2>
+        <div class="sec-sub">合并/母公司口径、现金流、审计、资产质量与盈利质量——授信额度与偿付能力的财务印证</div>
+        <div class="sec-count"><span>13 题</span><span class="dot">·</span><span>P0×4</span><span class="dot">·</span><span>展开 2</span></div>
+      </div>
+      <div class="sec-body"><article class="case is-point " id="FIN-GM1">
+      <div class="case-top">
+        <div class="case-id">FIN-GM1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代2025年动力电池业务毛利率是多少？同比如何变化，原因是什么？</h4>
+      <div class="answer">{&#x27;动力电池毛利率(2025)&#x27;: &#x27;23.84%(营收316,506,369/成本241,064,397千元)&#x27;, &#x27;同比&#x27;: &#x27;较上年微降0.10个百分点(基本持平)&#x27;, &#x27;原因&#x27;: &#x27;销量大幅增长(动力电池销量541GWh)摊薄规模优势,产品价格随原材料(碳酸锂等)成本回落而调整,行业竞争与产品结构综合影响,整体毛利率保持稳定&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报分产品毛利率表 + 经营讨论(销量/成本)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P25 + P24(动力销量541GWh)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">分产品毛利率表;毛利率微降0.1pp需量价拆分</span></div></div><div class="notes"><span class="notes-k">注</span>多跳合成:毛利率+销量+成本交叉。</div>
+      </article>
+<article class="case is-point is-p0" id="FIN-P1">
+      <div class="case-top">
+        <div class="case-id">FIN-P1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">合并口径和母公司口径下，2025年营收、资产、资产负债率、净资产相较2024年如何变化？</h4>
+      <div class="answer">{&#x27;合并口径&#x27;: &#x27;营收423,701,834千元(+17.04%);资产总额974,827,544千元;资产负债率61.94%(2024年65.24%,下降3.30pp);归母净资产见合并资产负债表(剔除少数股东)&#x27;, &#x27;母公司口径&#x27;: &#x27;营收265,326,794千元(2024年191,320,942千元,+38.7%);资产643,206,871千元(2024年521,484,018千元);负债266,985,195千元→资产负债率41.51%;所有者权益278,738,309千元(2024年194,546,100千元)&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 合并/母公司资产负债表与利润表 + 主要会计数据</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P11(合并主要数据)/P113-116(母公司资产负债)/P118(母公司利润)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">两套口径报表同源交叉,P106负债率61.94%</span></div></div><div class="notes"><span class="notes-k">注</span>跨报表多跳核心题:合并与母公司两套口径对比。</div>
+      </article>
+<article class="case is-expanded is-p0" id="FIN-TR1">
+      <div class="case-top">
+        <div class="case-id">FIN-TR1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2023-2025</span><span class="badge badge-reason">trend_analysis</span>
+        </div>
+      </div>
+      <h4 class="q">近三年（2023-2025年）合并口径下宁德时代的营业收入、营业成本、归母净利润及毛利率变化趋势如何？原因是什么？</h4>
+      <div class="answer">【营业收入】2023年4,009.17亿元 → 2024年3,620.13亿元(-9.7%) → 2025年4,237.02亿元(+17.04%)。营收先降后升：2024年回落主因碳酸锂等原材料价格下降、动力及储能产品销售均价下调；2025年显著回升，主要得益于动力+储能双轮销量增长、全球化放量及储能高成长。\n【营业成本】2023年3,090.70亿元 → 2024年2,735.19亿元 → 2025年3,123.83亿元，随营收同步先降后升，增减幅与收入基本吻合，整体成本控制稳定。\n【归母净利润】2023年441.21亿元 → 2024年507.45亿元(+15.02%) → 2025年722.01亿元(+42.28%)，利润逐年增长且增速远超营收，呈&#x27;量增+价稳+成本降&#x27;三重共振。\n【综合毛利率】2023年22.9% → 2024年24.4% → 2025年26.3%，连续三年稳步提升，主因原材料成本下行、规模效应、高毛利储能放量与产品结构优化。\n【结论】公司近三年处于&#x27;营收波动成长+利润与毛利率持续提升&#x27;的健康发展态势，盈利质量逐年改善，抗价格波动能力强。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报(主要会计数据和财务指标)+募集说明书(经营情况分析)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P11 + 募书P50-51(表5-10营收/表5-11成本/表5-12毛利率)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报P11:营收4009.17→3620.13→4237.02亿、归母净利441.21→507.45→722.01亿；募书P50-51:营业成本3090.70→2735.19→3123.83亿、综合毛利率22.9%→24.4%→26.3%（表5-10营收P50/表5-11成本P50-51/表5-12毛利率P51）</span></div></div><div class="notes"><span class="notes-k">注</span>覆盖近三年财报趋势(营收/成本/利润/毛利率)，对应DESIGN_V2 §4.3主题7增长趋势与异常变动，落原因证据。</div>
+      </article>
+<article class="case is-point is-p0" id="FIN-CF1">
+      <div class="case-top">
+        <div class="case-id">FIN-CF1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">合并口径下，2025年经营活动现金流净额是多少？变化原因是什么？</h4>
+      <div class="answer">{&#x27;经营现金流净额(合并)&#x27;: &#x27;133,219,982千元(约1332亿元)&#x27;, &#x27;同比&#x27;: &#x27;+37.35%(2024年96,990,345千元)&#x27;, &#x27;变化原因&#x27;: &#x27;营收增长带动销售回款增加、盈利质量提升(净利722亿元+42.28%),经营性现金流入小计511,868,353千元;现金流/净利匹配良好&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 现金流量表 + 主要会计数据 + 经营讨论</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P11/P30/P120</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">P11与P120两处经营现金流净额一致133,219,982千元,三处交叉锚定</span></div></div><div class="notes"><span class="notes-k">注</span>现金流断锚点,P11/P30/P120交叉固化口径。</div>
+      </article>
+<article class="case is-point is-p0" id="FIN-SLV1">
+      <div class="case-top">
+        <div class="case-id">FIN-SLV1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2023-2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的短期和长期偿债能力如何？（流动比率、速动比率、资产负债率、EBITDA利息保障倍数）</h4>
+      <div class="answer">{&#x27;短期偿债能力&#x27;: &#x27;2023-2025年流动比率稳定在1.6、速动比率稳定在1.4，短期偿债能力较强；流动资产中存货(945.26亿元)及应收票据/应收账款(777.83亿元)对手方多为大型车企，违约风险低、变现能力良好，为短期债务偿还提供坚实保障。&#x27;, &#x27;长期偿债能力&#x27;: &#x27;2023-2025年资产负债率分别为69.3%、65.2%及61.9%，逐年下降，长期偿债能力较强；EBITDA利息保障倍数由2023年21.4倍、2024年22.1倍大幅提升至2025年41.3倍，利息覆盖能力显著增强，主要受益于H股上市补充权益与盈利大幅增长。&#x27;, &#x27;综合判断&#x27;: &#x27;公司短期(流动/速动比率)与长期(资产负债率下降+利息保障倍数高企)偿债能力均处于健康水平，负债结构优化明显。&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 四、发行人偿债能力分析</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P93(表6-45流动性和偿债能力指标表)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书P93:流动比率1.6/速动比率1.4、资产负债率69.3%→65.2%→61.9%、EBITDA利息保障倍数21.4→22.1→41.3</span></div></div><div class="notes"><span class="notes-k">注</span>对应DESIGN_V2 §4.3主题3短期与长期偿债能力：以募书表6-45为权威三年数据源。</div>
+      </article>
+<article class="case is-expanded " id="FIN-CAX1">
+      <div class="case-top">
+        <div class="case-id">FIN-CAX1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2023-2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的现金流结构如何？经营活动、投资活动、筹资活动现金流及资本支出（购建固定资产）的规模与变化如何？</h4>
+      <div class="answer">【经营活动现金流】2023-2025年经营活动现金净额分别为928.26亿元、969.90亿元、1,332.20亿元，逐年增长；2025年较2024年+37.4%(+362.30亿元)，主因销售规模增长、回款增加，经营现金流入(5,118.68亿元)与营收水平匹配，自身造血能力强。\n【投资活动现金流】2023-2025年投资活动现金净额分别为-291.88亿元、-488.75亿元、-944.76亿元，持续净流出且逐年扩大，主要系购建固定资产及股权投资支出；2025年流出大幅扩大(-93.3%)主因购买理财产品增加。\n【筹资活动现金流】2023-2025年筹资活动现金净额分别为147.16亿元、-145.24亿元、-63.10亿元；2025年由负转稳(+56.6%)，主要系H股IPO收到募集资金。\n【综合判断】公司经营现金流充足且持续增长，可完全覆盖持续扩大的资本性支出(重资产扩产)，自身造血对融资依赖低；投资净流出扩大主要投向产能扩张与理财，属于成长期战略性投入，配合筹资端H股IPO补充权益，整体现金流结构健康。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 三、发行人现金流量分析+主要财务数据</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P92-93(经营/投资/筹资三年现金流净额) + 募书P93(日趋)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书P92-93:经营928.26→969.90→1332.20亿、投资-291.88→-488.75→-944.76亿、筹资147.16→-145.24→-63.10亿；对外投资用于购建固定资产及股权投资</span></div></div><div class="notes"><span class="notes-k">注</span>对应DESIGN_V2 §4.3主题6现金流结构与现金保障：三年经营/投资/筹资净额+资本开支，落到造血与融资依赖判断。</div>
+      </article>
+<article class="case is-point " id="FIN-AUD1">
+      <div class="case-top">
+        <div class="case-id">FIN-AUD1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2023-2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">2023—2025年宁德时代的会计师事务所是否一致？</h4>
+      <div class="answer">{&#x27;2023-2025年会计师事务所&#x27;: &#x27;一致,均为致同会计师事务所(特殊普通合伙)&#x27;, &#x27;说明&#x27;: &#x27;年报披露聘请致同,历年均出具标准无保留审计意见;募书验资亦由致同出具&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 其他有关资料(会计师事务所) + 历年审计报告</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P10</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">会计师事务所名称:致同会计师事务所(特殊普通合伙)</span></div></div><div class="notes"><span class="notes-k">注</span>审计师稳定性是财务可信度信号。</div>
+      </article>
+<article class="case is-point " id="FIN-DEP1">
+      <div class="case-top">
+        <div class="case-id">FIN-DEP1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代机器设备的折旧年限是多少？</h4>
+      <div class="answer">{&#x27;机器设备折旧&#x27;: &#x27;年限平均法,折旧年限3-10年,残值率0-5%,年折旧率33.00%-9.50%&#x27;, &#x27;同类&#x27;: &#x27;序列设备3-10年、专用设备3-25年、房屋建筑物10-50年;境外土地不折旧(永久)&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 会计政策-固定资产折旧方法</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P146-147</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">折旧方法表:机器设备年限平均法3-10年</span></div></div><div class="notes"><span class="notes-k">注</span>折旧政策是财务模型关键假设,精确字段。</div>
+      </article>
+<article class="case is-point " id="FIN-RST1">
+      <div class="case-top">
+        <div class="case-id">FIN-RST1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">2025年合并口径下，货币资金中受限资金占比多少？</h4>
+      <div class="answer">{&#x27;受限货币资金(期末)&#x27;: &#x27;18,890,217千元(受限资产-货币资金质押:保证金及质押定期存款)&#x27;, &#x27;货币资金总额(期末)&#x27;: &#x27;333,512,927千元&#x27;, &#x27;受限占比&#x27;: &#x27;约5.7%(18,890,217/333,512,927)&#x27;, &#x27;注&#x27;: &#x27;期初受限货币资金为23,339,555千元,按期末口径计算&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 受限资产(25所有权或使用权受限资产)+货币资金项目</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P185(受限)+P31/P111(货币资金)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">年报P185期末货币资金受限18,890,217千元</span></div></div><div class="notes"><span class="notes-k">注</span>纠正:期末受限货币资金为18,890,217千元(约188.9亿),占比5.7%,勿误用期初值。</div>
+      </article>
+<article class="case is-point " id="FIN-AGE1">
+      <div class="case-top">
+        <div class="case-id">FIN-AGE1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">2025年合并口径下，账龄三年以下的其他应收款占其他应收款多少比例？</h4>
+      <div class="answer">{&#x27;其他应收款账龄(账面余额)&#x27;: &#x27;1年以内999,950、1-2年376,512、2-3年992,291、3年以上232,507,合计2,601,261千元&#x27;, &#x27;三年以下合计&#x27;: &#x27;2,368,753千元&#x27;, &#x27;占比&#x27;: &#x27;约91.06%(2,368,753/2,601,261)&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 其他应收款-按账龄披露</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P170</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">账龄表,三年以下占比91.06%</span></div></div><div class="notes"><span class="notes-k">注</span>账龄结构是应收质量与回收风险判断,多跳合成。</div>
+      </article>
+<article class="case is-point " id="FIN-INV1">
+      <div class="case-top">
+        <div class="case-id">FIN-INV1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">2025年合并口径下，存货如何变化，为什么？</h4>
+      <div class="answer">{&#x27;存货期末账面价值&#x27;: &#x27;94,526,239千元(原材料11,272,396/库存商品22,614,633/发出商品38,674,787/自制半成品12,380,556/合同履约成本5,331,621等)&#x27;, &#x27;期初&#x27;: &#x27;59,835,533千元&#x27;, &#x27;变化&#x27;: &#x27;+34,690,706千元,约+57.99%&#x27;, &#x27;原因&#x27;: &#x27;锂电池销量增长约40%(至661GWh)带动产能扩张与备货,发出商品/库存商品随在手订单与在途交付增加,排产前置于交付&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 存货分类表 + 经营讨论(销量661GWh)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P172 + P24(销量)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">存货分类表期末/期初账面价值,构成拆分</span></div></div><div class="notes"><span class="notes-k">注</span>存货大增原因需结合销量与备货节奏推断,评测关注是否识别量增带动。</div>
+      </article>
+<article class="case is-point " id="FIN-FIX1">
+      <div class="case-top">
+        <div class="case-id">FIN-FIX1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">2025年合并口径下，固定资产中机器设备的年末净值是多少？</h4>
+      <div class="answer">{&#x27;机器设备期末账面价值(净值)&#x27;: &#x27;65,786,848千元(约657.87亿元)&#x27;, &#x27;机器设备原值期末&#x27;: &#x27;73,312,520千元&#x27;, &#x27;减值准备期末&#x27;: &#x27;6,507,455千元&#x27;, &#x27;期初净值&#x27;: &#x27;51,794,473千元&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 固定资产附注</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P177-178</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">固定资产折旧及减值明细表,机器设备期末账面价值65,786,848千元</span></div></div><div class="notes"><span class="notes-k">注</span>固定资产净值(账面价值)为精确字段,注意区分原值与净值。</div>
+      </article>
+<article class="case is-point " id="FIN-PM1">
+      <div class="case-top">
+        <div class="case-id">FIN-PM1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">cross_document_reasoning</span>
+        </div>
+      </div>
+      <h4 class="q">2025年合并口径下，销售利润率（净利率）如何变化？</h4>
+      <div class="answer">{&#x27;2025销售净利率&#x27;: &#x27;归母净利72,201,282千元/营收423,701,834千元≈17.04%&#x27;, &#x27;2024对比&#x27;: &#x27;2024归母净利约50,732,890千元(722亿/1.4228)/营收362,012,554千元≈14.0%&#x27;, &#x27;变化&#x27;: &#x27;销售净利率提升约3个百分点(17.04% vs 14.0%),主因毛利率提升、规模效应与费用率改善&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报 P11主要会计数据(归母净利+42.28%/扣非+43.37%) + 营收</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P11/P24</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">销售净利率=归母净利/营收,2025约17.04%,较2024约14.0%提升约3pp</span></div></div><div class="notes"><span class="notes-k">注</span>销售利润率=净利/营收合成,反映盈利能力提升,多跳合成。</div>
+      </article></div>
+    </section>
+
+  <section id="industry" class="section" data-sec="industry">
+      <div class="sec-head">
+        <h2 class="sec-title">三、行业分析</h2>
+        <div class="sec-sub">动力电池与储能的市场座次、政策窗口与行业地位——回答“赛道与身位”两个前置问题</div>
+        <div class="sec-count"><span>8 题</span><span class="dot">·</span><span>P0×3</span><span class="dot">·</span><span>展开 6</span></div>
+      </div>
+      <div class="sec-body"><article class="case is-point is-p0" id="IND-R1">
+      <div class="case-top">
+        <div class="case-id">IND-R1</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代动力电池产量/出货规模在同类企业中排名如何？</h4>
+      <div class="answer">{&#x27;全球地位&#x27;: &#x27;2025年全球动力电池装车量464.7GWh,市占率39.2%,连续第9年全球第一(较2024年38%提升)&#x27;, &#x27;对比&#x27;: &#x27;约为第二名比亚迪(194.8GWh/16.4%)的2.4倍;海外市占率约29.2%居第一(领先LG新能源8.3pp)&#x27;, &#x27;中国地位&#x27;: &#x27;全球前十中6家中企合计70.4%,宁德居首&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">SNE Research 2025全球动力电池装车量 via 界面新闻 https://m.jiemian.com/article/13978334.html</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">外部(SNE Research 2025/界面新闻等)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">SNE 2025全球动力电池装车量数据</span></div><div class="ev-links"><a href="https://m.jiemian.com/article/13978334.html" target="_blank" rel="noopener noreferrer">界面新闻·SNE数据 ↗</a><a href="https://m.jiemian.com/article/13978334.html" target="_blank" rel="noopener noreferrer">https://m.jiemian.com/article/13978334.html ↗</a></div></div><div class="notes"><span class="notes-k">注</span>行业地位核心指标,强时效,以SNE权威数据为准。</div>
+      </article>
+<article class="case is-expanded " id="IND-R2">
+      <div class="case-top">
+        <div class="case-id">IND-R2</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-external">外部事实</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025-2026</span><span class="badge badge-reason">external_verification</span>
+        </div>
+      </div>
+      <h4 class="q">储能电池行业的发展和政策变化如何？</h4>
+      <div class="answer">【行业规模】2025年全球储能电池出货量约550GWh，同比增长79%（SNE Research数据，下同）；全球储能电池出货前十企业中，7家中企合计占83.3%。宁德时代2025年储能电池出货量167GWh、市占率约30%，已连续5年（2021-2025年）位居全球第一。国内方面，根据中关村储能产业技术联盟统计，2025年我国新型储能新增装机规模达189.5GWh，同比增长73%；公司自身2025年储能电池销量为121GWh，同比增长29.13%，储能系统集成业务全球交付超70个项目、出货规模同比增长超160%。
+【政策演变】2025年以来国内储能政策发生重要调整，核心逻辑是从“政策套利”转向“市场运营+容量补偿”：
+(1)2025年1月（国家发改委、国家能源局）《关于深化新能源上网电价市场化改革促进新能源高质量发展的通知》：取消“强制配储”政策，即不得将配置储能作为新建新能源项目核准、并网、上网等的前置条件；推动新能源上网电量全面进入电力市场，建立新能源可持续发展价格结算机制。
+(2)2025年4月《关于全面加快电力现货市场建设工作的通知》：2025年底前基本实现电力现货市场全覆盖，全面开展连续结算运行，发挥现货市场发现价格和调节供需的关键作用。
+(3)2025年9月《新型储能规模化建设专项行动方案（2025—2027年）》：提出到2027年全国新型储能装机规模达1.8亿千瓦以上、带动直接投资约2,500亿元；推动“新能源+储能”一体化参与电能量市场交易，完善容量电价机制和容量补偿机制。
+(4)2026年1月《关于建立发电侧独立新型储能容量电价机制的通知》：建立发电侧独立新型储能容量电价机制，为储能电站提供容量补偿收益。
+(5)2026年政府工作报告将“新型储能”“算电协同”纳入重点任务，进一步打开独立储能、数据中心储能（AIDC）等需求空间。
+海外方面，欧盟2025年发布《欧洲汽车行业工业行动计划》《国家能源与气候计划》《电网一揽子计划》等，强调通过购电协议（PPA）提升收益确定性、降低储能参与市场与系统服务壁垒。
+【行业判断】行业从“政策套利”转向“市场运营+容量补偿”后，独立储能、算电协同（数据中心储能）、绿电直连、构网型储能等成为新增长点。宁德时代储能业务毛利率持续高于动力电池（2026年上半年储能收入532.6亿元、同比增长87.5%、占收入比重19.2%），叠加天恒6.25MWh、TENER Stack等大容量产品与全球系统集成能力，公司在储能行业“量价齐升”阶段具备显著竞争与盈利优势。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报(行业讨论/政策表)+外部(新华网/储能报告)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P16-18 + 外部URL + 募书P57-58(2储能行业)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">SNE 550GWh出货;政策136号文/270项行动方案/114号文；募书P57-58:全球储能电池出货550GWh(+79%)、国内新型储能新增装机189.5GWh(+73%)</span></div><div class="ev-links"><a href="http://www3.xinhuanet.com/finance/20260310/705bacaa9ea748558facf0dbe90d1462/c.html" target="_blank" rel="noopener noreferrer">新华网·储能政策 ↗</a></div></div><div class="notes"><span class="notes-k">注</span>行业政策强时效,储能第二曲线,外部验证+年报行业讨论双源。</div>
+      </article>
+<article class="case is-expanded is-p0" id="IND-R3">
+      <div class="case-top">
+        <div class="case-id">IND-R3</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代在行业中的地位如何？</h4>
+      <div class="answer">【动力电池行业地位】根据SNE Research数据，2025年公司全球动力电池使用量市占率为39.2%（较上年提升1.2个百分点），已连续9年（2017-2025年）动力电池使用量排名全球第一；排名第二的比亚迪市占率约16.4%，宁德时代约为其2.4倍。国内方面，根据中国汽车动力电池产业创新联盟统计，2025年公司国内动力电池装机量市占率43.42%；海外方面，公司海外动力电池使用量市占率升至30.0%，居全球第一（领先LG新能源等）。2025年公司实现动力电池销量541GWh、同比增长41.85%。
+【储能电池行业地位】根据SNE Research数据，公司已连续5年（2021-2025年）储能电池出货量排名全球第一，2025年出货量167GWh、市占率约30%（全球前十中7家中企合计83.3%）。
+【综合行业地位判断】宁德时代是全球动力电池与储能电池领域的双料绝对龙头：动力电池全球装车量连续9年第一、储能电池出货连续5年第一，国内动力装机市占超四成、海外动力市占居首，客户覆盖特斯拉、宝马、奔驰、大众、Stellantis、Volvo等国际头部车企及理想、小米、广汽、长安等国内主流车企。公司凭借规模（产能772GWh、全球第一）、成本、全链条研发（专利54,538项、行业唯一入选全球百强创新机构）、全球化产能布局及零碳生态等综合优势，在行业中扮演“定价锚”与标准引领者的角色，竞争壁垒深厚、行业地位稳固。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">年报(经营讨论/行业地位)+外部(SNE Research)</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">年报P16-17/P21 + 外部URL + 募书P58((三)公司行业地位)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">SNE动力39.2%连续9年第一/储能30%连续5年第一;海外30.0%；募书P58:动力市占39.2%连续9年第一、储能连续5年第一</span></div></div><div class="notes"><span class="notes-k">注</span>行业地位为综合判断,以年报经营讨论为主+外部排名佐证。</div>
+      </article>
+<article class="case is-point " id="IND-R4">
+      <div class="case-top">
+        <div class="case-id">IND-R4</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-structured">结构化查询</span>
+          <span class="badge badge-pt">结构化要点 · 页码锚定</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">standardized_field</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代的行业定义、归属细分领域是什么？动力电池/储能/材料回收各细分市场的边界如何划分？</h4>
+      <div class="answer">{&#x27;行业分类&#x27;: &#x27;国家统计局《国民经济行业分类代码GB/T4754-2017》：制造业(C)大类[C38]电气机械和器材制造业之小类[C3841]锂离子电池制造。&#x27;, &#x27;业务细分&#x27;: &#x27;公司主营业务覆盖三大板块——动力电池系统、储能电池系统、电池材料及回收（含矿产资源），分属新能源车产业链中游（电芯/系统制造）与循环利用环节。&#x27;}</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 十一、所在行业状况 (一)公司行业分类</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P57</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">明确&#x27;根据国家统计局GB/T4754-2017，公司属于C制造业之C38电气机械和器材制造业之C3841锂离子电池制造&#x27;</span></div></div><div class="notes"><span class="notes-k">注</span>展厅口径：行业分类(GB/T4754-2017)→C3841锂离子电池制造；细分边界=动力/储能/材料回收三大板块。</div>
+      </article>
+<article class="case is-expanded is-p0" id="IND-R5">
+      <div class="case-top">
+        <div class="case-id">IND-R5</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p0">P0</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">动力电池、储能、材料回收行业的市场规模、增速与当前所处周期位置如何？</h4>
+      <div class="answer">【动力电池】2025年全球新能源车销量2147.0万辆(+21.5%)，中国1387.5万辆(乘用车1300.5万辆/渗透率54.0%)，带动全球动力电池使用量1187GWh、同比+31.7%（SNE Research）。动力电池行业自2020-2022爆发增长后增速放缓，进入成熟期（全球装车增速回落至30%上下，中国渗透率已超50%）。\n【储能电池】2025年全球储能电池出货量550GWh、同比+79%（SNE Research），处于高速成长期；国内新型储能新增装机189.5GWh、+73%（中关村储能联盟），储能需求受电力低碳转型、AI/数据中心、峰谷价差扩大驱动，成本持续下降。\n【材料及回收】2025年我国三元与磷酸铁锂正极材料合计产量456.5万吨、+51%（SMM）；随早期电池进入退役期，回收需求逐步提升。\n结论：公司所处行业&#x27;动力成熟期+储能高成长+回收爬坡&#x27;三阶段并存，储能与回收是未来结构性增量来源。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 十一、所在行业状况 (二)行业发展状况及发展趋势</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P57-58</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书P57-58：动力2025全球使用量1187GWh(+31.7%)/中国渗透率54.0%；储能2025全球出货550GWh(+79%)/国内新型储能新增189.5GWh(+73%)；材料回收正极产量456.5万吨(+51%)</span></div></div><div class="notes"><span class="notes-k">注</span>行业规模/增速/周期位置：动力成熟期+储能成长期+回收爬坡期，数据源募书P57-58，强时效。</div>
+      </article>
+<article class="case is-expanded " id="IND-R6">
+      <div class="case-top">
+        <div class="case-id">IND-R6</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">宁德时代所处行业的供需格局、价格与成本驱动因素是什么？对经营有何影响？</h4>
+      <div class="answer">【需求端】以新能源车电动化(中国渗透率54.0%)、储能电力低碳化与AI数据中心拉动为核心增量，单车带电量提升带动动力需求持续增长。\n【供给端】资本大量进入+现有企业扩产+下游整车厂自研电池，行业产能扩张、竞争加剧，结构性供需矛盾阶段性凸显，市场价格竞争激烈。\n【成本端】主要原材料为正极/负极/隔膜/电解液，受锂、镍、钴等大宗商品价格影响大。2025年碳酸锂等原材料价格回落，带动销售均价与单位成本同降，公司综合毛利率仍保持稳定（2025年综合毛利率26.3%，募书表5-12）。\n【传导机制】原材料价格下行→公司产品降价+成本同降→毛利率基本稳定；锂价上涨时以产品价格联动机制、长协锁量、上游资源布局（参股洛阳栾川钼业24.9%、江西锂矿布局）对冲成本上行。行业供需与价格是影响公司收入、毛利率与盈利质量的核心变量。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 二、与发行人相关的风险(经营风险)+年报经营讨论</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P17(宏观波动/市场竞争加剧/原材料价格波动) + 募书P51(表5-12综合毛利率26.3%) + 募书P41(参股洛阳栾川钼业24.9%) + 年报P16-18(经营讨论)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书P17:行业供需结构性矛盾阶段性凸显、市场竞争加剧、原材料受锂镍钴价格影响；募书P51表5-12:2025综合毛利率26.3%；募书P41:参股洛阳栾川钼业24.9%(权益法)</span></div></div><div class="notes"><span class="notes-k">注</span>$4.4主题3供需/价格/成本驱动：立足募书风险章节+年报毛利率数据，落到对收入/成本/毛利率影响。</div>
+      </article>
+<article class="case is-expanded " id="IND-R7">
+      <div class="case-top">
+        <div class="case-id">IND-R7</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p1">P1</span>
+          <span class="badge badge-route rt-topic">专题综述</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025</span><span class="badge badge-reason">topic_explanation</span>
+        </div>
+      </div>
+      <h4 class="q">动力/储能电池行业存在哪些主要风险？这些行业风险如何向宁德时代的收入、盈利与偿债能力传导？</h4>
+      <div class="answer">募书风险章节列示的主要行业风险及传导路径如下：\n(1)宏观与行业波动风险：全球经济放缓、需求回归理性→新能源车/储能需求不及预期→公司销量与收入下滑（参考2024年营收同比-9.7%）。\n(2)市场竞争加剧风险：新进入者+现有企业扩产+整车厂自研→行业价格战→公司产品售价与毛利率承压。\n(3)原材料价格波动及供应风险：锂/镍/钴等价格波动→单位成本波动→毛利率与盈利波动；供应中断风险→产能利用与交付受损。\n(4)技术与替代风险：钠离子/固态/氢燃料电池等新路线→若技术迭代落后→市场份额与盈利能力受损。\n(5)政策风险：国内外补贴、碳排放、可再生能源政策不利变化→下游需求受冲击→传导至公司订单与现金流。\n整体看，这些行业风险通过&#x27;销量-价格-成本&#x27;三条路径影响公司收入与毛利，进而作用于经营现金流与偿债能力；公司以技术领先、规模效应、全球化布局与产业链对冲等方式缓释。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 二、与发行人相关的风险 (一)财务/(二)经营/(四)政策</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P16-18</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">募书P16(经营业绩下滑/应收/存货减值)、P17(宏观波动/市场竞争加剧/原材料价格波动及供应/技术替代)、P18(政策风险)</span></div></div><div class="notes"><span class="notes-k">注</span>$4.4主题7风险传导路径：从募书风险章节归纳5类行业风险并落到收入/毛利率/现金流/偿债能力传导。</div>
+      </article>
+<article class="case is-expanded " id="IND-R8">
+      <div class="case-top">
+        <div class="case-id">IND-R8</div>
+        <div class="case-meta">
+          <span class="badge badge-prio p2">P2</span>
+          <span class="badge badge-route rt-multi">多跳推理</span>
+          <span class="badge badge-exp">已展开 · 可复制正文</span><span class="badge badge-ts">2025滚动</span><span class="badge badge-reason">multi_source_check</span>
+        </div>
+      </div>
+      <h4 class="q">关于宁德时代所处行业的关键结论，其有效期限和多长时间、哪些监测指标来持续跟踪？</h4>
+      <div class="answer">【结论有效期】本行业研判基于2025年年报及2026年公告数据，行业规模/市占数据以SNE Research等年度口径为准（通常滞后一个季度）；政策类结论以发改委/能源局等最新文件为准，具有强时效性，建议按月复核。\n【推荐监测指标】(1)需求与周期：全球/中国新能源车销量及渗透率、全球储能装机与招标量；(2)供需价格成本：碳酸锂价格、行业产能利用率；(3)竞争格局：宁德/比亚迪/中创新航等全球动力与储能市占率变化；(4)政策：新能源上网电价市场化、强制配储取消等产业政策动向；(5)公司经营传导：公司动力/储能销量、毛利率、存货周转、经营现金流。任一指标较前期大幅偏离（如锂价骤变、市占率跌破阈值），需提示授信风险。</div><div class="evidence"><div class="ev-row"><span class="ev-k">来源</span><span class="ev-v">募集说明书(2026绿色科创债) 十一、所在行业状况+风险章节+年报</span></div><div class="ev-row"><span class="ev-k">页码/位置</span><span class="ev-v ev-page">募书P57-58(行业数据) + 募书P16-18(风险) + 年报P16-18(经营讨论)</span></div><div class="ev-row"><span class="ev-k">锚点</span><span class="ev-v">行业规模(SNE/中关村储能)与政策具时效性；监测指标从募书行业章节与年报经营讨论归纳得出</span></div></div><div class="notes"><span class="notes-k">注</span>$4.4主题8结论有效期与监测指标：明确数据截至2025年报、行业数据时效滞后一季度，给出5类可跟踪指标。</div>
+      </article></div>
+    </section>
+
+  <div class="sources">
+    <h2>一页通 · 数据来源与评测原则</h2>
+    <div class="src-grid">
+      <div class="src-card"><b>2025 年年度报告</b><p>主营/财务/研发/激励/担保/受限资产等主体事实的权威底稿，按 [[P页码]] 逐页锚定。</p></div>
+      <div class="src-card"><b>2026 绿债募集说明书</b><p>发展沿革、历史、授信等补充口径，与年报交叉验证。</p></div>
+      <div class="src-card"><b>外部权威来源</b><p>SNE 界面新闻、新华网、新浪财经、宁德时代官网、中国经济网等，用于市值/排名/处罚/收购/换电/政策等强时效事项。</p></div>
+    </div>
+    <div class="gold-note"><b>Gold 可信原则：</b>每条 gold 均为可信真数据，拒绝编造与 OCR 误读污染评测数据；问答题答案可锚定页码或外部 URL 供复核，不以 LLM 设想的“标准答案”充当评测基准。</div>
+  </div>
+</main>
+
+<footer>宁德时代授信报告 Agent · Baseline 41问评测集 — 生成于 2026-09-05 · 面试展示与评测存档</footer>
+
+<script>
+(function(){
+  var btns=document.querySelectorAll('.fbtn'), cards=document.querySelectorAll('.case'), cur='all';
+  function apply(){cards.forEach(function(c){
+    var show = cur==='all' ? true : (cur==='expanded' ? c.classList.contains('is-expanded') : c.classList.contains('is-p0'));
+    c.style.display = show ? '' : 'none';
+  });}
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    cur=b.getAttribute('data-f');
+    btns.forEach(function(x){x.classList.toggle('on', x===b);});
+    apply();
+  });});
+  document.querySelectorAll('.toolbar nav a').forEach(function(a){
+    a.addEventListener('click',function(e){
+      var id=a.getAttribute('href').slice(1), el=document.getElementById(id);
+      if(el){e.preventDefault(); el.scrollIntoView({behavior:'smooth', block:'start'});}
+    });
+  });
+})();
+</script>
+</body>
+</html>

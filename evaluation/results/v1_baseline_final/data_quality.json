@@ -1,0 +1,58 @@
+{
+  "validation": {
+    "ok": true,
+    "errors": [],
+    "warnings": [
+      "COMP-DZ1: local target 缺页码（mapping_status=missing）"
+    ],
+    "n_cases": 41,
+    "n_eligible": 37,
+    "exclusion_breakdown": {
+      "ELIGIBLE_LOCAL": 37,
+      "EXTERNAL_ONLY": 3,
+      "INVALID_GOLD_MAPPING": 1
+    }
+  },
+  "corpus": {
+    "collection_name": "company_docs__300750",
+    "exists": true,
+    "chunk_count": 769,
+    "fingerprint": "a1ddde625514207f43ceb128eeb05f8d7ff72a8bfb908aa5514847f8d372275e",
+    "documents_indexed": {
+      "NDSD_KCZ_2026.pdf": {
+        "page_min": 1,
+        "page_max": 141,
+        "chunk_count": 177,
+        "source_type": "debt_circular"
+      },
+      "NDSD_2025_year.pdf": {
+        "page_min": 1,
+        "page_max": 232,
+        "chunk_count": 300,
+        "source_type": "annual_report"
+      },
+      "NDSD_2024_year.pdf": {
+        "page_min": 1,
+        "page_max": 229,
+        "chunk_count": 292,
+        "source_type": "annual_report"
+      }
+    },
+    "warnings": []
+  },
+  "eligibility_breakdown": {
+    "ELIGIBLE_LOCAL": 37,
+    "EXTERNAL_ONLY": 3,
+    "INVALID_GOLD_MAPPING": 1
+  },
+  "mapping_issues": [
+    {
+      "case_id": "COMP-DZ1",
+      "group_id": "local__NDSD_2025_year",
+      "document_id": "NDSD_2025_year",
+      "pdf_page": null,
+      "source_note": "年报募集资金章节",
+      "mapping_note": "页码越界或缺失（NDSD_2025_year 共 232 页）"
+    }
+  ]
+}
