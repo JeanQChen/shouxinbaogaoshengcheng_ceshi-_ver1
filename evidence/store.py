@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from evidence import schema as S
+from evidence import validator
 from evidence.ids import (
     derive_document_version,
     file_sha256,
@@ -392,8 +393,10 @@ def _insert_checkpoint_row(
 
 
 def _insert_block(conn, block: EvidenceBlock) -> None:
+    # 不用 INSERT OR IGNORE：冲突必须显式暴露（由唯一约束触发 IntegrityError），
+    # 不得静默吞掉重复/非法写入。
     conn.execute(
-        "INSERT OR IGNORE INTO evidence_blocks (evidence_id, schema_version, company_id, document_id, "
+        "INSERT INTO evidence_blocks (evidence_id, schema_version, company_id, document_id, "
         "document_version, evidence_set_version, source_name, source_type, source_uri, page_number, "
         "block_index, section_path, evidence_type, text, structured_payload, report_period, published_at, "
         "entities, quality_flags, content_hash, builder_version, created_at) "
@@ -432,6 +435,9 @@ def commit_document(
     document_version = document.document_version
     key = (company_id, document_id, document_version, evidence_set_version)
 
+    # 提交前强制运行时 Schema 校验（非法对象 / 非法提交在写库前被拒绝）。
+    validator.validate_commit(document, blocks, evidence_set_version)
+
     conn = _get_conn()
     try:
         set_row = conn.execute(
@@ -441,7 +447,8 @@ def commit_document(
         ).fetchone()
 
         if set_row is not None and set_row["status"] == "current":
-            return _reuse_existing(conn, document, evidence_set_version, run_id, key, set_row)
+            return _reuse_existing(conn, document, blocks, evidence_set_version, run_id,
+                                   key, set_row, input_hashes, dependency_versions)
         if set_row is not None and set_row["status"] == "retired":
             return _reactivate(conn, document, blocks, evidence_set_version, run_id,
                                input_hashes, dependency_versions, key, set_row)
@@ -469,6 +476,16 @@ def _commit_fresh(conn, document, blocks, set_version, run_id, input_hashes, dep
         )
         for b in blocks:
             _insert_block(conn, b)
+        # 写后校验：实际落库行数必须 == block_count == 传入块数，任一不符即 ROLLBACK，
+        # 绝不切换到 current。
+        actual = conn.execute(
+            "SELECT COUNT(*) AS c FROM evidence_blocks "
+            "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=?",
+            key,
+        ).fetchone()["c"]
+        if actual != len(blocks):
+            raise RuntimeError(
+                f"Evidence 写入校验失败：实际落库 {actual} 行 != 传入 {len(blocks)} 块")
         # checkpoint 与产物在同一事务内，仅在持久化成功后存在。
         _insert_checkpoint_row(conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE",
                                evidence_ids, input_hashes, dependency_versions, evidence_ids)
@@ -506,54 +523,105 @@ def _commit_fresh(conn, document, blocks, set_version, run_id, input_hashes, dep
                         checkpoint_id=checkpoint_id, evidence_ids=evidence_ids)
 
 
-def _reuse_existing(conn, document, set_version, run_id, key, set_row):
-    """路径 B：目标集合已 current，幂等复用，不重写 Evidence。"""
+def _verify_set_matches_blocks(conn, key, blocks) -> list[str]:
+    """校验存储集合与传入 blocks 完全一致（路径 B/C 复用/激活的前置条件）。
+
+    逐块比较 (page_number, block_index, content_hash) 与 evidence_id 集合，
+    而非只用 `set(content_hash)`（不同坐标可同文本，会误判一致）。任何不一致
+    都 raise，拒绝复用/激活，且不改动 current 集合。返回按序存储的 evidence_id
+    列表，供 checkpoint 记录「到底复用了哪个完整集合」。
+    """
+    rows = conn.execute(
+        "SELECT evidence_id, page_number, block_index, content_hash FROM evidence_blocks "
+        "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=? "
+        "ORDER BY page_number, block_index",
+        key,
+    ).fetchall()
+    stored_ids = [r["evidence_id"] for r in rows]
+    stored_coords = {(r["page_number"], r["block_index"], r["content_hash"]) for r in rows}
+    incoming_ids = {b.evidence_id for b in blocks}
+    incoming_coords = {(b.page_number, b.block_index, b.content_hash) for b in blocks}
+
+    if len(rows) != len(blocks):
+        raise RuntimeError(
+            f"集合完整性校验失败：块数不匹配（存储 {len(rows)} vs 传入 {len(blocks)}）")
+    if set(stored_ids) != incoming_ids:
+        raise RuntimeError("集合完整性校验失败：evidence_id 集合不一致")
+    if stored_coords != incoming_coords:
+        raise RuntimeError(
+            "集合完整性校验失败：page_number+block_index+content_hash 集合不一致")
+    return stored_ids
+
+
+def _reuse_existing(conn, document, blocks, set_version, run_id, key, set_row,
+                    input_hashes, dependency_versions):
+    """路径 B：目标集合已 current，幂等复用，不重写 Evidence。
+
+    复用前必须严格校验：依赖版本精确一致、输入文件 sha256 与文档内容版本一致、
+    存储 block_count 与实际行数一致、实际行数与传入 blocks 一致、evidence_id 集合与
+    page_number+block_index+content_hash 集合精确一致。任一不满足即拒绝复用，
+    不修改 current 集合，绝不以损坏集合冒充成功。
+    """
     company_id, document_id, document_version, _ = key
-    count = conn.execute(
+
+    # 依赖版本必须精确一致。
+    if (_json_loads(set_row["dependency_versions"]) or {}) != dependency_versions:
+        raise RuntimeError("复用失败：依赖版本不兼容")
+    # 输入文件哈希必须与文档内容版本一致。
+    if input_hashes.get("file_sha256") != document.file_sha256:
+        raise RuntimeError("复用失败：输入文件哈希与文档内容版本不一致")
+    # 集合记录的 block_count 与实际行数、传入块数三者必须一致。
+    stored_count = conn.execute(
         "SELECT COUNT(*) AS c FROM evidence_blocks "
         "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=?",
         key,
     ).fetchone()["c"]
+    if set_row["block_count"] != stored_count:
+        raise RuntimeError(
+            f"复用失败：block_count 记录({set_row['block_count']})与实际行数({stored_count})不一致")
+    if stored_count != len(blocks):
+        raise RuntimeError(
+            f"复用失败：实际行数({stored_count})与传入块数({len(blocks)})不一致")
+
+    # 逐块完整性校验（evidence_id + 坐标 + content_hash 精确一致）。
+    stored_ids = _verify_set_matches_blocks(conn, key, blocks)
+
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
     try:
         _insert_checkpoint_row(
-            conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", [],
-            {"file_sha256": document.file_sha256},
-            _json_loads(set_row["dependency_versions"]) or {},
-            [],
+            conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", stored_ids,
+            input_hashes, dependency_versions, stored_ids,
         )
         conn.commit()
     except Exception:
         conn.rollback()
         raise
     return CommitResult(document=_load_document(conn, company_id, document_id, document_version),
-                        evidence_set_version=set_version, written=0, reused=count,
-                        checkpoint_id=checkpoint_id, evidence_ids=[])
+                        evidence_set_version=set_version, written=0, reused=len(stored_ids),
+                        checkpoint_id=checkpoint_id, evidence_ids=stored_ids)
 
 
 def _reactivate(conn, document, blocks, set_version, run_id, input_hashes, dependency_versions, key, set_row):
-    """路径 C：目标集合为 retired，校验通过后重新激活。"""
+    """路径 C：目标集合为 retired，校验通过后重新激活。
+
+    完整性校验与路径 B 一致（逐块 evidence_id + 坐标 + content_hash），不用
+    `set(content_hash)`（不同坐标可同文本）。依赖版本 + 输入文件哈希也必须一致。
+    """
     company_id, document_id, document_version, _ = key
-    # 完整性：块数 + content_hash。
-    stored_hashes = {r["content_hash"] for r in conn.execute(
-        "SELECT content_hash FROM evidence_blocks "
-        "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=?",
-        key,
-    ).fetchall()}
-    if len(stored_hashes) != len(blocks):
-        raise RuntimeError(
-            f"重新激活失败：块数不匹配（存储 {len(stored_hashes)} vs 传入 {len(blocks)}）")
-    for b in blocks:
-        if b.content_hash not in stored_hashes:
-            raise RuntimeError(f"重新激活失败：content_hash 不匹配 evidence_id={b.evidence_id}")
+
     # 依赖版本一致性。
     if (_json_loads(set_row["dependency_versions"]) or {}) != dependency_versions:
         raise RuntimeError("重新激活失败：依赖版本不兼容")
+    # 输入文件哈希一致性。
+    if input_hashes.get("file_sha256") != document.file_sha256:
+        raise RuntimeError("重新激活失败：输入文件哈希与文档内容版本不一致")
+
+    stored_ids = _verify_set_matches_blocks(conn, key, blocks)
 
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
     try:
-        _insert_checkpoint_row(conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", [],
-                               input_hashes, dependency_versions, [])
+        _insert_checkpoint_row(conn, checkpoint_id, run_id, "PERSISTING_EVIDENCE", stored_ids,
+                               input_hashes, dependency_versions, stored_ids)
         conn.execute(
             "UPDATE evidence_sets SET status='retired' "
             "WHERE company_id=? AND document_id=? AND document_version=? AND status='current' "
@@ -580,8 +648,8 @@ def _reactivate(conn, document, blocks, set_version, run_id, input_hashes, depen
         conn.rollback()
         raise
     return CommitResult(document=_load_document(conn, company_id, document_id, document_version),
-                        evidence_set_version=set_version, written=0, reused=len(blocks),
-                        checkpoint_id=checkpoint_id, evidence_ids=[])
+                        evidence_set_version=set_version, written=0, reused=len(stored_ids),
+                        checkpoint_id=checkpoint_id, evidence_ids=stored_ids)
 
 
 # ---------------------------------------------------------------------------
