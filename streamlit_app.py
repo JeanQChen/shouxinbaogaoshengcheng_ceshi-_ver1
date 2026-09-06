@@ -210,6 +210,131 @@ def _render_evidence_status(label: str, ev: dict) -> None:
         st.write(f"   ❌ Evidence 构建失败：{ev['error']}")
 
 
+def _render_batch_result(label: str, result) -> None:
+    """只读展示批量确认结果（committed / errors / 接受条数）。"""
+    if result.committed:
+        st.success(f"✅ {label}：已提交 {len(result.accepted)} 条决议")
+    else:
+        st.error(f"❌ {label}：提交失败（committed=false），未写入任何决议")
+        for e in result.errors:
+            st.write(f"   - [{e.field}] {e.message}")
+
+
+def _render_financial_v2_confirmation(company_id: str) -> None:
+    """A5 集中确认面板（薄 UI）。
+
+    只做四件事：调用 list_pending()、展示来源/坐标/差异/影响/过期状态、收集批量
+    选择 + reason code + note、调用两个批量提交接口并展示 committed/errors 与刷新后的
+    真实状态。科目映射、容差、冲突选择默认值、事务、失效、权限规则一律不在此实现。
+    无 pending 时不渲染确认区。
+    """
+    from financial_v2 import resolutions as res
+    from financial_v2 import schema as V2S
+    from financial_v2 import store as v2store
+
+    v2store.init_db(v2store.DEFAULT_DB_PATH)
+    pending = res.list_pending(company_id)
+
+    if not pending.items:
+        return
+
+    st.subheader("🧪 V2 财务对账确认")
+    st.caption(
+        f"待确认 {len(pending.items)} 项：科目映射 {pending.mapping_confirmation_count}，"
+        f"冲突选源 {pending.value_source_resolution_count}，"
+        f"补充材料 {pending.insufficient_scope_count}"
+    )
+
+    reason_codes = list(V2S.RESOLUTION_REASON_CODES)
+    mapping_choices: dict[str, tuple[str, str | None, str, str]] = {}
+    value_choices: dict[str, tuple[str, list[str], list[str], str, str]] = {}
+
+    for it in pending.items:
+        if it.issue_type == res.ISSUE_TYPE_INSUFFICIENT_SCOPE:
+            st.warning(
+                f"⚠️ `{it.payload.get('raw_item_text') or it.payload.get('standard_item_code')}`："
+                f"scope / 币种 / 期间 / 主体不明，需补充或更正材料，不接受替代值输入。"
+            )
+            continue
+
+        if it.issue_type == res.ISSUE_TYPE_MAPPING:
+            stale_tag = " ⏳（已过期）" if it.stale else ""
+            st.markdown(
+                f"**映射待确认**：`{it.payload.get('raw_item_text')}`"
+                f"（{it.payload.get('statement_type')}{stale_tag}）"
+            )
+            conflicting = it.payload.get("conflicting_rules") or []
+            codes = [c.get("standard_item_code") for c in conflicting
+                     if c.get("standard_item_code")]
+            opts = ["__none__"] + codes + ["__unconfirmable__"]
+            fmt = {"__none__": "（未选择）", "__unconfirmable__": "无法确认 / 需补充材料"}
+            chosen = st.radio(
+                "选择标准科目（系统展示候选）", options=opts, index=0,
+                format_func=lambda x: fmt.get(x, x),
+                key=f"v2_m_{it.issue_id}",
+            )
+            reason = st.selectbox(
+                "reason code", options=reason_codes, key=f"v2_mr_{it.issue_id}")
+            note = st.text_input(
+                "note（OTHER_WITH_NOTE 必填）", key=f"v2_mn_{it.issue_id}")
+            if chosen != "__none__":
+                mapping_choices[it.issue_id] = (
+                    it.payload["candidate_id"],
+                    None if chosen == "__unconfirmable__" else chosen,
+                    reason, note.strip() or None)
+            st.divider()
+        else:  # VALUE_SOURCE_RESOLUTION
+            st.markdown(
+                f"**冲突选源**：`{it.payload.get('standard_item_code')}`"
+                f"（{it.payload.get('statement_type')}），"
+                f"标准值 {it.payload.get('std_values')}"
+            )
+            sources = it.payload.get("sources") or []
+            src_labels = [
+                f"{s['record_id']} | std {s['std_value']} {s['std_unit']}"
+                f" | {s['report_period']} {s['scope']} {s['currency']}"
+                for s in sources
+            ]
+            src_opts = ["__none__"] + list(range(len(sources)))
+            chosen = st.radio(
+                "选择接受来源（不预选默认值）", options=src_opts, index=0,
+                format_func=lambda i: "（未选择）" if i == "__none__" else src_labels[i],
+                key=f"v2_v_{it.issue_id}",
+            )
+            reason = st.selectbox(
+                "reason code", options=reason_codes, key=f"v2_vr_{it.issue_id}")
+            note = st.text_input(
+                "note（OTHER_WITH_NOTE 必填）", key=f"v2_vn_{it.issue_id}")
+            if chosen != "__none__":
+                acc = [sources[chosen]["record_id"]]
+                rej = [s["record_id"] for i, s in enumerate(sources) if i != chosen]
+                value_choices[it.issue_id] = (
+                    it.payload["group_id"], acc, rej, reason, note.strip() or None)
+            st.divider()
+
+    if not mapping_choices and not value_choices:
+        return
+
+    if st.button("提交 V2 确认", type="primary"):
+        if mapping_choices:
+            mreq = res.MappingResolutionBatchRequest(
+                company_id=company_id, operator="demo",
+                items=[res.MappingResolutionItem(
+                    candidate_id=cid, chosen_item_code=chosen,
+                    reason_code=reason, note=note)
+                    for (cid, chosen, reason, note) in mapping_choices.values()])
+            _render_batch_result("科目映射确认", res.submit_mapping_resolutions(mreq))
+        if value_choices:
+            vreq = res.ValueResolutionBatchRequest(
+                company_id=company_id, operator="demo",
+                items=[res.ValueResolutionItem(
+                    group_id=gid, accepted_record_ids=acc,
+                    rejected_record_ids=rej, reason_code=reason, note=note)
+                    for (gid, acc, rej, reason, note) in value_choices.values()])
+            _render_batch_result("冲突来源确认", res.submit_value_resolutions(vreq))
+        st.rerun()
+
+
 def _generate_report(company_id: str, template_path: str, **variables: str) -> tuple[str, list]:
     """生成完整报告：解析模板 → 三 agent 并行产出素材 → synthesizer 主笔 → 回检。
 
@@ -401,6 +526,18 @@ def main() -> None:
 
         st.divider()
 
+        # ── V2 财务对账确认开关（实验性，默认关闭）──
+        enable_v2 = st.checkbox(
+            "🧪 启用 V2 财务对账确认（实验性）",
+            value=False,
+            help=(
+                "默认关闭。开启后展示 V2 财务对账的待确认面板（科目映射 / 冲突来源选择），"
+                "数据来自 CLI 运行的 financial_v2 对账结果。无待确认项时不显示面板。"
+            ),
+        )
+
+        st.divider()
+
         # ── Demo 一键生成 ──
         if DEMO_MODE:
             if st.button("🚀 一键生成 Demo 报告", type="primary", use_container_width=True):
@@ -484,6 +621,10 @@ def main() -> None:
                 st.rerun()
 
         st.caption("© 2026 授信报告生成器 Demo")
+
+    # ── V2 财务对账确认（实验性，独立于 V1 主流程，默认不渲染）──
+    if enable_v2:
+        _render_financial_v2_confirmation(company_id)
 
     # ── Step 1: 上传文件 ──
     st.header("📋 第一步：导入数据")
