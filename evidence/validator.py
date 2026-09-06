@@ -20,7 +20,7 @@ SQLite 约束来兜底（SQLite 约束仍保留作为第二道防线）。`evide
 from __future__ import annotations
 
 from evidence import schema as S
-from evidence.ids import make_evidence_id
+from evidence.ids import content_hash, make_evidence_id
 from evidence.schema import DocumentRecord, EvidenceBlock
 
 
@@ -124,6 +124,12 @@ def validate_block(block: EvidenceBlock) -> None:
              f"block.page_number 必须为 >=1 的整数: {block.page_number!r}")
     _require(isinstance(block.block_index, int) and block.block_index >= 0,
              f"block.block_index 必须为非负整数: {block.block_index!r}")
+
+    # content_hash 必须由 text + structured_payload 重算一致（防正文/payload 被篡改
+    # 却沿用旧 hash）。校验通过后 content_hash 方视为可信，供 evidence_id 重算。
+    recomputed_ch = content_hash(block.text, block.structured_payload)
+    _require(block.content_hash == recomputed_ch,
+             f"block.content_hash 与 text/structured_payload 重算不一致: {block.content_hash!r}")
 
     if block.evidence_type in ("paragraph", "heading"):
         _require(block.structured_payload is None or block.structured_payload == {},
