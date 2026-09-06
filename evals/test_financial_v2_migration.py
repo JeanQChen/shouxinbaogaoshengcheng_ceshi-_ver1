@@ -82,6 +82,16 @@ def _applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r[0] for r in conn.execute("SELECT version FROM schema_migrations ORDER BY rowid")]
 
 
+def _build_v2_db(path: str) -> None:
+    """构造一个「真实旧 v2 库」：冻结 v2 DDL + schema_migrations=['1','2']（无 v3 表/列）。"""
+    conn = sqlite3.connect(path)
+    conn.executescript(store._build_ddl_v2())
+    conn.execute("INSERT INTO schema_migrations (version, applied_at) VALUES ('1', '2026-01-01T00:00:00Z')")
+    conn.execute("INSERT INTO schema_migrations (version, applied_at) VALUES ('2', '2026-01-01T00:00:00Z')")
+    conn.commit()
+    conn.close()
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -113,8 +123,8 @@ def main() -> dict:
     p1 = tmp_db()
     try:
         store.init_db(p1)
-        check(store.applied_schema_version() == "2", "全新库 schema_migrations 最新版本 == '2'")
-        check(S.SCHEMA_VERSION == "2" == store.applied_schema_version(),
+        check(store.applied_schema_version() == "3", "全新库 schema_migrations 最新版本 == '3'")
+        check(S.SCHEMA_VERSION == "3" == store.applied_schema_version(),
               "SCHEMA_VERSION == 最新 migration 版本 == 实际应用版本")
         conn = sqlite3.connect(p1)
         rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
@@ -124,6 +134,21 @@ def main() -> dict:
         ver_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_source_version)")}
         for col in ("currency", "report_periods", "extractor_name", "quality_flags"):
             check(col not in ver_cols, f"全新库 financial_source_version 无 v1 占位列 {col}")
+        # v3 结构探针：record 溯源列 + 新增表。
+        rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
+        check("candidate_id" in rec_cols, "全新库 source_financial_record 含 v3 列 candidate_id")
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        for t in ("extracted_financial_cell", "mapping_rule", "extraction_issue",
+                  "mapping_resolution", "mapping_resolution_validity", "mapping_resolution_head",
+                  "reconciliation_run", "reconciliation_group_result", "reconciliation_check",
+                  "current_reconciliation"):
+            check(t in tables, f"全新库含 v3 表 {t}")
+        # 不可变候选层触发器就位。
+        triggers = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
+        for t in ("extracted_financial_cell", "extraction_issue", "mapping_resolution",
+                  "reconciliation_run", "reconciliation_group_result", "reconciliation_check"):
+            check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
+                  f"全新库 {t} 不可变触发器就位")
         conn.close()
     finally:
         cleanup(p1)
@@ -135,7 +160,7 @@ def main() -> dict:
         store.init_db(p2)
 
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2"], "迁移后 schema_migrations == ['1','2']")
+        check(_applied_versions(conn) == ["1", "2", "3"], "迁移后 schema_migrations == ['1','2','3']")
 
         # v1 数据迁移后可读（文档头 + 内容版本文件事实 + 记录集合关键字段）。
         doc = store.get_source_document("sd-v1")
@@ -170,7 +195,7 @@ def main() -> dict:
         # 幂等重跑：第二次 init 不重迁移、数据不变。
         store.init_db(p2)
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2"], "第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3"], "第二次 init 不追加迁移记录")
         check(store.get_source_version("sv-v1").file_sha256 == "a" * 64, "第二次 init 数据不变")
         conn.close()
     finally:
@@ -202,7 +227,7 @@ def main() -> dict:
         conn.close()
         # 故障清除后可正常迁移。
         store.init_db(p3)
-        check(store.applied_schema_version() == "2", "故障清除后重跑迁移成功")
+        check(store.applied_schema_version() == "3", "故障清除后重跑迁移成功")
     finally:
         cleanup(p3)
 
@@ -292,13 +317,70 @@ def main() -> dict:
         conn.commit()
         conn.close()
         store.init_db(p7)
-        check(store.applied_schema_version() == "2", "修复故障后正常迁移到 v2")
+        check(store.applied_schema_version() == "3", "修复故障后正常迁移到 v3")
         conn = sqlite3.connect(p7)
         check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
               "修复后迁移 foreign_key_check 为空")
         conn.close()
     finally:
         cleanup(p7)
+
+    # ---- 真实旧 v2 DDL → v3（追加表 + candidate_id 列）----
+    p8 = tmp_db()
+    try:
+        _build_v2_db(p8)
+        conn = sqlite3.connect(p8)
+        rec_cols_v2 = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
+        check("candidate_id" not in rec_cols_v2, "v2 库 source_financial_record 无 candidate_id 列（迁移前）")
+        conn.close()
+
+        store.init_db(p8)
+        conn = sqlite3.connect(p8)
+        check(_applied_versions(conn) == ["1", "2", "3"], "v2→v3 迁移后 schema_migrations == ['1','2','3']")
+        rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
+        check("candidate_id" in rec_cols, "v2→v3 后 source_financial_record 追加 candidate_id 列")
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        for t in ("extracted_financial_cell", "extraction_issue", "mapping_rule",
+                  "mapping_resolution", "reconciliation_run", "reconciliation_group_result",
+                  "reconciliation_check", "current_reconciliation"):
+            check(t in tables, f"v2→v3 后含新表 {t}")
+        check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
+              "v2→v3 迁移后 foreign_key_check 为空")
+        conn.close()
+
+        # 幂等重跑。
+        store.init_db(p8)
+        conn = sqlite3.connect(p8)
+        check(_applied_versions(conn) == ["1", "2", "3"], "v2→v3 第二次 init 不追加迁移记录")
+        conn.close()
+    finally:
+        cleanup(p8)
+
+    # ---- v2→v3 迁移失败完整回滚（保留原 v2 库）----
+    p9 = tmp_db()
+    try:
+        _build_v2_db(p9)
+        conn = sqlite3.connect(p9)
+        conn.execute("CREATE TRIGGER trg_fail_v3 BEFORE INSERT ON schema_migrations "
+                     "WHEN NEW.version='3' BEGIN SELECT RAISE(ABORT, 'injected v3'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            store.init_db(p9)
+            check(False, "v2→v3 迁移失败被注入触发")
+        except (sqlite3.IntegrityError, RuntimeError):
+            check(True, "v2→v3 迁移失败被注入触发")
+        conn = sqlite3.connect(p9)
+        conn.execute("DROP TRIGGER trg_fail_v3")
+        conn.commit()
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        check("extracted_financial_cell" not in tables, "回滚后无 v3 新表")
+        check(_applied_versions(conn) == ["1", "2"], "回滚后 schema_migrations 仍为 ['1','2']")
+        conn.close()
+        store.init_db(p9)
+        check(store.applied_schema_version() == "3", "故障清除后重跑 v3 迁移成功")
+    finally:
+        cleanup(p9)
 
     # ---- 合成测试：版本顺序不依赖字符串大小（"9" vs "10"）----
     orig_migrations = store.MIGRATIONS

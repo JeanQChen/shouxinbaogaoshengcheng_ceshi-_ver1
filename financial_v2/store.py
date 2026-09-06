@@ -26,6 +26,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 from financial_v2 import schema as S
@@ -81,6 +82,15 @@ class CommitRecordSetResult:
     record_count: int
 
 
+@dataclass
+class CommitCandidatesResult:
+    """commit_extracted_candidates 的返回结果。"""
+    record_set_version: str
+    candidate_count: int
+    issue_count: int
+    reused: bool
+
+
 # ---------------------------------------------------------------------------
 # DDL（v1 冻结 + v2 当前）
 # ---------------------------------------------------------------------------
@@ -103,8 +113,12 @@ def _immutable_triggers(table: str) -> str:
 
 
 def build_ddl() -> str:
-    """返回最新（v2）建表语句（幂等）。"""
-    return _build_ddl_v2()
+    """返回最新（v3）建表语句（幂等）。
+
+    candidate_id 列不进 DDL 文本（_shared_ddl_tail 为 v1/v2 冻结共享，不得改动），
+    由 init_db / 迁移路径通过 _add_candidate_id_column() 单独补齐。
+    """
+    return _build_ddl_v2() + _build_ddl_v3()
 
 
 def _build_ddl_v1() -> str:
@@ -468,6 +482,161 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 """
 
 
+def _v3_ddl_statements() -> list[str]:
+    """v3 追加 DDL 的语句清单（每条一条语句，供事务内逐条执行，保证迁移原子性）。
+
+    只新增表，不重写 v1/v2 已有表；candidate_id 列由 _add_candidate_id_column()
+    单独补齐（避免改动 v1/v2 冻结的 _shared_ddl_tail）。
+    """
+    stmts: list[str] = []
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS extracted_financial_cell (
+    candidate_id             TEXT PRIMARY KEY,
+    record_set_version       TEXT NOT NULL,
+    company_id               TEXT NOT NULL,
+    source_version           TEXT NOT NULL REFERENCES financial_source_version(source_version),
+    statement_type_candidate TEXT,
+    raw_item_text            TEXT NOT NULL,
+    raw_value_text           TEXT,
+    parsed_numeric_value     TEXT,
+    formula_text             TEXT,
+    cached_formula_value     TEXT,
+    period_text              TEXT,
+    period_candidate         TEXT,
+    period_type_candidate    TEXT,
+    scope_candidate          TEXT,
+    currency_candidate       TEXT,
+    unit_candidate           TEXT,
+    restatement_candidate    TEXT,
+    min_display_increment    TEXT,
+    locator                  TEXT NOT NULL,
+    detection_evidence       TEXT NOT NULL,
+    status                   TEXT NOT NULL,
+    quality_flags            TEXT NOT NULL,
+    created_at               TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_extcell_record_set ON extracted_financial_cell(record_set_version)")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_extcell_company ON extracted_financial_cell(company_id)")
+    stmts.extend(_immutable_trigger_sqls("extracted_financial_cell"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS mapping_rule (
+    rule_id            TEXT NOT NULL,
+    rule_version       TEXT NOT NULL,
+    statement_type     TEXT NOT NULL,
+    standard_item_code TEXT NOT NULL,
+    aliases            TEXT NOT NULL,
+    exclude_words      TEXT NOT NULL,
+    priority           INTEGER NOT NULL,
+    effective_at       TEXT NOT NULL,
+    PRIMARY KEY (rule_id, rule_version)
+)""")
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS extraction_issue (
+    issue_id           TEXT PRIMARY KEY,
+    record_set_version TEXT NOT NULL,
+    issue_type         TEXT NOT NULL,
+    candidate_id       TEXT,
+    comparison_key     TEXT,
+    detail             TEXT NOT NULL,
+    created_at         TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_extissue_record_set ON extraction_issue(record_set_version)")
+    stmts.extend(_immutable_trigger_sqls("extraction_issue"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS mapping_resolution (
+    resolution_id      TEXT PRIMARY KEY,
+    record_set_version TEXT NOT NULL,
+    candidate_id       TEXT NOT NULL,
+    issue_id           TEXT,
+    chosen_item_code   TEXT,
+    reason_code        TEXT NOT NULL,
+    note               TEXT,
+    operator           TEXT NOT NULL,
+    confirmed_at       TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_mapres_candidate ON mapping_resolution(candidate_id)")
+    stmts.extend(_immutable_trigger_sqls("mapping_resolution"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS mapping_resolution_validity (
+    event_id           TEXT PRIMARY KEY,
+    resolution_id      TEXT NOT NULL REFERENCES mapping_resolution(resolution_id),
+    status             TEXT NOT NULL,
+    invalidated_by     TEXT,
+    invalidated_reason TEXT,
+    event_at           TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_mapresval_resolution ON mapping_resolution_validity(resolution_id, event_at)")
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS mapping_resolution_head (
+    candidate_id   TEXT PRIMARY KEY,
+    resolution_id  TEXT NOT NULL REFERENCES mapping_resolution(resolution_id),
+    updated_at     TEXT NOT NULL
+)""")
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS reconciliation_run (
+    run_id               TEXT PRIMARY KEY,
+    company_id           TEXT NOT NULL,
+    input_record_set_ids TEXT NOT NULL,
+    rule_versions        TEXT NOT NULL,
+    input_hash           TEXT NOT NULL,
+    created_at           TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_reconrun_company ON reconciliation_run(company_id, created_at)")
+    stmts.extend(_immutable_trigger_sqls("reconciliation_run"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS reconciliation_group_result (
+    run_id                    TEXT NOT NULL REFERENCES reconciliation_run(run_id),
+    comparison_key            TEXT NOT NULL,
+    state                     TEXT NOT NULL,
+    candidate_record_ids      TEXT NOT NULL,
+    std_values                TEXT NOT NULL,
+    diff_detail               TEXT NOT NULL,
+    impact_item_codes         TEXT NOT NULL,
+    impact_section_contracts  TEXT NOT NULL,
+    created_at                TEXT NOT NULL,
+    PRIMARY KEY (run_id, comparison_key)
+)""")
+    stmts.extend(_immutable_trigger_sqls("reconciliation_group_result"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS reconciliation_check (
+    check_id           TEXT PRIMARY KEY,
+    run_id             TEXT NOT NULL REFERENCES reconciliation_run(run_id),
+    record_set_version TEXT NOT NULL,
+    check_type         TEXT NOT NULL,
+    input_record_ids   TEXT NOT NULL,
+    left_value         TEXT,
+    right_value        TEXT,
+    diff               TEXT,
+    tolerance          TEXT,
+    status             TEXT NOT NULL,
+    created_at         TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_reconcheck_run ON reconciliation_check(run_id)")
+    stmts.extend(_immutable_trigger_sqls("reconciliation_check"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS current_reconciliation (
+    company_id  TEXT PRIMARY KEY,
+    run_id      TEXT NOT NULL REFERENCES reconciliation_run(run_id),
+    switched_at TEXT NOT NULL
+)""")
+    # 统一补齐语句终止符：每条语句以 ';' 结尾（触发器语句已自带）。
+    return [s if s.rstrip().endswith(";") else s.rstrip() + ";" for s in stmts]
+
+
+def _build_ddl_v3() -> str:
+    """返回 v3 追加 DDL 文本（仅用于全新库一次到位路径，走 executescript）。"""
+    return "\n".join(_v3_ddl_statements()) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # 迁移：v1 → v2（受控建新表 + 复制校验 + 替换）
 # ---------------------------------------------------------------------------
@@ -609,6 +778,24 @@ def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
     _swap_financial_record_set(conn)
 
 
+def _add_candidate_id_column(conn: sqlite3.Connection) -> None:
+    """给 source_financial_record 追加溯源列 candidate_id（幂等，可空）。"""
+    if "candidate_id" not in _table_columns(conn, "source_financial_record"):
+        conn.execute("ALTER TABLE source_financial_record ADD COLUMN candidate_id TEXT")
+
+
+def _migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
+    """v2 → v3：追加原始候选层 / 映射 / 对账 / 科目映射确认表 + record 溯源列。
+
+    逐条 conn.execute 而非 executescript：executescript 会隐式 COMMIT 当前事务，
+    破坏迁移原子性（失败回滚会残留已建表）。逐条执行让所有 DDL 参与同一事务，
+    任一失败随 _run_migration 的 ROLLBACK 一并撤销。
+    """
+    _add_candidate_id_column(conn)
+    for stmt in _v3_ddl_statements():
+        conn.execute(stmt)
+
+
 def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r["version"] for r in conn.execute(
         "SELECT version FROM schema_migrations ORDER BY rowid")]
@@ -687,12 +874,23 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
     for col in ("currency", "report_periods", "extractor_name", "quality_flags"):
         if col in ver_cols:
             raise RuntimeError(f"结构校验失败：financial_source_version 残留 v1 占位列 {col}")
+    # v3 结构探针：record 溯源列 + 新增表。
+    rec_cols = _table_columns(conn, "source_financial_record")
+    if "candidate_id" not in rec_cols:
+        raise RuntimeError("结构校验失败：source_financial_record 缺列 candidate_id")
+    for table in ("extracted_financial_cell", "mapping_rule", "extraction_issue",
+                  "mapping_resolution", "reconciliation_run",
+                  "reconciliation_group_result", "reconciliation_check",
+                  "current_reconciliation"):
+        if not _table_exists(conn, table):
+            raise RuntimeError(f"结构校验失败：缺 v3 表 {table}")
 
 
 # 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。
 MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("1", None),                # v1 初始 DDL（历史冻结，不再修改）
     ("2", _migrate_v1_to_v2),   # v1 → v2：内容版本瘦身 + 记录集合抽取事实
+    ("3", _migrate_v2_to_v3),   # v2 → v3：原始候选层 + 映射/对账/科目映射确认 + record 溯源列
 ]
 
 
@@ -713,6 +911,7 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
     try:
         if not _table_exists(conn, "schema_migrations"):
             conn.executescript(build_ddl())
+            _add_candidate_id_column(conn)
             now = _utcnow()
             for version, _ in MIGRATIONS:
                 conn.execute(
@@ -826,6 +1025,7 @@ def _row_to_record(row: sqlite3.Row) -> S.SourceFinancialRecord:
         record_hash=row["record_hash"],
         quality_flags=_json_loads(row["quality_flags"]) or [],
         created_at=row["created_at"],
+        candidate_id=row["candidate_id"],
     )
 
 
@@ -840,6 +1040,119 @@ def _row_to_progress(row: sqlite3.Row) -> S.ProgressEvent:
         total_units=row["total_units"],
         error_code=row["error_code"],
         recoverable=bool(row["recoverable"]),
+        created_at=row["created_at"],
+    )
+
+
+def _to_decimal(s: str | None) -> Decimal | None:
+    """把库内 TEXT 十进制字符串转 Decimal（None 透传）。"""
+    return Decimal(str(s)) if s is not None else None
+
+
+def _row_to_extracted_cell(row: sqlite3.Row) -> S.ExtractedFinancialCell:
+    return S.ExtractedFinancialCell(
+        candidate_id=row["candidate_id"],
+        record_set_version=row["record_set_version"],
+        company_id=row["company_id"],
+        source_version=row["source_version"],
+        statement_type_candidate=row["statement_type_candidate"],
+        raw_item_text=row["raw_item_text"],
+        raw_value_text=row["raw_value_text"],
+        parsed_numeric_value=_to_decimal(row["parsed_numeric_value"]),
+        formula_text=row["formula_text"],
+        cached_formula_value=_to_decimal(row["cached_formula_value"]),
+        period_text=row["period_text"],
+        period_candidate=row["period_candidate"],
+        period_type_candidate=row["period_type_candidate"],
+        scope_candidate=row["scope_candidate"],
+        currency_candidate=row["currency_candidate"],
+        unit_candidate=row["unit_candidate"],
+        restatement_candidate=row["restatement_candidate"],
+        min_display_increment=_to_decimal(row["min_display_increment"]),
+        locator=S.locator_from_dict(_json_loads(row["locator"])),
+        detection_evidence=_json_loads(row["detection_evidence"]) or {},
+        status=row["status"],
+        quality_flags=_json_loads(row["quality_flags"]) or [],
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_extraction_issue(row: sqlite3.Row) -> S.ExtractionIssue:
+    return S.ExtractionIssue(
+        issue_id=row["issue_id"],
+        record_set_version=row["record_set_version"],
+        issue_type=row["issue_type"],
+        candidate_id=row["candidate_id"],
+        comparison_key=row["comparison_key"],
+        detail=_json_loads(row["detail"]) or {},
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_mapping_rule(row: sqlite3.Row) -> S.MappingRule:
+    return S.MappingRule(
+        rule_id=row["rule_id"],
+        rule_version=row["rule_version"],
+        statement_type=row["statement_type"],
+        standard_item_code=row["standard_item_code"],
+        aliases=_json_loads(row["aliases"]) or [],
+        exclude_words=_json_loads(row["exclude_words"]) or [],
+        priority=row["priority"],
+        effective_at=row["effective_at"],
+    )
+
+
+def _row_to_mapping_resolution(row: sqlite3.Row) -> S.MappingResolution:
+    return S.MappingResolution(
+        resolution_id=row["resolution_id"],
+        record_set_version=row["record_set_version"],
+        candidate_id=row["candidate_id"],
+        issue_id=row["issue_id"],
+        chosen_item_code=row["chosen_item_code"],
+        reason_code=row["reason_code"],
+        note=row["note"],
+        operator=row["operator"],
+        confirmed_at=row["confirmed_at"],
+    )
+
+
+def _row_to_reconciliation_run(row: sqlite3.Row) -> S.ReconciliationRun:
+    return S.ReconciliationRun(
+        run_id=row["run_id"],
+        company_id=row["company_id"],
+        input_record_set_ids=_json_loads(row["input_record_set_ids"]) or [],
+        rule_versions=_json_loads(row["rule_versions"]) or {},
+        input_hash=row["input_hash"],
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_reconciliation_group_result(row: sqlite3.Row) -> S.ReconciliationGroupResult:
+    return S.ReconciliationGroupResult(
+        run_id=row["run_id"],
+        comparison_key=row["comparison_key"],
+        state=row["state"],
+        candidate_record_ids=_json_loads(row["candidate_record_ids"]) or [],
+        std_values=_json_loads(row["std_values"]) or [],
+        diff_detail=_json_loads(row["diff_detail"]) or {},
+        impact_item_codes=_json_loads(row["impact_item_codes"]) or [],
+        impact_section_contracts=_json_loads(row["impact_section_contracts"]) or [],
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_reconciliation_check(row: sqlite3.Row) -> S.ReconciliationCheck:
+    return S.ReconciliationCheck(
+        check_id=row["check_id"],
+        run_id=row["run_id"],
+        record_set_version=row["record_set_version"],
+        check_type=row["check_type"],
+        input_record_ids=_json_loads(row["input_record_ids"]) or [],
+        left_value=row["left_value"],
+        right_value=row["right_value"],
+        diff=row["diff"],
+        tolerance=row["tolerance"],
+        status=row["status"],
         created_at=row["created_at"],
     )
 
@@ -984,14 +1297,14 @@ def _insert_record_conn(conn: sqlite3.Connection, r: S.SourceFinancialRecord) ->
         "standard_item_code, statement_type, raw_item_text, raw_value, raw_unit, raw_currency, "
         "std_value, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
         "statement_scope, currency, restatement_version, locator, mapping_mode, confidence, "
-        "record_hash, quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "record_hash, quality_flags, created_at, candidate_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (r.record_id, r.record_set_version, r.company_id, r.standard_item_code,
          r.statement_type, r.raw_item_text, r.raw_value, r.raw_unit, r.raw_currency,
          r.std_value, r.std_unit, r.std_currency, r.conversion_rule_version,
          r.report_period, r.period_type, r.statement_scope, r.currency,
          r.restatement_version, _json_dumps(S.locator_to_dict(r.locator)),
          r.mapping_mode, r.confidence, r.record_hash, _json_dumps(r.quality_flags),
-         r.created_at),
+         r.created_at, r.candidate_id),
     )
 
 
@@ -1121,6 +1434,7 @@ def _record_identical(row: sqlite3.Row, rec: S.SourceFinancialRecord) -> bool:
         and row["mapping_mode"] == rec.mapping_mode
         and row["confidence"] == rec.confidence
         and row["record_hash"] == rec.record_hash
+        and row["candidate_id"] == rec.candidate_id
     )
 
 
@@ -1386,6 +1700,234 @@ def count_source_documents(company_id: str) -> int:
             (company_id,),
         ).fetchone()
         return row["c"]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 原始候选层：原子提交（A2/A3 持久化；不可变审计事实，严格复用）
+# ---------------------------------------------------------------------------
+
+def _decimal_text(v: Decimal | None) -> str | None:
+    """把 Decimal 序列化为库内 TEXT 十进制字符串（None 透传）。"""
+    return str(v) if v is not None else None
+
+
+def _insert_extracted_cell_conn(conn: sqlite3.Connection, cell: S.ExtractedFinancialCell) -> None:
+    conn.execute(
+        "INSERT INTO extracted_financial_cell (candidate_id, record_set_version, company_id, "
+        "source_version, statement_type_candidate, raw_item_text, raw_value_text, "
+        "parsed_numeric_value, formula_text, cached_formula_value, period_text, period_candidate, "
+        "period_type_candidate, scope_candidate, currency_candidate, unit_candidate, "
+        "restatement_candidate, min_display_increment, locator, detection_evidence, status, "
+        "quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (cell.candidate_id, cell.record_set_version, cell.company_id, cell.source_version,
+         cell.statement_type_candidate, cell.raw_item_text, cell.raw_value_text,
+         _decimal_text(cell.parsed_numeric_value), cell.formula_text,
+         _decimal_text(cell.cached_formula_value), cell.period_text, cell.period_candidate,
+         cell.period_type_candidate, cell.scope_candidate, cell.currency_candidate,
+         cell.unit_candidate, cell.restatement_candidate,
+         _decimal_text(cell.min_display_increment), _json_dumps(S.locator_to_dict(cell.locator)),
+         _json_dumps(cell.detection_evidence), cell.status, _json_dumps(cell.quality_flags),
+         cell.created_at),
+    )
+
+
+def _insert_extraction_issue_conn(conn: sqlite3.Connection, issue: S.ExtractionIssue) -> None:
+    conn.execute(
+        "INSERT INTO extraction_issue (issue_id, record_set_version, issue_type, candidate_id, "
+        "comparison_key, detail, created_at) VALUES (?,?,?,?,?,?,?)",
+        (issue.issue_id, issue.record_set_version, issue.issue_type, issue.candidate_id,
+         issue.comparison_key, _json_dumps(issue.detail), issue.created_at),
+    )
+
+
+def _extracted_cell_identical(row: sqlite3.Row, cell: S.ExtractedFinancialCell) -> bool:
+    """逐字段核对原始候选（不含 created_at，复用不比较时间戳）。"""
+    return (
+        row["candidate_id"] == cell.candidate_id
+        and row["record_set_version"] == cell.record_set_version
+        and row["company_id"] == cell.company_id
+        and row["source_version"] == cell.source_version
+        and row["statement_type_candidate"] == cell.statement_type_candidate
+        and row["raw_item_text"] == cell.raw_item_text
+        and row["raw_value_text"] == cell.raw_value_text
+        and _to_decimal(row["parsed_numeric_value"]) == cell.parsed_numeric_value
+        and row["formula_text"] == cell.formula_text
+        and _to_decimal(row["cached_formula_value"]) == cell.cached_formula_value
+        and row["period_text"] == cell.period_text
+        and row["period_candidate"] == cell.period_candidate
+        and row["period_type_candidate"] == cell.period_type_candidate
+        and row["scope_candidate"] == cell.scope_candidate
+        and row["currency_candidate"] == cell.currency_candidate
+        and row["unit_candidate"] == cell.unit_candidate
+        and row["restatement_candidate"] == cell.restatement_candidate
+        and _to_decimal(row["min_display_increment"]) == cell.min_display_increment
+        and _json_loads(row["locator"]) == S.locator_to_dict(cell.locator)
+        and _json_loads(row["detection_evidence"]) == cell.detection_evidence
+        and row["status"] == cell.status
+        and _json_loads(row["quality_flags"]) == cell.quality_flags
+    )
+
+
+def _extraction_issue_identical(row: sqlite3.Row, issue: S.ExtractionIssue) -> bool:
+    return (
+        row["issue_id"] == issue.issue_id
+        and row["record_set_version"] == issue.record_set_version
+        and row["issue_type"] == issue.issue_type
+        and row["candidate_id"] == issue.candidate_id
+        and row["comparison_key"] == issue.comparison_key
+        and _json_loads(row["detail"]) == issue.detail
+    )
+
+
+def commit_extracted_candidates(
+    candidates: list[S.ExtractedFinancialCell],
+    issues: list[S.ExtractionIssue],
+    expected_source_document_id: str,
+) -> CommitCandidatesResult:
+    """原子提交一批原始候选 + 抽取问题（A2/A3 提取产物，不可变审计事实）。
+
+    单事务内：校验 → 归属链（source_version → source_document_id 与公司归属）→
+    批内去重 → 严格复用（逐字段一致则复用，不一致报 StorageConflictError）→
+    写候选 + 写问题 → 写后复核 → commit。任一步失败全部回滚。
+
+    候选/问题必须同属一个 record_set_version；候选 source_version 必须已由 A1 登记
+    且归属 expected_source_document_id，不得跨文档/跨公司写入。
+    """
+    if not candidates and not issues:
+        raise ValueError("candidates 与 issues 不能同时为空")
+
+    for c in candidates:
+        validator.validate_extracted_cell(c)
+    for iss in issues:
+        validator.validate_extraction_issue(iss)
+
+    # 批内 record_set_version 一致性（候选 + 问题同属一个提取结果）。
+    rs_versions = {c.record_set_version for c in candidates} | {i.record_set_version for i in issues}
+    if len(rs_versions) != 1:
+        raise validator.ValidationError(
+            f"候选与问题必须同属一个 record_set_version: {sorted(rs_versions)}")
+    record_set_version = next(iter(rs_versions))
+
+    # 批内候选去重（同 locator + 同原始文本/值 → 同 candidate_id，属抽取重复）。
+    candidate_ids = [c.candidate_id for c in candidates]
+    if len(candidate_ids) != len(set(candidate_ids)):
+        raise validator.ValidationError("同批存在重复 candidate_id（同 locator 抽取重复）")
+
+    # 问题若引用候选，必须指向本批候选（抽取问题由候选派生）。
+    for iss in issues:
+        if iss.candidate_id is not None and iss.candidate_id not in set(candidate_ids):
+            raise validator.ValidationError(
+                f"issue.candidate_id 引用了本批之外的候选: {iss.candidate_id!r}")
+
+    conn = _get_conn()
+    try:
+        authoritative_company: str | None = None
+        for c in candidates:
+            sv = conn.execute(
+                "SELECT source_document_id FROM financial_source_version WHERE source_version=?",
+                (c.source_version,),
+            ).fetchone()
+            if sv is None:
+                raise KeyError(f"候选 source_version 不存在（未登记）: {c.source_version}")
+            if sv["source_document_id"] != expected_source_document_id:
+                raise ValueError(
+                    f"候选 source_version 归属不符: {sv['source_document_id']!r} "
+                    f"!= 期望 {expected_source_document_id!r}")
+            _require_not_quarantined(conn, "financial_source_version", c.source_version)
+            company = _authoritative_company_id(conn, c.source_version)
+            if authoritative_company is None:
+                authoritative_company = company
+            if c.company_id != company:
+                raise validator.ValidationError(
+                    f"candidate.company_id 与权威公司不符: {c.company_id!r} != {company!r}")
+
+        inserted_any = False
+        for c in candidates:
+            existing = conn.execute(
+                "SELECT * FROM extracted_financial_cell WHERE candidate_id=?",
+                (c.candidate_id,),
+            ).fetchone()
+            if existing is not None:
+                if not _extracted_cell_identical(existing, c):
+                    raise StorageConflictError(
+                        f"candidate_id 已存在但内容不一致: {c.candidate_id}")
+            else:
+                _insert_extracted_cell_conn(conn, c)
+                inserted_any = True
+
+        for iss in issues:
+            existing = conn.execute(
+                "SELECT * FROM extraction_issue WHERE issue_id=?",
+                (iss.issue_id,),
+            ).fetchone()
+            if existing is not None:
+                if not _extraction_issue_identical(existing, iss):
+                    raise StorageConflictError(
+                        f"issue_id 已存在但内容不一致: {iss.issue_id}")
+            else:
+                _insert_extraction_issue_conn(conn, iss)
+                inserted_any = True
+
+        # 写后复核。
+        cand_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM extracted_financial_cell WHERE record_set_version=?",
+            (record_set_version,),
+        ).fetchone()["c"]
+        issue_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM extraction_issue WHERE record_set_version=?",
+            (record_set_version,),
+        ).fetchone()["c"]
+        if cand_count == 0 and issue_count == 0:
+            raise RuntimeError("候选写入复核失败：record_set_version 下无任何候选/问题")
+
+        conn.commit()
+        return CommitCandidatesResult(
+            record_set_version=record_set_version,
+            candidate_count=cand_count,
+            issue_count=issue_count,
+            reused=not inserted_any,
+        )
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_candidate(candidate_id: str) -> S.ExtractedFinancialCell | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM extracted_financial_cell WHERE candidate_id=?",
+            (candidate_id,),
+        ).fetchone()
+        return _row_to_extracted_cell(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_candidates(record_set_version: str) -> list[S.ExtractedFinancialCell]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM extracted_financial_cell WHERE record_set_version=? ORDER BY candidate_id",
+            (record_set_version,),
+        ).fetchall()
+        return [_row_to_extracted_cell(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def list_extraction_issues(record_set_version: str) -> list[S.ExtractionIssue]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM extraction_issue WHERE record_set_version=? ORDER BY issue_id",
+            (record_set_version,),
+        ).fetchall()
+        return [_row_to_extraction_issue(r) for r in rows]
     finally:
         conn.close()
 

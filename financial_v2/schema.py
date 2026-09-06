@@ -30,12 +30,13 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 # ---------------------------------------------------------------------------
 # 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +135,39 @@ QUARANTINE_OBJECT_TYPES = [
     "resolution_record",
     "financial_snapshot",
     "snapshot_item",
+    "extracted_financial_cell",   # A2/A3 原始候选层
+    "mapping_resolution",         # A5 科目映射确认
+    "reconciliation_run",         # A4 对账运行
+]
+
+# 候选提取状态（§4.1 提取时点，不可变）。下游 MAPPING_REQUIRED / NORMALIZATION_REQUIRED /
+# READY_FOR_RECORD / REJECTED 为派生状态，由 extraction_issue / record 关联表达。
+CANDIDATE_STATUSES = ["EXTRACTED", "EMPTY_OR_NOT_APPLICABLE", "PARSE_FAILED", "CLASSIFICATION_REQUIRED"]
+
+# 抽取 / 映射 / 标准化问题类型（A2/A3/A4 记录；A5 集中确认解决）。
+EXTRACTION_ISSUE_TYPES = [
+    "PARSE_FAILED",
+    "CLASSIFICATION_REQUIRED",
+    "MAPPING_REQUIRED",
+    "NORMALIZATION_REQUIRED",
+    "UNIT_UNRESOLVED",
+    "PERIOD_UNRESOLVED",
+    "SCOPE_UNRESOLVED",
+    "CURRENCY_UNRESOLVED",
+    "SUBJECT_MISMATCH",
+    "UNSUPPORTED_FORMAT",
+    "FILE_HASH_MISMATCH",
+]
+
+# 同源勾稽状态（§7.4）。
+CHECK_STATUSES = ["PASS", "FAIL", "NOT_RUN_MISSING_INPUT"]
+
+# 同源勾稽类型（§7.4 首版四类）。
+CHECK_TYPES = [
+    "BALANCE_SHEET_IDENTITY",      # 资产总计 ≈ 负债合计 + 所有者权益合计
+    "CASH_BALANCE_RECONCILIATION", # 期末现金 ≈ 期初 + 净增加额（字段可得时）
+    "NET_INCOME_CASH_START",       # 利润表净利润 vs 现金流量表补充资料起点（字段可得时）
+    "REVENUE_COST_BREAKDOWN",      # 收入/成本附注构成合计 vs 主表（字段可得且口径一致时）
 ]
 
 
@@ -233,6 +267,26 @@ def derive_record_id(record_set_version: str, identity: dict) -> str:
     """记录不可变身份：record_set_version + 规范化内容 + 坐标。"""
     canonical = json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "rec-" + _sha256_hex(f"{record_set_version}|{canonical}", 32)
+
+
+def derive_candidate_id(
+    record_set_version: str,
+    locator: "SourceLocator | None",
+    raw_item_text: str,
+    raw_value_text: str | None,
+) -> str:
+    """原始候选不可变身份：record_set_version + 坐标 + 原始文本/值。
+
+    同一文件、同一抽取器版本重复运行 → 同一 record_set_version → 同一坐标与原始
+    内容 → 同一 candidate_id（幂等复用，§7）。不含时间戳。
+    """
+    raw = json.dumps({
+        "record_set_version": record_set_version,
+        "locator": locator_to_dict(locator),
+        "raw_item_text": raw_item_text,
+        "raw_value_text": raw_value_text,
+    }, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "cand-" + _sha256_hex(raw, 32)
 
 
 # ---------------------------------------------------------------------------
@@ -448,6 +502,7 @@ class SourceFinancialRecord:
     record_hash: str
     quality_flags: list[str]
     created_at: str
+    candidate_id: str | None = None   # 溯源指针：指向原始候选（A2/A3 生成，A1 记录可为 None）
 
 
 @dataclass
@@ -587,3 +642,136 @@ class Checkpoint:
     resolution_refs: list[str]
     completed_unit_ids: list[str]
     created_at: str
+
+
+# ---------------------------------------------------------------------------
+# A2/A3 原始候选层（§4.1）：抽取时点事实，不可变；下游处理用追加事件/派生记录表达
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ExtractedFinancialCell:
+    """原始抽取候选：真实坐标 + 原始文本/值，未知维度显式 None/候选，绝不伪装标准值。
+
+    parsed_numeric_value / cached_formula_value / min_display_increment 用 Decimal
+    承载（库内以 TEXT 保存十进制字符串，往返不损失审计精度）。status 为提取时点
+    不可变状态；下游 MAPPING_REQUIRED / NORMALIZATION_REQUIRED / READY_FOR_RECORD /
+    REJECTED 由 extraction_issue 与 record 关联表达，不 UPDATE 本行。
+    """
+
+    candidate_id: str
+    record_set_version: str
+    company_id: str
+    source_version: str
+    statement_type_candidate: str | None
+    raw_item_text: str
+    raw_value_text: str | None
+    parsed_numeric_value: Decimal | None
+    formula_text: str | None
+    cached_formula_value: Decimal | None
+    period_text: str | None
+    period_candidate: str | None
+    period_type_candidate: str | None
+    scope_candidate: str | None
+    currency_candidate: str | None
+    unit_candidate: str | None
+    restatement_candidate: str | None
+    min_display_increment: Decimal | None
+    locator: SourceLocator | None
+    detection_evidence: dict
+    status: str
+    quality_flags: list[str]
+    created_at: str
+
+
+@dataclass
+class MappingRule:
+    """版本化确定性科目映射规则（A4 mapping，非不可变事实；新版本追加新行）。"""
+
+    rule_id: str
+    rule_version: str
+    statement_type: str
+    standard_item_code: str
+    aliases: list[str]
+    exclude_words: list[str]
+    priority: int
+    effective_at: str
+
+
+@dataclass
+class ExtractionIssue:
+    """抽取 / 映射 / 标准化问题（不可变事实；解决状态由 resolution 关联推导）。"""
+
+    issue_id: str
+    record_set_version: str
+    issue_type: str
+    candidate_id: str | None
+    comparison_key: str | None
+    detail: dict
+    created_at: str
+
+
+# ---------------------------------------------------------------------------
+# A4 对账运行（§7.8）：run 绑定公司 / 输入 Record Set / 规则版本 / input hash
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReconciliationRun:
+    """一次对账运行（不可变；新运行不覆盖旧运行，current 用独立指针）。"""
+
+    run_id: str
+    company_id: str
+    input_record_set_ids: list[str]
+    rule_versions: dict[str, str]
+    input_hash: str
+    created_at: str
+
+
+@dataclass
+class ReconciliationGroupResult:
+    """run 作用域的对账组结果（§7.6/7.7，std_values 用十进制字符串保存）。"""
+
+    run_id: str
+    comparison_key: str
+    state: str
+    candidate_record_ids: list[str]
+    std_values: list[str]
+    diff_detail: dict
+    impact_item_codes: list[str]
+    impact_section_contracts: list[str]
+    created_at: str
+
+
+@dataclass
+class ReconciliationCheck:
+    """同源勾稽结果（§7.4，版本化 Decimal 计算 + 输入/差异/容差）。"""
+
+    check_id: str
+    run_id: str
+    record_set_version: str
+    check_type: str
+    input_record_ids: list[str]
+    left_value: str | None
+    right_value: str | None
+    diff: str | None
+    tolerance: str | None
+    status: str
+    created_at: str
+
+
+# ---------------------------------------------------------------------------
+# A5 科目映射确认（§8.4，不可变审计事件）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MappingResolution:
+    """人工科目映射确认（chosen_item_code 为 None 表示「无法确认/需补充材料」）。"""
+
+    resolution_id: str
+    record_set_version: str
+    candidate_id: str
+    issue_id: str | None
+    chosen_item_code: str | None
+    reason_code: str
+    note: str | None
+    operator: str
+    confirmed_at: str

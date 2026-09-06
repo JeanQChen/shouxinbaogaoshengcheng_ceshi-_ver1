@@ -318,6 +318,130 @@ def validate_progress_event(ev: S.ProgressEvent) -> None:
     _nonempty(ev.created_at, "created_at")
 
 
+# ---------------------------------------------------------------------------
+# A2/A3 原始候选 / 映射规则 / 抽取问题
+# ---------------------------------------------------------------------------
+
+def _finite_decimal(v) -> bool:
+    from decimal import Decimal
+    return isinstance(v, Decimal) and v.is_finite()
+
+
+def validate_extracted_cell(cell: S.ExtractedFinancialCell) -> None:
+    _nonempty(cell.candidate_id, "candidate_id")
+    _nonempty(cell.record_set_version, "record_set_version")
+    _nonempty(cell.company_id, "company_id")
+    _nonempty(cell.source_version, "source_version")
+    _require(cell.status in S.CANDIDATE_STATUSES,
+             f"candidate.status 非法: {cell.status!r}")
+    validate_locator(cell.locator)
+    _require(isinstance(cell.raw_item_text, str), "raw_item_text 必须为 str")
+    _require(isinstance(cell.detection_evidence, dict),
+             "detection_evidence 必须为 dict")
+    _require(isinstance(cell.quality_flags, list), "quality_flags 必须为 list")
+    if cell.parsed_numeric_value is not None:
+        _require(_finite_decimal(cell.parsed_numeric_value),
+                 f"parsed_numeric_value 必须为有限 Decimal: {cell.parsed_numeric_value!r}")
+    if cell.cached_formula_value is not None:
+        _require(_finite_decimal(cell.cached_formula_value),
+                 f"cached_formula_value 必须为有限 Decimal: {cell.cached_formula_value!r}")
+    if cell.min_display_increment is not None:
+        _require(_finite_decimal(cell.min_display_increment)
+                 and cell.min_display_increment >= 0,
+                 f"min_display_increment 必须为非负有限 Decimal: {cell.min_display_increment!r}")
+    if cell.statement_type_candidate is not None:
+        _require(cell.statement_type_candidate in S.STATEMENT_TYPES,
+                 f"statement_type_candidate 非法: {cell.statement_type_candidate!r}")
+    if cell.period_type_candidate is not None:
+        _require(cell.period_type_candidate in S.PERIOD_TYPES,
+                 f"period_type_candidate 非法: {cell.period_type_candidate!r}")
+    if cell.scope_candidate is not None:
+        _require(cell.scope_candidate in S.STATEMENT_SCOPES,
+                 f"scope_candidate 非法: {cell.scope_candidate!r}")
+    if cell.currency_candidate is not None:
+        _require(cell.currency_candidate in S.CURRENCIES,
+                 f"currency_candidate 非法: {cell.currency_candidate!r}")
+    if cell.unit_candidate is not None:
+        _require(cell.unit_candidate in S.UNITS,
+                 f"unit_candidate 非法: {cell.unit_candidate!r}")
+    _nonempty(cell.created_at, "created_at")
+    recomputed = S.derive_candidate_id(cell.record_set_version, cell.locator,
+                                       cell.raw_item_text, cell.raw_value_text)
+    _require(cell.candidate_id == recomputed,
+             f"candidate_id 与内容/坐标重算不一致: {cell.candidate_id!r}")
+
+
+def validate_mapping_rule(rule: S.MappingRule) -> None:
+    _nonempty(rule.rule_id, "rule_id")
+    _nonempty(rule.rule_version, "rule_version")
+    _require(rule.statement_type in S.STATEMENT_TYPES,
+             f"mapping_rule.statement_type 非法: {rule.statement_type!r}")
+    _nonempty(rule.standard_item_code, "standard_item_code")
+    _require(len(rule.aliases) > 0, "mapping_rule.aliases 不能为空")
+    _require(isinstance(rule.exclude_words, list), "exclude_words 必须为 list")
+    _require(isinstance(rule.priority, int) and rule.priority >= 0,
+             f"priority 必须为非负整数: {rule.priority!r}")
+    _nonempty(rule.effective_at, "effective_at")
+
+
+def validate_extraction_issue(issue: S.ExtractionIssue) -> None:
+    _nonempty(issue.issue_id, "issue_id")
+    _nonempty(issue.record_set_version, "record_set_version")
+    _require(issue.issue_type in S.EXTRACTION_ISSUE_TYPES,
+             f"extraction_issue.issue_type 非法: {issue.issue_type!r}")
+    _require(isinstance(issue.detail, dict), "detail 必须为 dict")
+    _nonempty(issue.created_at, "created_at")
+
+
+# ---------------------------------------------------------------------------
+# A4 对账运行 / 组结果 / 勾稽
+# ---------------------------------------------------------------------------
+
+def validate_reconciliation_run(run: S.ReconciliationRun) -> None:
+    _nonempty(run.run_id, "run_id")
+    _nonempty(run.company_id, "company_id")
+    _require(len(run.input_record_set_ids) > 0, "input_record_set_ids 不能为空")
+    _require(isinstance(run.rule_versions, dict), "rule_versions 必须为 dict")
+    _nonempty(run.input_hash, "input_hash")
+    _nonempty(run.created_at, "created_at")
+
+
+def validate_reconciliation_group_result(g: S.ReconciliationGroupResult) -> None:
+    _nonempty(g.run_id, "run_id")
+    _nonempty(g.comparison_key, "comparison_key")
+    _require(g.state in S.RECONCILE_STATES, f"reconcile state 非法: {g.state!r}")
+    _require(len(g.candidate_record_ids) > 0, "candidate_record_ids 不能为空")
+    _nonempty(g.created_at, "created_at")
+
+
+def validate_reconciliation_check(c: S.ReconciliationCheck) -> None:
+    _nonempty(c.check_id, "check_id")
+    _nonempty(c.run_id, "run_id")
+    _nonempty(c.record_set_version, "record_set_version")
+    _require(c.check_type in S.CHECK_TYPES, f"check_type 非法: {c.check_type!r}")
+    _require(c.status in S.CHECK_STATUSES, f"check status 非法: {c.status!r}")
+    _nonempty(c.created_at, "created_at")
+
+
+# ---------------------------------------------------------------------------
+# A5 科目映射确认
+# ---------------------------------------------------------------------------
+
+def validate_mapping_resolution(res: S.MappingResolution) -> None:
+    _nonempty(res.resolution_id, "resolution_id")
+    _nonempty(res.record_set_version, "record_set_version")
+    _nonempty(res.candidate_id, "candidate_id")
+    _require(res.reason_code in S.RESOLUTION_REASON_CODES,
+             f"reason_code 非法: {res.reason_code!r}")
+    if res.chosen_item_code is not None:
+        _nonempty(res.chosen_item_code, "chosen_item_code")
+    if res.reason_code == "OTHER_WITH_NOTE":
+        _require(bool(res.note) and bool(res.note.strip()),
+                 "OTHER_WITH_NOTE 必须填写说明")
+    _nonempty(res.operator, "operator")
+    _nonempty(res.confirmed_at, "confirmed_at")
+
+
 if __name__ == "__main__":
     # 冒烟自检：构造非法坐标 / 非法状态，验证校验路径可独立运行。
     bad_locator = S.SourceLocator(kind="pdf", pdf=S.PdfCellLocator(
