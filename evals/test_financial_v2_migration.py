@@ -39,6 +39,14 @@ _V1_RECORD_SET = (
     "rs-v1", "sv-v1", "0.1", "0.1", "0.1", "{}", 1, 1, "2026-01-01T00:00:00Z",
 )
 
+# v1 真实来源子记录（引用 rs-v1），用于验证迁移后子记录存活 + FK 完整。
+_V1_RECORD = (
+    "rec-v1", "rs-v1", "300750", "TOTAL_ASSETS", "balance_sheet",
+    "资产总计", 1000.0, "yuan", "CNY", 1000.0, "yuan", "CNY",
+    "1", "2024-12-31", "annual", "consolidated", "CNY", "0",
+    None, "rule", 1.0, "h-v1", "[]", "2026-01-01T00:00:00Z",
+)
+
 
 def _build_v1_db(path: str) -> None:
     """构造一个「真实旧 v1 库」：冻结 v1 DDL + schema_migrations=['1'] + 一行 v1 数据。"""
@@ -59,6 +67,13 @@ def _build_v1_db(path: str) -> None:
         "INSERT INTO financial_record_set (record_set_version, source_version, extractor_version, "
         "mapping_rule_version, normalization_rule_version, dependency_versions, block_count, "
         "record_count, created_at) VALUES (?,?,?,?,?,?,?,?,?)", _V1_RECORD_SET)
+    conn.execute(
+        "INSERT INTO source_financial_record (record_id, record_set_version, company_id, "
+        "standard_item_code, statement_type, raw_item_text, raw_value, raw_unit, raw_currency, "
+        "std_value, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
+        "statement_scope, currency, restatement_version, locator, mapping_mode, confidence, "
+        "record_hash, quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        _V1_RECORD)
     conn.commit()
     conn.close()
 
@@ -224,6 +239,99 @@ def main() -> dict:
             check(True, "结构缺 v2 列但记录声称 v2 → 失败关闭")
     finally:
         cleanup(p5)
+
+    # ---- v1 真实子记录迁移存活 + foreign_key_check 为空 ----
+    p6 = tmp_db()
+    try:
+        _build_v1_db(p6)
+        store.init_db(p6)
+        conn = sqlite3.connect(p6)
+        cnt = conn.execute(
+            "SELECT COUNT(*) FROM source_financial_record WHERE record_id='rec-v1'").fetchone()[0]
+        check(cnt == 1, "迁移后 source_financial_record 子记录仍存在")
+        fk = conn.execute("PRAGMA foreign_key_check").fetchall()
+        check(len(fk) == 0, "迁移后 foreign_key_check 为空")
+        conn.close()
+    finally:
+        cleanup(p6)
+
+    # ---- 注入孤立外键 → 迁移失败并完整回滚到 v1；修复后可迁移 ----
+    p7 = tmp_db()
+    try:
+        _build_v1_db(p7)
+        conn = sqlite3.connect(p7)
+        conn.execute(
+            "INSERT INTO source_financial_record (record_id, record_set_version, company_id, "
+            "standard_item_code, statement_type, raw_item_text, raw_value, raw_unit, raw_currency, "
+            "std_value, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
+            "statement_scope, currency, restatement_version, locator, mapping_mode, confidence, "
+            "record_hash, quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("rec-orphan", "rs-orphan", "300750", "TOTAL_ASSETS", "balance_sheet",
+             "资产总计", 1.0, "yuan", "CNY", 1.0, "yuan", "CNY", "1", "2024-12-31",
+             "annual", "consolidated", "CNY", "0", None, "rule", 1.0, "h-orphan", "[]",
+             "2026-01-01T00:00:00Z"))
+        conn.commit()
+        conn.close()
+        try:
+            store.init_db(p7)
+            check(False, "孤立外键 → 迁移失败")
+        except RuntimeError:
+            check(True, "孤立外键 → 迁移失败（foreign_key_check 在 COMMIT 前拦截）")
+        conn = sqlite3.connect(p7)
+        ver_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_source_version)")}
+        check("currency" in ver_cols, "回滚后仍 v1 结构（占位列还在）")
+        check(_applied_versions(conn) == ["1"], "回滚后 migration 记录仍只有 ['1']")
+        check(conn.execute(
+            "SELECT COUNT(*) FROM source_financial_record WHERE record_id='rec-v1'").fetchone()[0] == 1,
+              "回滚后旧子记录保留")
+        # 修复故障：临时去掉不可变 DELETE 触发器，删除孤儿行，再恢复触发器。
+        conn.execute("DROP TRIGGER trg_source_financial_record_no_delete")
+        conn.execute("DELETE FROM source_financial_record WHERE record_set_version='rs-orphan'")
+        for sql in store._immutable_trigger_sqls("source_financial_record"):
+            conn.execute(sql)
+        conn.commit()
+        conn.close()
+        store.init_db(p7)
+        check(store.applied_schema_version() == "2", "修复故障后正常迁移到 v2")
+        conn = sqlite3.connect(p7)
+        check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
+              "修复后迁移 foreign_key_check 为空")
+        conn.close()
+    finally:
+        cleanup(p7)
+
+    # ---- 合成测试：版本顺序不依赖字符串大小（"9" vs "10"）----
+    orig_migrations = store.MIGRATIONS
+    try:
+        store.MIGRATIONS = [("9", None), ("10", None)]
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+        conn.execute("INSERT INTO schema_migrations VALUES ('9','x')")
+        conn.execute("INSERT INTO schema_migrations VALUES ('10','x')")
+        check(store._latest_applied_version(conn) == "10",
+              "版本 '9'/'10' 都已应用 → 最新为 '10'（声明顺序，非字符串 MAX 的 '9'）")
+        conn.close()
+
+        conn2 = sqlite3.connect(":memory:")
+        conn2.row_factory = sqlite3.Row
+        conn2.execute("CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+        conn2.execute("INSERT INTO schema_migrations VALUES ('9','x')")
+        check(store._latest_applied_version(conn2) == "9", "仅应用 '9' 时最新为 '9'")
+        conn2.close()
+
+        conn3 = sqlite3.connect(":memory:")
+        conn3.row_factory = sqlite3.Row
+        conn3.execute("CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+        conn3.execute("INSERT INTO schema_migrations VALUES ('10','x')")
+        try:
+            store._latest_applied_version(conn3)
+            check(False, "非前缀（缺 '9'）被拒绝")
+        except RuntimeError:
+            check(True, "非前缀应用序列（缺 '9'）→ 失败关闭")
+        conn3.close()
+    finally:
+        store.MIGRATIONS = orig_migrations
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 

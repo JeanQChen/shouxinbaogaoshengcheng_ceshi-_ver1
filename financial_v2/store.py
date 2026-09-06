@@ -614,8 +614,30 @@ def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
         "SELECT version FROM schema_migrations ORDER BY rowid")]
 
 
+def _latest_applied_version(conn: sqlite3.Connection) -> str | None:
+    """按 MIGRATIONS 声明顺序 + 已应用合法前缀返回最新版本。
+
+    版本是文本，"10" 与 "9" 的字符串排序会颠倒；因此禁用 SQL MAX(version)，改为：
+    已应用行（rowid 序）必须是 MIGRATIONS 声明顺序的前缀，最新版本 = 该前缀最后一项。
+    应用序列非法（非前缀）→ 失败关闭。
+    """
+    applied = _read_applied_versions(conn)
+    if not applied:
+        return None
+    known = [v for v, _ in MIGRATIONS]
+    if applied != known[:len(applied)]:
+        raise RuntimeError(
+            f"schema_migrations 应用序列非合法前缀: {applied}（期望前缀 {known[:len(applied)]}）")
+    return known[len(applied) - 1]
+
+
 def _run_migration(conn: sqlite3.Connection, version: str, fn: Callable[[sqlite3.Connection], None]) -> None:
-    """单条迁移：切 FK → 事务内执行迁移 + 记录版本 → 恢复 FK → FK 完整性复核。"""
+    """单条迁移：切 FK → 事务内执行迁移 + 记录版本 + FK 完整性复核 → 成功才 COMMIT。
+
+    foreign_key_check 必须在 COMMIT 之前运行：若先 COMMIT 再检查，外键失败时旧库已被
+    替换、无法回滚。任何一步失败（含 FK 违规）→ ROLLBACK 全部表交换 + 不写新版本 +
+    保留旧 schema/数据 + 恢复 foreign_keys=ON。
+    """
     conn.execute("PRAGMA foreign_keys = OFF")
     try:
         conn.execute("BEGIN")
@@ -625,15 +647,15 @@ def _run_migration(conn: sqlite3.Connection, version: str, fn: Callable[[sqlite3
                 "INSERT INTO schema_migrations (version, applied_at) VALUES (?,?)",
                 (version, _utcnow()),
             )
+            bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+            if bad:
+                raise RuntimeError(f"迁移 {version} 后外键校验失败: {bad[:5]}")
         except Exception:
             conn.execute("ROLLBACK")
             raise
         conn.execute("COMMIT")
     finally:
         conn.execute("PRAGMA foreign_keys = ON")
-    bad = conn.execute("PRAGMA foreign_key_check").fetchall()
-    if bad:
-        raise RuntimeError(f"迁移 {version} 后外键校验失败: {bad[:5]}")
 
 
 def _apply_pending_migrations(conn: sqlite3.Connection) -> None:
@@ -653,7 +675,7 @@ def _apply_pending_migrations(conn: sqlite3.Connection) -> None:
 
 def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
     """结构/migration 记录一致性探针：不一致即失败关闭。"""
-    latest = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+    latest = _latest_applied_version(conn)
     if latest != MIGRATIONS[-1][0]:
         raise RuntimeError(f"schema_migrations 最新版本 {latest} != 期望 {MIGRATIONS[-1][0]}")
     rs_cols = _table_columns(conn, "financial_record_set")
@@ -706,11 +728,14 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
 
 
 def applied_schema_version() -> str | None:
-    """返回当前数据库已应用的最新 migration 版本（供一致性探针/测试）。"""
+    """返回当前数据库已应用的最新 migration 版本（供一致性探针/测试）。
+
+    按 MIGRATIONS 声明顺序 + 已应用合法前缀推导，不用 SQL MAX(version)（文本版本
+    "10" 会被字符串排序排到 "9" 之前）。
+    """
     conn = _get_conn()
     try:
-        row = conn.execute("SELECT MAX(version) AS v FROM schema_migrations").fetchone()
-        return row["v"]
+        return _latest_applied_version(conn)
     finally:
         conn.close()
 
