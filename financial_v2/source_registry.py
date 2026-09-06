@@ -1,10 +1,15 @@
-"""financial_v2 来源登记：来源身份、版本与文件哈希（A1 commit 3）。
+"""financial_v2 来源登记：来源身份、版本与文件哈希（A1 commit 3 修订）。
 
 - file_sha256 基于文件字节（任务书 §7）。
 - source_version 由 (source_document_id, file_sha256) 稳定派生，不使用时间戳；
-  唯一性由复合唯一键 UNIQUE(source_document_id, file_sha256) 兜底，同一文件用于
-  不同公司/业务文档不碰撞（v3 修订 1）。
-- 同文件哈希 + 同公司只登记一次来源版本；重复登记返回 reused，不新增记录。
+  唯一性由复合唯一键 UNIQUE(source_document_id, file_sha256) 兜底。
+- 业务文档身份（A1 修订 3/4）：
+    * 显式提供 external_document_id → 规范化为公司作用域内部 source_document_id，
+      再次登记即该业务文档的新内容版本；
+    * 未提供 → 生成全新内部身份；
+    * 文件哈希只用于同一业务文档内的物理文件资产复用，绝不跨文件合并业务文档。
+- 登记调用 store.register_source_atomic 单事务原子接口（A1 修订 2），不串联多个
+  会分别 commit 的 Store 函数。
 - 主体匹配：declared vs detected 确定 matched/mismatch/unverified；mismatch 记录
   但不物理阻断登记，快照构建（A6）阶段据 subject_match_status 阻断。
 - 不解析文件（解析在 A2/A3），只登记身份与内容版本。
@@ -17,8 +22,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 from financial_v2 import schema as S
@@ -27,24 +30,15 @@ from financial_v2 import validator
 
 logger = logging.getLogger(__name__)
 
-# 注册时可识别的文件类型（.xls 在抽取阶段 UNSUPPORTED_FORMAT，登记阶段仅按后缀）。
+# 登记时可识别的文件类型（.xls 在抽取阶段 UNSUPPORTED_FORMAT，登记阶段仅按后缀）。
 _SUFFIX_FILE_TYPE = {
     ".xlsx": "xlsx",
     ".pdf": "pdf",
 }
 
 
-@dataclass
-class RegistrationResult:
-    """register_source 的返回结果。"""
-
-    document: S.FinancialSourceDocument
-    version: S.FinancialSourceVersion
-    reused: bool
-    subject_blocked: bool
-
-
 def _utcnow() -> str:
+    from datetime import datetime, timezone
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -84,20 +78,17 @@ def is_subject_blocked(document: S.FinancialSourceDocument) -> bool:
     return document.subject_match_status == "mismatch"
 
 
-def _resolve_document_id(ctx: S.FinancialSourceContext, sha: str) -> str:
-    if ctx.source_document_id is not None:
-        return ctx.source_document_id
-    # 幂等：同公司同内容已登记 → 复用其业务文档 id。
-    existing = store.find_source_document_id_by_sha256(ctx.company_id, sha)
-    if existing is not None:
-        return existing
+def _resolve_source_document_id(ctx: S.FinancialSourceContext) -> str:
+    """把外部业务文档编号解析为公司作用域内部 source_document_id（A1 修订 3/4）。"""
+    if ctx.external_document_id is not None:
+        return S.scope_source_document_id(ctx.company_id, ctx.external_document_id)
     return "sd-" + uuid.uuid4().hex[:16]
 
 
-def register_source(file_path: str, context: S.FinancialSourceContext) -> RegistrationResult:
-    """登记一份来源文件（内容版本），不做解析。
+def register_source(file_path: str, context: S.FinancialSourceContext) -> store.RegisterSourceResult:
+    """登记一份来源文件（内容版本），不做解析，调用原子登记接口。
 
-    幂等：同文件哈希 + 同公司重复登记返回现有版本，reused=True，不新增记录。
+    幂等：同业务文档 + 同文件哈希重复登记返回现有版本，reused=True，不新增记录。
     """
     validator.validate_source_context(context)
     p = Path(file_path)
@@ -106,20 +97,9 @@ def register_source(file_path: str, context: S.FinancialSourceContext) -> Regist
 
     sha = file_sha256(str(p))
     ftype = _file_type(p)
-    source_document_id = _resolve_document_id(context, sha)
+    source_document_id = _resolve_source_document_id(context)
     source_version = S.derive_source_version(source_document_id, sha)
     now = _utcnow()
-
-    # 幂等复用：同 (source_document_id, file_sha256) 已登记 → 返回现有版本。
-    existing = store.get_source_version_by_content(source_document_id, sha)
-    if existing is not None:
-        doc = store.get_source_document(source_document_id)
-        if doc is None:
-            raise RuntimeError(f"内容版本存在但文档头缺失: {source_document_id}")
-        return RegistrationResult(document=doc, version=existing, reused=True,
-                                  subject_blocked=is_subject_blocked(doc))
-
-    # 主体匹配判定。
     subject = _subject_match_status(context.declared_company_name, context.detected_company_name)
 
     doc = S.FinancialSourceDocument(
@@ -132,15 +112,6 @@ def register_source(file_path: str, context: S.FinancialSourceContext) -> Regist
         subject_match_status=subject,
         created_at=now,
     )
-
-    # 文档头可能已存在（同一业务文档登记新内容版本）；不存在则插入。
-    if store.get_source_document(source_document_id) is None:
-        store.insert_source_document(doc)
-    else:
-        # 已有头且 detected 信息更明确时细化主体匹配状态。
-        store.update_subject_match(source_document_id, subject, context.detected_company_name)
-        doc = store.get_source_document(source_document_id)
-
     version = S.FinancialSourceVersion(
         source_version=source_version,
         source_document_id=source_document_id,
@@ -149,21 +120,9 @@ def register_source(file_path: str, context: S.FinancialSourceContext) -> Regist
         file_size=p.stat().st_size,
         document_id=None,
         document_version=None,
-        report_periods=[],  # A2/A3 抽取阶段回填
-        currency="CNY",
-        statement_scope="consolidated",  # A2/A3 确定性识别后回填
-        audit_status="unknown",
-        extractor_name="pending",        # A2/A3 抽取阶段回填
-        extractor_version=S.EXTRACTOR_VERSION_PLACEHOLDER,
-        mapping_rule_version=S.MAPPING_RULE_VERSION_PLACEHOLDER,
-        normalization_rule_version=S.NORMALIZATION_RULE_VERSION_PLACEHOLDER,
-        quality_flags=[],
         created_at=now,
     )
-    store.insert_source_version(version)
-
-    return RegistrationResult(document=doc, version=version, reused=False,
-                              subject_blocked=is_subject_blocked(doc))
+    return store.register_source_atomic(doc, version)
 
 
 # ---------------------------------------------------------------------------
@@ -187,13 +146,16 @@ def list_source_versions(source_document_id: str) -> list[S.FinancialSourceVersi
 # ---------------------------------------------------------------------------
 
 def _cli_register(file_path: str, company_id: str, source_name: str | None,
-                  source_class: str, declared_name: str | None) -> dict:
+                  source_class: str, external_document_id: str | None,
+                  declared_name: str | None, detected_name: str | None) -> dict:
+    source_name = source_name or Path(file_path).name
     ctx = S.FinancialSourceContext(
         company_id=company_id,
-        source_name=source_name or Path(file_path).name,
+        source_name=source_name,
         source_class=source_class,
+        external_document_id=external_document_id or source_name,
         declared_company_name=declared_name,
-        detected_company_name=declared_name,  # A2/A3 前先以声明名自检（unverified 之外可 matched）
+        detected_company_name=detected_name,
     )
     result = register_source(file_path, ctx)
     v = result.version
@@ -223,7 +185,10 @@ def _main(argv: list[str]) -> int:
     p_reg.add_argument("--source-name", default=None, help="来源名（缺省用文件名）")
     p_reg.add_argument("--source-class", default="financial_statement",
                        choices=S.SOURCE_CLASSES)
+    p_reg.add_argument("--source-document-id", default=None,
+                       help="外部业务文档编号（缺省用 source-name）")
     p_reg.add_argument("--declared-name", default=None, help="声明的公司名称")
+    p_reg.add_argument("--detected-name", default=None, help="检测到的公司名称")
 
     p_list = sub.add_parser("list", help="列出某公司的来源登记")
     p_list.add_argument("--company", required=True)
@@ -233,7 +198,8 @@ def _main(argv: list[str]) -> int:
 
     if args.cmd == "register":
         print(json.dumps(_cli_register(args.file, args.company, args.source_name,
-                                       args.source_class, args.declared_name),
+                                       args.source_class, args.source_document_id,
+                                       args.declared_name, args.detected_name),
                          ensure_ascii=False, indent=2))
         return 0
     if args.cmd == "list":
