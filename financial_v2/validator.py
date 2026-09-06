@@ -4,12 +4,15 @@
 必须调用对应 validate_*，保证非法对象 / 非法坐标 / 非法状态在写库前被拒绝；SQLite
 唯一约束与不可变触发器仍保留作为第二道防线。
 
-校验范围（任务书 A1 停止点 + v3 修订）：
+校验范围（A1 修订）：
 - 必填字符串非空、枚举白名单；
+- 内容版本只允许文件事实，未知抽取字段必须为 None（FinancialRecordSet）；
+- record_set_version 与 derive_record_set_version 重算一致（依赖版本纳入身份）；
 - Excel 坐标 1-based（row/col >= 1）且 cell_address 与 row/col 一致；
 - PDF 坐标 1-based 物理页、bbox 为 4 个有限数值且 x1>x0、bottom>top；
 - record_id 与 derive_record_id 重算一致（防篡改坐标/内容却沿用旧 id）；
-- comparison_key 与 record 字段重算一致；
+- record_hash 与全字段重算一致（覆盖原始科目文本 / raw 值单位币种 / 标准值单位
+  币种 / conversion rule / mapping mode / 期间 scope restatement / 完整 locator）；
 - 决议 OTHER_WITH_NOTE 必须含 note；
 - 主体匹配状态、对账状态、有效性状态、指标状态属于白名单。
 """
@@ -45,8 +48,8 @@ def validate_source_context(ctx: S.FinancialSourceContext) -> None:
     _nonempty(ctx.source_name, "context.source_name")
     _require(ctx.source_class in S.SOURCE_CLASSES,
              f"context.source_class 非法: {ctx.source_class!r}")
-    if ctx.source_document_id is not None:
-        _nonempty(ctx.source_document_id, "context.source_document_id")
+    if ctx.external_document_id is not None:
+        _nonempty(ctx.external_document_id, "context.external_document_id")
 
 
 def validate_source_document(doc: S.FinancialSourceDocument) -> None:
@@ -61,20 +64,12 @@ def validate_source_document(doc: S.FinancialSourceDocument) -> None:
 
 
 def validate_source_version(v: S.FinancialSourceVersion) -> None:
+    """内容版本只保存文件事实，不含抽取占位值（A1 修订 1）。"""
     _nonempty(v.source_version, "source_version")
     _nonempty(v.source_document_id, "source_document_id")
     _nonempty(v.file_sha256, "file_sha256")
     _require(v.file_type in S.FILE_TYPES, f"file_type 非法: {v.file_type!r}")
     _require(v.file_size >= 0, f"file_size 必须非负: {v.file_size!r}")
-    _require(v.currency in S.CURRENCIES, f"currency 非法: {v.currency!r}")
-    _require(v.statement_scope in S.STATEMENT_SCOPES,
-             f"statement_scope 非法: {v.statement_scope!r}")
-    _require(v.audit_status in S.AUDIT_STATUSES,
-             f"audit_status 非法: {v.audit_status!r}")
-    _nonempty(v.extractor_name, "extractor_name")
-    _nonempty(v.extractor_version, "extractor_version")
-    _nonempty(v.mapping_rule_version, "mapping_rule_version")
-    _nonempty(v.normalization_rule_version, "normalization_rule_version")
     _nonempty(v.created_at, "created_at")
 
 
@@ -84,9 +79,26 @@ def validate_record_set(rs: S.FinancialRecordSet) -> None:
     _nonempty(rs.extractor_version, "extractor_version")
     _nonempty(rs.mapping_rule_version, "mapping_rule_version")
     _nonempty(rs.normalization_rule_version, "normalization_rule_version")
+    # 抽取事实：未知显式 None（不得默认猜测）。
+    if rs.currency is not None:
+        _require(rs.currency in S.CURRENCIES, f"currency 非法: {rs.currency!r}")
+    if rs.unit is not None:
+        _require(rs.unit in S.UNITS, f"unit 非法: {rs.unit!r}")
+    if rs.statement_scope is not None:
+        _require(rs.statement_scope in S.STATEMENT_SCOPES,
+                 f"statement_scope 非法: {rs.statement_scope!r}")
+    if rs.audit_status is not None:
+        _require(rs.audit_status in S.AUDIT_STATUSES,
+                 f"audit_status 非法: {rs.audit_status!r}")
     _require(rs.block_count >= 0, f"block_count 必须非负: {rs.block_count!r}")
     _require(rs.record_count >= 0, f"record_count 必须非负: {rs.record_count!r}")
     _nonempty(rs.created_at, "created_at")
+    # record_set_version 与派生规则重算一致（依赖版本纳入身份，A1 修订 5）。
+    recomputed = S.derive_record_set_version(
+        rs.source_version, rs.extractor_version, rs.mapping_rule_version,
+        rs.normalization_rule_version, rs.dependency_versions)
+    _require(rs.record_set_version == recomputed,
+             f"record_set_version 与派生规则重算不一致: {rs.record_set_version!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +148,11 @@ def validate_locator(locator: S.SourceLocator | None) -> None:
 # ---------------------------------------------------------------------------
 
 def _record_hash(record: S.SourceFinancialRecord) -> str:
-    """记录内容哈希：覆盖参与身份判定的字段 + 原始值 + 坐标，防静默篡改。"""
+    """记录内容哈希：覆盖参与身份判定的字段 + 原始值 + 坐标，防静默篡改。
+
+    覆盖范围（A1 修订 11）：原始科目文本；raw value/unit/currency；标准 value/unit/
+    currency；conversion rule；mapping mode；期间、scope、restatement；完整 locator。
+    """
     raw = json.dumps({
         "record_set_version": record.record_set_version,
         "company_id": record.company_id,

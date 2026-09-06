@@ -1,11 +1,16 @@
-"""Eval: financial_v2 schema + validator（A1 commit 1）。
+"""Eval: financial_v2 schema + validator（A1 修订）。
 
 用法: python -m evals.test_financial_v2_schema
 
 覆盖：
 - 身份/版本/比较键派生确定性、跨公司/跨业务文档不碰撞；
-- 规则版本变化产生新 record_set_version；
+- 公司作用域 source_document_id（A1 修订 4）：同外部编号不同公司不碰撞；
+- 内容版本只含文件事实（A1 修订 1）：不含币种/scope/审计/抽取器/期间占位字段；
+- 规则版本变化 / 依赖版本变化产生新 record_set_version（A1 修订 5）；
+- record_set_version 重算校验（依赖版本纳入身份）；
 - 坐标变化产生新 record_id；
+- record_hash 覆盖原始科目文本 / raw 值单位币种 / 标准值单位币种 / conversion rule /
+  mapping mode / 期间 scope restatement / 完整 locator（A1 修订 11）；
 - validator 对非法坐标 / 非法枚举 / id/hash 篡改 / OTHER_WITH_NOTE / 空来源引用的拒绝。
 """
 
@@ -53,13 +58,11 @@ def _sample_record(**overrides) -> S.SourceFinancialRecord:
     base.update(overrides)
     record_set_version = base.get("record_set_version", "rs-x")
     identity = S.record_identity_fields(S.SourceFinancialRecord(
-        record_id="", record_set_version=record_set_version, **{k: v for k, v in base.items() if k != "record_set_version"}))
+        record_id="", record_set_version=record_set_version,
+        **{k: v for k, v in base.items() if k != "record_set_version"}))
     base["record_id"] = S.derive_record_id(record_set_version, identity)
-    # record_hash 由 validator 的私有算法决定；这里用占位，测试构造会显式校验。
     r = S.SourceFinancialRecord(record_set_version=record_set_version, **base)
-    # 用 validator 内部算法重算 record_hash 以便后续正例通过。
-    import financial_v2.validator as Vmod
-    r.record_hash = Vmod._record_hash(r)
+    r.record_hash = V._record_hash(r)
     return r
 
 
@@ -78,6 +81,13 @@ def main() -> dict:
             failed += 1
             details.append(f"FAIL: {msg}")
 
+    def _expect_validation_error(fn, msg):
+        try:
+            fn()
+            check(False, msg)
+        except ValidationError:
+            check(True, msg)
+
     # ------------------------------------------------------------------
     # 身份 / 版本 / 比较键派生
     # ------------------------------------------------------------------
@@ -91,6 +101,13 @@ def main() -> dict:
     sv_other_sha = S.derive_source_version("sd-1", "b" * 64)
     check(sv1 != sv_other_sha, "source_version 内容不同则不同")
 
+    # 公司作用域 source_document_id（A1 修订 4）
+    sid_a = S.scope_source_document_id("300750", "BS_2024")
+    sid_a2 = S.scope_source_document_id("300750", "BS_2024")
+    sid_b = S.scope_source_document_id("600000", "BS_2024")
+    check(sid_a == sid_a2, "scope_source_document_id 派生确定性")
+    check(sid_a != sid_b, "同外部编号不同公司 → 不同内部 id（不碰撞）")
+
     rs1 = S.derive_record_set_version(sv1, "0.1", "0.1", "0.1", {"pdfplumber": "0.11.4"})
     rs2 = S.derive_record_set_version(sv1, "0.1", "0.1", "0.1", {"pdfplumber": "0.11.4"})
     check(rs1 == rs2, "record_set_version 派生确定性")
@@ -99,7 +116,7 @@ def main() -> dict:
     check(rs1 != rs_rule_change, "抽取器版本变化 → 新 record_set_version")
 
     rs_dep_change = S.derive_record_set_version(sv1, "0.1", "0.1", "0.1", {"pdfplumber": "0.12.0"})
-    check(rs1 != rs_dep_change, "依赖版本变化 → 新 record_set_version")
+    check(rs1 != rs_dep_change, "依赖版本变化 → 新 record_set_version（A1 修订 5）")
 
     ck = S.comparison_key("300750", "TOTAL_ASSETS", "balance_sheet", "2024-12-31",
                           "annual", "consolidated", "CNY", "0")
@@ -127,7 +144,7 @@ def main() -> dict:
 
     # 坐标变化 → 新 record_id
     rec_a = _sample_record()
-    rec_b = _sample_record()  # 完全相同
+    rec_b = _sample_record()
     check(rec_a.record_id == rec_b.record_id, "record_id 同内容同坐标稳定")
 
     rec_c = _sample_record(locator=S.SourceLocator(kind="excel", excel=S.ExcelCellLocator(
@@ -136,15 +153,54 @@ def main() -> dict:
     check(rec_a.record_id != rec_c.record_id, "坐标变化 → 新 record_id")
 
     # ------------------------------------------------------------------
+    # 内容版本只含文件事实（A1 修订 1）
+    # ------------------------------------------------------------------
+    ver_fields = {f.name for f in S.FinancialSourceVersion.__dataclass_fields__.values()}
+    for absent in ("currency", "statement_scope", "audit_status", "extractor_name",
+                   "report_periods", "extractor_version", "mapping_rule_version",
+                   "normalization_rule_version", "quality_flags"):
+        check(absent not in ver_fields, f"内容版本不含抽取占位字段 {absent}")
+
+    ver = S.FinancialSourceVersion(
+        source_version="sv-x", source_document_id="sd-x", file_sha256="a" * 64,
+        file_type="xlsx", file_size=100, document_id=None, document_version=None,
+        created_at="t")
+    V.validate_source_version(ver)
+    check(True, "内容版本仅含文件事实通过校验")
+
+    # ------------------------------------------------------------------
+    # 记录集合：抽取事实可空 + record_set_version 重算（A1 修订 5）
+    # ------------------------------------------------------------------
+    def _rs(**overrides):
+        base = dict(
+            record_set_version="", source_version="sv-x", extractor_name=None,
+            extractor_version="0.1", mapping_rule_version="0.1",
+            normalization_rule_version="0.1", dependency_versions={},
+            report_periods=[], currency=None, unit=None, statement_scope=None,
+            audit_status=None, block_count=0, record_count=0, created_at="t")
+        base.update(overrides)
+        if base["record_set_version"] == "":
+            base["record_set_version"] = S.derive_record_set_version(
+                base["source_version"], base["extractor_version"],
+                base["mapping_rule_version"], base["normalization_rule_version"],
+                base["dependency_versions"])
+        return S.FinancialRecordSet(**base)
+
+    rs_ok = _rs()
+    V.validate_record_set(rs_ok)
+    check(True, "记录集合抽取事实为 None 通过校验（未知显式空）")
+
+    _expect_validation_error(
+        lambda: V.validate_record_set(_rs(record_set_version="rs-wrong")),
+        "record_set_version 与派生规则重算不一致被拒绝")
+
+    _expect_validation_error(
+        lambda: V.validate_record_set(_rs(currency="USD")),
+        "记录集合非法 currency 被拒绝")
+
+    # ------------------------------------------------------------------
     # validator：非法坐标
     # ------------------------------------------------------------------
-    def _expect_validation_error(fn, msg):
-        try:
-            fn()
-            check(False, msg)
-        except ValidationError:
-            check(True, msg)
-
     _expect_validation_error(
         lambda: V.validate_locator(S.SourceLocator(kind="pdf", pdf=S.PdfCellLocator(
             document_id="d", document_version="v", pdf_page=0, row_index=0,
@@ -217,6 +273,53 @@ def main() -> dict:
     )
     _expect_validation_error(lambda: V.validate_metric_result(metric_ok_no_value),
                              "validator 拒绝 status=ok 但 value=None")
+
+    # ------------------------------------------------------------------
+    # record_hash 覆盖（A1 修订 11）
+    # ------------------------------------------------------------------
+    base_rec = _sample_record()
+    h_base = V._record_hash(base_rec)
+    for field, val in [
+        ("raw_item_text", "改动后的科目"),
+        ("raw_value", 9999.0),
+        ("raw_unit", "wan_yuan"),
+        ("raw_currency", "USD"),
+        ("std_value", 9999.0),
+        ("std_unit", "wan_yuan"),
+        ("std_currency", "USD"),
+        ("conversion_rule_version", "2"),
+        ("mapping_mode", "human_confirmed"),
+        ("report_period", "2023-12-31"),
+        ("period_type", "interim"),
+        ("statement_scope", "parent"),
+        ("currency", "USD"),
+        ("restatement_version", "1"),
+    ]:
+        tampered = S.SourceFinancialRecord(
+            **{f: getattr(base_rec, f) for f in base_rec.__dataclass_fields__})
+        setattr(tampered, field, val)
+        check(V._record_hash(tampered) != h_base, f"record_hash 覆盖字段 {field}")
+
+    tampered_loc = S.SourceFinancialRecord(
+        **{f: getattr(base_rec, f) for f in base_rec.__dataclass_fields__})
+    tampered_loc.locator = S.SourceLocator(kind="excel", excel=S.ExcelCellLocator(
+        sheet_name="资产负债表", row_number=99, column_number=2, cell_address="B99"))
+    check(V._record_hash(tampered_loc) != h_base, "record_hash 覆盖完整 locator")
+
+    # raw provenance 篡改：record_id 不变但 record_hash 变 → validator 拒绝
+    for field, val in [
+        ("raw_item_text", "改动"),
+        ("raw_value", 9999.0),
+        ("raw_unit", "wan_yuan"),
+        ("conversion_rule_version", "2"),
+        ("mapping_mode", "llm_suggested"),
+    ]:
+        r2 = _sample_record()
+        orig_id = r2.record_id
+        setattr(r2, field, val)
+        check(r2.record_id == orig_id, f"{field} 不参与 record_id（防沿用旧 id 的关键）")
+        _expect_validation_error(lambda r=r2: V.validate_record(r),
+                                 f"validator 拒绝 {field} 篡改（record_hash 不符）")
 
     # ------------------------------------------------------------------
     # validator：来源上下文

@@ -4,10 +4,10 @@
 数据库访问、不含业务计算。所有持久化与编排代码共同引用同一份字段语义，避免
 散落的中文名硬编码。
 
-身份与版本关系（任务书 §7，v3 修订）：
+身份与版本关系（任务书 §7，v3 + A1 修订）：
 
-    company_id + source_document_id
-        → 稳定业务文档（financial_source_document）
+    company_id + external_document_id
+        → 公司作用域的内部 source_document_id（全局唯一、含 company 命名空间）
     source_document_id + file_sha256
         → 一次内容版本（financial_source_version，source_version 为其身份）
     内容版本(source_version) + extractor/mapping/normalization/dependency 版本
@@ -15,9 +15,14 @@
     record_set_version + 规范化后记录内容 + 坐标
         → record_id（source_financial_record，不可变）
 
+职责划分（A1 修订）：
+- financial_source_version 只保存登记时真实已知且不可变的文件事实（哈希、类型、
+  大小、Evidence 文档关联、登记时间），不含任何抽取占位值（币种/scope/审计/抽取器）。
+- 抽取产生的期间、币种、单位、scope、审计状态、抽取器名与各规则版本，保存到
+  不可变 financial_record_set；未知值显式为 None/空，绝不默认猜测。
+
 source_version 非全局唯一哈希：它是「某业务文档内的一次内容版本身份」，唯一性由
-复合唯一键 UNIQUE(source_document_id, file_sha256) 保证，同一文件用于不同公司/
-业务文档不会碰撞（v3 修订 1）。
+复合唯一键 UNIQUE(source_document_id, file_sha256) 保证。
 """
 
 from __future__ import annotations
@@ -27,16 +32,10 @@ import json
 from dataclasses import dataclass, field
 
 # ---------------------------------------------------------------------------
-# 版本常量（记录集/快照/公式的处理规则身份）
+# 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "1"
-
-# 抽取 / 映射 / 标准化规则版本。A2/A3/A4 在实现各自抽取与标准化逻辑时替换为真实
-# 版本号；A1 仅声明这些身份字段存在，规则版本变化产生新 record_set_version。
-EXTRACTOR_VERSION_PLACEHOLDER = "0"
-MAPPING_RULE_VERSION_PLACEHOLDER = "0"
-NORMALIZATION_RULE_VERSION_PLACEHOLDER = "0"
+SCHEMA_VERSION = "2"
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +146,21 @@ def _sha256_hex(raw: str, length: int | None = None) -> str:
     return h if length is None else h[:length]
 
 
+def scope_source_document_id(company_id: str, external_document_id: str) -> str:
+    """把外部业务文档编号规范化为公司作用域的内部稳定 source_document_id。
+
+    source_document_id 全局唯一（表主键），身份含 company 命名空间：同一外部编号
+    用于不同公司得到不同内部 id，绝不碰撞/串数据（A1 修订 4）。
+    """
+    return "sd-" + _sha256_hex(f"{company_id}|{external_document_id}", 16)
+
+
 def derive_source_version(source_document_id: str, file_sha256: str) -> str:
     """内容版本身份：source_document_id + file_sha256 的稳定派生。
 
     不包含时间戳；同一业务文档的同一文件内容永远得到相同 source_version。
     唯一性由复合唯一键 UNIQUE(source_document_id, file_sha256) 兜底，而非本哈希
-    的全局唯一性（v3 修订 1）。
+    的全局唯一性。
     """
     return "sv-" + _sha256_hex(f"{source_document_id}|{file_sha256}", 24)
 
@@ -340,19 +348,19 @@ def locator_from_dict(d: dict | None) -> SourceLocator | None:
 
 @dataclass
 class FinancialSourceContext:
-    """登记一份业务文档所需的上下文（CLI / 未来 ingest 层提供）。"""
+    """登记一份来源文件所需的上下文（CLI / 未来 ingest 层提供）。"""
 
     company_id: str
     source_name: str
     source_class: str
-    source_document_id: str | None = None      # None 时由登记层自动生成
+    external_document_id: str | None = None   # 外部业务文档编号（公司范围内稳定）
     declared_company_name: str | None = None
     detected_company_name: str | None = None
 
 
 @dataclass
 class FinancialSourceDocument:
-    """业务文档登记头（公司范围内稳定身份）。"""
+    """业务文档登记头（内部 source_document_id 全局唯一、含公司命名空间）。"""
 
     source_document_id: str
     company_id: str
@@ -366,7 +374,11 @@ class FinancialSourceDocument:
 
 @dataclass
 class FinancialSourceVersion:
-    """一次内容版本（已提交后不可变）。"""
+    """一次内容版本（已提交后不可变，仅保存登记时真实已知的文件事实）。
+
+    A1 修订：不含任何抽取占位值（币种/scope/审计/抽取器/期间）。抽取产物见
+    FinancialRecordSet。
+    """
 
     source_version: str
     source_document_id: str
@@ -375,28 +387,30 @@ class FinancialSourceVersion:
     file_size: int
     document_id: str | None                # PDF 关联 Phase 1 Evidence Registry
     document_version: str | None
-    report_periods: list[str]
-    currency: str
-    statement_scope: str
-    audit_status: str
-    extractor_name: str
-    extractor_version: str
-    mapping_rule_version: str
-    normalization_rule_version: str
-    quality_flags: list[str]
     created_at: str
 
 
 @dataclass
 class FinancialRecordSet:
-    """一次抽取/映射/标准化规则组合产生的记录集合（已提交后不可变）。"""
+    """一次抽取/映射/标准化规则组合产生的记录集合（已提交后不可变）。
+
+    承载抽取产物：规则版本（extractor/mapping/normalization/dependency）是身份
+    一部分（参与 record_set_version 派生）；期间/币种/单位/scope/审计状态为
+    抽取事实，未知时显式为 None/空，不默认猜测。
+    """
 
     record_set_version: str
     source_version: str
+    extractor_name: str | None
     extractor_version: str
     mapping_rule_version: str
     normalization_rule_version: str
     dependency_versions: dict[str, str]
+    report_periods: list[str]
+    currency: str | None
+    unit: str | None
+    statement_scope: str | None
+    audit_status: str | None
     block_count: int
     record_count: int
     created_at: str
