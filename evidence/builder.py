@@ -275,6 +275,7 @@ def run_pipeline_from_parsed(
     store_it: bool = False,
     run_id: str | None = None,
     declared_company_name: str | None = None,
+    db_path: str | Path = store.DEFAULT_DB_PATH,
 ) -> dict:
     """基于已解析结果编排 register → build → commit，不再重复解析 PDF。
 
@@ -284,6 +285,7 @@ def run_pipeline_from_parsed(
 
     - store_it=False：纯内存构建摘要，不写库。
     - store_it=True：完整链路 + 真实进度事件（不含 PARSING_DOCUMENT，因解析已完成）。
+    - db_path：目标 Evidence DB，缺省使用 data/evidence.db（测试可传临时库）。
     """
     if source_type is None:
         source_type = infer_source_type(Path(pdf_path).name)
@@ -296,7 +298,7 @@ def run_pipeline_from_parsed(
     if not store_it:
         return _in_memory_result(parsed, pdf_path, context, set_version, run_id)
 
-    store.init_db()
+    store.init_db(db_path)
     document = _register_document(pdf_path, context, run_id)
     document.page_count = parsed.page_count
     return _build_and_persist(parsed, document, set_version, deps, run_id)
@@ -311,6 +313,7 @@ def run_pipeline(
     store_it: bool = False,
     run_id: str | None = None,
     declared_company_name: str | None = None,
+    db_path: str | Path = store.DEFAULT_DB_PATH,
 ) -> dict:
     """编排 register → parse → build → commit（独立 CLI 路径，内部解析一次）。
 
@@ -319,6 +322,7 @@ def run_pipeline(
     - store_it=False：纯内存解析 + 构建，不写 Evidence Store、不发射进度事件。
     - store_it=True：完整链路 + 真实进度事件；幂等由 store.commit_document
       保证（同内容重跑走路径 B 复用）。
+    - db_path：目标 Evidence DB，缺省使用 data/evidence.db（测试可传临时库）。
     返回 dict 摘要（run_id / document / evidence / commit）。
     """
     if source_type is None:
@@ -333,7 +337,7 @@ def run_pipeline(
         parsed = pdf_parse(pdf_path)
         return _in_memory_result(parsed, pdf_path, context, set_version, run_id)
 
-    store.init_db()
+    store.init_db(db_path)
     document = _register_document(pdf_path, context, run_id)
 
     progress.start(run_id, "PARSING_DOCUMENT", "正在读取 PDF")
