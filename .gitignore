@@ -25,6 +25,10 @@ data/credit.db
 data/credit.db-journal
 data/evidence.db
 data/evidence.db-journal
+data/financial_v2.db
+data/financial_v2.db-journal
+data/financial_v2.db-wal
+data/financial_v2.db-shm
 data/cache/
 data/chroma/
 
