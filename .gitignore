@@ -23,6 +23,8 @@ env/
 # --- Generated data ---
 data/credit.db
 data/credit.db-journal
+data/evidence.db
+data/evidence.db-journal
 data/cache/
 data/chroma/
 
