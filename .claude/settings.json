@@ -68,7 +68,32 @@
       "Bash(git commit -m 'fix\\(evidence\\): Table Probe 适配 pdfplumber 真实 API + 输入错误分类' -m '- _collect_cell_bboxes 直接读取 Table.cells 的 bbox 元组（0.11.4 无 .bbox 属性） *)",
       "Bash(git commit -m 'fix\\(evidence\\): content_hash 重算校验防正文/payload 篡改' -m '- validate_block 用 content_hash\\(text, structured_payload\\) 重算并与 block.content_hash 精确比对 *)",
       "Bash(git commit -m 'fix\\(evidence\\): 区分参数不匹配与存储损坏，损坏集合隔离为 invalid' -m '- _validate_stored_set_integrity 校验 block_count/证据ID/坐标/content_hash 自洽 *)",
-      "Bash(git commit -m 'test\\(evidence\\): 三项修复 + Table Probe 五态回归测试' -m '- FakeTable.cells 改为 bbox 元组（对齐 pdfplumber 0.11.4 真实结构，移除 FakeCell） *)"
+      "Bash(git commit -m 'test\\(evidence\\): 三项修复 + Table Probe 五态回归测试' -m '- FakeTable.cells 改为 bbox 元组（对齐 pdfplumber 0.11.4 真实结构，移除 FakeCell） *)",
+      "Bash(python -m financial_v2.validator)",
+      "Bash(python -m evals.test_financial_v2_schema)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('passed', d['passed'], 'failed', d['failed']\\)\")",
+      "Bash(python -m evals.test_financial_v2_store)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('passed', d['passed'], 'failed', d['failed']\\); [print\\('  FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -m evals.test_financial_v2_source_registry)",
+      "Bash(rm -f data/financial_v2.db*)",
+      "Bash(python -m financial_v2.store inspect --company 300750)",
+      "Bash(python -m financial_v2.source_registry register \"data/samples/300750/financial/NDSD_BALANCESHEET_2023-2026Q1.xlsx\" --company 300750 --declared-name 宁德时代)",
+      "Bash(python -m financial_v2.source_registry list --company 300750)",
+      "Bash(python -c \"import financial_v2.schema as S; import financial_v2.validator as V; import financial_v2.store as st; import financial_v2.source_registry as sr; print\\('imports OK'\\); print\\(S.scope_source_document_id\\('300750','BS_2024'\\)\\); print\\(S.scope_source_document_id\\('600000','BS_2024'\\)\\)\")",
+      "Bash(python -c \"import sys,json; r=json.load\\(sys.stdin\\); print\\('passed', r['passed'], 'failed', r['failed']\\); [print\\(' ', d\\) for d in r['details'] if d.startswith\\('FAIL'\\)]\")",
+      "Bash(echo \"store exit=$?\")",
+      "Bash(python -m financial_v2.source_registry register /tmp/smoke.xlsx --company 300750 --source-class financial_statement --source-document-id BS_TEST --declared-name 宁德时代 --detected-name 宁德时代)",
+      "Bash(rm -f data/financial_v2.db data/financial_v2.db-wal data/financial_v2.db-shm data/financial_v2.db-journal)",
+      "Bash(rm -f /tmp/smoke.xlsx)",
+      "Bash(python -m evals.test_financial_v2_migration)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('store: passed', d['passed'], 'failed', d['failed'], 'skipped', d['skipped']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('migration: passed', d['passed'], 'failed', d['failed'], 'skipped', d['skipped']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('schema: passed', d['passed'], 'failed', d['failed'], 'skipped', d['skipped']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('source_registry: passed', d['passed'], 'failed', d['failed'], 'skipped', d['skipped']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -m financial_v2.store --help)",
+      "Bash(python -m financial_v2.source_registry --help)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('schema: passed', d['passed'], 'failed', d['failed']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('source_registry: passed', d['passed'], 'failed', d['failed']\\); [print\\(' FAIL:', x\\) for x in d['details'] if x.startswith\\('FAIL'\\)]\")"
     ]
   }
 }
