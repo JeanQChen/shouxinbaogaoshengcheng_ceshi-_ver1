@@ -3,12 +3,18 @@
 - 独立库 data/financial_v2.db，与 V1 data/credit.db、Phase 1 data/evidence.db 分离。
 - 不可变历史事实表（financial_source_version / financial_record_set /
   source_financial_record / resolution_record / financial_snapshot / snapshot_item）
-  由 BEFORE UPDATE/DELETE 触发器保护，不依赖代码约定（v3 修订 6/12）。
+  由 BEFORE UPDATE/DELETE 触发器保护，不依赖代码约定。
+- 来源登记与记录集提交均为「单事务原子接口」，禁止调用方串联多个会分别 commit
+  的低层函数（A1 修订 2/6）：
+    * register_source_atomic —— 校验 + 文档头复用/插入 + 内容版本复用/插入，全回滚；
+    * commit_record_set —— 校验 + 归属链 + 严格复用 + 写 record_set + 写 records
+      + 写后复核 + 原子切换 current，全回滚。
 - building/failed 运行态写入 progress_events（复用 Phase 1 字段语义），不落到
-  历史事实表的状态列（v3 修订 3）；finalized 对象在完整事务成功后直接提交，
-  再原子切换 current 指针。
-- 重复写入禁用 INSERT OR IGNORE：先读后严格比对，冲突显式报错回滚（任务书 §7）。
-- 存储损坏隔离到 quarantine 表，不修改被保护历史行（v3 修订 13）。
+  历史事实表的状态列；finalized 对象在完整事务成功后直接提交，再原子切换 current。
+- 重复写入禁用 INSERT OR IGNORE：先读后严格比对，冲突显式报错回滚（StorageConflictError）。
+- 存储损坏隔离到 quarantine 表，不修改被保护历史行。
+- validity（snapshot_validity / resolution_validity）为追加事件，具确定性最新读取
+  与合法状态机（幂等 + 非法倒退拒绝）。
 - 连接模式与 evidence/store.py 一致：per-call connect/close，PRAGMA foreign_keys=ON。
 """
 
@@ -18,6 +24,7 @@ import json
 import logging
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,10 +39,14 @@ DEFAULT_DB_PATH = Path("data/financial_v2.db")
 _db_path: Path | None = None
 
 # 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。A2～A6 在各自阶段
-# 追加新迁移条目（如 ("2", _ddl_v2)），历史迁移不删除、不重写。
+# 追加新迁移条目，历史迁移不删除、不重写。当前唯一版本为 A1 校正后的 DDL。
 MIGRATIONS: list[tuple[str, str]] = [
-    ("1", None),  # 占位，DDL 由 build_ddl() 生成
+    ("1", None),
 ]
+
+
+class StorageConflictError(Exception):
+    """存储冲突：重复提交同一身份但内容不一致，显式报错（不静默覆盖/不隔离）。"""
 
 
 def _utcnow() -> str:
@@ -59,7 +70,6 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
     conn = _get_conn()
     try:
         conn.executescript(build_ddl())
-        # 记录已应用的迁移版本（幂等）。
         now = _utcnow()
         for version, _ in MIGRATIONS:
             conn.execute(
@@ -99,7 +109,9 @@ def build_ddl() -> str:
 def _build_ddl_v1() -> str:
     return """
 -- ---------------------------------------------------------------------------
--- 来源登记（业务文档头，可更新 subject_match_status）
+-- 来源登记（业务文档头，可受控更新 subject_match_status）
+--   source_document_id 为「含 company 命名空间的内部全局唯一 ID」（A1 修订 4），
+--   由外部业务文档编号经 scope_source_document_id 派生或全新生成。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS financial_source_document (
     source_document_id     TEXT PRIMARY KEY,
@@ -109,51 +121,48 @@ CREATE TABLE IF NOT EXISTS financial_source_document (
     declared_company_name  TEXT,
     detected_company_name  TEXT,
     subject_match_status   TEXT NOT NULL,
-    created_at             TEXT NOT NULL,
-    UNIQUE (company_id, source_document_id)
+    created_at             TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_src_doc_company ON financial_source_document(company_id);
 
 -- ---------------------------------------------------------------------------
--- 内容版本（不可变历史事实）
+-- 内容版本（不可变历史事实，仅保存登记时真实已知的文件事实，A1 修订 1）
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS financial_source_version (
-    source_version            TEXT PRIMARY KEY,
-    source_document_id        TEXT NOT NULL REFERENCES financial_source_document(source_document_id),
-    file_sha256               TEXT NOT NULL,
-    file_type                 TEXT NOT NULL,
-    file_size                 INTEGER NOT NULL,
-    document_id               TEXT,
-    document_version          TEXT,
-    report_periods            TEXT NOT NULL,
-    currency                  TEXT NOT NULL,
-    statement_scope           TEXT NOT NULL,
-    audit_status              TEXT NOT NULL,
-    extractor_name            TEXT NOT NULL,
-    extractor_version         TEXT NOT NULL,
-    mapping_rule_version      TEXT NOT NULL,
-    normalization_rule_version TEXT NOT NULL,
-    quality_flags             TEXT NOT NULL,
-    created_at                TEXT NOT NULL,
+    source_version     TEXT PRIMARY KEY,
+    source_document_id TEXT NOT NULL REFERENCES financial_source_document(source_document_id),
+    file_sha256        TEXT NOT NULL,
+    file_type          TEXT NOT NULL,
+    file_size          INTEGER NOT NULL,
+    document_id        TEXT,
+    document_version   TEXT,
+    created_at         TEXT NOT NULL,
     UNIQUE (source_document_id, file_sha256)
 );
 CREATE INDEX IF NOT EXISTS idx_src_ver_doc ON financial_source_version(source_document_id);
 """ + _immutable_triggers("financial_source_version") + """
 
 -- ---------------------------------------------------------------------------
--- 记录集合（不可变历史事实；无 building/ready 状态列）
+-- 记录集合（不可变历史事实；承载抽取产物与规则版本）
+--   dependency_versions 以 canonical JSON 文本纳入唯一身份（A1 修订 5）。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS financial_record_set (
     record_set_version         TEXT PRIMARY KEY,
     source_version             TEXT NOT NULL REFERENCES financial_source_version(source_version),
+    extractor_name             TEXT,
     extractor_version          TEXT NOT NULL,
     mapping_rule_version       TEXT NOT NULL,
     normalization_rule_version TEXT NOT NULL,
     dependency_versions        TEXT NOT NULL,
+    report_periods             TEXT NOT NULL,
+    currency                   TEXT,
+    unit                       TEXT,
+    statement_scope            TEXT,
+    audit_status               TEXT,
     block_count                INTEGER NOT NULL,
     record_count               INTEGER NOT NULL,
     created_at                 TEXT NOT NULL,
-    UNIQUE (source_version, extractor_version, mapping_rule_version, normalization_rule_version)
+    UNIQUE (source_version, extractor_version, mapping_rule_version, normalization_rule_version, dependency_versions)
 );
 """ + _immutable_triggers("financial_record_set") + """
 
@@ -231,12 +240,12 @@ CREATE INDEX IF NOT EXISTS idx_resolution_group ON resolution_record(group_id);
 
 -- resolution_validity（追加事件）+ resolution_head（指针）
 CREATE TABLE IF NOT EXISTS resolution_validity (
-    event_id          TEXT PRIMARY KEY,
-    resolution_id     TEXT NOT NULL REFERENCES resolution_record(resolution_id),
-    status            TEXT NOT NULL,
-    invalidated_by    TEXT,
+    event_id           TEXT PRIMARY KEY,
+    resolution_id      TEXT NOT NULL REFERENCES resolution_record(resolution_id),
+    status             TEXT NOT NULL,
+    invalidated_by     TEXT,
     invalidated_reason TEXT,
-    event_at          TEXT NOT NULL
+    event_at           TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_resval_resolution ON resolution_validity(resolution_id, event_at);
 
@@ -301,12 +310,12 @@ CREATE TABLE IF NOT EXISTS current_snapshot (
 
 -- snapshot_validity（追加事件）+ snapshot_switch_log（审计）
 CREATE TABLE IF NOT EXISTS snapshot_validity (
-    event_id          TEXT PRIMARY KEY,
-    snapshot_id       TEXT NOT NULL REFERENCES financial_snapshot(snapshot_id),
-    status            TEXT NOT NULL,
-    invalidated_by    TEXT,
+    event_id           TEXT PRIMARY KEY,
+    snapshot_id        TEXT NOT NULL REFERENCES financial_snapshot(snapshot_id),
+    status             TEXT NOT NULL,
+    invalidated_by     TEXT,
     invalidated_reason TEXT,
-    event_at          TEXT NOT NULL
+    event_at           TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_snapval_snapshot ON snapshot_validity(snapshot_id, event_at);
 
@@ -418,15 +427,6 @@ def _row_to_source_version(row: sqlite3.Row) -> S.FinancialSourceVersion:
         file_size=row["file_size"],
         document_id=row["document_id"],
         document_version=row["document_version"],
-        report_periods=_json_loads(row["report_periods"]) or [],
-        currency=row["currency"],
-        statement_scope=row["statement_scope"],
-        audit_status=row["audit_status"],
-        extractor_name=row["extractor_name"],
-        extractor_version=row["extractor_version"],
-        mapping_rule_version=row["mapping_rule_version"],
-        normalization_rule_version=row["normalization_rule_version"],
-        quality_flags=_json_loads(row["quality_flags"]) or [],
         created_at=row["created_at"],
     )
 
@@ -435,10 +435,16 @@ def _row_to_record_set(row: sqlite3.Row) -> S.FinancialRecordSet:
     return S.FinancialRecordSet(
         record_set_version=row["record_set_version"],
         source_version=row["source_version"],
+        extractor_name=row["extractor_name"],
         extractor_version=row["extractor_version"],
         mapping_rule_version=row["mapping_rule_version"],
         normalization_rule_version=row["normalization_rule_version"],
         dependency_versions=_json_loads(row["dependency_versions"]) or {},
+        report_periods=_json_loads(row["report_periods"]) or [],
+        currency=row["currency"],
+        unit=row["unit"],
+        statement_scope=row["statement_scope"],
+        audit_status=row["audit_status"],
         block_count=row["block_count"],
         record_count=row["record_count"],
         created_at=row["created_at"],
@@ -490,29 +496,376 @@ def _row_to_progress(row: sqlite3.Row) -> S.ProgressEvent:
 
 
 # ---------------------------------------------------------------------------
-# 来源文档头（可更新 subject_match_status）
+# 结果类型
 # ---------------------------------------------------------------------------
 
-def insert_source_document(doc: S.FinancialSourceDocument) -> None:
-    """插入业务文档头。重复 source_document_id 显式报错（不静默忽略）。"""
-    validator.validate_source_document(doc)
+@dataclass
+class RegisterSourceResult:
+    document: S.FinancialSourceDocument
+    version: S.FinancialSourceVersion
+    reused: bool
+    subject_blocked: bool
+
+
+@dataclass
+class CommitRecordSetResult:
+    record_set: S.FinancialRecordSet
+    reused: bool
+    record_count: int
+
+
+# ---------------------------------------------------------------------------
+# 来源登记：原子接口（A1 修订 2）
+# ---------------------------------------------------------------------------
+
+def _assert_reuse_compatible(existing_row: sqlite3.Row, incoming: S.FinancialSourceDocument) -> None:
+    """既有 source_document_id 复用校验（A1 修订 10）。"""
+    if existing_row["company_id"] != incoming.company_id:
+        raise validator.ValidationError(
+            f"跨公司借用已有 source_document_id: {incoming.source_document_id} "
+            f"属于 {existing_row['company_id']!r}，非 {incoming.company_id!r}")
+    if existing_row["source_class"] != incoming.source_class:
+        raise validator.ValidationError(
+            f"source_class 静默改变: {existing_row['source_class']!r} → {incoming.source_class!r}")
+    existing_declared = existing_row["declared_company_name"]
+    if (existing_declared and incoming.declared_company_name
+            and existing_declared != incoming.declared_company_name):
+        raise validator.ValidationError(
+            f"declared_company_name 静默改变: {existing_declared!r} → {incoming.declared_company_name!r}")
+
+
+def _merge_subject(existing_row: sqlite3.Row, incoming: S.FinancialSourceDocument) -> tuple[str, str | None]:
+    """主体匹配受控更新（A1 修订 10）。
+
+    - 空检测（无 detected 信息）永不覆盖既有结论；
+    - matched/mismatch 不得被降级为 unverified；
+    - matched ↔ mismatch 之间允许有依据的更正。
+    """
+    existing_status = existing_row["subject_match_status"]
+    existing_detected = existing_row["detected_company_name"]
+    if incoming.detected_company_name is None:
+        return existing_status, existing_detected
+    if existing_status in ("matched", "mismatch") and incoming.subject_match_status == "unverified":
+        return existing_status, existing_detected
+    return incoming.subject_match_status, incoming.detected_company_name
+
+
+def _insert_source_document_conn(conn: sqlite3.Connection, doc: S.FinancialSourceDocument) -> None:
+    conn.execute(
+        "INSERT INTO financial_source_document (source_document_id, company_id, source_name, "
+        "source_class, declared_company_name, detected_company_name, subject_match_status, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (doc.source_document_id, doc.company_id, doc.source_name, doc.source_class,
+         doc.declared_company_name, doc.detected_company_name,
+         doc.subject_match_status, doc.created_at),
+    )
+
+
+def _insert_source_version_conn(conn: sqlite3.Connection, v: S.FinancialSourceVersion) -> None:
+    conn.execute(
+        "INSERT INTO financial_source_version (source_version, source_document_id, file_sha256, "
+        "file_type, file_size, document_id, document_version, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (v.source_version, v.source_document_id, v.file_sha256, v.file_type,
+         v.file_size, v.document_id, v.document_version, v.created_at),
+    )
+
+
+def register_source_atomic(
+    document: S.FinancialSourceDocument,
+    version: S.FinancialSourceVersion,
+) -> RegisterSourceResult:
+    """原子登记：单事务内完成校验 + 文档头复用/插入 + 内容版本复用/插入。
+
+    - 同 (source_document_id, file_sha256) 已登记 → 幂等复用（reused=True）；
+    - 同 source_document_id 不同内容 → 严格复用校验（company/class/身份）+ 新内容版本；
+    - 任一步失败全部回滚，不残留文档头/版本（A1 修订 2）。
+    """
+    validator.validate_source_document(document)
+    validator.validate_source_version(version)
+    if version.source_document_id != document.source_document_id:
+        raise validator.ValidationError(
+            f"version.source_document_id 与 document.source_document_id 不一致: "
+            f"{version.source_document_id!r} != {document.source_document_id!r}")
+
     conn = _get_conn()
     try:
-        conn.execute(
-            "INSERT INTO financial_source_document (source_document_id, company_id, "
-            "source_name, source_class, declared_company_name, detected_company_name, "
-            "subject_match_status, created_at) VALUES (?,?,?,?,?,?,?,?)",
-            (doc.source_document_id, doc.company_id, doc.source_name, doc.source_class,
-             doc.declared_company_name, doc.detected_company_name,
-             doc.subject_match_status, doc.created_at),
-        )
+        # 1. 幂等复用：同内容版本已登记。
+        existing_version = conn.execute(
+            "SELECT * FROM financial_source_version WHERE source_document_id=? AND file_sha256=?",
+            (document.source_document_id, version.file_sha256),
+        ).fetchone()
+        if existing_version is not None:
+            existing_doc = conn.execute(
+                "SELECT * FROM financial_source_document WHERE source_document_id=?",
+                (document.source_document_id,),
+            ).fetchone()
+            return RegisterSourceResult(
+                document=_row_to_source_document(existing_doc),
+                version=_row_to_source_version(existing_version),
+                reused=True,
+                subject_blocked=(existing_doc["subject_match_status"] == "mismatch"),
+            )
+
+        # 2. 文档头：复用（严格校验 + 受控主体合并）或插入。
+        existing_doc = conn.execute(
+            "SELECT * FROM financial_source_document WHERE source_document_id=?",
+            (document.source_document_id,),
+        ).fetchone()
+        if existing_doc is not None:
+            _assert_reuse_compatible(existing_doc, document)
+            new_status, new_detected = _merge_subject(existing_doc, document)
+            if new_status != existing_doc["subject_match_status"] or new_detected != existing_doc["detected_company_name"]:
+                conn.execute(
+                    "UPDATE financial_source_document SET subject_match_status=?, detected_company_name=? "
+                    "WHERE source_document_id=?",
+                    (new_status, new_detected, document.source_document_id),
+                )
+        else:
+            _insert_source_document_conn(conn, document)
+
+        # 3. 插入内容版本。
+        _insert_source_version_conn(conn, version)
+
+        final_doc = _row_to_source_document(conn.execute(
+            "SELECT * FROM financial_source_document WHERE source_document_id=?",
+            (document.source_document_id,),
+        ).fetchone())
         conn.commit()
+        return RegisterSourceResult(
+            document=final_doc, version=version, reused=False,
+            subject_blocked=(final_doc.subject_match_status == "mismatch"),
+        )
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
 
+
+# ---------------------------------------------------------------------------
+# 记录集合：原子提交（A1 修订 6）
+# ---------------------------------------------------------------------------
+
+def _insert_record_set_conn(conn: sqlite3.Connection, rs: S.FinancialRecordSet) -> None:
+    conn.execute(
+        "INSERT INTO financial_record_set (record_set_version, source_version, extractor_name, "
+        "extractor_version, mapping_rule_version, normalization_rule_version, dependency_versions, "
+        "report_periods, currency, unit, statement_scope, audit_status, block_count, record_count, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (rs.record_set_version, rs.source_version, rs.extractor_name,
+         rs.extractor_version, rs.mapping_rule_version, rs.normalization_rule_version,
+         _json_dumps(rs.dependency_versions), _json_dumps(rs.report_periods),
+         rs.currency, rs.unit, rs.statement_scope, rs.audit_status,
+         rs.block_count, rs.record_count, rs.created_at),
+    )
+
+
+def _insert_record_conn(conn: sqlite3.Connection, r: S.SourceFinancialRecord) -> None:
+    conn.execute(
+        "INSERT INTO source_financial_record (record_id, record_set_version, company_id, "
+        "standard_item_code, statement_type, raw_item_text, raw_value, raw_unit, raw_currency, "
+        "std_value, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
+        "statement_scope, currency, restatement_version, locator, mapping_mode, confidence, "
+        "record_hash, quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (r.record_id, r.record_set_version, r.company_id, r.standard_item_code,
+         r.statement_type, r.raw_item_text, r.raw_value, r.raw_unit, r.raw_currency,
+         r.std_value, r.std_unit, r.std_currency, r.conversion_rule_version,
+         r.report_period, r.period_type, r.statement_scope, r.currency,
+         r.restatement_version, _json_dumps(S.locator_to_dict(r.locator)),
+         r.mapping_mode, r.confidence, r.record_hash, _json_dumps(r.quality_flags),
+         r.created_at),
+    )
+
+
+def _require_not_quarantined(conn: sqlite3.Connection, object_type: str, object_id: str) -> None:
+    row = conn.execute(
+        "SELECT 1 FROM quarantine WHERE object_type=? AND object_id=? LIMIT 1",
+        (object_type, object_id),
+    ).fetchone()
+    if row is not None:
+        raise ValueError(f"{object_type} 已隔离，不得设为 current: {object_id}")
+
+
+def _validate_record_set_ownership(conn: sqlite3.Connection, source_document_id: str, record_set_version: str) -> None:
+    """校验 record_set → source_version → source_document_id 完整归属链（A1 修订 7）。"""
+    rs = conn.execute(
+        "SELECT * FROM financial_record_set WHERE record_set_version=?",
+        (record_set_version,),
+    ).fetchone()
+    if rs is None:
+        raise KeyError(f"record_set 不存在: {record_set_version}")
+    sv = conn.execute(
+        "SELECT source_document_id FROM financial_source_version WHERE source_version=?",
+        (rs["source_version"],),
+    ).fetchone()
+    if sv is None:
+        raise ValueError(f"record_set 的 source_version 悬空: {rs['source_version']}")
+    if sv["source_document_id"] != source_document_id:
+        raise ValueError(
+            f"record_set 归属链不符：source_version 属于 {sv['source_document_id']!r}，"
+            f"非 {source_document_id!r}（拒绝跨文档/跨公司指针）")
+    _require_not_quarantined(conn, "financial_source_version", rs["source_version"])
+    _require_not_quarantined(conn, "financial_record_set", record_set_version)
+    rec_q = conn.execute(
+        "SELECT 1 FROM quarantine WHERE object_type='source_financial_record' AND object_id IN "
+        "(SELECT record_id FROM source_financial_record WHERE record_set_version=?) LIMIT 1",
+        (record_set_version,),
+    ).fetchone()
+    if rec_q is not None:
+        raise ValueError(f"record_set 含被隔离记录: {record_set_version}")
+
+
+def _set_current_record_set_conn(conn: sqlite3.Connection, source_document_id: str, record_set_version: str) -> None:
+    _validate_record_set_ownership(conn, source_document_id, record_set_version)
+    conn.execute(
+        "INSERT INTO current_record_set (source_document_id, record_set_version, switched_at) "
+        "VALUES (?,?,?) "
+        "ON CONFLICT(source_document_id) DO UPDATE SET "
+        "record_set_version=excluded.record_set_version, switched_at=excluded.switched_at",
+        (source_document_id, record_set_version, _utcnow()),
+    )
+
+
+def _record_set_header_identical(incoming: S.FinancialRecordSet, row: sqlite3.Row) -> bool:
+    return (
+        row["source_version"] == incoming.source_version
+        and row["extractor_name"] == incoming.extractor_name
+        and row["extractor_version"] == incoming.extractor_version
+        and row["mapping_rule_version"] == incoming.mapping_rule_version
+        and row["normalization_rule_version"] == incoming.normalization_rule_version
+        and _json_loads(row["dependency_versions"]) == incoming.dependency_versions
+        and _json_loads(row["report_periods"]) == incoming.report_periods
+        and row["currency"] == incoming.currency
+        and row["unit"] == incoming.unit
+        and row["statement_scope"] == incoming.statement_scope
+        and row["audit_status"] == incoming.audit_status
+        and row["block_count"] == incoming.block_count
+        and row["record_count"] == incoming.record_count
+    )
+
+
+def _record_identical(row: sqlite3.Row, rec: S.SourceFinancialRecord) -> bool:
+    """逐字段核对记录（A1 修订 8）：record_id/hash + 原始值/标准值/locator/conversion rule。"""
+    return (
+        row["record_id"] == rec.record_id
+        and row["record_set_version"] == rec.record_set_version
+        and row["company_id"] == rec.company_id
+        and row["standard_item_code"] == rec.standard_item_code
+        and row["statement_type"] == rec.statement_type
+        and row["raw_item_text"] == rec.raw_item_text
+        and row["raw_value"] == rec.raw_value
+        and row["raw_unit"] == rec.raw_unit
+        and row["raw_currency"] == rec.raw_currency
+        and row["std_value"] == rec.std_value
+        and row["std_unit"] == rec.std_unit
+        and row["std_currency"] == rec.std_currency
+        and row["conversion_rule_version"] == rec.conversion_rule_version
+        and row["report_period"] == rec.report_period
+        and row["period_type"] == rec.period_type
+        and row["statement_scope"] == rec.statement_scope
+        and row["currency"] == rec.currency
+        and row["restatement_version"] == rec.restatement_version
+        and _json_loads(row["locator"]) == S.locator_to_dict(rec.locator)
+        and row["mapping_mode"] == rec.mapping_mode
+        and row["confidence"] == rec.confidence
+        and row["record_hash"] == rec.record_hash
+    )
+
+
+def _record_set_identical(conn: sqlite3.Connection, incoming: S.FinancialRecordSet,
+                          incoming_records: list[S.SourceFinancialRecord], existing_row: sqlite3.Row) -> bool:
+    if not _record_set_header_identical(incoming, existing_row):
+        return False
+    existing_records = conn.execute(
+        "SELECT * FROM source_financial_record WHERE record_set_version=? ORDER BY record_id",
+        (incoming.record_set_version,),
+    ).fetchall()
+    incoming_sorted = sorted(incoming_records, key=lambda r: r.record_id)
+    if len(existing_records) != len(incoming_sorted):
+        return False
+    for er, ir in zip(existing_records, incoming_sorted):
+        if not _record_identical(er, ir):
+            return False
+    return True
+
+
+def commit_record_set(
+    record_set: S.FinancialRecordSet,
+    records: list[S.SourceFinancialRecord],
+    expected_source_document_id: str,
+) -> CommitRecordSetResult:
+    """原子提交一个记录集合（A1 修订 6/7/8）。
+
+    单事务内：校验 → 归属链 → 严格复用 → 写 record_set → 写全部 records → 写后复核
+    → 原子切换 current → commit。任一步失败全部回滚，旧 current 不变，半成品不可见。
+    """
+    validator.validate_record_set(record_set)
+    if not records:
+        raise ValueError("records 不能为空")
+    validator.validate_records(records, record_set.record_set_version)
+    if record_set.record_count != len(records):
+        raise validator.ValidationError(
+            f"record_count 不一致: 声明 {record_set.record_count} != 实际 {len(records)}")
+
+    conn = _get_conn()
+    try:
+        # 1. source_version 归属链（record_set 尚未写库）。
+        sv = conn.execute(
+            "SELECT source_document_id FROM financial_source_version WHERE source_version=?",
+            (record_set.source_version,),
+        ).fetchone()
+        if sv is None:
+            raise KeyError(f"source_version 不存在: {record_set.source_version}")
+        if sv["source_document_id"] != expected_source_document_id:
+            raise ValueError(
+                f"source_version 不属于文档 {expected_source_document_id!r} "
+                f"（属于 {sv['source_document_id']!r}）")
+        _require_not_quarantined(conn, "financial_source_version", record_set.source_version)
+
+        # 2. 严格复用：record_set_version 已存在 → 深比对。
+        existing = conn.execute(
+            "SELECT * FROM financial_record_set WHERE record_set_version=?",
+            (record_set.record_set_version,),
+        ).fetchone()
+        if existing is not None:
+            if _record_set_identical(conn, record_set, records, existing):
+                return CommitRecordSetResult(
+                    record_set=_row_to_record_set(existing), reused=True,
+                    record_count=record_set.record_count)
+            raise StorageConflictError(
+                f"record_set_version 已存在但内容不一致: {record_set.record_set_version}")
+
+        # 3. 写 record_set + 全部 records。
+        _insert_record_set_conn(conn, record_set)
+        for r in records:
+            _insert_record_conn(conn, r)
+
+        # 4. 写后完整性复核。
+        actual = conn.execute(
+            "SELECT COUNT(*) AS c FROM source_financial_record WHERE record_set_version=?",
+            (record_set.record_set_version,),
+        ).fetchone()["c"]
+        if actual != len(records):
+            raise RuntimeError(
+                f"来源记录写入校验失败：实际落库 {actual} 行 != 传入 {len(records)} 行")
+
+        # 5. 原子切换 current（含完整归属链 + 隔离校验）。
+        _set_current_record_set_conn(conn, expected_source_document_id, record_set.record_set_version)
+
+        conn.commit()
+        return CommitRecordSetResult(
+            record_set=record_set, reused=False, record_count=len(records))
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 读查询（公开）
+# ---------------------------------------------------------------------------
 
 def get_source_document(source_document_id: str) -> S.FinancialSourceDocument | None:
     conn = _get_conn()
@@ -526,43 +879,6 @@ def get_source_document(source_document_id: str) -> S.FinancialSourceDocument | 
         conn.close()
 
 
-def update_subject_match(source_document_id: str, subject_match_status: str,
-                         detected_company_name: str | None) -> None:
-    """细化主体匹配状态（登记后随检测结果更新，仅此一处允许更新文档头）。"""
-    if subject_match_status not in S.SUBJECT_MATCH_STATUSES:
-        raise validator.ValidationError(f"subject_match_status 非法: {subject_match_status!r}")
-    conn = _get_conn()
-    try:
-        cur = conn.execute(
-            "UPDATE financial_source_document SET subject_match_status=?, detected_company_name=? "
-            "WHERE source_document_id=?",
-            (subject_match_status, detected_company_name, source_document_id),
-        )
-        if cur.rowcount == 0:
-            raise KeyError(f"source_document 不存在: {source_document_id}")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
-def find_source_document_id_by_sha256(company_id: str, file_sha256: str) -> str | None:
-    """按 (company_id, file_sha256) 查找已登记的业务文档 id（用于幂等复用）。"""
-    conn = _get_conn()
-    try:
-        row = conn.execute(
-            "SELECT d.source_document_id FROM financial_source_document d "
-            "JOIN financial_source_version v ON v.source_document_id = d.source_document_id "
-            "WHERE d.company_id=? AND v.file_sha256=? LIMIT 1",
-            (company_id, file_sha256),
-        ).fetchone()
-        return row["source_document_id"] if row else None
-    finally:
-        conn.close()
-
-
 def list_source_documents(company_id: str) -> list[S.FinancialSourceDocument]:
     conn = _get_conn()
     try:
@@ -571,34 +887,6 @@ def list_source_documents(company_id: str) -> list[S.FinancialSourceDocument]:
             (company_id,),
         ).fetchall()
         return [_row_to_source_document(r) for r in rows]
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
-# 内容版本（不可变）
-# ---------------------------------------------------------------------------
-
-def insert_source_version(v: S.FinancialSourceVersion) -> None:
-    validator.validate_source_version(v)
-    conn = _get_conn()
-    try:
-        conn.execute(
-            "INSERT INTO financial_source_version (source_version, source_document_id, "
-            "file_sha256, file_type, file_size, document_id, document_version, "
-            "report_periods, currency, statement_scope, audit_status, extractor_name, "
-            "extractor_version, mapping_rule_version, normalization_rule_version, "
-            "quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (v.source_version, v.source_document_id, v.file_sha256, v.file_type,
-             v.file_size, v.document_id, v.document_version, _json_dumps(v.report_periods),
-             v.currency, v.statement_scope, v.audit_status, v.extractor_name,
-             v.extractor_version, v.mapping_rule_version, v.normalization_rule_version,
-             _json_dumps(v.quality_flags), v.created_at),
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
     finally:
         conn.close()
 
@@ -640,32 +928,6 @@ def list_source_versions(source_document_id: str) -> list[S.FinancialSourceVersi
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# 记录集合（不可变）+ current 指针（原子切换）
-# ---------------------------------------------------------------------------
-
-def insert_record_set(rs: S.FinancialRecordSet) -> None:
-    validator.validate_record_set(rs)
-    conn = _get_conn()
-    try:
-        conn.execute(
-            "INSERT INTO financial_record_set (record_set_version, source_version, "
-            "extractor_version, mapping_rule_version, normalization_rule_version, "
-            "dependency_versions, block_count, record_count, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            (rs.record_set_version, rs.source_version, rs.extractor_version,
-             rs.mapping_rule_version, rs.normalization_rule_version,
-             _json_dumps(rs.dependency_versions), rs.block_count, rs.record_count,
-             rs.created_at),
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
 def get_record_set(record_set_version: str) -> S.FinancialRecordSet | None:
     conn = _get_conn()
     try:
@@ -690,31 +952,6 @@ def list_record_sets(source_version: str) -> list[S.FinancialRecordSet]:
         conn.close()
 
 
-def set_current_record_set(source_document_id: str, record_set_version: str) -> None:
-    """原子切换 current_record_set 指针（新 record_set 完整提交后调用）。"""
-    conn = _get_conn()
-    try:
-        exists = conn.execute(
-            "SELECT 1 FROM financial_record_set WHERE record_set_version=?",
-            (record_set_version,),
-        ).fetchone()
-        if exists is None:
-            raise KeyError(f"record_set 不存在: {record_set_version}")
-        conn.execute(
-            "INSERT INTO current_record_set (source_document_id, record_set_version, switched_at) "
-            "VALUES (?,?,?) "
-            "ON CONFLICT(source_document_id) DO UPDATE SET "
-            "record_set_version=excluded.record_set_version, switched_at=excluded.switched_at",
-            (source_document_id, record_set_version, _utcnow()),
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
 def get_current_record_set(source_document_id: str) -> S.FinancialRecordSet | None:
     conn = _get_conn()
     try:
@@ -725,48 +962,6 @@ def get_current_record_set(source_document_id: str) -> S.FinancialRecordSet | No
             (source_document_id,),
         ).fetchone()
         return _row_to_record_set(row) if row else None
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
-# 来源记录（不可变）
-# ---------------------------------------------------------------------------
-
-def insert_records(records: list[S.SourceFinancialRecord], record_set_version: str) -> None:
-    """在单事务内插入一批来源记录；写后核对实际行数，任一不符回滚。"""
-    if not records:
-        raise ValueError("records 不能为空")
-    validator.validate_records(records, record_set_version)
-    conn = _get_conn()
-    try:
-        for r in records:
-            conn.execute(
-                "INSERT INTO source_financial_record (record_id, record_set_version, "
-                "company_id, standard_item_code, statement_type, raw_item_text, raw_value, "
-                "raw_unit, raw_currency, std_value, std_unit, std_currency, "
-                "conversion_rule_version, report_period, period_type, statement_scope, "
-                "currency, restatement_version, locator, mapping_mode, confidence, "
-                "record_hash, quality_flags, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (r.record_id, r.record_set_version, r.company_id, r.standard_item_code,
-                 r.statement_type, r.raw_item_text, r.raw_value, r.raw_unit, r.raw_currency,
-                 r.std_value, r.std_unit, r.std_currency, r.conversion_rule_version,
-                 r.report_period, r.period_type, r.statement_scope, r.currency,
-                 r.restatement_version, _json_dumps(S.locator_to_dict(r.locator)),
-                 r.mapping_mode, r.confidence, r.record_hash, _json_dumps(r.quality_flags),
-                 r.created_at),
-            )
-        actual = conn.execute(
-            "SELECT COUNT(*) AS c FROM source_financial_record WHERE record_set_version=?",
-            (record_set_version,),
-        ).fetchone()["c"]
-        if actual != len(records):
-            raise RuntimeError(
-                f"来源记录写入校验失败：实际落库 {actual} 行 != 传入 {len(records)} 行")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
     finally:
         conn.close()
 
@@ -793,6 +988,109 @@ def count_records(record_set_version: str) -> int:
         return row["c"]
     finally:
         conn.close()
+
+
+def count_source_documents(company_id: str) -> int:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM financial_source_document WHERE company_id=?",
+            (company_id,),
+        ).fetchone()
+        return row["c"]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# validity：追加事件 + 确定性读取 + 状态机（A1 修订 9）
+# ---------------------------------------------------------------------------
+
+_SNAPSHOT_VALIDITY_RANK = {"valid": 0, "stale": 1, "superseded": 2}
+_RESOLUTION_VALIDITY_RANK = {"active": 0, "stale": 1, "superseded": 2}
+
+
+def _append_validity_event(
+    table: str,
+    id_column: str,
+    object_id: str,
+    status: str,
+    invalidated_by: str | None,
+    invalidated_reason: str | None,
+    statuses: list[str],
+    rank: dict[str, int],
+    initial_status: str,
+) -> str | None:
+    """追加一条有效性事件；幂等重复返回 None，非法倒退抛 ValidationError。
+
+    排序规则：event_at DESC, rowid DESC（rowid 为插入顺序的单调序列），同时间戳
+    多事件仍确定（A1 修订 9）。
+    """
+    if status not in statuses:
+        raise validator.ValidationError(f"status 非法: {status!r}")
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            f"SELECT status FROM {table} WHERE {id_column}=? ORDER BY event_at DESC, rowid DESC LIMIT 1",
+            (object_id,),
+        ).fetchone()
+        if row is None:
+            if status != initial_status:
+                raise validator.ValidationError(
+                    f"{table} 首条事件必须为 {initial_status!r}，收到 {status!r}")
+        else:
+            current = row["status"]
+            if status == current:
+                return None  # 幂等：同状态重复事件不追加
+            if rank[status] < rank[current]:
+                raise validator.ValidationError(f"非法有效性倒退: {current} → {status}")
+        event_id = "v-" + uuid.uuid4().hex[:16]
+        conn.execute(
+            f"INSERT INTO {table} (event_id, {id_column}, status, invalidated_by, invalidated_reason, event_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (event_id, object_id, status, invalidated_by, invalidated_reason, _utcnow()),
+        )
+        conn.commit()
+        return event_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _latest_validity(table: str, id_column: str, object_id: str) -> str | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            f"SELECT status FROM {table} WHERE {id_column}=? ORDER BY event_at DESC, rowid DESC LIMIT 1",
+            (object_id,),
+        ).fetchone()
+        return row["status"] if row else None
+    finally:
+        conn.close()
+
+
+def record_snapshot_validity(snapshot_id: str, status: str, invalidated_by: str | None = None,
+                             invalidated_reason: str | None = None) -> str | None:
+    return _append_validity_event("snapshot_validity", "snapshot_id", snapshot_id, status,
+                                  invalidated_by, invalidated_reason, S.SNAPSHOT_VALIDITY_STATUSES,
+                                  _SNAPSHOT_VALIDITY_RANK, "valid")
+
+
+def record_resolution_validity(resolution_id: str, status: str, invalidated_by: str | None = None,
+                               invalidated_reason: str | None = None) -> str | None:
+    return _append_validity_event("resolution_validity", "resolution_id", resolution_id, status,
+                                  invalidated_by, invalidated_reason, S.RESOLUTION_VALIDITY_STATUSES,
+                                  _RESOLUTION_VALIDITY_RANK, "active")
+
+
+def latest_snapshot_validity(snapshot_id: str) -> str | None:
+    return _latest_validity("snapshot_validity", "snapshot_id", snapshot_id)
+
+
+def latest_resolution_validity(resolution_id: str) -> str | None:
+    return _latest_validity("resolution_validity", "resolution_id", resolution_id)
 
 
 # ---------------------------------------------------------------------------
@@ -880,22 +1178,6 @@ def history_progress(run_id: str) -> list[S.ProgressEvent]:
 
 
 # ---------------------------------------------------------------------------
-# 查询：跨公司隔离辅助
-# ---------------------------------------------------------------------------
-
-def count_source_documents(company_id: str) -> int:
-    conn = _get_conn()
-    try:
-        row = conn.execute(
-            "SELECT COUNT(*) AS c FROM financial_source_document WHERE company_id=?",
-            (company_id,),
-        ).fetchone()
-        return row["c"]
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -911,13 +1193,10 @@ def _cli_inspect(company_id: str) -> dict:
                 "file_sha256": v.file_sha256[:16],
                 "file_type": v.file_type,
                 "file_size": v.file_size,
-                "report_periods": v.report_periods,
-                "statement_scope": v.statement_scope,
-                "currency": v.currency,
-                "extractor_version": v.extractor_version,
-                "current_record_set": (current.record_set_version
-                                       if current and current.source_version == v.source_version
-                                       else None),
+                "current_record_set": (
+                    current.record_set_version
+                    if current and current.source_version == v.source_version
+                    else None),
             })
         result["documents"].append({
             "source_document_id": d.source_document_id,

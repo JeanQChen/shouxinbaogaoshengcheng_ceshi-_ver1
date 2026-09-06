@@ -1,16 +1,17 @@
-"""Eval: financial_v2 store（A1 commit 2）。
+"""Eval: financial_v2 store（A1 修订）。
 
 用法: python -m evals.test_financial_v2_store
 
 覆盖：
 - DDL 建表 + 6 类不可变历史事实表的 UPDATE/DELETE 触发器；
-- 文档头可更新 subject_match（唯一允许的更新）；
-- 重复来源版本/重复文档显式报错（无 INSERT OR IGNORE 掩盖）；
-- 记录集合 + 记录的原子写入与写后核对；
-- current_record_set 原子切换；
-- quarantine 隔离（不修改被保护行）；
-- progress 事件独立落盘；
-- 跨公司查询隔离；
+- 内容版本无抽取占位列、记录集合含抽取事实列（A1 修订 1）；
+- register_source_atomic 原子登记：幂等复用、跨公司/class/声明名复用拒绝、
+  主体匹配受控合并、故障注入不残留文档头（A1 修订 2/10）；
+- commit_record_set 原子提交：严格复用/存储冲突、跨文档跨公司指针拒绝、
+  隔离拒绝、故障注入不残留半成品（A1 修订 6/7/8）；
+- 依赖版本变化产生两个 Record Set（A1 修订 5）；
+- snapshot/resolution validity 确定性读取 + 状态机（幂等 + 非法倒退拒绝，A1 修订 9）；
+- quarantine / progress / 跨公司隔离；
 - 临时 DB 注入，不污染 data/*.db。
 """
 
@@ -29,12 +30,13 @@ from financial_v2 import store
 from financial_v2 import validator
 
 
-def _make_doc(company_id="300750", source_document_id="sd-1") -> S.FinancialSourceDocument:
+def _make_doc(company_id="300750", source_document_id="sd-1", source_class="financial_statement",
+              declared="宁德时代", detected="宁德时代", subject="matched") -> S.FinancialSourceDocument:
     return S.FinancialSourceDocument(
         source_document_id=source_document_id, company_id=company_id,
-        source_name="NDSD_BALANCESHEET.xlsx", source_class="financial_statement",
-        declared_company_name="宁德时代", detected_company_name="宁德时代",
-        subject_match_status="matched", created_at="2026-01-01T00:00:00Z",
+        source_name="NDSD_BALANCESHEET.xlsx", source_class=source_class,
+        declared_company_name=declared, detected_company_name=detected,
+        subject_match_status=subject, created_at="2026-01-01T00:00:00Z",
     )
 
 
@@ -45,27 +47,29 @@ def _make_version(source_document_id="sd-1", file_sha256="a" * 64,
     return S.FinancialSourceVersion(
         source_version=source_version, source_document_id=source_document_id,
         file_sha256=file_sha256, file_type="xlsx", file_size=1024,
-        document_id=None, document_version=None, report_periods=["2024-12-31"],
-        currency="CNY", statement_scope="consolidated", audit_status="audited",
-        extractor_name="excel_extractor", extractor_version="0.1",
-        mapping_rule_version="0.1", normalization_rule_version="0.1",
-        quality_flags=[], created_at="2026-01-01T00:00:00Z",
+        document_id=None, document_version=None, created_at="2026-01-01T00:00:00Z",
     )
 
 
-def _make_record_set(source_version, record_set_version=None) -> S.FinancialRecordSet:
+def _make_record_set(source_version, dependency_versions=None, extractor_version="0.1",
+                     record_set_version=None, record_count=1) -> S.FinancialRecordSet:
+    dep = dependency_versions or {"openpyxl": "3.1.2"}
     if record_set_version is None:
         record_set_version = S.derive_record_set_version(
-            source_version, "0.1", "0.1", "0.1", {"openpyxl": "3.1.2"})
+            source_version, extractor_version, "0.1", "0.1", dep)
     return S.FinancialRecordSet(
         record_set_version=record_set_version, source_version=source_version,
-        extractor_version="0.1", mapping_rule_version="0.1",
-        normalization_rule_version="0.1", dependency_versions={"openpyxl": "3.1.2"},
-        block_count=1, record_count=1, created_at="2026-01-01T00:00:00Z",
+        extractor_name="excel_extractor", extractor_version=extractor_version,
+        mapping_rule_version="0.1", normalization_rule_version="0.1",
+        dependency_versions=dep, report_periods=["2024-12-31"],
+        currency="CNY", unit="yuan", statement_scope="consolidated",
+        audit_status="audited", block_count=1, record_count=record_count,
+        created_at="2026-01-01T00:00:00Z",
     )
 
 
-def _make_record(record_set_version, company_id="300750", row_number=5) -> S.SourceFinancialRecord:
+def _make_record(record_set_version, company_id="300750", row_number=5,
+                 raw_value=1000.0) -> S.SourceFinancialRecord:
     locator = S.SourceLocator(kind="excel", excel=S.ExcelCellLocator(
         sheet_name="资产负债表", row_number=row_number, column_number=2,
         cell_address=f"B{row_number}", row_header="资产总计",
@@ -73,8 +77,8 @@ def _make_record(record_set_version, company_id="300750", row_number=5) -> S.Sou
     r = S.SourceFinancialRecord(
         record_id="", record_set_version=record_set_version, company_id=company_id,
         standard_item_code="TOTAL_ASSETS", statement_type="balance_sheet",
-        raw_item_text="资产总计", raw_value=1000.0, raw_unit="yuan", raw_currency="CNY",
-        std_value=1000.0, std_unit="yuan", std_currency="CNY",
+        raw_item_text="资产总计", raw_value=raw_value, raw_unit="yuan", raw_currency="CNY",
+        std_value=raw_value, std_unit="yuan", std_currency="CNY",
         conversion_rule_version="1", report_period="2024-12-31", period_type="annual",
         statement_scope="consolidated", currency="CNY", restatement_version="0",
         locator=locator, mapping_mode="rule", confidence=1.0, record_hash="",
@@ -83,6 +87,26 @@ def _make_record(record_set_version, company_id="300750", row_number=5) -> S.Sou
     r.record_id = S.derive_record_id(record_set_version, S.record_identity_fields(r))
     r.record_hash = validator._record_hash(r)
     return r
+
+
+def _insert_snapshot_row(conn: sqlite3.Connection, snapshot_id="snap-1") -> None:
+    conn.execute(
+        "INSERT INTO financial_snapshot (snapshot_id, snapshot_version, company_id, as_of_date, "
+        "scope, currency, purpose, source_versions, resolution_versions, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (snapshot_id, "1", "300750", "2024-12-31", "consolidated", "CNY", "review",
+         "[]", "[]", "2026-01-01T00:00:00Z"),
+    )
+
+
+def _insert_resolution_row(conn: sqlite3.Connection, resolution_id="res-1") -> None:
+    conn.execute(
+        "INSERT INTO resolution_record (resolution_id, group_id, candidate_set_hash, source_hashes, "
+        "comparison_key, rule_versions, accepted_record_ids, rejected_record_ids, reason_code, "
+        "note, operator, confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (resolution_id, "g1", "h", "[]", "ck-x", "{}", '["rec-1"]', "[]", "AUDITED_SOURCE",
+         None, "op", "2026-01-01T00:00:00Z"),
+    )
 
 
 def main() -> dict:
@@ -100,7 +124,6 @@ def main() -> dict:
             failed += 1
             details.append(f"FAIL: {msg}")
 
-    # 临时 DB（非 :memory:，per-call connect 需要共享文件）
     fd, tmp_path = tempfile.mkstemp(suffix=".db", prefix="eval_fv2_store_")
     os.close(fd)
     try:
@@ -121,97 +144,268 @@ def main() -> dict:
                   "financial_snapshot", "snapshot_item"):
             check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
                   f"不可变触发器存在: {t}")
+
+        # 内容版本无抽取占位列 / 记录集合含抽取事实列（A1 修订 1）
+        ver_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_source_version)")}
+        for absent in ("currency", "statement_scope", "audit_status", "extractor_name",
+                       "report_periods", "extractor_version"):
+            check(absent not in ver_cols, f"financial_source_version 无占位列 {absent}")
+        rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
+        for present in ("extractor_name", "report_periods", "currency", "unit",
+                        "statement_scope", "audit_status"):
+            check(present in rs_cols, f"financial_record_set 含抽取事实列 {present}")
         conn.close()
 
-        # ---- 来源文档头：可更新 subject_match ----
-        doc = _make_doc()
-        store.insert_source_document(doc)
-        check(store.get_source_document("sd-1") is not None, "插入并读取来源文档头")
+        # ---- register_source_atomic 原子登记（A1 修订 2）----
+        r1 = store.register_source_atomic(_make_doc(), _make_version())
+        check(r1.reused is False, "首次登记 reused=False")
+        check(r1.subject_blocked is False, "matched 不阻断")
+        check(store.get_source_document("sd-1") is not None, "登记并读取文档头")
+        check(store.get_source_version(r1.version.source_version) is not None, "登记并读取内容版本")
 
-        store.update_subject_match("sd-1", "mismatch", "其他公司")
-        check(store.get_source_document("sd-1").subject_match_status == "mismatch",
-              "文档头允许更新 subject_match_status")
+        # 幂等复用：同 (source_document_id, file_sha256)
+        r2 = store.register_source_atomic(_make_doc(), _make_version())
+        check(r2.reused is True, "同内容重复登记 reused=True")
+        check(r2.version.source_version == r1.version.source_version, "重复登记返回相同 source_version")
 
-        # 重复插入文档头 → 显式报错
+        # 新内容版本（不同 sha，同 source_document_id）
+        v2 = _make_version(file_sha256="b" * 64)
+        r3 = store.register_source_atomic(_make_doc(), v2)
+        check(r3.reused is False, "同文档不同内容 → 新内容版本")
+        check(len(store.list_source_versions("sd-1")) == 2, "同文档两个内容版本并存")
+
+        # 主体受控合并：空检测不覆盖 matched（A1 修订 10）
+        r4 = store.register_source_atomic(
+            _make_doc(detected=None, subject="unverified"), _make_version(file_sha256="c" * 64))
+        check(r4.document.subject_match_status == "matched",
+              "空检测不覆盖 matched（不降级）")
+
+        # 主体受控合并：matched → mismatch（有依据更正）
+        r5 = store.register_source_atomic(
+            _make_doc(detected="比亚迪", subject="mismatch"), _make_version(file_sha256="d" * 64))
+        check(r5.document.subject_match_status == "mismatch", "matched → mismatch 允许")
+        check(r5.subject_blocked is True, "mismatch 阻断")
+
+        # mismatch 不被空检测覆盖
+        r6 = store.register_source_atomic(
+            _make_doc(detected=None, subject="unverified"), _make_version(file_sha256="e" * 64))
+        check(r6.document.subject_match_status == "mismatch",
+              "mismatch 不被空检测覆盖")
+
+        # 跨公司复用拒绝（A1 修订 10）
         try:
-            store.insert_source_document(doc)
-            check(False, "重复插入文档头被拒绝")
-        except sqlite3.IntegrityError:
-            check(True, "重复插入文档头被拒绝（无静默忽略）")
+            store.register_source_atomic(
+                _make_doc(company_id="600000", detected=None, subject="unverified"),
+                _make_version(file_sha256="f" * 64))
+            check(False, "跨公司复用被拒绝")
+        except validator.ValidationError:
+            check(True, "跨公司借用已有 source_document_id 被拒绝")
 
-        # ---- 内容版本 ----
-        v = _make_version()
-        store.insert_source_version(v)
-        check(store.get_source_version(v.source_version) is not None, "插入并读取内容版本")
-
-        # 同 (source_document_id, file_sha256) 重复 → 报错
-        dup = _make_version(source_version="sv-manual")
+        # source_class 静默改变拒绝
         try:
-            store.insert_source_version(dup)
-            check(False, "重复内容版本被拒绝")
-        except sqlite3.IntegrityError:
-            check(True, "重复内容版本被拒绝（UNIQUE(source_document_id, file_sha256)）")
+            store.register_source_atomic(
+                _make_doc(source_class="credit_report", detected=None, subject="unverified"),
+                _make_version(file_sha256="f" * 64))
+            check(False, "source_class 改变被拒绝")
+        except validator.ValidationError:
+            check(True, "source_class 静默改变被拒绝")
 
-        # ---- 内容版本不可变 ----
+        # declared_company_name 静默改变拒绝
+        try:
+            store.register_source_atomic(
+                _make_doc(declared="比亚迪", detected=None, subject="unverified"),
+                _make_version(file_sha256="f" * 64))
+            check(False, "declared 改变被拒绝")
+        except validator.ValidationError:
+            check(True, "declared_company_name 静默改变被拒绝")
+
+        # ---- 故障注入：版本插入失败不残留文档头（A1 修订 2）----
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("CREATE TRIGGER tmp_fail_version BEFORE INSERT ON financial_source_version "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            store.register_source_atomic(_make_doc(source_document_id="sd-fail"),
+                                         _make_version("sd-fail", "g" * 64))
+            check(False, "版本插入失败被注入触发")
+        except sqlite3.IntegrityError:
+            check(True, "版本插入失败（注入）")
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("DROP TRIGGER tmp_fail_version")
+        conn.commit()
+        conn.close()
+        check(store.get_source_document("sd-fail") is None, "版本插入失败不残留文档头")
+
+        # ---- commit_record_set 原子提交（A1 修订 6/7/8）----
+        sv1 = r1.version.source_version
+        rs = _make_record_set(sv1)
+        rec = _make_record(rs.record_set_version)
+        c1 = store.commit_record_set(rs, [rec], "sd-1")
+        check(c1.reused is False, "首次提交 record_set reused=False")
+        check(store.count_records(rs.record_set_version) == 1, "记录落库数量正确")
+        check(store.get_current_record_set("sd-1").record_set_version == rs.record_set_version,
+              "current_record_set 指针切换成功")
+
+        # 严格复用：完全一致 → reused=True
+        c2 = store.commit_record_set(rs, [rec], "sd-1")
+        check(c2.reused is True, "完全一致重复提交 reused=True")
+
+        # 存储冲突：同 record_set_version 但记录内容不一致（A1 修订 8）
+        rec_bad = _make_record(rs.record_set_version, raw_value=9999.0)
+        try:
+            store.commit_record_set(rs, [rec_bad], "sd-1")
+            check(False, "内容不一致被拒绝")
+        except store.StorageConflictError:
+            check(True, "同 record_set_version 内容不一致 → StorageConflictError")
+        check(store.get_current_record_set("sd-1").record_set_version == rs.record_set_version,
+              "冲突不切换 current（旧 current 保留）")
+
+        # record_count 不一致
+        rs_bad_count = _make_record_set(sv1, record_count=2)
+        try:
+            store.commit_record_set(rs_bad_count, [rec], "sd-1")
+            check(False, "record_count 不一致被拒绝")
+        except validator.ValidationError:
+            check(True, "record_count 与记录数不一致被拒绝")
+
+        # 依赖版本变化 → 两个 Record Set（A1 修订 5）
+        store.register_source_atomic(_make_doc(source_document_id="sd-dep"),
+                                     _make_version("sd-dep", "m" * 64))
+        sv_dep = S.derive_source_version("sd-dep", "m" * 64)
+        rs_a = _make_record_set(sv_dep, dependency_versions={"openpyxl": "3.1.2"})
+        rs_b = _make_record_set(sv_dep, dependency_versions={"openpyxl": "3.2.0"})
+        check(rs_a.record_set_version != rs_b.record_set_version,
+              "依赖版本变化 → 不同 record_set_version")
+        store.commit_record_set(rs_a, [_make_record(rs_a.record_set_version)], "sd-dep")
+        store.commit_record_set(rs_b, [_make_record(rs_b.record_set_version)], "sd-dep")
+        check(len(store.list_record_sets(sv_dep)) == 2, "同来源不同依赖 → 两个 Record Set 并存")
+
+        # 跨文档指针拒绝（A1 修订 7）
+        store.register_source_atomic(_make_doc(source_document_id="sd-2"),
+                                     _make_version("sd-2", "h" * 64))
+        sv2 = S.derive_source_version("sd-2", "h" * 64)
+        rs_other_doc = _make_record_set(sv2)
+        try:
+            store.commit_record_set(rs_other_doc, [_make_record(rs_other_doc.record_set_version)],
+                                    "sd-1")
+            check(False, "跨文档指针被拒绝")
+        except ValueError:
+            check(True, "source_version 不属于目标文档 → 拒绝")
+
+        # 跨公司指针拒绝（A1 修订 7）
+        store.register_source_atomic(_make_doc(company_id="600000", source_document_id="sd-600"),
+                                     _make_version("sd-600", "i" * 64))
+        sv600 = S.derive_source_version("sd-600", "i" * 64)
+        rs_other_co = _make_record_set(sv600)
+        try:
+            store.commit_record_set(rs_other_co, [_make_record(rs_other_co.record_set_version)],
+                                    "sd-1")
+            check(False, "跨公司指针被拒绝")
+        except ValueError:
+            check(True, "跨公司 source_version → 拒绝")
+
+        # 隔离拒绝（A1 修订 7）：source_version 被隔离 → 不得 commit
+        store.register_source_atomic(_make_doc(source_document_id="sd-q"),
+                                     _make_version("sd-q", "j" * 64))
+        svq = S.derive_source_version("sd-q", "j" * 64)
+        store.quarantine("financial_source_version", svq, "完整性损坏")
+        rs_q = _make_record_set(svq)
+        try:
+            store.commit_record_set(rs_q, [_make_record(rs_q.record_set_version)], "sd-q")
+            check(False, "隔离 source_version 不得 commit")
+        except ValueError:
+            check(True, "被隔离 source_version 不得提交 record_set")
+
+        # 隔离 record_set 不得设为 current（直接验证归属校验）
+        conn = store._get_conn()
+        try:
+            store.quarantine("financial_record_set", rs.record_set_version, "损坏")
+            try:
+                store._set_current_record_set_conn(conn, "sd-1", rs.record_set_version)
+                check(False, "隔离 record_set 不得设为 current")
+            except ValueError:
+                check(True, "被隔离 record_set 不得设为 current")
+        finally:
+            conn.close()
+
+        # ---- 故障注入：记录插入失败不残留 record_set / 不切 current（A1 修订 6）----
+        store.register_source_atomic(_make_doc(source_document_id="sd-fail2"),
+                                     _make_version("sd-fail2", "k" * 64))
+        sv_fail2 = S.derive_source_version("sd-fail2", "k" * 64)
+        rs_fail = _make_record_set(sv_fail2)
+        rec_fail = _make_record(rs_fail.record_set_version)
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("CREATE TRIGGER tmp_fail_rec BEFORE INSERT ON source_financial_record "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            store.commit_record_set(rs_fail, [rec_fail], "sd-fail2")
+            check(False, "记录插入失败被注入触发")
+        except sqlite3.IntegrityError:
+            check(True, "记录插入失败（注入）")
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("DROP TRIGGER tmp_fail_rec")
+        conn.commit()
+        conn.close()
+        check(store.get_record_set(rs_fail.record_set_version) is None, "记录插入失败不残留 record_set")
+        check(store.get_current_record_set("sd-fail2") is None, "记录插入失败不切 current")
+
+        # ---- 不可变触发器（原始 SQL）----
         conn = sqlite3.connect(tmp_path)
         try:
             conn.execute("UPDATE financial_source_version SET file_size=999 WHERE source_version=?",
-                         (v.source_version,))
+                         (sv1,))
             conn.commit()
             check(False, "内容版本 UPDATE 被触发器阻断")
         except sqlite3.IntegrityError:
             check(True, "内容版本 UPDATE 被触发器阻断")
         try:
-            conn.execute("DELETE FROM financial_source_version WHERE source_version=?",
-                         (v.source_version,))
+            conn.execute("DELETE FROM financial_source_version WHERE source_version=?", (sv1,))
             conn.commit()
             check(False, "内容版本 DELETE 被触发器阻断")
         except sqlite3.IntegrityError:
             check(True, "内容版本 DELETE 被触发器阻断")
         conn.close()
 
-        # ---- 记录集合 + 记录 ----
-        rs = _make_record_set(v.source_version)
-        store.insert_record_set(rs)
-        check(store.get_record_set(rs.record_set_version) is not None, "插入并读取记录集合")
-
-        rec = _make_record(rs.record_set_version)
-        store.insert_records([rec], rs.record_set_version)
-        check(store.count_records(rs.record_set_version) == 1, "记录写入落库数量正确")
-
-        # 记录不可变
+        # ---- validity 状态机（A1 修订 9）----
         conn = sqlite3.connect(tmp_path)
-        try:
-            conn.execute("UPDATE source_financial_record SET std_value=999 WHERE record_id=?",
-                         (rec.record_id,))
-            conn.commit()
-            check(False, "来源记录 UPDATE 被触发器阻断")
-        except sqlite3.IntegrityError:
-            check(True, "来源记录 UPDATE 被触发器阻断")
+        _insert_snapshot_row(conn, "snap-1")
+        _insert_snapshot_row(conn, "snap-2")
+        _insert_resolution_row(conn, "res-1")
+        conn.commit()
         conn.close()
 
-        # ---- current_record_set 原子切换 ----
-        store.set_current_record_set("sd-1", rs.record_set_version)
-        cur = store.get_current_record_set("sd-1")
-        check(cur is not None and cur.record_set_version == rs.record_set_version,
-              "current_record_set 指针切换成功")
-
-        # 切换到不存在的 record_set → 报错且不改变现有指针
+        check(store.latest_snapshot_validity("snap-1") is None, "初始无快照有效性事件")
+        check(store.record_snapshot_validity("snap-1", "valid") is not None, "首条 valid 生效")
+        check(store.latest_snapshot_validity("snap-1") == "valid", "latest_snapshot_validity 读 valid")
+        check(store.record_snapshot_validity("snap-1", "valid") is None, "同状态重复事件幂等")
+        check(store.record_snapshot_validity("snap-1", "stale", invalidated_by="snap-2") is not None,
+              "valid → stale 生效")
+        check(store.latest_snapshot_validity("snap-1") == "stale", "latest 读 stale")
         try:
-            store.set_current_record_set("sd-1", "rs-nonexistent")
-            check(False, "切换到不存在 record_set 被拒绝")
-        except KeyError:
-            check(True, "切换到不存在 record_set 被拒绝")
-        check(store.get_current_record_set("sd-1").record_set_version == rs.record_set_version,
-              "失败切换不影响旧 current")
+            store.record_snapshot_validity("snap-1", "valid")
+            check(False, "非法倒退 stale→valid 被拒绝")
+        except validator.ValidationError:
+            check(True, "非法倒退 stale → valid 被拒绝")
+        store.record_snapshot_validity("snap-1", "superseded")
+        check(store.latest_snapshot_validity("snap-1") == "superseded", "stale → superseded")
+        try:
+            store.record_snapshot_validity("snap-2", "stale")
+            check(False, "首条非 valid 被拒绝")
+        except validator.ValidationError:
+            check(True, "快照有效性首条事件必须为 valid")
 
-        # ---- quarantine 隔离 ----
-        store.quarantine("financial_record_set", rs.record_set_version, "完整性损坏")
-        check(store.is_quarantined("financial_record_set", rs.record_set_version),
-              "quarantine 记录并查询到隔离对象")
-        # 被隔离对象的历史行仍在（不物理删除）
-        check(store.get_record_set(rs.record_set_version) is not None,
-              "隔离不删除被保护历史行")
+        check(store.record_resolution_validity("res-1", "active") is not None, "决议首条 active 生效")
+        check(store.latest_resolution_validity("res-1") == "active", "latest_resolution_validity 读 active")
+        store.record_resolution_validity("res-1", "stale")
+        check(store.latest_resolution_validity("res-1") == "stale", "active → stale")
+        try:
+            store.record_resolution_validity("res-1", "active")
+            check(False, "非法倒退 stale→active 被拒绝")
+        except validator.ValidationError:
+            check(True, "非法倒退 stale → active 被拒绝")
 
         # ---- progress 事件 ----
         ev = S.ProgressEvent(event_id="evt-1", run_id="run-1", stage_id="EXTRACTION",
@@ -220,12 +414,12 @@ def main() -> dict:
                              created_at="2026-01-01T00:00:00Z")
         store.record_progress(ev)
         check(store.latest_progress("run-1").event_id == "evt-1", "progress 事件落盘并可读")
-        check(len(store.history_progress("run-1")) == 1, "progress 历史可读")
 
         # ---- 跨公司隔离 ----
-        store.insert_source_document(_make_doc(company_id="600000", source_document_id="sd-2"))
-        check(store.count_source_documents("300750") == 1, "跨公司查询隔离（company A 不返回 B）")
-        check(store.list_source_documents("300750")[0].source_document_id == "sd-1",
+        store.register_source_atomic(_make_doc(company_id="600000", source_document_id="sd-2b"),
+                                     _make_version("sd-2b", "l" * 64))
+        check(store.count_source_documents("300750") >= 1, "跨公司查询隔离（company A 不返回 B 独立文档）")
+        check(all(d.company_id == "300750" for d in store.list_source_documents("300750")),
               "list 按公司过滤")
 
     finally:
