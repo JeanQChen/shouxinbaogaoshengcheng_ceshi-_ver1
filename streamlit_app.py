@@ -109,30 +109,69 @@ def _parse_and_save(file_path: str, company_id: str) -> dict:
     }
 
 
-def _process_pdf(file_path: str, company_id: str) -> dict:
-    """解析 PDF 并索引到 ChromaDB，返回摘要。"""
+def _parse_and_index_pdf(file_path: str, company_id: str) -> tuple[dict, object]:
+    """解析一次 PDF 并索引到 ChromaDB（V1）。
+
+    返回 (摘要 dict, PdfParseResult)。同一份 PdfParseResult 可再交给 Evidence
+    Builder 消费，避免同一 PDF 被完整解析两次。
+    """
     from parsers.pdf_parser import parse as pdf_parse
     from retrieval.indexer import index_pdf
 
     result = pdf_parse(file_path)
+    summary = {
+        "file": Path(file_path).name,
+        "chunks": len(result.chunks),
+        "pages": result.page_count,
+        "collection": "",
+    }
     if result.chunks:
-        collection_name = index_pdf(
+        summary["collection"] = index_pdf(
             result.chunks, company_id, "company_docs",
             source_file=Path(file_path).name,
         )
+    else:
+        summary["quality"] = result.metadata.get("quality", "unknown")
+    return summary, result
+
+
+def _process_pdf(file_path: str, company_id: str) -> dict:
+    """解析 PDF 并索引到 ChromaDB，返回摘要（Demo 一键生成路径，不构建 Evidence）。"""
+    summary, _ = _parse_and_index_pdf(file_path, company_id)
+    return summary
+
+
+def _build_evidence_from_parsed(parsed, file_path: str, company_id: str) -> dict:
+    """用已解析结果构建 Evidence（不重复解析），返回展示状态摘要。
+
+    纯编排：把 PdfParseResult 交给 evidence.builder.run_pipeline_from_parsed，
+    状态用 builder.classify_status 归类为 completed/empty/failed。任何构建失败
+    都以 failed 返回，绝不把失败误报为成功。
+    """
+    from evidence import builder as evidence_builder
+
+    try:
+        summary = evidence_builder.run_pipeline_from_parsed(
+            parsed, file_path, company_id,
+            source_type=None, material_group="company_industry", store_it=True,
+        )
+        count = summary["evidence"]["count"]
         return {
-            "file": Path(file_path).name,
-            "chunks": len(result.chunks),
-            "pages": result.page_count,
-            "collection": collection_name,
+            "status": evidence_builder.classify_status(count),
+            "source_type": evidence_builder.infer_source_type(Path(file_path).name),
+            "run_id": summary["run_id"],
+            "count": count,
+            "error": None,
         }
-    return {
-        "file": Path(file_path).name,
-        "chunks": 0,
-        "pages": result.page_count,
-        "collection": "",
-        "quality": result.metadata.get("quality", "unknown"),
-    }
+    except Exception as e:
+        logger.exception("Evidence build failed for %s", file_path)
+        return {
+            "status": evidence_builder.classify_status(0, error=e),
+            "source_type": evidence_builder.infer_source_type(Path(file_path).name),
+            "run_id": None,
+            "count": 0,
+            "error": str(e),
+        }
 
 
 def _render_evidence_progress(run_id: str) -> None:
@@ -157,6 +196,18 @@ def _render_evidence_progress(run_id: str) -> None:
                 st.write(f"   ✅ {label}")
         else:
             st.write(f"   ❌ {label}：{ev.error_code or ev.message_code}")
+
+
+def _render_evidence_status(label: str, ev: dict) -> None:
+    """只读展示单个 PDF 的 Evidence 构建结果（completed/empty/failed）。"""
+    if ev["status"] == "completed":
+        st.write(f"   ✅ Evidence：{ev['count']} 条证据（{ev['source_type']}），可回查")
+        if ev["run_id"]:
+            _render_evidence_progress(ev["run_id"])
+    elif ev["status"] == "empty":
+        st.write(f"   ⚠️ Evidence：0 条有效证据（{ev['source_type']}），无可回查块")
+    else:
+        st.write(f"   ❌ Evidence 构建失败：{ev['error']}")
 
 
 def _generate_report(company_id: str, template_path: str, **variables: str) -> tuple[str, list]:
@@ -504,8 +555,12 @@ def main() -> None:
 
     build_evidence = st.checkbox(
         "🔗 同时构建可追溯证据链（Evidence，用于证据定位与回查）",
-        value=False,
-        help="额外构建一份可回查的 Evidence（按公司/文件版本/物理页），不影响 V1 检索。",
+        value=True,
+        help=(
+            "默认开启：解析 PDF 时同一份解析结果既索引到 V1 检索，也构建可回查 Evidence "
+            "（按公司/文件版本/物理页），二者共享一次解析，互不影响。Evidence 构建失败"
+            "不影响 V1 检索，仅按失败/部分状态展示。"
+        ),
     )
 
     if st.button("开始解析", type="primary", use_container_width=True):
@@ -548,7 +603,7 @@ def main() -> None:
         all_periods = sorted(set(s["period"] for s in summaries if s["period"]))
         st.success(f"财务入库完成：{total_rows} 行数据，{len(summaries)} 份报表，{len(all_periods)} 个期间。")
 
-        # --- 处理 PDF 公告 ---
+        # --- 处理 PDF 公告（一次解析：V1 索引 + 可选 Evidence 两路消费）---
         pdf_ok = False
         if pdf_files_to_process:
             _clear_chroma_collection(company_id)
@@ -558,7 +613,7 @@ def main() -> None:
                 for label, fpath in pdf_files_to_process:
                     st.write(f"📑 解析 {label}...")
                     try:
-                        pdf_summary = _process_pdf(fpath, company_id)
+                        pdf_summary, parsed = _parse_and_index_pdf(fpath, company_id)
                         pdf_summaries.append({**pdf_summary, "label": label})
                         if pdf_summary["chunks"] > 0:
                             st.write(
@@ -570,6 +625,9 @@ def main() -> None:
                                 f"   ⚠️ {label} → 0 个文本块"
                                 f"（{pdf_summary.get('quality', 'unknown')} 质量）"
                             )
+                        # Evidence 复用同一份解析结果，不重复解析；失败/部分仅如实展示。
+                        if build_evidence:
+                            _render_evidence_status(label, _build_evidence_from_parsed(parsed, fpath, company_id))
                     except Exception as e:
                         st.write(f"   ❌ {label} 解析失败：{e}")
                         logger.exception("PDF parse failed for %s", fpath)
@@ -585,28 +643,6 @@ def main() -> None:
                     st.warning(f"PDF 解析未产生有效文本块（可能为扫描件或空白文件）。")
         else:
             st.info("（未上传 PDF 公告，公司主体分析将依赖其他数据源。）")
-
-        # --- 构建 Evidence（可追溯证据链，只读状态展示）---
-        if build_evidence and pdf_files_to_process:
-            from evidence import builder as evidence_builder
-
-            st.markdown("#### 🔗 构建证据链（Evidence）")
-            with st.status("正在构建证据链...", expanded=False) as ev_status:
-                for label, fpath in pdf_files_to_process:
-                    try:
-                        summary = evidence_builder.run_pipeline(
-                            fpath,
-                            company_id,
-                            source_type="other",
-                            material_group="company_industry",
-                            store_it=True,
-                        )
-                        st.write(f"📑 {label}")
-                        _render_evidence_progress(summary["run_id"])
-                    except Exception as e:
-                        st.write(f"   ❌ {label} Evidence 构建失败：{e}")
-                        logger.exception("Evidence build failed for %s", fpath)
-                ev_status.update(label="证据链构建完成", state="complete", expanded=False)
 
         st.session_state["data_ready"] = True
         st.session_state["pdf_ready"] = pdf_ok
