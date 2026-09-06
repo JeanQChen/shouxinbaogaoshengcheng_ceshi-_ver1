@@ -135,6 +135,30 @@ def _process_pdf(file_path: str, company_id: str) -> dict:
     }
 
 
+def _render_evidence_progress(run_id: str) -> None:
+    """只读展示某次 Evidence 构建的真实进度事件。
+
+    仅订阅 evidence.progress 已落盘的事件并渲染，不包含解析、计数或恢复逻辑
+    （这些都在 evidence/ 包内）。状态与真实 ProgressEvent 一一对应。
+    """
+    from evidence import progress as evidence_progress
+
+    events = evidence_progress.history(run_id)
+    if not events:
+        return
+    for ev in events:
+        if ev.status not in ("completed", "failed"):
+            continue
+        label = evidence_progress.STAGE_LABELS.get(ev.stage_id, ev.stage_id)
+        if ev.status == "completed":
+            if ev.completed_units is not None and ev.total_units:
+                st.write(f"   ✅ {label}（{ev.completed_units}/{ev.total_units}）")
+            else:
+                st.write(f"   ✅ {label}")
+        else:
+            st.write(f"   ❌ {label}：{ev.error_code or ev.message_code}")
+
+
 def _generate_report(company_id: str, template_path: str, **variables: str) -> tuple[str, list]:
     """生成完整报告：解析模板 → 三 agent 并行产出素材 → synthesizer 主笔 → 回检。
 
@@ -478,6 +502,12 @@ def main() -> None:
     # ── Step 2: 数据处理 ──
     st.header("🔧 第二步：数据处理")
 
+    build_evidence = st.checkbox(
+        "🔗 同时构建可追溯证据链（Evidence，用于证据定位与回查）",
+        value=False,
+        help="额外构建一份可回查的 Evidence（按公司/文件版本/物理页），不影响 V1 检索。",
+    )
+
     if st.button("开始解析", type="primary", use_container_width=True):
         if not company_id:
             st.error("请输入公司股票代码。")
@@ -555,6 +585,28 @@ def main() -> None:
                     st.warning(f"PDF 解析未产生有效文本块（可能为扫描件或空白文件）。")
         else:
             st.info("（未上传 PDF 公告，公司主体分析将依赖其他数据源。）")
+
+        # --- 构建 Evidence（可追溯证据链，只读状态展示）---
+        if build_evidence and pdf_files_to_process:
+            from evidence import builder as evidence_builder
+
+            st.markdown("#### 🔗 构建证据链（Evidence）")
+            with st.status("正在构建证据链...", expanded=False) as ev_status:
+                for label, fpath in pdf_files_to_process:
+                    try:
+                        summary = evidence_builder.run_pipeline(
+                            fpath,
+                            company_id,
+                            source_type="other",
+                            material_group="company_industry",
+                            store_it=True,
+                        )
+                        st.write(f"📑 {label}")
+                        _render_evidence_progress(summary["run_id"])
+                    except Exception as e:
+                        st.write(f"   ❌ {label} Evidence 构建失败：{e}")
+                        logger.exception("Evidence build failed for %s", fpath)
+                ev_status.update(label="证据链构建完成", state="complete", expanded=False)
 
         st.session_state["data_ready"] = True
         st.session_state["pdf_ready"] = pdf_ok
