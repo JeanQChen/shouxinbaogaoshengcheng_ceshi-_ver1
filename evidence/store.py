@@ -23,8 +23,10 @@ from pathlib import Path
 from evidence import schema as S
 from evidence import validator
 from evidence.ids import (
+    content_hash,
     derive_document_version,
     file_sha256,
+    make_evidence_id,
 )
 from evidence.schema import (
     Checkpoint,
@@ -454,6 +456,8 @@ def commit_document(
                                input_hashes, dependency_versions, key, set_row)
         if set_row is not None and set_row["status"] == "building":
             raise RuntimeError(f"evidence_sets 存在 building 残留（上一次事务未收尾）: {key}")
+        if set_row is not None and set_row["status"] == "invalid":
+            raise RuntimeError(f"evidence_sets 已隔离（invalid，需人工诊断，不得复用）: {key}")
 
         return _commit_fresh(conn, document, blocks, evidence_set_version, run_id,
                              input_hashes, dependency_versions, key)
@@ -524,12 +528,12 @@ def _commit_fresh(conn, document, blocks, set_version, run_id, input_hashes, dep
 
 
 def _verify_set_matches_blocks(conn, key, blocks) -> list[str]:
-    """校验存储集合与传入 blocks 完全一致（路径 B/C 复用/激活的前置条件）。
+    """校验「已确认内部健康」的存储集合与传入 blocks 完全一致（路径 B/C 输入匹配）。
 
-    逐块比较 (page_number, block_index, content_hash) 与 evidence_id 集合，
-    而非只用 `set(content_hash)`（不同坐标可同文本，会误判一致）。任何不一致
-    都 raise，拒绝复用/激活，且不改动 current 集合。返回按序存储的 evidence_id
-    列表，供 checkpoint 记录「到底复用了哪个完整集合」。
+    逐块比较 (page_number, block_index, content_hash) 与 evidence_id 集合，不用
+    `set(content_hash)`（不同坐标可同文本会误判）。不一致属于「调用方传入了不同
+    blocks」的参数不匹配：拒绝复用/激活，但不改 current 集合、不隔离集合。
+    返回按序存储的 evidence_id 列表。
     """
     rows = conn.execute(
         "SELECT evidence_id, page_number, block_index, content_hash FROM evidence_blocks "
@@ -544,46 +548,99 @@ def _verify_set_matches_blocks(conn, key, blocks) -> list[str]:
 
     if len(rows) != len(blocks):
         raise RuntimeError(
-            f"集合完整性校验失败：块数不匹配（存储 {len(rows)} vs 传入 {len(blocks)}）")
+            f"传入块与已存储集合不一致：块数（存储 {len(rows)} vs 传入 {len(blocks)}）")
     if set(stored_ids) != incoming_ids:
-        raise RuntimeError("集合完整性校验失败：evidence_id 集合不一致")
+        raise RuntimeError("传入块与已存储集合不一致：evidence_id 集合")
     if stored_coords != incoming_coords:
         raise RuntimeError(
-            "集合完整性校验失败：page_number+block_index+content_hash 集合不一致")
+            "传入块与已存储集合不一致：page_number+block_index+content_hash 集合")
     return stored_ids
+
+
+def _validate_stored_set_integrity(conn, key, set_row) -> str | None:
+    """校验已存储集合的「内部」完整性，返回损坏原因；健康返回 None。
+
+    检查（与调用方传参无关，纯存储自洽性）：
+    - block_count 与实际行数一致（含 current 集合缺失 Evidence 行）；
+    - 每块 content_hash 与 text/structured_payload 重算一致；
+    - 每块 evidence_id 与自身坐标/content_hash 重算一致；
+    - 无重复 evidence_id / 坐标。
+    """
+    rows = conn.execute(
+        "SELECT evidence_id, page_number, block_index, content_hash, text, structured_payload "
+        "FROM evidence_blocks "
+        "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=? "
+        "ORDER BY page_number, block_index",
+        key,
+    ).fetchall()
+    actual = len(rows)
+    if set_row["block_count"] != actual:
+        return f"block_count 记录 {set_row['block_count']} 与实际行数 {actual} 不一致"
+    seen_ids: set[str] = set()
+    seen_coords: set[tuple[int, int]] = set()
+    for r in rows:
+        ch = content_hash(r["text"], _json_loads(r["structured_payload"]))
+        if ch != r["content_hash"]:
+            return f"evidence_id={r['evidence_id']} content_hash 与 text/payload 重算不一致"
+        recomputed = make_evidence_id(
+            key[0], key[1], key[2], key[3], r["page_number"], r["block_index"], ch)
+        if recomputed != r["evidence_id"]:
+            return f"evidence_id={r['evidence_id']} 与坐标/content_hash 重算不一致"
+        coord = (r["page_number"], r["block_index"])
+        if r["evidence_id"] in seen_ids or coord in seen_coords:
+            return (f"重复 evidence_id 或坐标: evidence_id={r['evidence_id']} "
+                    f"page={r['page_number']} block_index={r['block_index']}")
+        seen_ids.add(r["evidence_id"])
+        seen_coords.add(coord)
+    return None
+
+
+def _quarantine_set(key, reason: str) -> None:
+    """在独立事务中把损坏集合标记为 invalid（不物理删除，保留供诊断）。"""
+    company_id, document_id, document_version, evidence_set_version = key
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "UPDATE evidence_sets SET status='invalid' "
+            "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=?",
+            (company_id, document_id, document_version, evidence_set_version),
+        )
+        conn.commit()
+        logger.error(
+            "Evidence 集合已隔离（invalid）: company=%s doc=%s ver=%s set=%s reason=%s",
+            company_id, document_id, document_version, evidence_set_version, reason,
+        )
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _reuse_existing(conn, document, blocks, set_version, run_id, key, set_row,
                     input_hashes, dependency_versions):
     """路径 B：目标集合已 current，幂等复用，不重写 Evidence。
 
-    复用前必须严格校验：依赖版本精确一致、输入文件 sha256 与文档内容版本一致、
-    存储 block_count 与实际行数一致、实际行数与传入 blocks 一致、evidence_id 集合与
-    page_number+block_index+content_hash 集合精确一致。任一不满足即拒绝复用，
-    不修改 current 集合，绝不以损坏集合冒充成功。
+    区分两类失败：
+    - 参数不匹配（依赖版本 / 输入哈希 / 传入 blocks 不同）：拒绝复用，不改 current。
+    - 存储损坏（block_count 与实际行数、ID/坐标/hash 自洽）：隔离为 invalid。
     """
     company_id, document_id, document_version, _ = key
 
-    # 依赖版本必须精确一致。
+    # 参数不匹配：依赖版本。
     if (_json_loads(set_row["dependency_versions"]) or {}) != dependency_versions:
         raise RuntimeError("复用失败：依赖版本不兼容")
-    # 输入文件哈希必须与文档内容版本一致。
+    # 参数不匹配：输入文件哈希。
     if input_hashes.get("file_sha256") != document.file_sha256:
         raise RuntimeError("复用失败：输入文件哈希与文档内容版本不一致")
-    # 集合记录的 block_count 与实际行数、传入块数三者必须一致。
-    stored_count = conn.execute(
-        "SELECT COUNT(*) AS c FROM evidence_blocks "
-        "WHERE company_id=? AND document_id=? AND document_version=? AND evidence_set_version=?",
-        key,
-    ).fetchone()["c"]
-    if set_row["block_count"] != stored_count:
-        raise RuntimeError(
-            f"复用失败：block_count 记录({set_row['block_count']})与实际行数({stored_count})不一致")
-    if stored_count != len(blocks):
-        raise RuntimeError(
-            f"复用失败：实际行数({stored_count})与传入块数({len(blocks)})不一致")
 
-    # 逐块完整性校验（evidence_id + 坐标 + content_hash 精确一致）。
+    # 存储损坏：内部完整性（block_count vs 行数、ID/坐标/hash 自洽）。
+    corrupt = _validate_stored_set_integrity(conn, key, set_row)
+    if corrupt is not None:
+        _quarantine_set(key, corrupt)
+        raise RuntimeError(f"复用失败：存储集合损坏已隔离（{corrupt}）")
+
+    # 集合健康，参数不匹配：传入 blocks 不同。
     stored_ids = _verify_set_matches_blocks(conn, key, blocks)
 
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
@@ -604,18 +661,24 @@ def _reuse_existing(conn, document, blocks, set_version, run_id, key, set_row,
 def _reactivate(conn, document, blocks, set_version, run_id, input_hashes, dependency_versions, key, set_row):
     """路径 C：目标集合为 retired，校验通过后重新激活。
 
-    完整性校验与路径 B 一致（逐块 evidence_id + 坐标 + content_hash），不用
-    `set(content_hash)`（不同坐标可同文本）。依赖版本 + 输入文件哈希也必须一致。
+    失败分类与路径 B 一致：参数不匹配拒绝激活不改状态；存储损坏隔离为 invalid。
     """
     company_id, document_id, document_version, _ = key
 
-    # 依赖版本一致性。
+    # 参数不匹配：依赖版本。
     if (_json_loads(set_row["dependency_versions"]) or {}) != dependency_versions:
         raise RuntimeError("重新激活失败：依赖版本不兼容")
-    # 输入文件哈希一致性。
+    # 参数不匹配：输入文件哈希。
     if input_hashes.get("file_sha256") != document.file_sha256:
         raise RuntimeError("重新激活失败：输入文件哈希与文档内容版本不一致")
 
+    # 存储损坏：内部完整性。
+    corrupt = _validate_stored_set_integrity(conn, key, set_row)
+    if corrupt is not None:
+        _quarantine_set(key, corrupt)
+        raise RuntimeError(f"重新激活失败：存储集合损坏已隔离（{corrupt}）")
+
+    # 集合健康，参数不匹配：传入 blocks 不同。
     stored_ids = _verify_set_matches_blocks(conn, key, blocks)
 
     checkpoint_id = "ckpt-" + uuid.uuid4().hex[:16]
