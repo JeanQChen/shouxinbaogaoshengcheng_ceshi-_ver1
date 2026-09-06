@@ -41,8 +41,9 @@ MATERIAL_GROUPS = ["company_industry", "financial", "project"]
 # 文档版本状态：registered（已登记未构建）/ current（当前可用）/ superseded（被新版本取代）。
 DOCUMENT_STATUSES = ["registered", "current", "superseded"]
 
-# 证据集合状态：building（事务内临时）/ current（当前可用）/ retired（停用或被取代）。
-EVIDENCE_SET_STATUSES = ["building", "current", "retired"]
+# 证据集合状态：building（事务内临时）/ current（当前可用）/ retired（停用或被取代）
+# / invalid（存储完整性损坏，已隔离，不参与 current 选择，保留供诊断）。
+EVIDENCE_SET_STATUSES = ["building", "current", "retired", "invalid"]
 
 # 进度事件状态：running / completed / failed。
 PROGRESS_STATUSES = ["running", "completed", "failed"]
@@ -58,9 +59,12 @@ STAGES = [
 ]
 
 # 表格结构探测状态（E1-01）。
+# PROBE_FAILED：输入非法 / 文件不存在 / PDF 打不开等运行错误，与「正常执行但
+# 无表格坐标」的 TABLE_STRUCTURE_UNAVAILABLE 区分开。
 PROBE_STATUSES = [
     "PROBE_NOT_RUN",
     "PROBE_DEPENDENCY_MISSING",
+    "PROBE_FAILED",
     "TABLE_STRUCTURE_AVAILABLE",
     "TABLE_STRUCTURE_UNAVAILABLE",
 ]
