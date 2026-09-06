@@ -168,6 +168,7 @@ EXTRACTION_ISSUE_TYPES = [
     "CROSS_PAGE_UNCERTAIN",
     "DEPENDENCY_ERROR",
     "DOCUMENT_LINK_UNAVAILABLE",
+    "CHECK_FAILED",              # A4 同源勾稽失败（§7.4：勾稽不满足 → 生成 issue，不改来源值）
 ]
 
 # 同源勾稽状态（§7.4）。

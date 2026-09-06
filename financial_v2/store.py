@@ -2036,6 +2036,136 @@ def commit_issues(issues: list[S.ExtractionIssue]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# A4 对账运行 / 勾稽持久化（§7.4 / §7.8）
+# ---------------------------------------------------------------------------
+
+def _reconciliation_run_identical(row: sqlite3.Row, run: S.ReconciliationRun) -> bool:
+    return (
+        row["company_id"] == run.company_id
+        and _json_loads(row["input_record_set_ids"]) == run.input_record_set_ids
+        and _json_loads(row["rule_versions"]) == run.rule_versions
+        and row["input_hash"] == run.input_hash
+    )
+
+
+def commit_reconciliation_run(run: S.ReconciliationRun) -> bool:
+    """原子提交一个对账运行（不可变历史事实；严格复用，冲突显式报错）。
+
+    run_id 应确定性派生（同一公司 + 同一输入 record set + 同一规则版本/input hash →
+    同一 run_id），复用路径逐字段核对，不一致报 StorageConflictError。返回是否复用。
+    """
+    validator.validate_reconciliation_run(run)
+    conn = _get_conn()
+    try:
+        existing = conn.execute(
+            "SELECT * FROM reconciliation_run WHERE run_id=?", (run.run_id,)
+        ).fetchone()
+        if existing is not None:
+            if not _reconciliation_run_identical(existing, run):
+                raise StorageConflictError(f"run_id 已存在但内容不一致: {run.run_id}")
+            conn.commit()
+            return True
+        conn.execute(
+            "INSERT INTO reconciliation_run (run_id, company_id, input_record_set_ids, "
+            "rule_versions, input_hash, created_at) VALUES (?,?,?,?,?,?)",
+            (run.run_id, run.company_id, _json_dumps(run.input_record_set_ids),
+             _json_dumps(run.rule_versions), run.input_hash, run.created_at),
+        )
+        conn.commit()
+        return False
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _reconciliation_check_identical(row: sqlite3.Row, c: S.ReconciliationCheck) -> bool:
+    return (
+        row["run_id"] == c.run_id
+        and row["record_set_version"] == c.record_set_version
+        and row["check_type"] == c.check_type
+        and _json_loads(row["input_record_ids"]) == c.input_record_ids
+        and row["left_value"] == c.left_value
+        and row["right_value"] == c.right_value
+        and row["diff"] == c.diff
+        and row["tolerance"] == c.tolerance
+        and row["status"] == c.status
+    )
+
+
+def commit_reconciliation_checks(checks: list[S.ReconciliationCheck]) -> int:
+    """原子追加一批勾稽结果（不可变，幂等；必须同属一个 reconciliation_run）。
+
+    逐项校验 + run 存在性 + 严格复用（check_id 已存在则逐字段核对）。返回新插入条数。
+    """
+    if not checks:
+        raise ValueError("checks 不能为空")
+    for c in checks:
+        validator.validate_reconciliation_check(c)
+    run_ids = {c.run_id for c in checks}
+    if len(run_ids) != 1:
+        raise validator.ValidationError(f"checks 必须同属一个 run: {sorted(run_ids)}")
+    run_id = next(iter(run_ids))
+
+    conn = _get_conn()
+    try:
+        run_row = conn.execute(
+            "SELECT 1 FROM reconciliation_run WHERE run_id=?", (run_id,)
+        ).fetchone()
+        if run_row is None:
+            raise KeyError(f"reconciliation_run 不存在: {run_id}")
+
+        inserted = 0
+        for c in checks:
+            existing = conn.execute(
+                "SELECT * FROM reconciliation_check WHERE check_id=?", (c.check_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _reconciliation_check_identical(existing, c):
+                    raise StorageConflictError(f"check_id 已存在但内容不一致: {c.check_id}")
+            else:
+                conn.execute(
+                    "INSERT INTO reconciliation_check (check_id, run_id, record_set_version, "
+                    "check_type, input_record_ids, left_value, right_value, diff, tolerance, "
+                    "status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (c.check_id, c.run_id, c.record_set_version, c.check_type,
+                     _json_dumps(c.input_record_ids), c.left_value, c.right_value,
+                     c.diff, c.tolerance, c.status, c.created_at),
+                )
+                inserted += 1
+        conn.commit()
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_reconciliation_run(run_id: str) -> S.ReconciliationRun | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM reconciliation_run WHERE run_id=?", (run_id,)
+        ).fetchone()
+        return _row_to_reconciliation_run(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_reconciliation_checks(run_id: str) -> list[S.ReconciliationCheck]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM reconciliation_check WHERE run_id=? ORDER BY check_id", (run_id,)
+        ).fetchall()
+        return [_row_to_reconciliation_check(r) for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # validity：追加事件 + 确定性读取 + 状态机（A1 修订 9）
 # ---------------------------------------------------------------------------
 
