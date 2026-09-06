@@ -1,20 +1,19 @@
-"""financial_v2 Store：SQLite 权威存储 + 迁移 + 事务 + 不可变触发器 + 查询。
+"""financial_v2 Store：SQLite 权威存储 + 追加迁移 + 事务 + 不可变触发器 + 查询。
 
 - 独立库 data/financial_v2.db，与 V1 data/credit.db、Phase 1 data/evidence.db 分离。
 - 不可变历史事实表（financial_source_version / financial_record_set /
   source_financial_record / resolution_record / financial_snapshot / snapshot_item）
   由 BEFORE UPDATE/DELETE 触发器保护，不依赖代码约定。
-- 来源登记与记录集提交均为「单事务原子接口」，禁止调用方串联多个会分别 commit
-  的低层函数（A1 修订 2/6）：
+- 迁移为「追加式」：历史 v1 DDL 冻结不再修改，v2 以独立 migration 函数追加；
+  schema_migrations 记录已应用版本；新建库一次到位，旧 v1 库原地升级；
+  迁移失败完整回滚；结构与 migration 记录不一致时失败关闭。
+- 来源登记与记录集提交均为「单事务原子接口」：
     * register_source_atomic —— 校验 + 文档头复用/插入 + 内容版本复用/插入，全回滚；
-    * commit_record_set —— 校验 + 归属链 + 严格复用 + 写 record_set + 写 records
-      + 写后复核 + 原子切换 current，全回滚。
-- building/failed 运行态写入 progress_events（复用 Phase 1 字段语义），不落到
-  历史事实表的状态列；finalized 对象在完整事务成功后直接提交，再原子切换 current。
-- 重复写入禁用 INSERT OR IGNORE：先读后严格比对，冲突显式报错回滚（StorageConflictError）。
-- 存储损坏隔离到 quarantine 表，不修改被保护历史行。
-- validity（snapshot_validity / resolution_validity）为追加事件，具确定性最新读取
-  与合法状态机（幂等 + 非法倒退拒绝）。
+    * commit_record_set —— 校验 + 归属链 + 逐记录公司归属 + 严格复用（含隔离/
+      完整性/current 指针原子切换）+ 写 record_set + 写 records + 写后复核，全回滚。
+- 重复写入禁用 INSERT OR IGNORE：先读后严格比对，冲突显式报错回滚（StorageConflictError）；
+  复用路径检测到存储损坏（record_hash/id 与内容不符）则记录 quarantine 并抛
+  StorageCorruptionError，不隔离健康对象。
 - 连接模式与 evidence/store.py 一致：per-call connect/close，PRAGMA foreign_keys=ON。
 """
 
@@ -24,6 +23,7 @@ import json
 import logging
 import sqlite3
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,15 +38,13 @@ DEFAULT_DB_PATH = Path("data/financial_v2.db")
 # 模块级，由 init_db() 设置，后续操作复用本路径。
 _db_path: Path | None = None
 
-# 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。A2～A6 在各自阶段
-# 追加新迁移条目，历史迁移不删除、不重写。当前唯一版本为 A1 校正后的 DDL。
-MIGRATIONS: list[tuple[str, str]] = [
-    ("1", None),
-]
-
 
 class StorageConflictError(Exception):
     """存储冲突：重复提交同一身份但内容不一致，显式报错（不静默覆盖/不隔离）。"""
+
+
+class StorageCorruptionError(Exception):
+    """存储损坏：复用前完整性校验失败，已记录 quarantine（区别于普通参数不一致）。"""
 
 
 def _utcnow() -> str:
@@ -63,55 +61,129 @@ def _get_conn() -> sqlite3.Connection:
     return conn
 
 
-def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
-    """初始化 financial_v2 SQLite 数据库，应用全部未执行迁移。"""
-    global _db_path
-    _db_path = Path(db_path)
-    conn = _get_conn()
-    try:
-        conn.executescript(build_ddl())
-        now = _utcnow()
-        for version, _ in MIGRATIONS:
-            conn.execute(
-                "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?,?)",
-                (version, now),
-            )
-        conn.commit()
-    finally:
-        conn.close()
+# ---------------------------------------------------------------------------
+# 结果类型
+# ---------------------------------------------------------------------------
+
+@dataclass
+class RegisterSourceResult:
+    document: S.FinancialSourceDocument
+    version: S.FinancialSourceVersion
+    reused: bool
+    subject_blocked: bool
+
+
+@dataclass
+class CommitRecordSetResult:
+    record_set: S.FinancialRecordSet
+    reused: bool
+    current_switched: bool   # 复用且原本非 current → True；新提交恒 True；复用且已是 current → False
+    record_count: int
 
 
 # ---------------------------------------------------------------------------
-# DDL
+# DDL（v1 冻结 + v2 当前）
 # ---------------------------------------------------------------------------
+
+def _immutable_trigger_sqls(table: str) -> list[str]:
+    """为不可变历史事实表生成 UPDATE/DELETE 阻断触发器（单条语句列表）。"""
+    return [
+        f"CREATE TRIGGER IF NOT EXISTS trg_{table}_no_update\n"
+        f"    BEFORE UPDATE ON {table}\n"
+        f"BEGIN\n    SELECT RAISE(ABORT, '{table} is immutable (UPDATE forbidden)');\nEND;",
+        f"CREATE TRIGGER IF NOT EXISTS trg_{table}_no_delete\n"
+        f"    BEFORE DELETE ON {table}\n"
+        f"BEGIN\n    SELECT RAISE(ABORT, '{table} is immutable (DELETE forbidden)');\nEND;",
+    ]
+
 
 def _immutable_triggers(table: str) -> str:
-    """为不可变历史事实表生成 UPDATE/DELETE 阻断触发器。"""
-    return f"""
-CREATE TRIGGER IF NOT EXISTS trg_{table}_no_update
-    BEFORE UPDATE ON {table}
-BEGIN
-    SELECT RAISE(ABORT, '{table} is immutable (UPDATE forbidden)');
-END;
-CREATE TRIGGER IF NOT EXISTS trg_{table}_no_delete
-    BEFORE DELETE ON {table}
-BEGIN
-    SELECT RAISE(ABORT, '{table} is immutable (DELETE forbidden)');
-END;
-"""
+    """返回可直接拼进 DDL 文本的触发器语句串。"""
+    return "\n" + "\n".join(_immutable_trigger_sqls(table)) + "\n"
 
 
 def build_ddl() -> str:
-    """返回全部建表语句（幂等）。"""
-    return _build_ddl_v1()
+    """返回最新（v2）建表语句（幂等）。"""
+    return _build_ddl_v2()
 
 
 def _build_ddl_v1() -> str:
+    """历史 v1 DDL（冻结，不再修改；仅用于旧库迁移与迁移测试）。"""
+    return """
+-- ---------------------------------------------------------------------------
+-- 来源登记（业务文档头，可更新 subject_match_status）
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS financial_source_document (
+    source_document_id     TEXT PRIMARY KEY,
+    company_id             TEXT NOT NULL,
+    source_name            TEXT NOT NULL,
+    source_class           TEXT NOT NULL,
+    declared_company_name  TEXT,
+    detected_company_name  TEXT,
+    subject_match_status   TEXT NOT NULL,
+    created_at             TEXT NOT NULL,
+    UNIQUE (company_id, source_document_id)
+);
+CREATE INDEX IF NOT EXISTS idx_src_doc_company ON financial_source_document(company_id);
+
+-- ---------------------------------------------------------------------------
+-- 内容版本（不可变历史事实；v1 含抽取占位列，v2 迁移瘦身）
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS financial_source_version (
+    source_version            TEXT PRIMARY KEY,
+    source_document_id        TEXT NOT NULL REFERENCES financial_source_document(source_document_id),
+    file_sha256               TEXT NOT NULL,
+    file_type                 TEXT NOT NULL,
+    file_size                 INTEGER NOT NULL,
+    document_id               TEXT,
+    document_version          TEXT,
+    report_periods            TEXT NOT NULL,
+    currency                  TEXT NOT NULL,
+    statement_scope           TEXT NOT NULL,
+    audit_status              TEXT NOT NULL,
+    extractor_name            TEXT NOT NULL,
+    extractor_version         TEXT NOT NULL,
+    mapping_rule_version      TEXT NOT NULL,
+    normalization_rule_version TEXT NOT NULL,
+    quality_flags             TEXT NOT NULL,
+    created_at                TEXT NOT NULL,
+    UNIQUE (source_document_id, file_sha256)
+);
+CREATE INDEX IF NOT EXISTS idx_src_ver_doc ON financial_source_version(source_document_id);
+""" + _immutable_triggers("financial_source_version") + """
+
+-- ---------------------------------------------------------------------------
+-- 记录集合（不可变历史事实；v1 无抽取事实列，v2 迁移追加）
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS financial_record_set (
+    record_set_version         TEXT PRIMARY KEY,
+    source_version             TEXT NOT NULL REFERENCES financial_source_version(source_version),
+    extractor_version          TEXT NOT NULL,
+    mapping_rule_version       TEXT NOT NULL,
+    normalization_rule_version TEXT NOT NULL,
+    dependency_versions        TEXT NOT NULL,
+    block_count                INTEGER NOT NULL,
+    record_count               INTEGER NOT NULL,
+    created_at                 TEXT NOT NULL,
+    UNIQUE (source_version, extractor_version, mapping_rule_version, normalization_rule_version)
+);
+""" + _immutable_triggers("financial_record_set") + """
+
+-- current_record_set 指针（可原子切换，非历史事实）
+CREATE TABLE IF NOT EXISTS current_record_set (
+    source_document_id  TEXT PRIMARY KEY,
+    record_set_version  TEXT NOT NULL REFERENCES financial_record_set(record_set_version),
+    switched_at         TEXT NOT NULL
+);
+""" + _shared_ddl_tail()
+
+
+def _build_ddl_v2() -> str:
+    """当前最新（v2）DDL：内容版本只存文件事实，记录集合承载抽取事实。"""
     return """
 -- ---------------------------------------------------------------------------
 -- 来源登记（业务文档头，可受控更新 subject_match_status）
---   source_document_id 为「含 company 命名空间的内部全局唯一 ID」（A1 修订 4），
---   由外部业务文档编号经 scope_source_document_id 派生或全新生成。
+--   source_document_id 为「含 company 命名空间的内部全局唯一 ID」（A1 修订 4）。
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS financial_source_document (
     source_document_id     TEXT PRIMARY KEY,
@@ -172,7 +244,12 @@ CREATE TABLE IF NOT EXISTS current_record_set (
     record_set_version  TEXT NOT NULL REFERENCES financial_record_set(record_set_version),
     switched_at         TEXT NOT NULL
 );
+""" + _shared_ddl_tail()
 
+
+def _shared_ddl_tail() -> str:
+    """v1/v2 均未变化的共享 DDL（从 source_financial_record 到 schema_migrations）。"""
+    return """
 -- ---------------------------------------------------------------------------
 -- 来源记录（不可变历史事实）
 -- ---------------------------------------------------------------------------
@@ -392,6 +469,253 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 
 
 # ---------------------------------------------------------------------------
+# 迁移：v1 → v2（受控建新表 + 复制校验 + 替换）
+# ---------------------------------------------------------------------------
+
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone() is not None
+
+
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _assert_copy_preserved(conn: sqlite3.Connection, src: str, dst: str, key_col: str) -> None:
+    """切换前检查行数与关键字段，不一致即失败（迁移回滚）。"""
+    old = conn.execute(f"SELECT COUNT(*) FROM {src}").fetchone()[0]
+    new = conn.execute(f"SELECT COUNT(*) FROM {dst}").fetchone()[0]
+    if old != new:
+        raise RuntimeError(f"迁移表 {src} 行数不一致: 原 {old} != 新 {new}")
+    old_keys = {r[0] for r in conn.execute(f"SELECT {key_col} FROM {src}")}
+    new_keys = {r[0] for r in conn.execute(f"SELECT {key_col} FROM {dst}")}
+    if old_keys != new_keys:
+        raise RuntimeError(f"迁移表 {src} 关键字段 {key_col} 不一致")
+
+
+def _swap_financial_source_document(conn: sqlite3.Connection) -> None:
+    tmp = "financial_source_document__mig"
+    conn.execute(f"""
+        CREATE TABLE {tmp} (
+            source_document_id     TEXT PRIMARY KEY,
+            company_id             TEXT NOT NULL,
+            source_name            TEXT NOT NULL,
+            source_class           TEXT NOT NULL,
+            declared_company_name  TEXT,
+            detected_company_name  TEXT,
+            subject_match_status   TEXT NOT NULL,
+            created_at             TEXT NOT NULL
+        )
+    """)
+    conn.execute(f"""
+        INSERT INTO {tmp} (source_document_id, company_id, source_name, source_class,
+            declared_company_name, detected_company_name, subject_match_status, created_at)
+        SELECT source_document_id, company_id, source_name, source_class,
+            declared_company_name, detected_company_name, subject_match_status, created_at
+        FROM financial_source_document
+    """)
+    _assert_copy_preserved(conn, "financial_source_document", tmp, "source_document_id")
+    conn.execute("DROP TABLE financial_source_document")
+    conn.execute(f"ALTER TABLE {tmp} RENAME TO financial_source_document")
+    conn.execute("CREATE INDEX idx_src_doc_company ON financial_source_document(company_id)")
+
+
+def _swap_financial_source_version(conn: sqlite3.Connection) -> None:
+    tmp = "financial_source_version__mig"
+    conn.execute(f"""
+        CREATE TABLE {tmp} (
+            source_version     TEXT PRIMARY KEY,
+            source_document_id TEXT NOT NULL REFERENCES financial_source_document(source_document_id),
+            file_sha256        TEXT NOT NULL,
+            file_type          TEXT NOT NULL,
+            file_size          INTEGER NOT NULL,
+            document_id        TEXT,
+            document_version   TEXT,
+            created_at         TEXT NOT NULL,
+            UNIQUE (source_document_id, file_sha256)
+        )
+    """)
+    conn.execute(f"""
+        INSERT INTO {tmp} (source_version, source_document_id, file_sha256, file_type,
+            file_size, document_id, document_version, created_at)
+        SELECT source_version, source_document_id, file_sha256, file_type,
+            file_size, document_id, document_version, created_at
+        FROM financial_source_version
+    """)
+    _assert_copy_preserved(conn, "financial_source_version", tmp, "source_version")
+    conn.execute("DROP TABLE financial_source_version")
+    conn.execute(f"ALTER TABLE {tmp} RENAME TO financial_source_version")
+    conn.execute("CREATE INDEX idx_src_ver_doc ON financial_source_version(source_document_id)")
+    for sql in _immutable_trigger_sqls("financial_source_version"):
+        conn.execute(sql)
+
+
+def _swap_financial_record_set(conn: sqlite3.Connection) -> None:
+    tmp = "financial_record_set__mig"
+    conn.execute(f"""
+        CREATE TABLE {tmp} (
+            record_set_version         TEXT PRIMARY KEY,
+            source_version             TEXT NOT NULL REFERENCES financial_source_version(source_version),
+            extractor_name             TEXT,
+            extractor_version          TEXT NOT NULL,
+            mapping_rule_version       TEXT NOT NULL,
+            normalization_rule_version TEXT NOT NULL,
+            dependency_versions        TEXT NOT NULL,
+            report_periods             TEXT NOT NULL,
+            currency                   TEXT,
+            unit                       TEXT,
+            statement_scope            TEXT,
+            audit_status               TEXT,
+            block_count                INTEGER NOT NULL,
+            record_count               INTEGER NOT NULL,
+            created_at                 TEXT NOT NULL,
+            UNIQUE (source_version, extractor_version, mapping_rule_version, normalization_rule_version, dependency_versions)
+        )
+    """)
+    conn.execute(f"""
+        INSERT INTO {tmp} (record_set_version, source_version, extractor_version,
+            mapping_rule_version, normalization_rule_version, dependency_versions,
+            report_periods, block_count, record_count, created_at)
+        SELECT record_set_version, source_version, extractor_version,
+            mapping_rule_version, normalization_rule_version, dependency_versions,
+            '[]', block_count, record_count, created_at
+        FROM financial_record_set
+    """)
+    _assert_copy_preserved(conn, "financial_record_set", tmp, "record_set_version")
+    conn.execute("DROP TABLE financial_record_set")
+    conn.execute(f"ALTER TABLE {tmp} RENAME TO financial_record_set")
+    for sql in _immutable_trigger_sqls("financial_record_set"):
+        conn.execute(sql)
+
+
+def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
+    """v1 → v2：文档头去冗余唯一键 + 内容版本瘦身 + 记录集合承载抽取事实。
+
+    迁移前先验证来源确为 v1 结构，否则失败关闭（不假装成功）。
+    """
+    ver_cols = _table_columns(conn, "financial_source_version")
+    if "currency" not in ver_cols or "report_periods" not in ver_cols:
+        raise RuntimeError(
+            "迁移 v1→v2 前提不满足：financial_source_version 已无 v1 占位列 "
+            "(currency/report_periods)，可能已是 v2 或结构损坏，拒绝迁移")
+    rs_cols = _table_columns(conn, "financial_record_set")
+    if "extractor_name" in rs_cols:
+        raise RuntimeError(
+            "迁移 v1→v2 前提不满足：financial_record_set 已含 v2 列 extractor_name，拒绝迁移")
+
+    _swap_financial_source_document(conn)
+    _swap_financial_source_version(conn)
+    _swap_financial_record_set(conn)
+
+
+def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
+    return [r["version"] for r in conn.execute(
+        "SELECT version FROM schema_migrations ORDER BY rowid")]
+
+
+def _run_migration(conn: sqlite3.Connection, version: str, fn: Callable[[sqlite3.Connection], None]) -> None:
+    """单条迁移：切 FK → 事务内执行迁移 + 记录版本 → 恢复 FK → FK 完整性复核。"""
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("BEGIN")
+        try:
+            fn(conn)
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?,?)",
+                (version, _utcnow()),
+            )
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        conn.execute("COMMIT")
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+    bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if bad:
+        raise RuntimeError(f"迁移 {version} 后外键校验失败: {bad[:5]}")
+
+
+def _apply_pending_migrations(conn: sqlite3.Connection) -> None:
+    applied = _read_applied_versions(conn)
+    known = [v for v, _ in MIGRATIONS]
+    expected_prefix = known[:len(applied)]
+    if list(applied) != expected_prefix:
+        raise RuntimeError(
+            f"schema_migrations 版本序列不合法: {applied}（期望前缀 {expected_prefix}），拒绝")
+    pending = [(v, fn) for v, fn in MIGRATIONS if v not in set(applied)]
+    for version, fn in pending:
+        if fn is None:
+            raise RuntimeError(f"迁移 {version} 无实现但结构已存在，拒绝")
+        _run_migration(conn, version, fn)
+    _verify_structure_matches_latest(conn)
+
+
+def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
+    """结构/migration 记录一致性探针：不一致即失败关闭。"""
+    latest = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+    if latest != MIGRATIONS[-1][0]:
+        raise RuntimeError(f"schema_migrations 最新版本 {latest} != 期望 {MIGRATIONS[-1][0]}")
+    rs_cols = _table_columns(conn, "financial_record_set")
+    for col in ("extractor_name", "report_periods", "currency", "unit",
+                "statement_scope", "audit_status"):
+        if col not in rs_cols:
+            raise RuntimeError(f"结构校验失败：financial_record_set 缺列 {col}")
+    ver_cols = _table_columns(conn, "financial_source_version")
+    for col in ("currency", "report_periods", "extractor_name", "quality_flags"):
+        if col in ver_cols:
+            raise RuntimeError(f"结构校验失败：financial_source_version 残留 v1 占位列 {col}")
+
+
+# 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。
+MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
+    ("1", None),                # v1 初始 DDL（历史冻结，不再修改）
+    ("2", _migrate_v1_to_v2),   # v1 → v2：内容版本瘦身 + 记录集合抽取事实
+]
+
+
+def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
+    """初始化 financial_v2 SQLite 数据库，应用全部未执行迁移。
+
+    - 全新库：一次建出最新 v2 schema，并记录全部迁移为已应用；
+    - 已有库：校验 schema_migrations 为已知前缀，逐条执行未应用迁移；
+    - 任一步失败回滚，结构与 migration 记录不一致即失败关闭。
+    """
+    global _db_path
+    _db_path = Path(db_path)
+    if S.SCHEMA_VERSION != MIGRATIONS[-1][0]:
+        raise RuntimeError(
+            f"SCHEMA_VERSION {S.SCHEMA_VERSION} != 最新 migration {MIGRATIONS[-1][0]}")
+
+    conn = _get_conn()
+    try:
+        if not _table_exists(conn, "schema_migrations"):
+            conn.executescript(build_ddl())
+            now = _utcnow()
+            for version, _ in MIGRATIONS:
+                conn.execute(
+                    "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?,?)",
+                    (version, now),
+                )
+            conn.commit()
+        else:
+            _apply_pending_migrations(conn)
+        _verify_structure_matches_latest(conn)
+    finally:
+        conn.close()
+
+
+def applied_schema_version() -> str | None:
+    """返回当前数据库已应用的最新 migration 版本（供一致性探针/测试）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute("SELECT MAX(version) AS v FROM schema_migrations").fetchone()
+        return row["v"]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # 序列化 / 反序列化
 # ---------------------------------------------------------------------------
 
@@ -496,25 +820,6 @@ def _row_to_progress(row: sqlite3.Row) -> S.ProgressEvent:
 
 
 # ---------------------------------------------------------------------------
-# 结果类型
-# ---------------------------------------------------------------------------
-
-@dataclass
-class RegisterSourceResult:
-    document: S.FinancialSourceDocument
-    version: S.FinancialSourceVersion
-    reused: bool
-    subject_blocked: bool
-
-
-@dataclass
-class CommitRecordSetResult:
-    record_set: S.FinancialRecordSet
-    reused: bool
-    record_count: int
-
-
-# ---------------------------------------------------------------------------
 # 来源登记：原子接口（A1 修订 2）
 # ---------------------------------------------------------------------------
 
@@ -535,12 +840,7 @@ def _assert_reuse_compatible(existing_row: sqlite3.Row, incoming: S.FinancialSou
 
 
 def _merge_subject(existing_row: sqlite3.Row, incoming: S.FinancialSourceDocument) -> tuple[str, str | None]:
-    """主体匹配受控更新（A1 修订 10）。
-
-    - 空检测（无 detected 信息）永不覆盖既有结论；
-    - matched/mismatch 不得被降级为 unverified；
-    - matched ↔ mismatch 之间允许有依据的更正。
-    """
+    """主体匹配受控更新（A1 修订 10）。"""
     existing_status = existing_row["subject_match_status"]
     existing_detected = existing_row["detected_company_name"]
     if incoming.detected_company_name is None:
@@ -575,12 +875,7 @@ def register_source_atomic(
     document: S.FinancialSourceDocument,
     version: S.FinancialSourceVersion,
 ) -> RegisterSourceResult:
-    """原子登记：单事务内完成校验 + 文档头复用/插入 + 内容版本复用/插入。
-
-    - 同 (source_document_id, file_sha256) 已登记 → 幂等复用（reused=True）；
-    - 同 source_document_id 不同内容 → 严格复用校验（company/class/身份）+ 新内容版本；
-    - 任一步失败全部回滚，不残留文档头/版本（A1 修订 2）。
-    """
+    """原子登记：单事务内完成校验 + 文档头复用/插入 + 内容版本复用/插入。"""
     validator.validate_source_document(document)
     validator.validate_source_version(version)
     if version.source_document_id != document.source_document_id:
@@ -590,7 +885,6 @@ def register_source_atomic(
 
     conn = _get_conn()
     try:
-        # 1. 幂等复用：同内容版本已登记。
         existing_version = conn.execute(
             "SELECT * FROM financial_source_version WHERE source_document_id=? AND file_sha256=?",
             (document.source_document_id, version.file_sha256),
@@ -607,7 +901,6 @@ def register_source_atomic(
                 subject_blocked=(existing_doc["subject_match_status"] == "mismatch"),
             )
 
-        # 2. 文档头：复用（严格校验 + 受控主体合并）或插入。
         existing_doc = conn.execute(
             "SELECT * FROM financial_source_document WHERE source_document_id=?",
             (document.source_document_id,),
@@ -624,7 +917,6 @@ def register_source_atomic(
         else:
             _insert_source_document_conn(conn, document)
 
-        # 3. 插入内容版本。
         _insert_source_version_conn(conn, version)
 
         final_doc = _row_to_source_document(conn.execute(
@@ -644,7 +936,7 @@ def register_source_atomic(
 
 
 # ---------------------------------------------------------------------------
-# 记录集合：原子提交（A1 修订 6）
+# 记录集合：原子提交（A1 修订 6/7/8 + 逐记录公司归属 + 复用 current 处理）
 # ---------------------------------------------------------------------------
 
 def _insert_record_set_conn(conn: sqlite3.Connection, rs: S.FinancialRecordSet) -> None:
@@ -687,6 +979,14 @@ def _require_not_quarantined(conn: sqlite3.Connection, object_type: str, object_
         raise ValueError(f"{object_type} 已隔离，不得设为 current: {object_id}")
 
 
+def _insert_quarantine_conn(conn: sqlite3.Connection, object_type: str, object_id: str, reason: str) -> None:
+    conn.execute(
+        "INSERT INTO quarantine (quarantine_id, object_type, object_id, reason, quarantined_at) "
+        "VALUES (?,?,?,?,?)",
+        ("q-" + uuid.uuid4().hex[:16], object_type, object_id, reason, _utcnow()),
+    )
+
+
 def _validate_record_set_ownership(conn: sqlite3.Connection, source_document_id: str, record_set_version: str) -> None:
     """校验 record_set → source_version → source_document_id 完整归属链（A1 修订 7）。"""
     rs = conn.execute(
@@ -725,6 +1025,32 @@ def _set_current_record_set_conn(conn: sqlite3.Connection, source_document_id: s
         "record_set_version=excluded.record_set_version, switched_at=excluded.switched_at",
         (source_document_id, record_set_version, _utcnow()),
     )
+
+
+def _authoritative_company_id(conn: sqlite3.Connection, source_version: str) -> str:
+    """沿 source_version → source_document_id → 文档头 读取权威 company_id。"""
+    row = conn.execute(
+        "SELECT d.company_id FROM financial_source_document d "
+        "JOIN financial_source_version v ON v.source_document_id = d.source_document_id "
+        "WHERE v.source_version = ?", (source_version,),
+    ).fetchone()
+    if row is None:
+        raise KeyError(f"source_version 无归属文档: {source_version}")
+    return row["company_id"]
+
+
+def _existing_records_integrity_ok(conn: sqlite3.Connection, record_set_version: str) -> bool:
+    """复用前完整性校验：现有每条记录的 record_id / record_hash 与内容重算一致。"""
+    rows = conn.execute(
+        "SELECT * FROM source_financial_record WHERE record_set_version=? ORDER BY record_id",
+        (record_set_version,),
+    ).fetchall()
+    for row in rows:
+        try:
+            validator.validate_record(_row_to_record(row))
+        except Exception:
+            return False
+    return True
 
 
 def _record_set_header_identical(incoming: S.FinancialRecordSet, row: sqlite3.Row) -> bool:
@@ -790,15 +1116,48 @@ def _record_set_identical(conn: sqlite3.Connection, incoming: S.FinancialRecordS
     return True
 
 
+def _reuse_existing(conn: sqlite3.Connection, record_set: S.FinancialRecordSet,
+                    records: list[S.SourceFinancialRecord], expected_source_document_id: str,
+                    existing_row: sqlite3.Row) -> CommitRecordSetResult:
+    """严格复用路径（A1 修订 3/4）：隔离 + 完整性 + 逐字段一致 + current 原子切换。"""
+    # 完整归属链 + 隔离校验（sv / record_set / 子记录）。
+    _validate_record_set_ownership(conn, expected_source_document_id, record_set.record_set_version)
+    # 完整性：现有记录 record_id/hash 与内容重算一致，否则记录 quarantine 并报损坏。
+    # quarantine 用独立连接落盘（本事务随后回滚，隔离记录必须持久、不得被回滚吞掉）。
+    if not _existing_records_integrity_ok(conn, record_set.record_set_version):
+        quarantine("financial_record_set", record_set.record_set_version,
+                   "复用前完整性校验失败（record_id/record_hash 与内容不符）")
+        raise StorageCorruptionError(
+            f"record_set 复用前完整性校验失败: {record_set.record_set_version}")
+    # 严格逐字段一致，不一致只报冲突（不隔离健康对象）。
+    if not _record_set_identical(conn, record_set, records, existing_row):
+        raise StorageConflictError(
+            f"record_set_version 已存在但内容不一致: {record_set.record_set_version}")
+    # current 指针处理：已是 current 直接返回；否则在本事务内原子切换。
+    cur = conn.execute(
+        "SELECT record_set_version FROM current_record_set WHERE source_document_id=?",
+        (expected_source_document_id,),
+    ).fetchone()
+    if cur is not None and cur["record_set_version"] == record_set.record_set_version:
+        return CommitRecordSetResult(
+            record_set=_row_to_record_set(existing_row), reused=True,
+            current_switched=False, record_count=record_set.record_count)
+    _set_current_record_set_conn(conn, expected_source_document_id, record_set.record_set_version)
+    return CommitRecordSetResult(
+        record_set=_row_to_record_set(existing_row), reused=True,
+        current_switched=True, record_count=record_set.record_count)
+
+
 def commit_record_set(
     record_set: S.FinancialRecordSet,
     records: list[S.SourceFinancialRecord],
     expected_source_document_id: str,
 ) -> CommitRecordSetResult:
-    """原子提交一个记录集合（A1 修订 6/7/8）。
+    """原子提交一个记录集合（A1 修订 6/7/8 + 逐记录公司归属 + 复用 current 处理）。
 
-    单事务内：校验 → 归属链 → 严格复用 → 写 record_set → 写全部 records → 写后复核
-    → 原子切换 current → commit。任一步失败全部回滚，旧 current 不变，半成品不可见。
+    单事务内：校验 → 归属链 → 逐记录公司归属 → 严格复用（隔离/完整性/current 切换）
+    → 写 record_set → 写全部 records → 写后复核 → 原子切换 current → commit。
+    任一步失败全部回滚，旧 current 不变，半成品不可见。
     """
     validator.validate_record_set(record_set)
     if not records:
@@ -823,39 +1182,43 @@ def commit_record_set(
                 f"（属于 {sv['source_document_id']!r}）")
         _require_not_quarantined(conn, "financial_source_version", record_set.source_version)
 
-        # 2. 严格复用：record_set_version 已存在 → 深比对。
+        # 2. 逐记录公司归属：每条 record.company_id 必须等于权威 company_id。
+        authoritative_company = _authoritative_company_id(conn, record_set.source_version)
+        for r in records:
+            if r.company_id != authoritative_company:
+                raise validator.ValidationError(
+                    f"record.company_id 与权威公司不符: {r.company_id!r} != {authoritative_company!r}")
+
+        # 3. 严格复用：record_set_version 已存在 → 隔离/完整性/一致 + current 处理。
         existing = conn.execute(
             "SELECT * FROM financial_record_set WHERE record_set_version=?",
             (record_set.record_set_version,),
         ).fetchone()
         if existing is not None:
-            if _record_set_identical(conn, record_set, records, existing):
-                return CommitRecordSetResult(
-                    record_set=_row_to_record_set(existing), reused=True,
-                    record_count=record_set.record_count)
-            raise StorageConflictError(
-                f"record_set_version 已存在但内容不一致: {record_set.record_set_version}")
+            result = _reuse_existing(conn, record_set, records, expected_source_document_id, existing)
+        else:
+            # 4. 写 record_set + 全部 records。
+            _insert_record_set_conn(conn, record_set)
+            for r in records:
+                _insert_record_conn(conn, r)
 
-        # 3. 写 record_set + 全部 records。
-        _insert_record_set_conn(conn, record_set)
-        for r in records:
-            _insert_record_conn(conn, r)
+            # 5. 写后完整性复核。
+            actual = conn.execute(
+                "SELECT COUNT(*) AS c FROM source_financial_record WHERE record_set_version=?",
+                (record_set.record_set_version,),
+            ).fetchone()["c"]
+            if actual != len(records):
+                raise RuntimeError(
+                    f"来源记录写入校验失败：实际落库 {actual} 行 != 传入 {len(records)} 行")
 
-        # 4. 写后完整性复核。
-        actual = conn.execute(
-            "SELECT COUNT(*) AS c FROM source_financial_record WHERE record_set_version=?",
-            (record_set.record_set_version,),
-        ).fetchone()["c"]
-        if actual != len(records):
-            raise RuntimeError(
-                f"来源记录写入校验失败：实际落库 {actual} 行 != 传入 {len(records)} 行")
-
-        # 5. 原子切换 current（含完整归属链 + 隔离校验）。
-        _set_current_record_set_conn(conn, expected_source_document_id, record_set.record_set_version)
+            # 6. 原子切换 current。
+            _set_current_record_set_conn(conn, expected_source_document_id, record_set.record_set_version)
+            result = CommitRecordSetResult(
+                record_set=record_set, reused=False, current_switched=True,
+                record_count=len(records))
 
         conn.commit()
-        return CommitRecordSetResult(
-            record_set=record_set, reused=False, record_count=len(records))
+        return result
     except Exception:
         conn.rollback()
         raise
@@ -1021,11 +1384,6 @@ def _append_validity_event(
     rank: dict[str, int],
     initial_status: str,
 ) -> str | None:
-    """追加一条有效性事件；幂等重复返回 None，非法倒退抛 ValidationError。
-
-    排序规则：event_at DESC, rowid DESC（rowid 为插入顺序的单调序列），同时间戳
-    多事件仍确定（A1 修订 9）。
-    """
     if status not in statuses:
         raise validator.ValidationError(f"status 非法: {status!r}")
     conn = _get_conn()
@@ -1041,7 +1399,7 @@ def _append_validity_event(
         else:
             current = row["status"]
             if status == current:
-                return None  # 幂等：同状态重复事件不追加
+                return None
             if rank[status] < rank[current]:
                 raise validator.ValidationError(f"非法有效性倒退: {current} → {status}")
         event_id = "v-" + uuid.uuid4().hex[:16]
@@ -1103,11 +1461,7 @@ def quarantine(object_type: str, object_id: str, reason: str) -> None:
         raise validator.ValidationError(f"quarantine object_type 非法: {object_type!r}")
     conn = _get_conn()
     try:
-        conn.execute(
-            "INSERT INTO quarantine (quarantine_id, object_type, object_id, reason, quarantined_at) "
-            "VALUES (?,?,?,?,?)",
-            ("q-" + uuid.uuid4().hex[:16], object_type, object_id, reason, _utcnow()),
-        )
+        _insert_quarantine_conn(conn, object_type, object_id, reason)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -1133,7 +1487,6 @@ def is_quarantined(object_type: str, object_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def record_progress(event: S.ProgressEvent) -> None:
-    """写入进度事件（独立连接，失败事件不随主提交一起回滚）。"""
     validator.validate_progress_event(event)
     conn = _get_conn()
     try:

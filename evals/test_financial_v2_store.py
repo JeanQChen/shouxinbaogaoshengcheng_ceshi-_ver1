@@ -422,6 +422,161 @@ def main() -> dict:
         check(all(d.company_id == "300750" for d in store.list_source_documents("300750")),
               "list 按公司过滤")
 
+        # ====================================================================
+        # 定点修复 2：commit_record_set 逐记录公司归属校验（全回滚）
+        # ====================================================================
+        store.register_source_atomic(_make_doc(source_document_id="sd-mix"),
+                                     _make_version("sd-mix", "n" * 64))
+        sv_mix = S.derive_source_version("sd-mix", "n" * 64)
+        rs_mix = _make_record_set(sv_mix, record_count=2)
+        rec_ok = _make_record(rs_mix.record_set_version, company_id="300750")
+        rec_wrong_co = _make_record(rs_mix.record_set_version, company_id="600000", row_number=6)
+        try:
+            store.commit_record_set(rs_mix, [rec_ok, rec_wrong_co], "sd-mix")
+            check(False, "混合公司记录被拒绝")
+        except validator.ValidationError:
+            check(True, "逐记录公司归属校验拒绝混合公司记录（record.company_id != 权威公司）")
+        check(store.get_record_set(rs_mix.record_set_version) is None, "混合公司记录不残留 record_set")
+        check(store.count_records(rs_mix.record_set_version) == 0, "混合公司记录不残留 records")
+        check(store.get_current_record_set("sd-mix") is None, "混合公司记录不切 current")
+
+        # ====================================================================
+        # 定点修复 3：复用路径隔离 + 完整性校验
+        # ====================================================================
+        # (3a) source_version 被隔离 → 复用路径拒绝
+        store.register_source_atomic(_make_doc(source_document_id="sd-rq1"),
+                                     _make_version("sd-rq1", "o" * 64))
+        sv_rq1 = S.derive_source_version("sd-rq1", "o" * 64)
+        rs_rq1 = _make_record_set(sv_rq1)
+        rec_rq1 = _make_record(rs_rq1.record_set_version)
+        store.commit_record_set(rs_rq1, [rec_rq1], "sd-rq1")
+        store.quarantine("financial_source_version", sv_rq1, "完整性损坏")
+        try:
+            store.commit_record_set(rs_rq1, [rec_rq1], "sd-rq1")
+            check(False, "复用路径 source_version 隔离被拒绝")
+        except ValueError:
+            check(True, "复用路径 source_version 被隔离 → 不复用/不切 current")
+
+        # (3b) record_set 被隔离 → 复用路径拒绝
+        store.register_source_atomic(_make_doc(source_document_id="sd-rq2"),
+                                     _make_version("sd-rq2", "p" * 64))
+        sv_rq2 = S.derive_source_version("sd-rq2", "p" * 64)
+        rs_rq2 = _make_record_set(sv_rq2)
+        rec_rq2 = _make_record(rs_rq2.record_set_version)
+        store.commit_record_set(rs_rq2, [rec_rq2], "sd-rq2")
+        store.quarantine("financial_record_set", rs_rq2.record_set_version, "损坏")
+        try:
+            store.commit_record_set(rs_rq2, [rec_rq2], "sd-rq2")
+            check(False, "复用路径 record_set 隔离被拒绝")
+        except ValueError:
+            check(True, "复用路径 record_set 被隔离 → 不复用/不切 current")
+
+        # (3c) record_set 含被隔离子记录 → 复用路径拒绝
+        store.register_source_atomic(_make_doc(source_document_id="sd-rq3"),
+                                     _make_version("sd-rq3", "q" * 64))
+        sv_rq3 = S.derive_source_version("sd-rq3", "q" * 64)
+        rs_rq3 = _make_record_set(sv_rq3)
+        rec_rq3 = _make_record(rs_rq3.record_set_version)
+        store.commit_record_set(rs_rq3, [rec_rq3], "sd-rq3")
+        store.quarantine("source_financial_record", rec_rq3.record_id, "记录损坏")
+        try:
+            store.commit_record_set(rs_rq3, [rec_rq3], "sd-rq3")
+            check(False, "复用路径含被隔离子记录被拒绝")
+        except ValueError:
+            check(True, "复用路径含被隔离子记录 → 不复用/不切 current")
+
+        # (3d) 完整性损坏 → 记录 quarantine 并报 StorageCorruptionError
+        store.register_source_atomic(_make_doc(source_document_id="sd-rq4"),
+                                     _make_version("sd-rq4", "r" * 64))
+        sv_rq4 = S.derive_source_version("sd-rq4", "r" * 64)
+        rs_rq4 = _make_record_set(sv_rq4)
+        rec_rq4 = _make_record(rs_rq4.record_set_version)
+        store.commit_record_set(rs_rq4, [rec_rq4], "sd-rq4")
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("DROP TRIGGER trg_source_financial_record_no_update")
+        conn.execute("UPDATE source_financial_record SET record_hash='corrupted' WHERE record_id=?",
+                     (rec_rq4.record_id,))
+        for sql in store._immutable_trigger_sqls("source_financial_record"):
+            conn.execute(sql)
+        conn.commit()
+        conn.close()
+        try:
+            store.commit_record_set(rs_rq4, [rec_rq4], "sd-rq4")
+            check(False, "完整性损坏被拒绝")
+        except store.StorageCorruptionError:
+            check(True, "复用前完整性校验失败 → StorageCorruptionError")
+        check(store.is_quarantined("financial_record_set", rs_rq4.record_set_version),
+              "损坏 record_set 被记录 quarantine")
+        check(store.get_current_record_set("sd-rq4").record_set_version == rs_rq4.record_set_version,
+              "损坏不切换 current（旧 current 保留）")
+
+        # ====================================================================
+        # 定点修复 4：复用路径 current 指针处理（同事务原子）
+        # ====================================================================
+        # (4a) 已存在且已 current → reused=True + current_switched=False
+        store.register_source_atomic(_make_doc(source_document_id="sd-c1"),
+                                     _make_version("sd-c1", "s" * 64))
+        sv_c1 = S.derive_source_version("sd-c1", "s" * 64)
+        rs_c1 = _make_record_set(sv_c1)
+        rec_c1 = _make_record(rs_c1.record_set_version)
+        store.commit_record_set(rs_c1, [rec_c1], "sd-c1")
+        c_again = store.commit_record_set(rs_c1, [rec_c1], "sd-c1")
+        check(c_again.reused is True and c_again.current_switched is False,
+              "已 current → reused=True 且 current_switched=False")
+        check(store.get_current_record_set("sd-c1").record_set_version == rs_c1.record_set_version,
+              "已 current 后指针不变")
+
+        # (4b) 已存在但 current 缺失 → 复用并原子补切 current
+        store.register_source_atomic(_make_doc(source_document_id="sd-c2"),
+                                     _make_version("sd-c2", "t" * 64))
+        sv_c2 = S.derive_source_version("sd-c2", "t" * 64)
+        rs_c2 = _make_record_set(sv_c2)
+        rec_c2 = _make_record(rs_c2.record_set_version)
+        store.commit_record_set(rs_c2, [rec_c2], "sd-c2")
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("DELETE FROM current_record_set WHERE source_document_id='sd-c2'")
+        conn.commit()
+        conn.close()
+        c_missing = store.commit_record_set(rs_c2, [rec_c2], "sd-c2")
+        check(c_missing.reused is True and c_missing.current_switched is True,
+              "current 缺失 → 复用并补切 current（current_switched=True）")
+        check(store.get_current_record_set("sd-c2").record_set_version == rs_c2.record_set_version,
+              "current 已补切到本记录集")
+
+        # (4c) 已存在但 current 指向其他版本 → 复用并切换
+        store.register_source_atomic(_make_doc(source_document_id="sd-c3"),
+                                     _make_version("sd-c3", "u" * 64))
+        sv_c3 = S.derive_source_version("sd-c3", "u" * 64)
+        rs_old = _make_record_set(sv_c3, dependency_versions={"openpyxl": "3.1.2"})
+        rs_new = _make_record_set(sv_c3, dependency_versions={"openpyxl": "3.2.0"})
+        store.commit_record_set(rs_old, [_make_record(rs_old.record_set_version)], "sd-c3")
+        store.commit_record_set(rs_new, [_make_record(rs_new.record_set_version)], "sd-c3")
+        check(store.get_current_record_set("sd-c3").record_set_version == rs_new.record_set_version,
+              "current 初始指向新版")
+        c_back = store.commit_record_set(rs_old, [_make_record(rs_old.record_set_version)], "sd-c3")
+        check(c_back.reused is True and c_back.current_switched is True,
+              "current 指向其他版本 → 复用并切换（current_switched=True）")
+        check(store.get_current_record_set("sd-c3").record_set_version == rs_old.record_set_version,
+              "current 切回本记录集")
+
+        # (4d) 复用切换故障 → 旧 current 保留
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("CREATE TRIGGER tmp_fail_current BEFORE UPDATE ON current_record_set "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            store.commit_record_set(rs_new, [_make_record(rs_new.record_set_version)], "sd-c3")
+            check(False, "current 切换故障被注入")
+        except sqlite3.IntegrityError:
+            check(True, "复用切换 current 故障被注入")
+        conn = sqlite3.connect(tmp_path)
+        conn.execute("DROP TRIGGER tmp_fail_current")
+        conn.commit()
+        conn.close()
+        check(store.get_current_record_set("sd-c3").record_set_version == rs_old.record_set_version,
+              "复用切换故障后旧 current 保留")
+
     finally:
         for suffix in ("", "-wal", "-shm", "-journal"):
             try:
