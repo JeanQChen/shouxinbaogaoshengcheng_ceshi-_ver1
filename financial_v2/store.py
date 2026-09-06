@@ -1933,6 +1933,109 @@ def list_extraction_issues(record_set_version: str) -> list[S.ExtractionIssue]:
 
 
 # ---------------------------------------------------------------------------
+# A4 科目映射规则（版本化、追加新行；规则非不可变事实，可新增版本）
+# ---------------------------------------------------------------------------
+
+def insert_mapping_rule(rule: S.MappingRule) -> None:
+    """幂等写入一条版本化映射规则（同 (rule_id, rule_version) 已存在则忽略）。"""
+    validator.validate_mapping_rule(rule)
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO mapping_rule (rule_id, rule_version, statement_type, "
+            "standard_item_code, aliases, exclude_words, priority, effective_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (rule.rule_id, rule.rule_version, rule.statement_type, rule.standard_item_code,
+             _json_dumps(rule.aliases), _json_dumps(rule.exclude_words),
+             rule.priority, rule.effective_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_mapping_rules(rule_version: str | None = None,
+                       statement_type: str | None = None) -> list[S.MappingRule]:
+    """按规则版本 / 报表类型读取映射规则（不传则返回全部）。"""
+    conn = _get_conn()
+    try:
+        clauses: list[str] = []
+        params: list[str] = []
+        if rule_version is not None:
+            clauses.append("rule_version=?")
+            params.append(rule_version)
+        if statement_type is not None:
+            clauses.append("statement_type=?")
+            params.append(statement_type)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = conn.execute(
+            f"SELECT * FROM mapping_rule {where} ORDER BY priority DESC, rule_id",
+            tuple(params),
+        ).fetchall()
+        return [_row_to_mapping_rule(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def commit_issues(issues: list[S.ExtractionIssue]) -> int:
+    """原子追加一批抽取/映射派生问题（不可变审计事实）。
+
+    用于 A4 映射阶段对「已在库」的候选追加 MAPPING_REQUIRED 等派生问题——候选不属
+    本批（区别于 commit_extracted_candidates 的候选+问题同批语义）。单事务校验 →
+    逐项复用/插入 → commit；任一步失败回滚。返回实际新插入条数。
+    """
+    if not issues:
+        raise ValueError("issues 不能为空")
+    for iss in issues:
+        validator.validate_extraction_issue(iss)
+
+    rs_versions = {i.record_set_version for i in issues}
+    if len(rs_versions) != 1:
+        raise validator.ValidationError(
+            f"issues 必须同属一个 record_set_version: {sorted(rs_versions)}")
+    record_set_version = next(iter(rs_versions))
+
+    # 引用候选的问题：候选必须存在且同属本 record_set_version（不跨集合/跨公司）。
+    conn = _get_conn()
+    try:
+        for iss in issues:
+            if iss.candidate_id is None:
+                continue
+            row = conn.execute(
+                "SELECT record_set_version FROM extracted_financial_cell WHERE candidate_id=?",
+                (iss.candidate_id,),
+            ).fetchone()
+            if row is None:
+                raise validator.ValidationError(
+                    f"issue.candidate_id 引用不存在的候选: {iss.candidate_id!r}")
+            if row["record_set_version"] != record_set_version:
+                raise validator.ValidationError(
+                    f"issue.candidate_id 跨 record_set 引用: {iss.candidate_id!r} "
+                    f"(期望 {record_set_version!r})")
+
+        inserted = 0
+        for iss in issues:
+            existing = conn.execute(
+                "SELECT * FROM extraction_issue WHERE issue_id=?",
+                (iss.issue_id,),
+            ).fetchone()
+            if existing is not None:
+                if not _extraction_issue_identical(existing, iss):
+                    raise StorageConflictError(
+                        f"issue_id 已存在但内容不一致: {iss.issue_id}")
+            else:
+                _insert_extraction_issue_conn(conn, iss)
+                inserted += 1
+        conn.commit()
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # validity：追加事件 + 确定性读取 + 状态机（A1 修订 9）
 # ---------------------------------------------------------------------------
 
