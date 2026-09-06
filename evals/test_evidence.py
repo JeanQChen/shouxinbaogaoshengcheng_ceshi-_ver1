@@ -102,6 +102,21 @@ def build_chunks(chunks, doc, setv=None, metadata=None) -> list[S.EvidenceBlock]
     return builder.build(syn_parsed(chunks, metadata=metadata), doc, setv)
 
 
+def set_status(db_path, company, doc_id, doc_version, setv) -> str | None:
+    """直读 evidence_sets 的 status（测试用，验证隔离/激活状态）。"""
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT status FROM evidence_sets WHERE company_id=? AND document_id=? "
+            "AND document_version=? AND evidence_set_version=?",
+            (company, doc_id, doc_version, setv),
+        ).fetchone()
+        return row["status"] if row else None
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # 1. Schema 与 ID
 # ---------------------------------------------------------------------------
@@ -430,16 +445,24 @@ def test_validator() -> None:
     raises(lambda: validator.validate_commit(
                doc, [replace(good, structured_payload={"page_number": 1})], setv),
            validator.ValidationError, "structured_payload", "paragraph 非空 payload 被拒绝")
-    # table 缺必需键（headers/cells/unit/coordinates）
-    raises(lambda: validator.validate_commit(
-               doc, [replace(good, evidence_type="table", structured_payload={"headers": []})], setv),
+    # table 缺必需键（headers/cells/unit/coordinates）——content_hash 先重算使其通过，
+    # 再验证 table payload 缺键被拒绝
+    bad_table = replace(good, evidence_type="table", structured_payload={"headers": []})
+    bad_table.content_hash = ids.content_hash(bad_table.text, bad_table.structured_payload)
+    raises(lambda: validator.validate_commit(doc, [bad_table], setv),
            validator.ValidationError, "table payload", "table payload 缺键被拒绝")
-    # 完整 table payload 通过
-    ok_table = replace(good, evidence_type="table", structured_payload={
+    # 完整 table payload 通过（content_hash / evidence_id 需随 payload 重算）
+    ok_table_payload = {
         "page_number": 1, "headers": ["科目", "金额"], "cells": [["a", "1"]],
         "unit": "万元", "coordinates": {"bbox": [0, 0, 100, 20],
                                         "cell_bboxes": [[0, 0, 50, 20], [50, 0, 100, 20]]},
-    })
+    }
+    ok_table = replace(good, evidence_type="table", structured_payload=ok_table_payload)
+    ok_table.content_hash = ids.content_hash(ok_table.text, ok_table_payload)
+    ok_table.evidence_id = ids.make_evidence_id(
+        ok_table.company_id, ok_table.document_id, ok_table.document_version,
+        ok_table.evidence_set_version, ok_table.page_number, ok_table.block_index,
+        ok_table.content_hash)
     validator.validate_commit(doc, [ok_table], setv)
     check(True, "完整 table payload 通过")
 
@@ -451,6 +474,16 @@ def test_validator() -> None:
     # evidence_id 与重算不一致
     raises(lambda: validator.validate_commit(doc, [replace(good, evidence_id="0" * 32)], setv),
            validator.ValidationError, "evidence_id", "evidence_id 与重算不一致被拒绝")
+
+    # content_hash 验证：text 被篡改但沿用旧 content_hash → 拒绝
+    tampered_text = replace(good, text="被篡改的正文")  # content_hash 仍为旧值
+    raises(lambda: validator.validate_commit(doc, [tampered_text], setv),
+           validator.ValidationError, "content_hash", "text 篡改沿用旧 content_hash 被拒绝")
+    # content_hash 验证：structured_payload 被篡改 → 拒绝
+    tampered_payload = replace(good, structured_payload={"page_number": 1})
+    raises(lambda: validator.validate_commit(doc, [tampered_payload], setv),
+           validator.ValidationError, "content_hash", "structured_payload 篡改被拒绝")
+    # content_hash 验证：text 与 payload 都合法时通过（已由 good 覆盖）
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +502,7 @@ def test_store_integrity() -> None:
     store.commit_document(d, blocks, setv, ids.new_run_id(),
                           {"file_sha256": d.file_sha256}, deps)
 
-    # 场景 1：corrupt current 集合（删一行）→ 拒绝复用，且不谎报成功、不改状态
+    # 场景 1：corrupt current 集合（删一行）→ 隔离为 invalid，不谎报成功、不冒充 current
     dbp = Path(tmp.name) / "ev.db"
     conn = sqlite3.connect(str(dbp))
     conn.execute("DELETE FROM evidence_blocks WHERE evidence_id=?", (blocks[0].evidence_id,))
@@ -477,9 +510,17 @@ def test_store_integrity() -> None:
     conn.close()
     raises(lambda: store.commit_document(d, blocks, setv, ids.new_run_id(),
                                          {"file_sha256": d.file_sha256}, deps),
-           RuntimeError, "不一致", "corrupt current 集合拒绝复用")
-    check(store.current_evidence_set("ACME", "doc-1", d.document_version) == setv,
-          "复用失败后 current 集合状态未变")
+           RuntimeError, "损坏已隔离", "corrupt current 集合被隔离为 invalid")
+    check(store.current_evidence_set("ACME", "doc-1", d.document_version) is None,
+          "隔离后无 current 集合（不再冒充 healthy）")
+    check(set_status(dbp, "ACME", "doc-1", d.document_version, setv) == "invalid",
+          "损坏集合 status 变为 invalid")
+    check(store.count_evidence("ACME", "doc-1", d.document_version, setv) == 1,
+          "隔离保留物理记录不删除（剩 1 行）")
+    # 隔离后再次复用同集合 → 报「已隔离」而非复用成功
+    raises(lambda: store.commit_document(d, blocks, setv, ids.new_run_id(),
+                                         {"file_sha256": d.file_sha256}, deps),
+           RuntimeError, "已隔离", "隔离后再次复用被拒绝（人工诊断）")
 
     # 场景 2：依赖版本不匹配拒绝复用（换一个全新文档，避免受上一步污染）
     f2 = write_pdf(tmp.name, "r2.pdf", b"dep-version")
@@ -520,7 +561,10 @@ def test_store_integrity() -> None:
     b6_bad = build_chunks([syn_chunk("同文本", 2, 0)], d6, setv)  # 同文本不同坐标
     raises(lambda: store.commit_document(d6, b6_bad, setv, ids.new_run_id(),
                                          {"file_sha256": d6.file_sha256}, deps),
-           RuntimeError, "完整性", "同文本不同坐标拒绝重新激活")
+           RuntimeError, "不一致", "同文本不同坐标拒绝重新激活（参数不匹配）")
+    # 参数不匹配不得隔离健康集合：状态仍 retired，可被正确 blocks 激活
+    check(set_status(dbp, "ACME", "doc-6", d6.document_version, setv) == "retired",
+          "参数不匹配不改集合状态（仍 retired，未隔离）")
     r6 = store.commit_document(d6, b6, setv, ids.new_run_id(),
                                {"file_sha256": d6.file_sha256}, deps)
     check(r6.reused == 1 and store.current_evidence_set("ACME", "doc-6", d6.document_version) == setv,
@@ -550,15 +594,12 @@ def test_store_integrity() -> None:
 # 8. 表格结构探测（验收问题 6）
 # ---------------------------------------------------------------------------
 
-class _FakeCell:
-    def __init__(self, bbox):
-        self.bbox = bbox
-
-
 class _FakeTable:
     def __init__(self, bbox, cells):
+        # 对齐 pdfplumber 0.11.4 真实结构：Table.bbox 为 4 元组，Table.cells 为
+        # bbox 元组列表（(x0, top, x1, bottom)），无 .bbox 属性。
         self.bbox = bbox
-        self.cells = [_FakeCell(c) for c in cells]
+        self.cells = list(cells)
 
 
 class _FakePage:
@@ -594,8 +635,9 @@ def test_table_probe() -> None:
     import sys as _sys
 
     check(set(S.PROBE_STATUSES) == {"PROBE_NOT_RUN", "PROBE_DEPENDENCY_MISSING",
-                                    "TABLE_STRUCTURE_AVAILABLE", "TABLE_STRUCTURE_UNAVAILABLE"},
-          "PROBE_STATUSES 四态齐全")
+                                    "PROBE_FAILED", "TABLE_STRUCTURE_AVAILABLE",
+                                    "TABLE_STRUCTURE_UNAVAILABLE"},
+          "PROBE_STATUSES 五态齐全（含 PROBE_FAILED）")
     check(table_probe.PROBE_VERSION == "1", "probe_version 存在")
 
     tmp = tempfile.TemporaryDirectory()
@@ -615,7 +657,34 @@ def test_table_probe() -> None:
     check(r_missing.status == "PROBE_DEPENDENCY_MISSING",
           "依赖缺失 → PROBE_DEPENDENCY_MISSING")
 
-    # 状态 2: TABLE_STRUCTURE_UNAVAILABLE（有依赖但无线条表格）
+    # 状态 2: PROBE_FAILED（文件不存在 ≠ 依赖缺失）
+    missing = str(Path(tmp.name) / "does-not-exist.pdf")
+    _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([])])
+    try:
+        r_noexist = table_probe.probe(missing)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_noexist.status == "PROBE_FAILED" and "文件不存在" in (r_noexist.failure_reason or ""),
+          "文件不存在 → PROBE_FAILED（非 DEPENDENCY_MISSING）")
+
+    # 状态 3: PROBE_FAILED（PDF 打开/解析异常 ≠ TABLE_STRUCTURE_UNAVAILABLE）
+    class _BoomPlumber(_FakePlumber):
+        def open(self, path):
+            raise RuntimeError("bad pdf")
+
+    _sys.modules["pdfplumber"] = _BoomPlumber([_FakePage([])])
+    try:
+        r_boom = table_probe.probe(p)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_boom.status == "PROBE_FAILED" and "打开/解析失败" in (r_boom.failure_reason or ""),
+          "PDF 打不开 → PROBE_FAILED（非 UNAVAILABLE）")
+
+    # 状态 4: TABLE_STRUCTURE_UNAVAILABLE（有依赖但无线条表格）
     _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([])])
     try:
         r_na = table_probe.probe(p)
@@ -626,7 +695,7 @@ def test_table_probe() -> None:
     check(r_na.status == "TABLE_STRUCTURE_UNAVAILABLE",
           "无线条表格 → TABLE_STRUCTURE_UNAVAILABLE")
 
-    # 状态 3: TABLE_STRUCTURE_AVAILABLE（有表格 + 可靠坐标）
+    # 状态 5: TABLE_STRUCTURE_AVAILABLE（有表格 + 可靠坐标）
     tbl = _FakeTable([0, 0, 100, 20], [[0, 0, 50, 20], [50, 0, 100, 20]])
     _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([tbl])])
     try:
@@ -640,6 +709,18 @@ def test_table_probe() -> None:
     check(r_av.tables[0]["bbox"] == [0.0, 0.0, 100.0, 20.0]
           and len(r_av.tables[0]["cell_bboxes"]) == 2,
           "表格 bbox + 每格 bbox 可靠恢复")
+
+    # 非法单元格坐标（bbox 非法 → 该表视为不可靠，跳过）
+    bad_cell = _FakeTable([0, 0, 100, 20], [[100, 20, 0, 0]])  # x1<=x0 且 bottom<=top
+    _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([bad_cell])])
+    try:
+        r_badcell = table_probe.probe(p)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_badcell.status == "TABLE_STRUCTURE_UNAVAILABLE",
+          "非法单元格坐标 → 视为不可靠（UNAVAILABLE）")
 
 
 # ---------------------------------------------------------------------------
