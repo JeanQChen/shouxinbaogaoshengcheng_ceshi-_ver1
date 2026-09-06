@@ -134,6 +134,8 @@
 
 **留到本阶段任务书：** 需要冻结的最小 Evidence/来源/状态接口、ID 与版本策略、存储和恢复边界。先落地本阶段所需基础，不先建设完整通用任务平台。
 
+**任务书状态：** `EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md` v0.2 已就绪；E1-01～E1-05 已确认。采用渐进式可靠表格处理、SQLite 权威 Evidence Store、稳定 document_id 登记与内容版本、只停用不物理删除、真实状态/checkpoint 加简单 UI 的范围。下一步为编码前实施计划评审，尚未开始 Evidence 代码实现。
+
 ### 1F：财务来源、计算与集中确认
 
 **设计映射：** §4.3、§4.3.1、§6.1、§11、§17 Phase 1F。
@@ -153,6 +155,8 @@
 **依赖说明：** 设计要求的完整 Assurance 在 Phase 5 才形成，因此 1F-A 不伪称已完成全报告复检。完整 1F 验收必须包含 1F-B，不能作为未来可选项取消。
 
 **留到进入相应子阶段的任务书：** 财务抽取支持边界、公式清单、schema/接口迁移、批量操作细则；不在本路线图预先固定所有科目和表格算法。
+
+**任务书状态：** `FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md` v0.2 已就绪；FA-01～FA-06 已确认。A1～A5允许按批准后的编码计划推进；A6开始前必须先生成并由业务方复核 `FORMULA_REVIEW.md`，不得由开发代理自行冻结有歧义的财务公式。
 
 ### 2：Router 与 Hybrid Retrieval
 
@@ -259,7 +263,7 @@
 
 新模块先按 `AGENTS.md` 完成编码前计划，再写代码；一个 commit 只改一个模块。已有未提交文件不得覆盖，不能把历史工作一并提交为本阶段成果。
 
-0B任务书已经生成：[SECTION_CONTRACTS_DEVELOPMENT_TASK.md](./SECTION_CONTRACTS_DEVELOPMENT_TASK.md)。进入实施前仍须按任务书提交编码计划；后续阶段任务书继续遵守“进入该阶段时才生成”的原则。
+0B任务书已经生成：[SECTION_CONTRACTS_DEVELOPMENT_TASK.md](./SECTION_CONTRACTS_DEVELOPMENT_TASK.md)。Phase 1 任务书已经生成：[EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md](./EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md)。进入实施前仍须按任务书提交编码计划；后续阶段任务书继续遵守“进入该阶段时才生成”的原则。
 
 ## 7. 进度更新与阶段关闭
 
@@ -270,6 +274,7 @@
 - [x] 0A：按用户确认接纳 `v1_baseline_final`，保留结果、排除项与重算来源。
 - [x] 总路线图建立，区分已完成基线与尚未实现的报告契约。
 - [x] 0B：首版机器可读 Section Contracts 已形成并复核，SC-01～SC-05 规则已固化（见下方关闭记录）。
+- [x] 1：Evidence 任务书就绪，E1-01～E1-05 已确认；尚未进入代码实施。
 - [ ] 1：Evidence 与最小状态/恢复基础通过。
 - [ ] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过）。
 - [ ] 2：Router/Hybrid 对照评测通过。
@@ -284,8 +289,8 @@
 - **代码/输入版本**：契约 `contract_version: v1`（4 章 52 问题）；41 问映射 `evaluation/datasets/baseline_contract_mapping.jsonl`（FIN-P1/FIN-DEP1 指向 `fin_consistency`）。
 - **验收命令与结果**：
   - `python -m contracts.loader templates/contracts/standard_v2.yaml` → 52 问题，校验通过；
-  - `python -m evals.test_contracts` → 89 passed / 0 failed；
-  - `python -m evals.run_evals` → 634 passed / 0 failed / 0 skipped（akshare 网络 ProxyError 为网络降级日志，不计入失败）。
+  - `python -m evals.test_contracts` → 104 passed / 0 failed；
+  - `python -m evals.run_evals` → 649 passed / 0 failed / 0 skipped（akshare 网络 ProxyError 为网络降级日志，不计入失败）。
 - **遗留问题与归属**：Evidence / Router / Harness 均未启动（分别属于 Phase 1 / 2 / 3）；行业来源分级、代理指标、`impact_scope` 仅为声明式字段，不实现自动评级与运行判断（留待对应阶段）。
 - **下一阶段入口条件**：Phase 1（Evidence 与最小运行基础）具备入口条件，0B 不阻塞其启动。
 

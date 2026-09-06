@@ -1747,6 +1747,23 @@ python -m evaluation.run_baseline \
 - **SC-04 综合**：上游仅非核心 `NOT_PROVIDED`/`NOT_FOUND_AFTER_SEARCH` → 带缺口预览；上游影响主体/偿债/关键数字/授信方案的问题 → 不得生成受影响结论；任一上游 `SECTION_BLOCKED` → 综合只能说明无法完成对应判断；存在相关 `REPORT_BLOCKED` → 允许预览、禁止导出；不因任意 `WAITING_HUMAN` 停止全部。通过结构化 `impact_scope`（subject/solvency/key_financial/credit_scheme）判断影响面，不得由 LLM 临时决定。
 - **SC-05 other**：先跑通用契约、不自动启动专项分析；提示补充具体业务类型，补充后启用对应追加分析，未补充允许通用预览；综合必须提示“尚未按具体授信业务类型追加专项分析”。
 
+### 19.6 E1-01～E1-05 最终规则（Phase 1 编码前冻结）
+
+- **E1-01 表格能力边界**：Phase 1 冻结完整表格 Evidence schema，并先验证电子 PDF 表格坐标抽取可行性；现有纯文本 `TextChunk` 只能生成 paragraph/heading，不得伪装成 table/table_row。可靠抽取成功后才生成结构化表格 Evidence；失败时标记 `TABLE_STRUCTURE_UNAVAILABLE`。财务表格的完整抽取、勾稽和对账仍属于 Phase 1F。
+- **E1-02 Evidence Store**：使用项目现有 SQLite 保存权威 Evidence、文档版本和引用关系，结构化 payload 可使用 JSON 字段；不新增数据库服务。ChromaDB 仅作为可以重建的检索索引，不是 Evidence 的唯一权威存储。
+- **E1-03 文档身份与版本**：首次上传由任务/ingest 登记或生成稳定 `document_id`，后续同一业务文档复用；文件名只作来源名称。文件内容哈希决定 `document_version`。无法可靠判断是否同一业务文档时不得擅自合并。
+- **E1-04 删除与保留**：Phase 1 不提供物理删除，只提供可删除性检查和标记停用；被 Claim/报告引用的版本拒绝删除。完整删除和级联规则在后续引用关系及 UI/Assurance 接入后实现。
+- **E1-05 状态栏范围**：Phase 1 实现真实 `ProgressEvent`、checkpoint、CLI 状态和现有 Streamlit 动线中的简单只读展示；不建设完整任务中心、暂停控制、人工确认 UI、多用户队列或通用调度平台。
+
+### 19.7 FA-01～FA-06 最终规则（Phase 1F-A 编码前冻结）
+
+- **FA-01 来源范围**：首版支持上市公司年度/中期/季度报告中的三张主表及必要附注电子PDF，以及用户上传的 `.xlsx` 财务报表；征信报告先登记来源并预留债务对账接口，不承诺自动解析所有征信格式。
+- **FA-02 差异容差**：同口径标准值只有在差异不超过来源展示精度造成的舍入上限时才算一致；明确单位/小数位时按半个最小展示单位计算，未知精度或单位时非零差异均为冲突。15%重大科目阈值不得用于掩盖对账差异。
+- **FA-03 单来源准入**：单一合格来源在主体、期间、币种、scope、单位明确且同源勾稽通过时可以进入快照并标记 `SINGLE_SOURCE`，不强制等待第二来源；新增同口径来源发生冲突时转人工确认。
+- **FA-04 LLM映射边界**：规则唯一匹配可自动批准；LLM只提供科目映射候选和置信信息，必须经过确定性校验或集中人工确认后才能进入快照，不以多个模型投票替代确认。
+- **FA-05 选择理由**：首版理由为 `AUDITED_SOURCE`、`LATEST_RESTATEMENT`、`SCOPE_MATCH`、`PERIOD_MATCH`、`CORRECTED_MATERIAL`、`OTHER_WITH_NOTE`，最后一项必须填写说明。理由只记录人工选择依据，系统不得据此自动选择来源；不同期间、scope、币种或重述版本不属于同组冲突。
+- **FA-06 公式确认门**：技术方先生成 `FORMULA_REVIEW.md`，业务方只复核有歧义的科目、平均值、利息、EBITDA、自由现金流和专项公式口径；确认后再实现 Formula Registry。A1～A5不受阻，A6必须等待公式复核，不得由开发代理自行越过。
+
 ---
 
 ## 20. 当前建议的下一步
