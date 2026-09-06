@@ -1,0 +1,3 @@
+# Dev-time 依赖：仅用于 Evidence 表格结构可行性探测（E1-01，evidence/table_probe.py）。
+# 不进入运行时 requirements.txt；正式结构化表格抽取启用前保持固定版本以复现探测结果。
+pdfplumber==0.11.4
