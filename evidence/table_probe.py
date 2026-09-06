@@ -7,6 +7,7 @@
 - 状态枚举见 evidence/schema.py::PROBE_STATUSES：
     PROBE_NOT_RUN                未运行
     PROBE_DEPENDENCY_MISSING     缺少 pdfplumber 依赖
+    PROBE_FAILED                 输入非法/文件不存在/PDF 打不开等运行错误
     TABLE_STRUCTURE_AVAILABLE    已运行且可靠恢复坐标
     TABLE_STRUCTURE_UNAVAILABLE  已运行但无法恢复坐标
 
@@ -16,6 +17,7 @@ CLI: python -m evidence.table_probe <pdf> [--pages 1-5]
 from __future__ import annotations
 
 import logging
+import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -111,7 +113,7 @@ def probe(pdf_path: str, pages: str | None = None) -> TableProbeResult:
     p = Path(pdf_path)
     if not p.exists():
         return TableProbeResult(
-            status="PROBE_DEPENDENCY_MISSING",
+            status="PROBE_FAILED",
             dependency_version=_dependency_version(),
             pages=pages,
             resolved_pages=resolved or [],
@@ -138,14 +140,14 @@ def probe(pdf_path: str, pages: str | None = None) -> TableProbeResult:
                         "bbox": bbox,
                         "cell_bboxes": cell_bboxes,
                     })
-    except Exception as e:  # noqa: BLE001 —— 探测失败按「不可用」处理并记录原因
-        logger.warning("table probe 运行异常: %s", e)
+    except Exception as e:  # noqa: BLE001 —— 打开/解析失败是运行错误，非「不可用」
+        logger.warning("table probe 打开/解析失败: %s", e)
         return TableProbeResult(
-            status="TABLE_STRUCTURE_UNAVAILABLE",
+            status="PROBE_FAILED",
             dependency_version=_dependency_version(),
             pages=pages,
             resolved_pages=resolved or [],
-            failure_reason=f"探测运行异常: {e}",
+            failure_reason=f"PDF 打开/解析失败: {e}",
         )
 
     if tables:
@@ -168,25 +170,38 @@ def probe(pdf_path: str, pages: str | None = None) -> TableProbeResult:
 
 
 def _normalize_bbox(bbox) -> list[float] | None:
-    """把 pdfplumber bbox 归一化为 [x0, top, x1, bottom]（4 个数值）。"""
+    """把 pdfplumber bbox 归一化为 [x0, top, x1, bottom]（4 个有限数值）。
+
+    同时校验 bbox 合法性：x1 > x0 且 bottom > top。任一不满足返回 None。
+    """
     if bbox is None:
         return None
     try:
         vals = [float(v) for v in bbox]
     except (TypeError, ValueError):
         return None
-    return vals if len(vals) == 4 else None
+    if len(vals) != 4 or any(not math.isfinite(v) for v in vals):
+        return None
+    if vals[2] <= vals[0] or vals[3] <= vals[1]:
+        return None
+    return vals
 
 
 def _collect_cell_bboxes(table) -> list[list[float]]:
-    """收集表格每格 bbox（每格 4 数值）；任一格缺坐标则该表视为不可靠。"""
+    """收集表格每格 bbox（pdfplumber 0.11.4 中 `Table.cells` 本身是 bbox 元组）。
+
+    每个 cell 是 `(x0, top, x1, bottom)` 元组，直接归一化；至少一个有效单元格，
+    任一格坐标非法则该表视为不可靠（返回空列表）。
+    """
     cell_bboxes: list[list[float]] = []
     try:
         cells = table.cells
     except AttributeError:
         return []
+    if not cells:
+        return []
     for cell in cells:
-        b = _normalize_bbox(getattr(cell, "bbox", None))
+        b = _normalize_bbox(cell)  # cell 本身即 (x0, top, x1, bottom)
         if b is None:
             return []
         cell_bboxes.append(b)
@@ -212,8 +227,12 @@ def _main(argv: list[str]) -> int:
         return 1
 
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
-    # PROBE_DEPENDENCY_MISSING 返回非零，便于脚本区分「环境缺失」与「结果不可用」。
-    return 0 if result.status != "PROBE_DEPENDENCY_MISSING" else 2
+    # 退出码：依赖缺失=2；输入/运行错误=1；正常执行（可用/不可用）=0。
+    if result.status == "PROBE_DEPENDENCY_MISSING":
+        return 2
+    if result.status == "PROBE_FAILED":
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
