@@ -40,6 +40,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_extractors",
     "evals.test_financial_v2_pdf_extractor",
     "evals.test_financial_v2_mapping",
+    "evals.test_financial_v2_normalization",
 ]
 
 
