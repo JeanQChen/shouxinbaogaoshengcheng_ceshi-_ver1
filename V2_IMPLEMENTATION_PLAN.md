@@ -109,6 +109,15 @@
 
 **留到本阶段任务书：** 文件范围、首版 schema、契约加载接口、具体测试和业务复核清单。此阶段不开发完整 Planner、Router 或研究循环。
 
+**已交付（本次固化）：**
+
+- 首版机器可读契约 `templates/contracts/standard_v2.yaml`（4 章 52 问题，`contract_version: v1`）。
+- 数据模型 `contracts/schema.py`：复合阻断 `blocking_policy: list[str]`、影响范围 `impact_scope`、来源分级 `SOURCE_GRADES`、状态与阻断等级正交白名单。
+- 加载/校验/判定/复核：`contracts/loader.py`、`contracts/validator.py`、`contracts/blocking.py`、`contracts/review.py`。
+- SC 决策配置 `contracts/sc_decisions.yaml`：SC-01～SC-05 规则与确认状态由配置驱动，渲染代码不硬编码“已确认”。
+- 测试 `evals/test_contracts.py`：12 个公司无关合成阻断场景 + 复合阻断语义 + 回归断言。
+- SC-01～SC-05 最终规则已固化（详见 `DESIGN_V2.md` §19.5）；Evidence / Router / Harness 均未在本阶段启动。
+
 ### 1：Evidence 与最小运行基础
 
 **设计映射：** §5.2、§5.7、§6、§9.5、§13、§16.2、§17 Phase 1。
@@ -260,7 +269,7 @@
 
 - [x] 0A：按用户确认接纳 `v1_baseline_final`，保留结果、排除项与重算来源。
 - [x] 总路线图建立，区分已完成基线与尚未实现的报告契约。
-- [ ] 0B：任务书已就绪；待形成并复核首版机器可读 Section Contracts。
+- [x] 0B：首版机器可读 Section Contracts 已形成并复核，SC-01～SC-05 规则已固化（见下方关闭记录）。
 - [ ] 1：Evidence 与最小状态/恢复基础通过。
 - [ ] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过）。
 - [ ] 2：Router/Hybrid 对照评测通过。
@@ -268,6 +277,17 @@
 - [ ] 4：章节 Worker 与章节质量门通过。
 - [ ] 5 与 1F-B：完整回检、财务确认闭环和正式导出门禁通过。
 - [ ] 6：端到端演示与交付验收通过。
+
+### 0B 关闭记录
+
+- **产物**：`templates/contracts/standard_v2.yaml`；`contracts/{schema,loader,validator,blocking,review}.py`；`contracts/sc_decisions.yaml`；`evals/test_contracts.py`；复核表 `contracts/review/section_contract_review.md`。
+- **代码/输入版本**：契约 `contract_version: v1`（4 章 52 问题）；41 问映射 `evaluation/datasets/baseline_contract_mapping.jsonl`（FIN-P1/FIN-DEP1 指向 `fin_consistency`）。
+- **验收命令与结果**：
+  - `python -m contracts.loader templates/contracts/standard_v2.yaml` → 52 问题，校验通过；
+  - `python -m evals.test_contracts` → 89 passed / 0 failed；
+  - `python -m evals.run_evals` → 634 passed / 0 failed / 0 skipped（akshare 网络 ProxyError 为网络降级日志，不计入失败）。
+- **遗留问题与归属**：Evidence / Router / Harness 均未启动（分别属于 Phase 1 / 2 / 3）；行业来源分级、代理指标、`impact_scope` 仅为声明式字段，不实现自动评级与运行判断（留待对应阶段）。
+- **下一阶段入口条件**：Phase 1（Evidence 与最小运行基础）具备入口条件，0B 不阻塞其启动。
 
 ## 8. 本路线图之外的后续范围
 

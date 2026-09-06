@@ -1,0 +1,70 @@
+# SC-01～SC-05 业务决策配置
+#
+# 确认状态（status）由本文件驱动；渲染/复核表代码只读此配置，不得硬编码“已确认”。
+#   - status: confirmed  → 显示“已确认”
+#   - status: pending    → 显示“待业务确认”
+# 本次规则已由产品/业务负责人正式确认，故回写为 confirmed。
+version: v1
+
+items:
+  - id: SC-01
+    status: confirmed
+    question: 哪些公司信用必答问题缺失时阻断章节，哪些允许以明确“待补充/未发现”完成预览？
+    decision: >
+      企业名称/股票代码/材料主体无法一致确认 → JOB_BLOCKED（基础前提错误，整个任务暂停保留 Checkpoint）；
+      主营业务完全无法确认 → SECTION_BLOCKED（公司章节无法形成有效结论）；
+      控股股东或实际控制关系无法确认、重大债务/金融机构借款/对外担保因材料明显缺失无法核实
+      → REPORT_BLOCKED（继续生成带问题预览，禁止正式导出）；
+      合法无实际控制人 → SATISFIED+NONE；已执行检索未发现 → NOT_FOUND_AFTER_SEARCH+NONE
+      （记录检索范围/来源/截止日期，不得写“确定不存在”）；
+      客户/供应商名称依法未披露但集中度已披露 → SATISFIED+NONE；
+      股权激励不适用 → NOT_APPLICABLE+NONE；
+      研发/新业务/管理层履历等非核心不足 → 缺口预览，不阻断。
+      删除旧规则“除主体不一致外其余一律不阻断”。
+
+  - id: SC-02
+    status: confirmed
+    question: 财务材料或口径缺失的最低阻断边界（缺最新完整年度主表/审计意见/期间单位口径/未解决冲突分别如何处理）？
+    decision: >
+      最低正式分析基础 = 最新完整年度三张主表 + 审计意见；趋势分析原则上覆盖近三年；
+      最新季度/半年可用则纳入，否则披露缺口，不一刀切；不要求三份独立审计报告
+      （可从历年年报/最新年报比较披露取得）。
+      缺最新完整年度三张主表任一 → SECTION_BLOCKED + REPORT_BLOCKED（复合：章节无法形成结论且禁止导出）；
+      报告期间/金额单位/合并或母公司口径无法确认 → SECTION_BLOCKED + REPORT_BLOCKED；
+      关键数字未解决冲突 → 暂停受影响计算与 Claim，同时 REPORT_BLOCKED；
+      个别历史期间/附注明细/非关键字段缺失 → 缺口预览；缺分母不得计算、不得 LLM 补算。
+      删除旧规则“必须近三年又一期四个报告期三张主表 + 至少三份审计报告 + 只有一期都没有才阻断”。
+
+  - id: SC-03
+    status: confirmed
+    question: 行业来源分级、代理指标、可比公司（3～5 家）无法取得时如何处理？
+    decision: >
+      来源分 A/B/C/D 四级：A=监管/政府/交易所，B=行业协会/研究机构/公司公告，
+      C=券商/财经媒体/头部披露，D=来源不明/聚合转载。优先 A/B，C 可补充，
+      D 不得作为关键结论唯一依据；来源等级低不自动阻断。
+      代理指标必须记录六项：原目标指标、实际替代指标、替代理由、来源日期、口径、局限性。
+      缺单一数字 → NOT_FOUND_AFTER_SEARCH+NONE；
+      仅当核心内容整体不足（无法确定所属行业、无法形成基本供需/竞争/政策判断、
+      无法说明风险传导、检索后无替代分析）才 SECTION_BLOCKED。
+      可比公司 3~5 家是目标不是门禁：1~2 家说明限制、无直接可比用相近、无合理可比说明不可比，
+      均不因数量不足自动 REPORT_BLOCKED、不强行选不可比公司。
+
+  - id: SC-04
+    status: confirmed
+    question: 综合章节上游三章存在未解决问题时，哪些允许带缺口预览、哪些不生成综合结论？
+    decision: >
+      上游仅非核心 NOT_PROVIDED/NOT_FOUND_AFTER_SEARCH → 带缺口预览；
+      上游影响主体/偿债/关键数字/授信方案的问题 → 不得生成受影响结论；
+      任一上游 SECTION_BLOCKED → 综合只能说明无法完成对应判断；
+      存在相关 REPORT_BLOCKED → 允许预览、禁止导出；
+      不因任意 WAITING_HUMAN 停止全部。
+      通过结构化 impact_scope 字段（subject/solvency/key_financial/credit_scheme）判断影响面，
+      不得由 LLM 临时决定。
+
+  - id: SC-05
+    status: confirmed
+    question: other 授信类型是只执行通用契约，还是必须先由客户经理补充具体业务类型？
+    decision: >
+      other 先跑通用契约，不自动启动专项分析；提示补充具体业务类型；
+      补充后启用对应授信类型追加分析，未补充允许通用预览；
+      综合章节必须提示“尚未按具体授信业务类型追加专项分析”。

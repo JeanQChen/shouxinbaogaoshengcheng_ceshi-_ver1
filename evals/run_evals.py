@@ -31,6 +31,7 @@ EVAL_MODULES = [
     "evals.test_verifier",
     "evals.test_word_exporter",
     "evals.test_baseline_runner",
+    "evals.test_contracts",
 ]
 
 

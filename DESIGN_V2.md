@@ -1708,6 +1708,7 @@ python -m evaluation.run_baseline \
 - [x] EV-01/EV-02/EV-04：已提供 41 问及页码，不安排第二人工评审。
 - [x] A-01：接受新增 V2 一级目录。
 - [x] O-01～O-08：电子 PDF 边界、冲突处理、外部核验降级、异常门禁、时效窗口、风险阈值、Evidence 删除和首轮 Retrieval 评测范围。
+- [x] SC-01～SC-05：Section Contract 阻断边界、财务最低分析基础、行业来源/代理/可比公司、综合影响范围、other 授信类型处理，全部正式确认（规则与确认状态固化于 `contracts/sc_decisions.yaml`，见 §19.5）。
 
 ### 19.2 Baseline 已确认事项与后续 Contract 复核
 
@@ -1734,6 +1735,17 @@ python -m evaluation.run_baseline \
 - Trace 文件格式和 span ID 生成方式。
 - checkpoint 的序列化实现。
 - V1 适配器的具体代码组织。
+
+### 19.5 SC-01～SC-05 最终规则（Phase 0B 固化）
+
+阻断范围与问题状态正交（状态说明“缺什么”，阻断等级说明“后果多大”）：
+`JOB_BLOCKED`=基础前提错误，整个任务暂停并保留 Checkpoint；`SECTION_BLOCKED`=其他章节继续，但当前章节无法形成有效结论；`REPORT_BLOCKED`=继续生成带问题预览，但禁止正式导出；`NONE`=不阻断。`WAITING_HUMAN` / `CONFLICT` 不直接等于固定阻断等级。复合阻断以后果集合表达（如 `SECTION_BLOCKED + REPORT_BLOCKED`）。
+
+- **SC-01 公司信用**：主体/股票代码/材料主体无法一致确认 → `JOB_BLOCKED`；主营业务完全无法确认 → `SECTION_BLOCKED`；控股股东或实际控制关系无法确认、重大债务/金融机构借款/对外担保因材料明显缺失无法核实 → `REPORT_BLOCKED`；合法无实际控制人 → `SATISFIED`+`NONE`；已执行检索未发现 → `NOT_FOUND_AFTER_SEARCH`+`NONE`（记录检索范围/来源/截止日期，不得写“确定不存在”）；客户/供应商名称依法未披露但集中度已披露 → `SATISFIED`+`NONE`；股权激励不适用 → `NOT_APPLICABLE`+`NONE`；研发/新业务/管理层履历等非核心不足 → 缺口预览不阻断。
+- **SC-02 财务**：最低正式分析基础 = 最新完整年度三张主表 + 审计意见；趋势分析原则上覆盖近三年；最新季度/半年可用则纳入，否则披露缺口、不一刀切；不要求三份独立审计报告（可从历年年报/最新年报比较披露取得）。缺最新完整年度任一主表、或报告期间/金额单位/合并或母公司口径无法确认 → `SECTION_BLOCKED` + `REPORT_BLOCKED`（复合）；关键数字未解决冲突 → 暂停受影响计算与 Claim，同时 `REPORT_BLOCKED`；个别历史期间/附注明细/非关键字段缺失 → 缺口预览；缺分母不得计算、不得 LLM 补算。
+- **SC-03 行业**：来源 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）；优先 A/B，C 可补充，D 不得作为关键结论唯一依据，来源等级低不自动阻断。代理指标记录六项：原目标指标/实际替代指标/替代理由/来源日期/口径/局限性。缺单一数字 → `NOT_FOUND_AFTER_SEARCH`+`NONE`；仅核心内容整体不足（无法确定所属行业/无法形成基本供需竞争政策判断/无法说明风险传导/检索后无替代分析）才 `SECTION_BLOCKED`。可比公司 3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比；不因数量不足自动 `REPORT_BLOCKED`、不强行选不可比公司）。
+- **SC-04 综合**：上游仅非核心 `NOT_PROVIDED`/`NOT_FOUND_AFTER_SEARCH` → 带缺口预览；上游影响主体/偿债/关键数字/授信方案的问题 → 不得生成受影响结论；任一上游 `SECTION_BLOCKED` → 综合只能说明无法完成对应判断；存在相关 `REPORT_BLOCKED` → 允许预览、禁止导出；不因任意 `WAITING_HUMAN` 停止全部。通过结构化 `impact_scope`（subject/solvency/key_financial/credit_scheme）判断影响面，不得由 LLM 临时决定。
+- **SC-05 other**：先跑通用契约、不自动启动专项分析；提示补充具体业务类型，补充后启用对应追加分析，未补充允许通用预览；综合必须提示“尚未按具体授信业务类型追加专项分析”。
 
 ---
 

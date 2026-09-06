@@ -1,0 +1,41 @@
+{"case_id": "COMP-S1", "question_ids": ["company_identity_basic"], "coverage_role": "full", "note": "成立日期对应基本信息字段"}
+{"case_id": "COMP-S2", "question_ids": ["company_control_chain"], "coverage_role": "full", "note": "实际控制人及控制链条对应控制关系"}
+{"case_id": "COMP-S3", "question_ids": ["company_pledge_sentiment"], "coverage_role": "full", "note": "股权质押率对应质押维度"}
+{"case_id": "COMP-D1", "question_ids": ["company_identity_history"], "coverage_role": "full", "note": "历史沿革完整覆盖"}
+{"case_id": "COMP-MS1", "question_ids": ["company_subsidiaries"], "coverage_role": "partial", "note": "只覆盖主要子公司子面，未覆盖集团结构与关联方全貌"}
+{"case_id": "COMP-R1", "question_ids": ["company_business_main"], "coverage_role": "full", "note": "主营业务及收入构成完整覆盖"}
+{"case_id": "COMP-MV1", "question_ids": [], "coverage_role": "out_of_scope", "note": "总市值为外部行情数据，不属于第一阶段契约问题"}
+{"case_id": "COMP-E1", "question_ids": ["company_investment", "company_litigation"], "coverage_role": "partial", "note": "收购对应投资事件、处罚对应诉讼风险，均为子面"}
+{"case_id": "COMP-S1b", "question_ids": ["company_identity_history"], "coverage_role": "partial", "note": "上市与股票代码为历史沿革子面"}
+{"case_id": "COMP-C1", "question_ids": ["company_competitiveness"], "coverage_role": "full", "note": "核心竞争力完整覆盖"}
+{"case_id": "COMP-SW1", "question_ids": ["company_business_model"], "coverage_role": "partial", "note": "新业务拓展为经营模式子面，非通用主题"}
+{"case_id": "COMP-FP1", "question_ids": ["company_rd_capacity"], "coverage_role": "partial", "note": "发展计划为研发/在建子面"}
+{"case_id": "COMP-R3", "question_ids": ["company_customer_concentration"], "coverage_role": "full", "note": "客户集中度完整覆盖"}
+{"case_id": "COMP-RD1", "question_ids": ["company_rd_capacity"], "coverage_role": "full", "note": "研发项目完整覆盖"}
+{"case_id": "COMP-BD1", "question_ids": ["company_governance"], "coverage_role": "partial", "note": "董事人数为治理结构子面"}
+{"case_id": "COMP-EQ1", "question_ids": ["company_equity_incentive"], "coverage_role": "full", "note": "股权激励完整覆盖"}
+{"case_id": "COMP-ZB1", "question_ids": ["company_governance"], "coverage_role": "partial", "note": "高管履历为治理子面"}
+{"case_id": "COMP-RP1", "question_ids": ["company_related_transactions"], "coverage_role": "full", "note": "关联交易完整覆盖"}
+{"case_id": "COMP-DZ1", "question_ids": ["company_investment"], "coverage_role": "full", "note": "定向增发为重大募资事件"}
+{"case_id": "COMP-CR1", "question_ids": ["company_debt_credit", "company_debt_guarantee"], "coverage_role": "full", "note": "授信与对外担保完整覆盖"}
+{"case_id": "FIN-GM1", "question_ids": ["fin_profitability"], "coverage_role": "full", "note": "毛利率对应盈利能力计算"}
+{"case_id": "FIN-P1", "question_ids": ["fin_consistency", "fin_solvency"], "coverage_role": "partial", "note": "合并/母公司口径与偿债为两个子面"}
+{"case_id": "FIN-TR1", "question_ids": ["fin_growth"], "coverage_role": "full", "note": "近三年趋势对应增长主题"}
+{"case_id": "FIN-CF1", "question_ids": ["fin_cashflow"], "coverage_role": "full", "note": "经营现金流对应现金流主题"}
+{"case_id": "FIN-SLV1", "question_ids": ["fin_solvency"], "coverage_role": "full", "note": "偿债指标完整覆盖"}
+{"case_id": "FIN-CAX1", "question_ids": ["fin_cashflow"], "coverage_role": "full", "note": "三类现金流结构完整覆盖"}
+{"case_id": "FIN-AUD1", "question_ids": ["fin_audit_opinion"], "coverage_role": "full", "note": "会计师事务所一致性对应审计意见主题"}
+{"case_id": "FIN-DEP1", "question_ids": ["fin_consistency"], "coverage_role": "partial", "note": "折旧政策为会计政策口径子面"}
+{"case_id": "FIN-RST1", "question_ids": ["fin_asset_quality"], "coverage_role": "full", "note": "受限资金对应资产质量主题"}
+{"case_id": "FIN-AGE1", "question_ids": ["fin_profitability"], "coverage_role": "partial", "note": "应收账龄为盈利质量子面"}
+{"case_id": "FIN-INV1", "question_ids": ["fin_balance_structure", "fin_operating"], "coverage_role": "partial", "note": "存货变化对应科目结构与营运两个子面"}
+{"case_id": "FIN-FIX1", "question_ids": ["fin_balance_structure"], "coverage_role": "partial", "note": "固定资产净值为科目结构子面"}
+{"case_id": "FIN-PM1", "question_ids": ["fin_profitability"], "coverage_role": "full", "note": "净利率对应盈利能力计算"}
+{"case_id": "IND-R1", "question_ids": ["industry_position"], "coverage_role": "full", "note": "行业排名对应行业地位"}
+{"case_id": "IND-R2", "question_ids": ["industry_policy"], "coverage_role": "full", "note": "行业政策变化完整覆盖"}
+{"case_id": "IND-R3", "question_ids": ["industry_position"], "coverage_role": "full", "note": "行业地位综合判断完整覆盖"}
+{"case_id": "IND-R4", "question_ids": ["industry_definition"], "coverage_role": "full", "note": "行业定义与细分边界完整覆盖"}
+{"case_id": "IND-R5", "question_ids": ["industry_scale_cycle"], "coverage_role": "full", "note": "市场规模、增速与周期完整覆盖"}
+{"case_id": "IND-R6", "question_ids": ["industry_supply_demand"], "coverage_role": "full", "note": "供需与成本驱动完整覆盖"}
+{"case_id": "IND-R7", "question_ids": ["industry_risk_transmission"], "coverage_role": "full", "note": "风险传导路径完整覆盖"}
+{"case_id": "IND-R8", "question_ids": ["industry_monitoring"], "coverage_role": "full", "note": "结论有效期与监测指标完整覆盖"}

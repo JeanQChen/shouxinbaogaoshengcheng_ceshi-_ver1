@@ -1,0 +1,871 @@
+contract_version: v1
+
+# 缺失策略目录：规定“缺失 / 未检索到 / 冲突 / 不适用”时如何书写与处理。
+# 通用语义，不绑定任何具体公司、行业或业务。
+policies:
+  missing:
+    - policy_id: write_not_found
+      description: 明确写“未在给定材料及已执行来源中检索到”，不视为事实不存在，允许带缺口预览
+    - policy_id: write_not_found_disclose
+      description: 依法未披露（如客户/供应商名称）时标注“依法未披露”，不视为事实不存在，不阻断
+    - policy_id: transfer_human
+      description: 转人工确认（WAITING_HUMAN）后再继续受影响部分
+    - policy_id: valid_no_controller
+      description: “无实际控制人”是合法结论（SATISFIED），与控制关系无法确认（WAITING_HUMAN）区分
+    - policy_id: not_applicable_no_plan
+      description: 无相关计划/安排时记为合法不适用（NOT_APPLICABLE），不阻断
+    - policy_id: proxy_allowed
+      description: 权威数据缺失时允许使用明确标注来源与口径的代理指标，并记录原目标指标/实际替代指标/替代理由/来源日期/口径/局限性六项；缺单一数字不阻断，仅核心内容整体不足才 SECTION_BLOCKED
+    - policy_id: conflict_pause
+      description: 冲突只暂停受影响的计算与 Claim，解决前阻止正式导出
+    - policy_id: missing_material
+      description: 所需材料未上传或字段未提供（NOT_PROVIDED），明确标注缺失期间/字段，按 blocking_policy 决定是否阻断
+
+# 命名条件（授信类型白名单）
+conditions:
+  - condition_id: c_working_capital
+    kind: credit_type_in
+    field: credit_type
+    op: in
+    value: [working_capital]
+  - condition_id: c_trade_finance
+    kind: credit_type_in
+    field: credit_type
+    op: in
+    value: [trade_finance]
+  - condition_id: c_fixed_asset_or_project
+    kind: credit_type_in
+    field: credit_type
+    op: in
+    value: [fixed_asset, project_loan]
+
+sections:
+  # ------------------------------------------------------------------
+  # 1. 公司信用研究
+  # ------------------------------------------------------------------
+  - section_id: company
+    title: 公司信用研究
+    purpose: 确认申请授信的法人主体是否合法存续、控制权是否清晰、经营是否有效，及其业务与经营能力能否支持还款。实际控制人用于判断控制权与治理风险，不等同于借款主体。
+    research_policy: harness
+    allowed_capabilities: [search_evidence, search_tables, inspect_evidence, compare_evidence, verify_claim, search_external_sources]
+    required_topics:
+      - topic_id: company_identity
+        title: 企业基本信息与历史沿革
+        required: true
+        key_questions:
+          - question_id: company_subject_match
+            question: 核对输入企业名称、材料内主体、股票代码与公开企业信息是否一致
+            priority: P0
+            blocking_policy: [JOB_BLOCKED]
+            impact_scope: [subject]
+            missing_policy: transfer_human
+            evidence_requirements:
+              - requirement_id: er_comp_subject
+                evidence_kind: field
+                source_classes: [company_industry, structured_db, external]
+                minimum_sources: 1
+                required_fields: [企业名称, 股票代码, 经营状态]
+          - question_id: company_identity_basic
+            question: 成立日期、办公地址、法定代表人、注册资本、实缴资本和经营范围
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_basic
+                evidence_kind: field
+                source_classes: [company_industry]
+                minimum_sources: 1
+                required_fields: [成立日期, 办公地址, 法定代表人, 注册资本, 实缴资本, 经营范围]
+          - question_id: company_identity_history
+            question: 历史沿革：重大改革、股权变更、法定代表人变更、上市及重大募资事项
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_history
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_control
+        title: 股权结构、控股股东、实际控制人及控制链条
+        required: true
+        key_questions:
+          - question_id: company_control_chain
+            question: 控股股东、实际控制人及控制链条（含可视化关系图）；合法无实际控制人为 SATISFIED，无法确认时 REPORT_BLOCKED
+            priority: P0
+            blocking_policy: [REPORT_BLOCKED]
+            impact_scope: [subject]
+            missing_policy: valid_no_controller
+            evidence_requirements:
+              - requirement_id: er_comp_control
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+                required_fields: [控股股东, 实际控制人, 持股比例]
+      - topic_id: company_subsidiaries
+        title: 主要子公司、集团结构与重要关联方
+        required: true
+        key_questions:
+          - question_id: company_subsidiaries
+            question: 主要子公司、集团结构与重要关联方
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_subs
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_business
+        title: 主营业务、经营模式、产业链、收入成本毛利构成、客户与供应商集中度
+        required: true
+        key_questions:
+          - question_id: company_business_main
+            question: 主营业务、收入/成本/毛利构成与产业链位置；主营业务完全无法确认时阻断章节
+            priority: P0
+            blocking_policy: [SECTION_BLOCKED]
+            impact_scope: [subject]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_business_main
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+                required_fields: [主营业务, 收入构成, 毛利构成]
+          - question_id: company_business_model
+            question: 采购/生产/销售模式、技术路线、成本与竞争能力
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_business_model
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+          - question_id: company_customer_concentration
+            question: 客户集中度（客户名称依法未披露时标注“依法未披露”，不视为缺失或不存在）
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found_disclose
+            evidence_requirements:
+              - requirement_id: er_comp_customer
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+          - question_id: company_supplier_concentration
+            question: 供应商集中度
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_supplier
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_competitiveness
+        title: 核心竞争力、研发能力、发展计划和在建工程
+        required: true
+        key_questions:
+          - question_id: company_competitiveness
+            question: 核心竞争力
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_competitive
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+          - question_id: company_rd_capacity
+            question: 研发能力、发展计划与在建工程
+            priority: P2
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_rd
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_governance
+        title: 公司治理、内控、管理层稳定性及主要管理人员履历
+        required: true
+        key_questions:
+          - question_id: company_governance
+            question: 治理结构、内控、管理层稳定性及主要管理人员履历
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_governance
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_legal_risks
+        title: 重大诉讼、违约、处罚、失信、退市风险、关联交易、股权质押和舆情
+        required: true
+        key_questions:
+          - question_id: company_litigation
+            question: 重大诉讼、违约、处罚、失信与退市风险（无发现也须记录检索范围与截止日期）
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_litigation
+                evidence_kind: paragraph
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+          - question_id: company_related_transactions
+            question: 关联交易（采购/销售/担保）的合规性与占比
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_related
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+          - question_id: company_pledge_sentiment
+            question: 股权质押与舆情
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_pledge
+                evidence_kind: paragraph
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+      - topic_id: company_debt
+        title: 债务、授信、发债、金融机构借款和对外担保
+        required: true
+        key_questions:
+          - question_id: company_debt_credit
+            question: 授信额度及已用规模；材料明显缺失无法核实时不生成对应偿债结论
+            priority: P0
+            blocking_policy: [REPORT_BLOCKED]
+            impact_scope: [solvency]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_credit
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+          - question_id: company_debt_guarantee
+            question: 发债、金融机构借款和对外担保（结构化表格呈现）；材料明显缺失无法核实时不生成对应偿债结论
+            priority: P0
+            blocking_policy: [REPORT_BLOCKED]
+            impact_scope: [solvency]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_guarantee
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_profit_quality
+        title: 非主营业务和利润质量
+        required: true
+        key_questions:
+          - question_id: company_profit_quality
+            question: 非主营损益（投资收益、公允价值变动、减值、营业外收支）及利润质量
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_profit_quality
+                evidence_kind: table
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_investment
+        title: 重大投资、收并购、资产出售、定向增发等影响经营的事件
+        required: true
+        key_questions:
+          - question_id: company_investment
+            question: 重大投资、收并购、资产出售与定向增发等影响经营的事件
+            priority: P2
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_investment
+                evidence_kind: paragraph
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+      - topic_id: company_equity_incentive
+        title: 股权激励计划及进展
+        required: true
+        key_questions:
+          - question_id: company_equity_incentive
+            question: 股权激励计划及进展（无相关计划时为 NOT_APPLICABLE，不阻断）
+            priority: P2
+            blocking_policy: NONE
+            missing_policy: not_applicable_no_plan
+            evidence_requirements:
+              - requirement_id: er_comp_equity
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+      - topic_id: company_credit_summary
+        title: 公司层面核心信用优势、风险及其偿债影响
+        required: true
+        key_questions:
+          - question_id: company_credit_summary
+            question: 公司核心信用优势、风险、偿债影响与未解决问题
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_comp_summary
+                evidence_kind: paragraph
+                source_classes: [company_industry]
+                minimum_sources: 1
+    output_requirements:
+      - requirement_id: or_company_structure
+        kind: structured
+        description: 主体、控制链可视化、主营、风险与债务结构化结论
+    completion_rules:
+      - rule_id: company_rule_subject
+        scope_id: company
+        condition: { kind: always }
+        outcome: 主体、股票代码、经营状态、报告时点明确，且输入主体与材料主体一致
+      - rule_id: company_rule_core
+        scope_id: company
+        condition: { kind: always }
+        outcome: 主营、控制关系、债务、担保、关联交易、客户与供应商集中度为必答；未检索到须逐项明确写出
+    evaluation_rules:
+      - rule_id: company_eval_fact_judgment
+        description: 事实与分析判断分开表达，每个关键事实绑定证据，每个风险判断回指支持事实
+
+  # ------------------------------------------------------------------
+  # 2. 财务分析（确定性 Workflow，Python/SQL 计算，LLM 只解读）
+  # ------------------------------------------------------------------
+  - section_id: financial
+    title: 财务分析
+    purpose: 先判断报表是否可信，再以确定性数据和计算结果评价偿债、盈利、营运、现金流与增长质量，判断其能否支持用户提出的授信方案。
+    research_policy: workflow
+    allowed_capabilities: [lookup_financial_metric]
+    required_topics:
+      - topic_id: fin_source_scope
+        title: 数据来源、口径、报告期、合并范围、单位、审计意见与事务所
+        required: true
+        key_questions:
+          - question_id: fin_statements_availability
+            question: 最新完整年度三张主表（资产负债表、利润表、现金流量表）与审计意见齐备；趋势原则上覆盖近三年；最新季度/半年可用则纳入，否则披露缺口；缺最新完整年度任一主表即阻断
+            priority: P0
+            blocking_policy: [SECTION_BLOCKED, REPORT_BLOCKED]
+            impact_scope: [key_financial]
+            missing_policy: missing_material
+            evidence_requirements:
+              - requirement_id: er_fin_stmt
+                evidence_kind: structured_db
+                source_classes: [financial]
+                minimum_sources: 1
+                required_fields: [资产负债表, 利润表, 现金流量表]
+          - question_id: fin_audit_opinion
+            question: 审计意见、会计师事务所、报告期、合并范围与单位（不要求三份独立审计报告，可从历年年报/最新年报比较披露取得；报告期间/金额单位/合并或母公司口径无法确认即阻断）
+            priority: P1
+            blocking_policy: [SECTION_BLOCKED, REPORT_BLOCKED]
+            impact_scope: [key_financial]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_audit
+                evidence_kind: field
+                source_classes: [financial]
+                minimum_sources: 1
+                required_fields: [审计意见, 会计师事务所, 报告期, 合并范围, 单位]
+      - topic_id: fin_consistency
+        title: 三张报表及附注的一致性
+        required: true
+        key_questions:
+          - question_id: fin_consistency
+            question: 三张报表及附注勾稽一致；多来源数字冲突时保留各来源值并生成 reconciliation issue，暂停受影响计算与 Claim
+            priority: P0
+            blocking_policy: [REPORT_BLOCKED]
+            impact_scope: [key_financial, solvency]
+            missing_policy: conflict_pause
+            evidence_requirements:
+              - requirement_id: er_fin_consistency
+                evidence_kind: structured_db
+                source_classes: [financial]
+                minimum_sources: 1
+      - topic_id: fin_balance_structure
+        title: 资产负债结构、重大科目变化
+        required: true
+        key_questions:
+          - question_id: fin_balance_structure
+            question: 资产负债结构与重大科目变化；科目占资产或负债 15% 以上强制分析，重点科目无论占比均分析
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_balance
+                evidence_kind: table
+                source_classes: [financial]
+                minimum_sources: 1
+      - topic_id: fin_solvency
+        title: 短期与长期偿债能力、净资产与刚性债务结构
+        required: true
+        key_questions:
+          - question_id: fin_solvency
+            question: 短期与长期偿债能力、净资产水平与刚性债务结构
+            priority: P0
+            blocking_policy: NONE
+            impact_scope: [solvency]
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_current_ratio
+              - calc_quick_ratio
+              - calc_debt_ratio
+              - calc_interest_coverage
+              - calc_ebitda_interest_coverage
+      - topic_id: fin_profitability
+        title: 盈利能力与利润质量
+        required: true
+        key_questions:
+          - question_id: fin_profitability
+            question: 盈利能力与利润质量
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_gross_margin
+              - calc_net_margin
+              - calc_roe
+              - calc_roa
+      - topic_id: fin_operating
+        title: 营运效率
+        required: true
+        key_questions:
+          - question_id: fin_operating
+            question: 营运效率（应收账款、存货、总资产周转）
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_receivable_turnover
+              - calc_inventory_turnover
+              - calc_asset_turnover
+      - topic_id: fin_cashflow
+        title: 现金流结构与现金保障程度
+        required: true
+        key_questions:
+          - question_id: fin_cashflow
+            question: 现金流结构与现金保障程度（经营现金流能否覆盖债务与贷款偿付）
+            priority: P0
+            blocking_policy: NONE
+            impact_scope: [solvency]
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_ocf_to_net_profit
+              - calc_fcf
+      - topic_id: fin_growth
+        title: 增长趋势、异常变动、可能原因和杜邦分析
+        required: true
+        key_questions:
+          - question_id: fin_growth
+            question: 增长趋势、异常变动、可能原因与杜邦分析
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_revenue_growth
+              - calc_net_profit_growth
+              - calc_dupont
+      - topic_id: fin_asset_quality
+        title: 非主营损益、减值、受限资产、商誉、开发支出等对资产质量的影响
+        required: true
+        key_questions:
+          - question_id: fin_asset_quality
+            question: 非主营损益、减值、受限资产、商誉、开发支出对利润和资产质量的影响
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_asset_quality
+                evidence_kind: table
+                source_classes: [financial]
+                minimum_sources: 1
+      - topic_id: fin_risk_summary
+        title: 财务风险结论及对授信方案的影响
+        required: true
+        key_questions:
+          - question_id: fin_risk_summary
+            question: 财务风险结论及其对当前授信方案的影响
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_risk_summary
+                evidence_kind: paragraph
+                source_classes: [financial]
+                minimum_sources: 1
+      - topic_id: fin_working_capital_needs
+        title: 流动资金需求测算（流动资金贷款追加）
+        required: false
+        applies_when: { ref: c_working_capital }
+        key_questions:
+          - question_id: fin_working_capital_needs
+            question: 流动资金需求测算（收入增长预测、营运资金周转、存货/应收/预付/预收/应付）
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            calculation_requirements:
+              - calc_working_capital_needs
+      - topic_id: fin_trade_finance_focus
+        title: 贸易融资关键科目强化（贸易融资追加）
+        required: false
+        applies_when: { ref: c_trade_finance }
+        key_questions:
+          - question_id: fin_trade_finance_focus
+            question: 贸易融资按业务类型选择关键科目（如应收账款、存货、预付）重点分析
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_trade
+                evidence_kind: table
+                source_classes: [financial]
+                minimum_sources: 1
+      - topic_id: fin_capital_capacity
+        title: 公司财务承载能力（固定资产/项目贷款第一阶段）
+        required: false
+        applies_when: { ref: c_fixed_asset_or_project }
+        key_questions:
+          - question_id: fin_capital_capacity
+            question: 固定资产/项目贷款：第一阶段仅从公司财务角度评价资本实力与现有项目现金流
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_fin_capital
+                evidence_kind: paragraph
+                source_classes: [financial]
+                minimum_sources: 1
+    output_requirements:
+      - requirement_id: or_fin_structure
+        kind: structured
+        description: 报表可信度、资产负债表、利润表、现金流量表与综合结论，所有数字来自结构化数据或 Python 计算
+    completion_rules:
+      - rule_id: fin_rule_no_llm_math
+        scope_id: financial
+        condition: { kind: always }
+        outcome: 所有指标、比率、增长率由 Python/SQL 计算后进入提示词，LLM 只写解读文字
+      - rule_id: fin_rule_15pct
+        scope_id: financial
+        condition: { kind: always }
+        outcome: 重大科目阈值 15%；缺少分母、前期值或关键科目时不计算对应指标
+    evaluation_rules:
+      - rule_id: fin_eval_coordinate
+        description: 每个数据库数字保留源文件、页码/Sheet、表格与行列坐标，可回查源材料
+
+  # ------------------------------------------------------------------
+  # 3. 行业研究（受限 Harness，外部检索受预算限制）
+  # ------------------------------------------------------------------
+  - section_id: industry
+    title: 行业研究
+    purpose: 评价行业环境如何影响公司的收入、盈利、现金流和偿债能力，而非生成泛行业介绍。
+    research_policy: harness
+    allowed_capabilities: [search_evidence, search_tables, inspect_evidence, compare_evidence, verify_claim, search_external_sources]
+    required_topics:
+      - topic_id: industry_definition
+        title: 行业定义、边界与公司所属细分领域
+        required: true
+        key_questions:
+          - question_id: industry_definition
+            question: 行业定义、边界与公司所属细分领域
+            priority: P1
+            blocking_policy: NONE
+            impact_scope: [subject]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_definition
+                evidence_kind: paragraph
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+      - topic_id: industry_scale_cycle
+        title: 行业规模、增速与当前周期位置
+        required: true
+        key_questions:
+          - question_id: industry_scale_cycle
+            question: 行业规模、增速与当前周期位置（缺单一数字不阻断，可用代理指标）
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: proxy_allowed
+            evidence_requirements:
+              - requirement_id: er_ind_scale
+                evidence_kind: web
+                source_classes: [external]
+                minimum_sources: 1
+                required_fields: [行业规模, 增速, 数据截止日期, 统计口径]
+      - topic_id: industry_supply_demand
+        title: 供需关系、价格与成本驱动因素
+        required: true
+        key_questions:
+          - question_id: industry_supply_demand
+            question: 供需关系、价格与成本驱动因素及对经营的影响
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_supply
+                evidence_kind: web
+                source_classes: [external]
+                minimum_sources: 1
+      - topic_id: industry_competition
+        title: 竞争格局、集中度和主要参与者
+        required: true
+        key_questions:
+          - question_id: industry_competition
+            question: 竞争格局、集中度与主要参与者
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_competition
+                evidence_kind: web
+                source_classes: [external]
+                minimum_sources: 1
+      - topic_id: industry_policy
+        title: 政策、监管、技术替代和外部冲击
+        required: true
+        key_questions:
+          - question_id: industry_policy
+            question: 政策、监管、技术替代与外部冲击
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_policy
+                evidence_kind: web
+                source_classes: [external]
+                minimum_sources: 1
+      - topic_id: industry_position
+        title: 公司行业地位和相对竞争能力
+        required: true
+        key_questions:
+          - question_id: industry_position
+            question: 公司行业地位与相对竞争能力
+            priority: P0
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_position
+                evidence_kind: web
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+      - topic_id: industry_comparables
+        title: 可比公司选择与相对比较
+        required: true
+        key_questions:
+          - question_id: industry_comparables
+            question: 选择 3～5 家可比公司并做相对比较（3~5 家是目标不是门禁：1~2 家说明限制、无直接可比用相近、无合理可比说明不可比，不强行选不可比公司）
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_comparables
+                evidence_kind: web
+                source_classes: [external]
+                minimum_sources: 1
+      - topic_id: industry_risk_transmission
+        title: 行业风险向授信主体的传导路径
+        required: true
+        key_questions:
+          - question_id: industry_risk_transmission
+            question: 行业风险向借款人收入、成本、资本开支、现金流和偿债能力的传导
+            priority: P0
+            blocking_policy: NONE
+            impact_scope: [solvency]
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_transmission
+                evidence_kind: paragraph
+                source_classes: [company_industry, external]
+                minimum_sources: 1
+      - topic_id: industry_monitoring
+        title: 行业结论的有效期和监测指标
+        required: true
+        key_questions:
+          - question_id: industry_monitoring
+            question: 行业结论有效期与监测指标
+            priority: P2
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_ind_monitoring
+                evidence_kind: paragraph
+                source_classes: [external]
+                minimum_sources: 1
+    output_requirements:
+      - requirement_id: or_industry_structure
+        kind: structured
+        description: 行业边界、数据截止日期、可比公司比较，结论落到借款人的收入/成本/资本开支/现金流
+    completion_rules:
+      - rule_id: industry_rule_freshness
+        scope_id: industry
+        condition: { kind: always }
+        outcome: 新闻与行业规模默认近 2 年回溯；关键市场数据须有来源、发布日期与统计口径
+      - rule_id: industry_rule_source_grade
+        scope_id: industry
+        condition: { kind: always }
+        outcome: 证据来源分 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）；优先 A/B，C 可补充，D 不得作为关键结论唯一依据；来源等级低不自动阻断
+      - rule_id: industry_rule_proxy_metric
+        scope_id: industry
+        condition: { kind: always }
+        outcome: 代理指标必须记录六项：原目标指标、实际替代指标、替代理由、来源日期、口径、局限性
+      - rule_id: industry_rule_comparables
+        scope_id: industry
+        condition: { kind: always }
+        outcome: 至少完成一次公司与主要同业的相对比较；3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比），不因数量不足自动阻断、不强行选不可比公司
+      - rule_id: industry_rule_section_blocked
+        scope_id: industry
+        condition: { kind: always }
+        outcome: 仅当核心内容整体不足（无法确定所属行业、无法形成基本供需/竞争/政策判断、无法说明风险传导、检索后无替代分析）才 SECTION_BLOCKED；缺单一行业数字不阻断
+    evaluation_rules:
+      - rule_id: industry_eval_fact_judgment
+        description: 事实与分析判断分开表达
+
+  # ------------------------------------------------------------------
+  # 4. 综合方案评价（只评价用户方案，不生成新方案，不检索）
+  # ------------------------------------------------------------------
+  - section_id: synthesizer
+    title: 综合方案评价
+    purpose: 把公司、财务和行业章节连接成完整信用逻辑，评价客户经理输入的授信方案是否与企业经营、偿债能力和风险相匹配。
+    research_policy: workflow
+    allowed_capabilities: []
+    required_topics:
+      - topic_id: synth_scheme_overview
+        title: 授信主体、类型与用户输入方案概览
+        required: true
+        key_questions:
+          - question_id: synth_scheme_overview
+            question: 授信主体、授信类型与用户输入方案概览
+            priority: P0
+            blocking_policy: REPORT_BLOCKED
+            impact_scope: [credit_scheme]
+            missing_policy: missing_material
+            evidence_requirements:
+              - requirement_id: er_synth_scheme
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+                required_fields: [授信金额, 期限, 增信措施, 授信类型]
+      - topic_id: synth_strengths
+        title: 支持该方案的核心优势
+        required: true
+        key_questions:
+          - question_id: synth_strengths
+            question: 支持该方案的核心优势
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_strengths
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_risks
+        title: 核心风险及风险传导
+        required: true
+        key_questions:
+          - question_id: synth_risks
+            question: 该方案面临的核心风险及风险传导
+            priority: P0
+            blocking_policy: REPORT_BLOCKED
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_risks
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_repayment
+        title: 第一还款来源与现有增信措施有效性
+        required: true
+        key_questions:
+          - question_id: synth_repayment
+            question: 第一还款来源与现有增信措施的有效性
+            priority: P0
+            blocking_policy: REPORT_BLOCKED
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_repayment
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_evaluation
+        title: 授信方案优缺点与综合评价
+        required: true
+        key_questions:
+          - question_id: synth_evaluation
+            question: 授信方案的优点、缺点与综合评价
+            priority: P0
+            blocking_policy: REPORT_BLOCKED
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_evaluation
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_mismatch
+        title: 方案明显不合理时的具体不匹配项
+        required: true
+        key_questions:
+          - question_id: synth_mismatch
+            question: 若方案明显不合理，指出具体不匹配项及依据；否则不主动改写额度、期限和增信措施
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_mismatch
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_unresolved
+        title: 未解决的信息缺口和需人工确认事项
+        required: true
+        key_questions:
+          - question_id: synth_unresolved
+            question: 仍未解决的信息缺口和需人工确认事项
+            priority: P1
+            blocking_policy: NONE
+            missing_policy: write_not_found
+            evidence_requirements:
+              - requirement_id: er_synth_unresolved
+                evidence_kind: claim
+                source_classes: []
+                minimum_sources: 1
+      - topic_id: synth_disclaimer
+        title: AI 生成声明
+        required: true
+        key_questions:
+          - question_id: synth_disclaimer
+            question: 明确声明“本评价由 AI 生成，仅供参考”
+            priority: P0
+            blocking_policy: REPORT_BLOCKED
+            missing_policy: missing_material
+            evidence_requirements:
+              - requirement_id: er_synth_disclaimer
+                evidence_kind: paragraph
+                source_classes: []
+                minimum_sources: 1
+    output_requirements:
+      - requirement_id: or_synth_structure
+        kind: structured
+        description: 只能使用通过章节质量门的 Claim，每个综合判断回指章节 Claim，不引入上游之外的新事实或数字
+    completion_rules:
+      - rule_id: synth_rule_no_new_scheme
+        scope_id: synthesizer
+        condition: { kind: always }
+        outcome: 不主动生成新的授信额度、期限或增信措施，不引入上游章节之外的新事实或数字
+      - rule_id: synth_rule_impact_scope
+        scope_id: synthesizer
+        condition: { kind: always }
+        outcome: 按上游问题 impact_scope（subject/solvency/key_financial/credit_scheme）判断影响面：影响主体、偿债能力、关键数字或授信方案的上游问题存在未解决阻断时不生成对应结论；任一上游 SECTION_BLOCKED 仅说明无法完成对应判断；存在相关 REPORT_BLOCKED 允许预览禁止导出；非核心缺口（impact_scope 为空）仅带缺口预览；不因任意 WAITING_HUMAN 停止全部，由结构化字段判断而非 LLM 临时决定
+      - rule_id: synth_rule_other_disclosure
+        scope_id: synthesizer
+        condition: { kind: always }
+        outcome: 授信类型为 other 且未补充具体业务类型时，必须提示“尚未按具体授信业务类型追加专项分析”
+      - rule_id: synth_rule_disclaimer
+        scope_id: synthesizer
+        condition: { kind: always }
+        outcome: 必须输出“本评价由 AI 生成，仅供参考”
+    evaluation_rules:
+      - rule_id: synth_eval_claim
+        description: 每个综合判断回指一个或多个章节 Claim
