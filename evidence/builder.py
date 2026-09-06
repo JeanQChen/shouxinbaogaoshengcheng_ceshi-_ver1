@@ -146,50 +146,41 @@ def in_memory_document(pdf_path: str, context: DocumentContext) -> DocumentRecor
     )
 
 
-def run_pipeline(
-    pdf_path: str,
-    company_id: str,
-    document_id: str | None = None,
-    source_type: str = "other",
-    material_group: str = "company_industry",
-    store_it: bool = False,
-    run_id: str | None = None,
-    declared_company_name: str | None = None,
-) -> dict:
-    """编排 register → parse → build → commit。
+_DEBT_KEYWORDS = ["kcz", "债", "募集", "募集说明书", "发行公告", "bond", "offering"]
+_ANNUAL_KEYWORDS = ["year", "年报", "年度报告", "annual", "20", "19"]
 
-    - store_it=False：纯内存解析 + 构建，不写 Evidence Store、不发射进度事件。
-    - store_it=True：完整链路 + 真实进度事件；幂等由 store.commit_document
-      保证（同内容重跑走路径 B 复用）。
-    返回 dict 摘要（run_id / document / evidence / commit）。
+
+def infer_source_type(filename: str) -> str:
+    """从文件名推断来源类型（与 V1 retrieval/indexer.py::_infer_doc_type 同规则）。
+
+    纯函数，不 import V1 indexer（避免引入 retrieval.embedding 依赖）。优先级：
+    debt_circular > annual_report > other。文件名只是来源类型提示，非唯一身份。
     """
-    context = DocumentContext(
-        company_id=company_id,
-        source_name=Path(pdf_path).name,
-        source_type=source_type,
-        material_group=material_group,
-        source_path=str(Path(pdf_path).resolve()),
-        document_id=document_id,
-        declared_company_name=declared_company_name,
-    )
-    set_version = current_evidence_set_version()
-    deps = current_dependency_versions()
+    name_lower = filename.lower()
+    if any(kw in name_lower for kw in _DEBT_KEYWORDS):
+        return "debt_circular"
+    if any(kw in name_lower for kw in _ANNUAL_KEYWORDS):
+        return "annual_report"
+    return "other"
 
-    if not store_it:
-        document = in_memory_document(pdf_path, context)
-        parsed = pdf_parse(pdf_path)
-        document.page_count = parsed.page_count
-        blocks = build(parsed, document, set_version)
-        return {
-            "run_id": run_id or new_run_id(),
-            "document": _document_summary(document),
-            "evidence": _evidence_summary(blocks),
-            "commit": None,
-        }
 
-    store.init_db()
-    run_id = run_id or new_run_id()
+def classify_status(block_count: int, error: Exception | None = None) -> str:
+    """纯函数：把 Evidence 构建结果归类为 UI 展示状态。
 
+    - error 非空 → "failed"
+    - error 为空但 block_count <= 0 → "empty"
+    - 否则 → "completed"
+    Streamlit 据此决定展示成功 / 失败 / 空结果，绝不把失败误报为「证据链构建完成」。
+    """
+    if error is not None:
+        return "failed"
+    if block_count <= 0:
+        return "empty"
+    return "completed"
+
+
+def _register_document(pdf_path: str, context: DocumentContext, run_id: str) -> DocumentRecord:
+    """VALIDATING_INPUT 阶段 + 登记文档版本。失败发射进度事件后 raise。"""
     progress.start(run_id, "VALIDATING_INPUT", "正在校验材料")
     try:
         document = store.register_document(pdf_path, context)
@@ -197,20 +188,17 @@ def run_pipeline(
         progress.fail(run_id, "FAILED", "证据构建失败", error_code="UNSUPPORTED_FILE")
         raise
     progress.complete(run_id, "VALIDATING_INPUT", "材料校验完成", 1, 1)
+    return document
 
-    progress.start(run_id, "PARSING_DOCUMENT", "正在读取 PDF")
-    try:
-        parsed = pdf_parse(pdf_path)
-    except FileNotFoundError:
-        progress.fail(run_id, "FAILED", "证据构建失败", error_code="UNSUPPORTED_FILE")
-        raise
-    except ValueError:
-        progress.fail(run_id, "FAILED", "证据构建失败", error_code="SCANNED_LOW_QUALITY")
-        raise
-    document.page_count = parsed.page_count
-    progress.complete(run_id, "PARSING_DOCUMENT", "PDF 读取完成",
-                      parsed.page_count, parsed.page_count)
 
+def _build_and_persist(
+    parsed: PdfParseResult,
+    document: DocumentRecord,
+    set_version: str,
+    deps: dict[str, str],
+    run_id: str,
+) -> dict:
+    """BUILDING_EVIDENCE → PERSISTING_EVIDENCE → COMPLETED（假设已登记 + 已解析）。"""
     progress.start(run_id, "BUILDING_EVIDENCE", "正在构建证据链",
                    total_units=len(parsed.chunks))
     blocks = build(parsed, document, set_version)
@@ -243,6 +231,125 @@ def run_pipeline(
             "checkpoint_id": result.checkpoint_id,
         },
     }
+
+
+def _in_memory_result(
+    parsed: PdfParseResult,
+    pdf_path: str,
+    context: DocumentContext,
+    set_version: str,
+    run_id: str,
+) -> dict:
+    """store_it=False：纯内存构建摘要，不写库、不发射进度。"""
+    document = in_memory_document(pdf_path, context)
+    document.page_count = parsed.page_count
+    blocks = build(parsed, document, set_version)
+    return {
+        "run_id": run_id,
+        "document": _document_summary(document),
+        "evidence": _evidence_summary(blocks),
+        "commit": None,
+    }
+
+
+def _context(pdf_path: str, company_id: str, source_type: str, material_group: str,
+             document_id: str | None, declared_company_name: str | None) -> DocumentContext:
+    return DocumentContext(
+        company_id=company_id,
+        source_name=Path(pdf_path).name,
+        source_type=source_type,
+        material_group=material_group,
+        source_path=str(Path(pdf_path).resolve()),
+        document_id=document_id,
+        declared_company_name=declared_company_name,
+    )
+
+
+def run_pipeline_from_parsed(
+    parsed: PdfParseResult,
+    pdf_path: str,
+    company_id: str,
+    document_id: str | None = None,
+    source_type: str | None = None,
+    material_group: str = "company_industry",
+    store_it: bool = False,
+    run_id: str | None = None,
+    declared_company_name: str | None = None,
+) -> dict:
+    """基于已解析结果编排 register → build → commit，不再重复解析 PDF。
+
+    供 Streamlit 等已持有 PdfParseResult 的调用方使用：同一 PDF 只被
+    parsers.pdf_parser.parse() 解析一次，V1 indexer 与 Evidence Builder 共用
+    同一份 PdfParseResult。source_type 缺省时按文件名推断（infer_source_type）。
+
+    - store_it=False：纯内存构建摘要，不写库。
+    - store_it=True：完整链路 + 真实进度事件（不含 PARSING_DOCUMENT，因解析已完成）。
+    """
+    if source_type is None:
+        source_type = infer_source_type(Path(pdf_path).name)
+    context = _context(pdf_path, company_id, source_type, material_group,
+                       document_id, declared_company_name)
+    set_version = current_evidence_set_version()
+    deps = current_dependency_versions()
+    run_id = run_id or new_run_id()
+
+    if not store_it:
+        return _in_memory_result(parsed, pdf_path, context, set_version, run_id)
+
+    store.init_db()
+    document = _register_document(pdf_path, context, run_id)
+    document.page_count = parsed.page_count
+    return _build_and_persist(parsed, document, set_version, deps, run_id)
+
+
+def run_pipeline(
+    pdf_path: str,
+    company_id: str,
+    document_id: str | None = None,
+    source_type: str | None = None,
+    material_group: str = "company_industry",
+    store_it: bool = False,
+    run_id: str | None = None,
+    declared_company_name: str | None = None,
+) -> dict:
+    """编排 register → parse → build → commit（独立 CLI 路径，内部解析一次）。
+
+    source_type 缺省时按文件名推断（infer_source_type），不再一律 "other"。
+
+    - store_it=False：纯内存解析 + 构建，不写 Evidence Store、不发射进度事件。
+    - store_it=True：完整链路 + 真实进度事件；幂等由 store.commit_document
+      保证（同内容重跑走路径 B 复用）。
+    返回 dict 摘要（run_id / document / evidence / commit）。
+    """
+    if source_type is None:
+        source_type = infer_source_type(Path(pdf_path).name)
+    context = _context(pdf_path, company_id, source_type, material_group,
+                       document_id, declared_company_name)
+    set_version = current_evidence_set_version()
+    deps = current_dependency_versions()
+    run_id = run_id or new_run_id()
+
+    if not store_it:
+        parsed = pdf_parse(pdf_path)
+        return _in_memory_result(parsed, pdf_path, context, set_version, run_id)
+
+    store.init_db()
+    document = _register_document(pdf_path, context, run_id)
+
+    progress.start(run_id, "PARSING_DOCUMENT", "正在读取 PDF")
+    try:
+        parsed = pdf_parse(pdf_path)
+    except FileNotFoundError:
+        progress.fail(run_id, "FAILED", "证据构建失败", error_code="UNSUPPORTED_FILE")
+        raise
+    except ValueError:
+        progress.fail(run_id, "FAILED", "证据构建失败", error_code="SCANNED_LOW_QUALITY")
+        raise
+    document.page_count = parsed.page_count
+    progress.complete(run_id, "PARSING_DOCUMENT", "PDF 读取完成",
+                      parsed.page_count, parsed.page_count)
+
+    return _build_and_persist(parsed, document, set_version, deps, run_id)
 
 
 def _document_summary(document: DocumentRecord) -> dict:
@@ -278,8 +385,8 @@ def _main(argv: list[str]) -> int:
     parser.add_argument("--company", required=True, help="公司标识（company_id）")
     parser.add_argument("--document-id", required=False, default=None,
                         help="业务文档稳定身份；缺省时自动生成并持久保存")
-    parser.add_argument("--source-type", default="other",
-                        choices=S.SOURCE_TYPES, help="来源类型")
+    parser.add_argument("--source-type", default=None,
+                        choices=S.SOURCE_TYPES, help="来源类型（缺省按文件名推断）")
     parser.add_argument("--material-group", default="company_industry",
                         choices=S.MATERIAL_GROUPS, help="材料分组")
     parser.add_argument("--validate-only", action="store_true",
