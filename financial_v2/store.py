@@ -1126,6 +1126,23 @@ def _row_to_mapping_resolution(row: sqlite3.Row) -> S.MappingResolution:
     )
 
 
+def _row_to_resolution_record(row: sqlite3.Row) -> S.ResolutionRecord:
+    return S.ResolutionRecord(
+        resolution_id=row["resolution_id"],
+        group_id=row["group_id"],
+        candidate_set_hash=row["candidate_set_hash"],
+        source_hashes=_json_loads(row["source_hashes"]) or [],
+        comparison_key=row["comparison_key"],
+        rule_versions=_json_loads(row["rule_versions"]) or {},
+        accepted_record_ids=_json_loads(row["accepted_record_ids"]) or [],
+        rejected_record_ids=_json_loads(row["rejected_record_ids"]) or [],
+        reason_code=row["reason_code"],
+        note=row["note"],
+        operator=row["operator"],
+        confirmed_at=row["confirmed_at"],
+    )
+
+
 def _row_to_reconciliation_run(row: sqlite3.Row) -> S.ReconciliationRun:
     return S.ReconciliationRun(
         run_id=row["run_id"],
@@ -1690,6 +1707,18 @@ def list_records(record_set_version: str) -> list[S.SourceFinancialRecord]:
         conn.close()
 
 
+def get_record(record_id: str) -> S.SourceFinancialRecord | None:
+    """按 record_id 读取单条来源记录（A5 决议 / 快照溯源用）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM source_financial_record WHERE record_id=?", (record_id,)
+        ).fetchone()
+        return _row_to_record(row) if row else None
+    finally:
+        conn.close()
+
+
 def count_records(record_set_version: str) -> int:
     conn = _get_conn()
     try:
@@ -1926,6 +1955,18 @@ def list_candidates(record_set_version: str) -> list[S.ExtractedFinancialCell]:
             (record_set_version,),
         ).fetchall()
         return [_row_to_extracted_cell(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_candidate(candidate_id: str) -> S.ExtractedFinancialCell | None:
+    """按 candidate_id 读取单条原始候选（A5 映射确认用）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM extracted_financial_cell WHERE candidate_id=?", (candidate_id,)
+        ).fetchone()
+        return _row_to_extracted_cell(row) if row else None
     finally:
         conn.close()
 
@@ -2416,6 +2457,352 @@ def latest_snapshot_validity(snapshot_id: str) -> str | None:
 
 def latest_resolution_validity(resolution_id: str) -> str | None:
     return _latest_validity("resolution_validity", "resolution_id", resolution_id)
+
+
+# ---------------------------------------------------------------------------
+# A5 决议持久化：科目映射确认（mapping_resolution）与冲突来源确认（resolution_record）
+# ---------------------------------------------------------------------------
+
+def _mapping_resolution_identical(row: sqlite3.Row, r: S.MappingResolution) -> bool:
+    return (
+        row["resolution_id"] == r.resolution_id
+        and row["record_set_version"] == r.record_set_version
+        and row["candidate_id"] == r.candidate_id
+        and row["issue_id"] == r.issue_id
+        and row["chosen_item_code"] == r.chosen_item_code
+        and row["reason_code"] == r.reason_code
+        and row["note"] == r.note
+        and row["operator"] == r.operator
+    )
+
+
+def _resolution_record_identical(row: sqlite3.Row, r: S.ResolutionRecord) -> bool:
+    return (
+        row["resolution_id"] == r.resolution_id
+        and row["group_id"] == r.group_id
+        and row["candidate_set_hash"] == r.candidate_set_hash
+        and _json_loads(row["source_hashes"]) == r.source_hashes
+        and row["comparison_key"] == r.comparison_key
+        and _json_loads(row["rule_versions"]) == r.rule_versions
+        and _json_loads(row["accepted_record_ids"]) == r.accepted_record_ids
+        and _json_loads(row["rejected_record_ids"]) == r.rejected_record_ids
+        and row["reason_code"] == r.reason_code
+        and row["note"] == r.note
+        and row["operator"] == r.operator
+    )
+
+
+def _ensure_active_validity_conn(conn: sqlite3.Connection, table: str, id_column: str,
+                                 object_id: str, now: str) -> bool:
+    """幂等写入首条 active 有效性事件（已 active 则跳过）。"""
+    row = conn.execute(
+        f"SELECT status FROM {table} WHERE {id_column}=? ORDER BY event_at DESC, rowid DESC LIMIT 1",
+        (object_id,),
+    ).fetchone()
+    if row is not None and row["status"] == "active":
+        return False
+    event_id = "v-" + uuid.uuid4().hex[:16]
+    conn.execute(
+        f"INSERT INTO {table} (event_id, {id_column}, status, invalidated_by, invalidated_reason, event_at) "
+        "VALUES (?,?,?,?,?,?)",
+        (event_id, object_id, "active", None, None, now),
+    )
+    return True
+
+
+def _mark_stale_conn(conn: sqlite3.Connection, table: str, id_column: str, object_id: str,
+                     invalidated_by: str | None, invalidated_reason: str | None) -> str | None:
+    """幂等写入 stale 有效性事件（已 stale 则无新事件，不倒退）。"""
+    row = conn.execute(
+        f"SELECT status FROM {table} WHERE {id_column}=? ORDER BY event_at DESC, rowid DESC LIMIT 1",
+        (object_id,),
+    ).fetchone()
+    if row is None:
+        raise validator.ValidationError(f"{table} 无有效性事件，无法置 stale: {object_id}")
+    if row["status"] == "stale":
+        return None
+    event_id = "v-" + uuid.uuid4().hex[:16]
+    conn.execute(
+        f"INSERT INTO {table} (event_id, {id_column}, status, invalidated_by, invalidated_reason, event_at) "
+        "VALUES (?,?,?,?,?,?)",
+        (event_id, object_id, "stale", invalidated_by, invalidated_reason, _utcnow()),
+    )
+    return event_id
+
+
+def commit_mapping_resolutions(resolutions: list[S.MappingResolution]) -> int:
+    """原子提交一批科目映射确认（不可变 + active 有效性 + head 指针，幂等可重放）。
+
+    全有或全无：任一条非法/重复/冲突即回滚，零写入。返回新插入条数。
+    """
+    if not resolutions:
+        raise ValueError("resolutions 不能为空")
+    for r in resolutions:
+        validator.validate_mapping_resolution(r)
+    cids = [r.candidate_id for r in resolutions]
+    if len(cids) != len(set(cids)):
+        raise validator.ValidationError("批内 candidate_id 重复")
+
+    conn = _get_conn()
+    try:
+        now = _utcnow()
+        inserted = 0
+        for r in resolutions:
+            existing = conn.execute(
+                "SELECT * FROM mapping_resolution WHERE resolution_id=?", (r.resolution_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _mapping_resolution_identical(existing, r):
+                    raise StorageConflictError(f"resolution_id 已存在但内容不一致: {r.resolution_id}")
+            else:
+                head = conn.execute(
+                    "SELECT resolution_id FROM mapping_resolution_head WHERE candidate_id=?",
+                    (r.candidate_id,),
+                ).fetchone()
+                if head is not None:
+                    raise validator.ValidationError(
+                        f"candidate 已有 active 决议，不得重复确认: {r.candidate_id}")
+                conn.execute(
+                    "INSERT INTO mapping_resolution (resolution_id, record_set_version, candidate_id, "
+                    "issue_id, chosen_item_code, reason_code, note, operator, confirmed_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    (r.resolution_id, r.record_set_version, r.candidate_id, r.issue_id,
+                     r.chosen_item_code, r.reason_code, r.note, r.operator, r.confirmed_at),
+                )
+                inserted += 1
+            _ensure_active_validity_conn(conn, "mapping_resolution_validity", "resolution_id",
+                                         r.resolution_id, now)
+            conn.execute(
+                "INSERT INTO mapping_resolution_head (candidate_id, resolution_id, updated_at) "
+                "VALUES (?,?,?) ON CONFLICT(candidate_id) DO UPDATE SET "
+                "resolution_id=excluded.resolution_id, updated_at=excluded.updated_at",
+                (r.candidate_id, r.resolution_id, now),
+            )
+        conn.commit()
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def commit_resolution_records(resolutions: list[S.ResolutionRecord]) -> int:
+    """原子提交一批冲突来源决议（不可变 + active 有效性 + head 指针，幂等可重放）。
+
+    全有或全无。返回新插入条数。
+    """
+    if not resolutions:
+        raise ValueError("resolutions 不能为空")
+    for r in resolutions:
+        validator.validate_resolution(r)
+    gids = [r.group_id for r in resolutions]
+    if len(gids) != len(set(gids)):
+        raise validator.ValidationError("批内 group_id 重复")
+
+    conn = _get_conn()
+    try:
+        now = _utcnow()
+        inserted = 0
+        for r in resolutions:
+            existing = conn.execute(
+                "SELECT * FROM resolution_record WHERE resolution_id=?", (r.resolution_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _resolution_record_identical(existing, r):
+                    raise StorageConflictError(f"resolution_id 已存在但内容不一致: {r.resolution_id}")
+            else:
+                head = conn.execute(
+                    "SELECT resolution_id FROM resolution_head WHERE group_id=?", (r.group_id,)
+                ).fetchone()
+                if head is not None:
+                    raise validator.ValidationError(
+                        f"group 已有 active 决议，不得重复确认: {r.group_id}")
+                conn.execute(
+                    "INSERT INTO resolution_record (resolution_id, group_id, candidate_set_hash, "
+                    "source_hashes, comparison_key, rule_versions, accepted_record_ids, "
+                    "rejected_record_ids, reason_code, note, operator, confirmed_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (r.resolution_id, r.group_id, r.candidate_set_hash,
+                     _json_dumps(r.source_hashes), r.comparison_key, _json_dumps(r.rule_versions),
+                     _json_dumps(r.accepted_record_ids), _json_dumps(r.rejected_record_ids),
+                     r.reason_code, r.note, r.operator, r.confirmed_at),
+                )
+                inserted += 1
+            _ensure_active_validity_conn(conn, "resolution_validity", "resolution_id",
+                                         r.resolution_id, now)
+            conn.execute(
+                "INSERT INTO resolution_head (group_id, resolution_id, updated_at) VALUES (?,?,?) "
+                "ON CONFLICT(group_id) DO UPDATE SET "
+                "resolution_id=excluded.resolution_id, updated_at=excluded.updated_at",
+                (r.group_id, r.resolution_id, now),
+            )
+        conn.commit()
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def list_mapping_resolutions_by_candidate(candidate_id: str) -> list[S.MappingResolution]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM mapping_resolution WHERE candidate_id=? ORDER BY confirmed_at",
+            (candidate_id,),
+        ).fetchall()
+        return [_row_to_mapping_resolution(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_active_mapping_resolution(candidate_id: str) -> S.MappingResolution | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT m.* FROM mapping_resolution_head h "
+            "JOIN mapping_resolution m ON m.resolution_id = h.resolution_id "
+            "WHERE h.candidate_id=?",
+            (candidate_id,),
+        ).fetchone()
+        return _row_to_mapping_resolution(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_resolution_records_by_group(group_id: str) -> list[S.ResolutionRecord]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM resolution_record WHERE group_id=? ORDER BY confirmed_at",
+            (group_id,),
+        ).fetchall()
+        return [_row_to_resolution_record(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_active_resolution(group_id: str) -> S.ResolutionRecord | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT r.* FROM resolution_head h "
+            "JOIN resolution_record r ON r.resolution_id = h.resolution_id "
+            "WHERE h.group_id=?",
+            (group_id,),
+        ).fetchone()
+        return _row_to_resolution_record(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_active_mapping_resolution_ids() -> list[tuple[str, str]]:
+    """列出全部 active 科目映射决议 (candidate_id, resolution_id)（审计/定向失效扫描）。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT candidate_id, resolution_id FROM mapping_resolution_head ORDER BY candidate_id"
+        ).fetchall()
+        return [(r["candidate_id"], r["resolution_id"]) for r in rows]
+    finally:
+        conn.close()
+
+
+def list_active_resolution_ids() -> list[tuple[str, str]]:
+    """列出全部 active 冲突来源决议 (group_id, resolution_id)（审计/定向失效扫描）。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT group_id, resolution_id FROM resolution_head ORDER BY group_id"
+        ).fetchall()
+        return [(r["group_id"], r["resolution_id"]) for r in rows]
+    finally:
+        conn.close()
+
+
+def invalidate_mapping_resolution(resolution_id: str, invalidated_by: str | None = None,
+                                  invalidated_reason: str | None = None) -> None:
+    """定向失效一条科目映射决议：追加 stale 事件 + 移除 head（旧决议保留可回查）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT candidate_id FROM mapping_resolution WHERE resolution_id=?",
+            (resolution_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"mapping_resolution 不存在: {resolution_id}")
+        _mark_stale_conn(conn, "mapping_resolution_validity", "resolution_id", resolution_id,
+                         invalidated_by, invalidated_reason)
+        conn.execute("DELETE FROM mapping_resolution_head WHERE resolution_id=?", (resolution_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def invalidate_resolution_record(resolution_id: str, invalidated_by: str | None = None,
+                                 invalidated_reason: str | None = None) -> None:
+    """定向失效一条冲突来源决议：追加 stale 事件 + 移除 head（旧决议保留可回查）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT group_id FROM resolution_record WHERE resolution_id=?",
+            (resolution_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"resolution_record 不存在: {resolution_id}")
+        _mark_stale_conn(conn, "resolution_validity", "resolution_id", resolution_id,
+                         invalidated_by, invalidated_reason)
+        conn.execute("DELETE FROM resolution_head WHERE resolution_id=?", (resolution_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def list_company_record_sets(company_id: str) -> list[S.FinancialRecordSet]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT rs.* FROM financial_record_set rs "
+            "JOIN financial_source_version v ON v.source_version = rs.source_version "
+            "JOIN financial_source_document d ON d.source_document_id = v.source_document_id "
+            "WHERE d.company_id = ? ORDER BY rs.created_at",
+            (company_id,),
+        ).fetchall()
+        return [_row_to_record_set(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def list_company_record_set_versions(company_id: str) -> list[str]:
+    """列出公司全部 record_set_version（含抽取-only 未写 record_set 元信息的集合）。
+
+    覆盖两个来源：候选表（A2/A3 抽取后即有候选，可能尚未标准化）与记录集合元信息表。
+    """
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT c.record_set_version AS v FROM extracted_financial_cell c "
+            "JOIN financial_source_version sv ON sv.source_version = c.source_version "
+            "JOIN financial_source_document d ON d.source_document_id = sv.source_document_id "
+            "WHERE d.company_id = ? "
+            "UNION "
+            "SELECT DISTINCT rs.record_set_version AS v FROM financial_record_set rs "
+            "JOIN financial_source_version sv ON sv.source_version = rs.source_version "
+            "JOIN financial_source_document d ON d.source_document_id = sv.source_document_id "
+            "WHERE d.company_id = ?",
+            (company_id, company_id),
+        ).fetchall()
+        return sorted(r["v"] for r in rows)
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------

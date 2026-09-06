@@ -104,10 +104,12 @@ def _admission_block_reason(candidate: S.ExtractedFinancialCell) -> str | None:
 
 
 def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
-                 policy: NormalizationPolicy) -> S.SourceFinancialRecord:
+                 policy: NormalizationPolicy, *,
+                 mapping_mode: str = "rule") -> S.SourceFinancialRecord:
     """由已通过准入的候选构造标准化记录（std_unit=yuan；Decimal 换算；id/hash 重算）。
 
     前提：candidate.parsed_numeric_value 非 None、unit_candidate 可换算、各维度已明确。
+    mapping_mode 缺省为 "rule"；A5 人工科目映射确认派生时传 "human_confirmed"。
     """
     mult = unit_to_yuan(candidate.unit_candidate)
     assert mult is not None
@@ -133,7 +135,7 @@ def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
         currency=candidate.currency_candidate,
         restatement_version=policy.default_restatement_version,
         locator=candidate.locator,
-        mapping_mode="rule",
+        mapping_mode=mapping_mode,
         confidence=1.0,
         record_hash="",
         quality_flags=[],
