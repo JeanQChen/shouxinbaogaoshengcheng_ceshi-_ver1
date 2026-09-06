@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from evidence import ids, store, builder, progress, adapters, schema as S
+from evidence import ids, store, builder, progress, adapters, schema as S, validator, table_probe
 from parsers.pdf_parser import PdfParseResult, TextChunk
 
 _results = {"passed": 0, "failed": 0, "skipped": 0, "details": []}
@@ -402,6 +402,290 @@ def test_adapters() -> None:
           and rc.chunk_index == blk.block_index, "适配往返一致（坐标不丢失）")
 
 
+# ---------------------------------------------------------------------------
+# 6. 运行时 Schema 校验（验收问题 3）
+# ---------------------------------------------------------------------------
+
+def test_validator() -> None:
+    doc = make_doc(document_id="doc-1")
+    setv = builder.current_evidence_set_version()
+    good = build_chunks([syn_chunk("正文", 1, 0)], doc, setv)[0]
+
+    validator.validate_commit(doc, [good], setv)
+    check(True, "合法 block 通过 validate_commit")
+
+    # 非法页码（0）
+    raises(lambda: validator.validate_commit(doc, [replace(good, page_number=0)], setv),
+           validator.ValidationError, "page_number", "非法页码(0)被拒绝")
+    # 非法 block_index（负）
+    raises(lambda: validator.validate_commit(doc, [replace(good, block_index=-1)], setv),
+           validator.ValidationError, "block_index", "非法 block_index(-1)被拒绝")
+    # 非法枚举 source_type
+    raises(lambda: validator.validate_commit(doc, [replace(good, source_type="bogus")], setv),
+           validator.ValidationError, "source_type", "非法 source_type 被拒绝")
+    # 非法枚举 evidence_type
+    raises(lambda: validator.validate_commit(doc, [replace(good, evidence_type="bogus")], setv),
+           validator.ValidationError, "evidence_type", "非法 evidence_type 被拒绝")
+    # paragraph 携带非空 structured_payload
+    raises(lambda: validator.validate_commit(
+               doc, [replace(good, structured_payload={"page_number": 1})], setv),
+           validator.ValidationError, "structured_payload", "paragraph 非空 payload 被拒绝")
+    # table 缺必需键（headers/cells/unit/coordinates）
+    raises(lambda: validator.validate_commit(
+               doc, [replace(good, evidence_type="table", structured_payload={"headers": []})], setv),
+           validator.ValidationError, "table payload", "table payload 缺键被拒绝")
+    # 完整 table payload 通过
+    ok_table = replace(good, evidence_type="table", structured_payload={
+        "page_number": 1, "headers": ["科目", "金额"], "cells": [["a", "1"]],
+        "unit": "万元", "coordinates": {"bbox": [0, 0, 100, 20],
+                                        "cell_bboxes": [[0, 0, 50, 20], [50, 0, 100, 20]]},
+    })
+    validator.validate_commit(doc, [ok_table], setv)
+    check(True, "完整 table payload 通过")
+
+    # 同提交重复坐标（不同文本同坐标）
+    b1 = build_chunks([syn_chunk("内容一", 1, 0)], doc, setv)[0]
+    b2 = build_chunks([syn_chunk("内容二", 1, 0)], doc, setv)[0]
+    raises(lambda: validator.validate_commit(doc, [b1, b2], setv),
+           validator.ValidationError, "重复坐标", "同提交重复坐标被拒绝")
+    # evidence_id 与重算不一致
+    raises(lambda: validator.validate_commit(doc, [replace(good, evidence_id="0" * 32)], setv),
+           validator.ValidationError, "evidence_id", "evidence_id 与重算不一致被拒绝")
+
+
+# ---------------------------------------------------------------------------
+# 7. Store 完整性（验收问题 1/2/4/5）
+# ---------------------------------------------------------------------------
+
+def test_store_integrity() -> None:
+    tmp = fresh_db()
+    setv = builder.current_evidence_set_version()
+    deps = builder.current_dependency_versions()
+
+    f = write_pdf(tmp.name, "rpt.pdf", b"integrity-content")
+    d = store.register_document(f, ctx(document_id="doc-1"))
+    blocks = build_chunks([syn_chunk("甲", 1, 0), syn_chunk("乙", 1, 1)], d, setv)
+    d.page_count = 1
+    store.commit_document(d, blocks, setv, ids.new_run_id(),
+                          {"file_sha256": d.file_sha256}, deps)
+
+    # 场景 1：corrupt current 集合（删一行）→ 拒绝复用，且不谎报成功、不改状态
+    dbp = Path(tmp.name) / "ev.db"
+    conn = sqlite3.connect(str(dbp))
+    conn.execute("DELETE FROM evidence_blocks WHERE evidence_id=?", (blocks[0].evidence_id,))
+    conn.commit()
+    conn.close()
+    raises(lambda: store.commit_document(d, blocks, setv, ids.new_run_id(),
+                                         {"file_sha256": d.file_sha256}, deps),
+           RuntimeError, "不一致", "corrupt current 集合拒绝复用")
+    check(store.current_evidence_set("ACME", "doc-1", d.document_version) == setv,
+          "复用失败后 current 集合状态未变")
+
+    # 场景 2：依赖版本不匹配拒绝复用（换一个全新文档，避免受上一步污染）
+    f2 = write_pdf(tmp.name, "r2.pdf", b"dep-version")
+    d2 = store.register_document(f2, ctx(document_id="doc-2"))
+    b2 = build_chunks([syn_chunk("内容", 1, 0)], d2, setv)
+    d2.page_count = 1
+    store.commit_document(d2, b2, setv, ids.new_run_id(),
+                          {"file_sha256": d2.file_sha256}, deps)
+    raises(lambda: store.commit_document(d2, b2, setv, ids.new_run_id(),
+                                         {"file_sha256": d2.file_sha256},
+                                         {"schema": "1", "parser": "v1", "builder": "9"}),
+           RuntimeError, "依赖版本", "依赖版本不匹配拒绝复用")
+
+    # 场景 3：输入文件哈希不匹配拒绝复用
+    raises(lambda: store.commit_document(d2, b2, setv, ids.new_run_id(),
+                                         {"file_sha256": "0" * 64}, deps),
+           RuntimeError, "输入文件哈希", "输入文件哈希不匹配拒绝复用")
+
+    # 场景 4：重复坐标 / 错误 evidence_id 在写库前被拒绝，无半成品
+    f3 = write_pdf(tmp.name, "r3.pdf", b"rollback")
+    d3 = store.register_document(f3, ctx(document_id="doc-3"))
+    c1 = build_chunks([syn_chunk("X", 1, 0)], d3, setv)[0]
+    c2 = build_chunks([syn_chunk("Y", 1, 0)], d3, setv)[0]
+    raises(lambda: store.commit_document(d3, [c1, c2], setv, ids.new_run_id(),
+                                         {"file_sha256": d3.file_sha256}, deps),
+           validator.ValidationError, "重复坐标", "重复坐标提交写库前被拒绝")
+    check(store.count_evidence("ACME", "doc-3", d3.document_version, setv) == 0,
+          "重复坐标提交未写任何块")
+
+    # 场景 6：同文本不同坐标不得误判为一致（重新激活完整性）
+    f6 = write_pdf(tmp.name, "r6.pdf", b"same-text")
+    d6 = store.register_document(f6, ctx(document_id="doc-6"))
+    b6 = build_chunks([syn_chunk("同文本", 1, 0)], d6, setv)
+    d6.page_count = 1
+    store.commit_document(d6, b6, setv, ids.new_run_id(),
+                          {"file_sha256": d6.file_sha256}, deps)
+    store.deactivate_set("ACME", "doc-6", d6.document_version, setv)
+    b6_bad = build_chunks([syn_chunk("同文本", 2, 0)], d6, setv)  # 同文本不同坐标
+    raises(lambda: store.commit_document(d6, b6_bad, setv, ids.new_run_id(),
+                                         {"file_sha256": d6.file_sha256}, deps),
+           RuntimeError, "完整性", "同文本不同坐标拒绝重新激活")
+    r6 = store.commit_document(d6, b6, setv, ids.new_run_id(),
+                               {"file_sha256": d6.file_sha256}, deps)
+    check(r6.reused == 1 and store.current_evidence_set("ACME", "doc-6", d6.document_version) == setv,
+          "正确坐标重新激活成功")
+
+    # 场景 7：复用/激活 checkpoint 记录真实 evidence_ids（artifact_refs/completed_unit_ids）
+    run_reuse = ids.new_run_id()
+    r_reuse = store.commit_document(d2, b2, setv, run_reuse,
+                                    {"file_sha256": d2.file_sha256}, deps)
+    ckpt = store.latest_checkpoint(run_reuse)
+    check(set(ckpt.artifact_refs) == {b.evidence_id for b in b2},
+          "复用 checkpoint artifact_refs 全量 evidence_ids")
+    check(set(ckpt.completed_unit_ids) == {b.evidence_id for b in b2},
+          "复用 checkpoint completed_unit_ids 全量")
+    check(len(r_reuse.evidence_ids) == len(b2), "复用 CommitResult.evidence_ids 全量")
+    run_react = ids.new_run_id()
+    r_react = store.commit_document(d6, b6, setv, run_react,
+                                    {"file_sha256": d6.file_sha256}, deps)
+    ckpt2 = store.latest_checkpoint(run_react)
+    check(set(ckpt2.artifact_refs) == {b.evidence_id for b in b6},
+          "激活 checkpoint artifact_refs 全量")
+    check(set(r_react.evidence_ids) == {b.evidence_id for b in b6},
+          "激活 CommitResult.evidence_ids 全量")
+
+
+# ---------------------------------------------------------------------------
+# 8. 表格结构探测（验收问题 6）
+# ---------------------------------------------------------------------------
+
+class _FakeCell:
+    def __init__(self, bbox):
+        self.bbox = bbox
+
+
+class _FakeTable:
+    def __init__(self, bbox, cells):
+        self.bbox = bbox
+        self.cells = [_FakeCell(c) for c in cells]
+
+
+class _FakePage:
+    def __init__(self, tables):
+        self._tables = tables
+
+    def find_tables(self):
+        return self._tables
+
+
+class _FakePdf:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class _FakePlumber:
+    __version__ = "0.11.4"
+
+    def __init__(self, pages):
+        self._pages = pages
+
+    def open(self, path):
+        return _FakePdf(self._pages)
+
+
+def test_table_probe() -> None:
+    import sys as _sys
+
+    check(set(S.PROBE_STATUSES) == {"PROBE_NOT_RUN", "PROBE_DEPENDENCY_MISSING",
+                                    "TABLE_STRUCTURE_AVAILABLE", "TABLE_STRUCTURE_UNAVAILABLE"},
+          "PROBE_STATUSES 四态齐全")
+    check(table_probe.PROBE_VERSION == "1", "probe_version 存在")
+
+    tmp = tempfile.TemporaryDirectory()
+    _tmp_dirs.append(tmp)
+    p = write_pdf(tmp.name, "p.pdf", b"x")
+
+    _orig = _sys.modules.get("pdfplumber")
+
+    # 状态 1: PROBE_DEPENDENCY_MISSING（依赖缺失）
+    _sys.modules["pdfplumber"] = None
+    try:
+        r_missing = table_probe.probe(p)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_missing.status == "PROBE_DEPENDENCY_MISSING",
+          "依赖缺失 → PROBE_DEPENDENCY_MISSING")
+
+    # 状态 2: TABLE_STRUCTURE_UNAVAILABLE（有依赖但无线条表格）
+    _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([])])
+    try:
+        r_na = table_probe.probe(p)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_na.status == "TABLE_STRUCTURE_UNAVAILABLE",
+          "无线条表格 → TABLE_STRUCTURE_UNAVAILABLE")
+
+    # 状态 3: TABLE_STRUCTURE_AVAILABLE（有表格 + 可靠坐标）
+    tbl = _FakeTable([0, 0, 100, 20], [[0, 0, 50, 20], [50, 0, 100, 20]])
+    _sys.modules["pdfplumber"] = _FakePlumber([_FakePage([tbl])])
+    try:
+        r_av = table_probe.probe(p)
+    finally:
+        _sys.modules.pop("pdfplumber", None)
+        if _orig is not None:
+            _sys.modules["pdfplumber"] = _orig
+    check(r_av.status == "TABLE_STRUCTURE_AVAILABLE" and r_av.table_count == 1,
+          "有表格+坐标 → TABLE_STRUCTURE_AVAILABLE")
+    check(r_av.tables[0]["bbox"] == [0.0, 0.0, 100.0, 20.0]
+          and len(r_av.tables[0]["cell_bboxes"]) == 2,
+          "表格 bbox + 每格 bbox 可靠恢复")
+
+
+# ---------------------------------------------------------------------------
+# 9. Builder 纯函数（验收问题 7）
+# ---------------------------------------------------------------------------
+
+def test_builder_pure() -> None:
+    # infer_source_type
+    check(builder.infer_source_type("NDSD_KCZ_2026.pdf") == "debt_circular",
+          "募集说明书 → debt_circular")
+    check(builder.infer_source_type("NDSD_2025_year.pdf") == "annual_report",
+          "年报 → annual_report")
+    check(builder.infer_source_type("unknown.pdf") == "other", "未知 → other")
+
+    # classify_status
+    check(builder.classify_status(5) == "completed", "有块无错 → completed")
+    check(builder.classify_status(0) == "empty", "零块无错 → empty")
+    check(builder.classify_status(0, error=ValueError("x")) == "failed", "零块有错 → failed")
+    check(builder.classify_status(5, error=ValueError("x")) == "failed", "有块有错仍 failed")
+
+    # run_pipeline_from_parsed：单次解析保证 + 来源推断
+    tmp = fresh_db()
+    f = write_pdf(tmp.name, "NDSD_2025_year.pdf", b"not-a-real-pdf-bytes")
+    parsed = syn_parsed([syn_chunk("正文", 1, 0)], page_count=1)
+
+    orig_parse = builder.pdf_parse
+    calls = {"n": 0}
+
+    def spy(path):
+        calls["n"] += 1
+        return orig_parse(path)
+
+    builder.pdf_parse = spy
+    try:
+        summary = builder.run_pipeline_from_parsed(
+            parsed, f, "ACME", source_type=None, material_group="company_industry",
+            store_it=True)
+    finally:
+        builder.pdf_parse = orig_parse
+
+    check(calls["n"] == 0, "run_pipeline_from_parsed 不调用 pdf_parse（单次解析保证）")
+    check(summary["document"]["source_type"] == "annual_report", "来源按文件名推断")
+    check(summary["evidence"]["count"] == 1, "复用已解析结果构建 1 条证据")
+    check(summary["commit"]["written"] == 1, "store_it 提交 written=1")
+
+
 def main() -> dict:
     _results["passed"] = 0
     _results["failed"] = 0
@@ -413,6 +697,10 @@ def main() -> dict:
     test_builder()
     test_progress_and_recovery()
     test_adapters()
+    test_validator()
+    test_store_integrity()
+    test_table_probe()
+    test_builder_pure()
 
     for t in _tmp_dirs:
         t.cleanup()
