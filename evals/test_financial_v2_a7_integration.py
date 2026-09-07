@@ -348,8 +348,10 @@ def main() -> dict:
 
         res_c = progress.run_pipeline(
             progress.build_request_for_company("CHARLIE", run_id="run-c"))
-        check(res_c.final_state == "completed" and res_c.report_blocked is False,
-              "场景C：双来源一致快照完成且不阻断")
+        # 场景 C 仅资产负债表：必算公式（利润/现金流/利息保障等）输入整体缺失 → 阻断；
+        # 但双来源一致的 TOTAL_ASSETS 仍作为单一标准值准入（report_blocked ≠ 事务失败）。
+        check(res_c.final_state == "waiting_human" and res_c.report_blocked is True,
+              "场景C：双来源一致可提交但仅资产负债表→必算公式缺口阻断（waiting_human）")
         items = {(it.standard_item_code, it.report_period): it
                  for it in store.list_snapshot_items(res_c.snapshot_id)}
         ta = items.get(("TOTAL_ASSETS", "2024-12-31"))
