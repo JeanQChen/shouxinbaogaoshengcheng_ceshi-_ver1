@@ -64,6 +64,7 @@ EVAL_MODULES = [
     "evals.test_context",
     "evals.test_indexer_v2",
     "evals.test_sparse",
+    "evals.test_fusion",
 ]
 
 
