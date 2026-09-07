@@ -10,9 +10,9 @@
 - 非数值候选（EMPTY_OR_NOT_APPLICABLE / PARSE_FAILED）与未映射候选由上游（抽取 /
   映射）负责，标准化不重复处理。
 
-本模块无 RAG / 无 LLM / 无 OCR，纯确定性。record_set 与 records 经
-store.commit_record_set 单事务原子提交（含 current 切换）；NORMALIZATION_REQUIRED
-问题经 store.commit_issues 追加。
+本模块无 RAG / 无 LLM / 无 OCR，纯确定性。record_set 与 records 与
+NORMALIZATION_REQUIRED 问题与 current 指针经 store.commit_normalization_atomic
+单事务原子提交（定点修复 1）；0 条合格记录仍落盘可审计完成态（定点修复 3）。
 
 CLI: python -m financial_v2.normalization --record-set <rs_id> [--validate-only] [--db <path>]
 """
@@ -106,23 +106,28 @@ def _admission_block_reason(candidate: S.ExtractedFinancialCell) -> str | None:
 def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
                  policy: NormalizationPolicy, *,
                  mapping_mode: str = "rule",
-                 restatement_version: str | None = None) -> S.SourceFinancialRecord:
+                 restatement_version: str | None = None,
+                 record_set_version: str | None = None) -> S.SourceFinancialRecord:
     """由已通过准入的候选构造标准化记录（std_unit=yuan；Decimal 换算；id/hash 重算）。
 
     前提：candidate.parsed_numeric_value 非 None、unit_candidate 可换算、各维度已明确。
     mapping_mode 缺省为 "rule"；A5 人工科目映射确认派生时传 "human_confirmed"。
     restatement_version 缺省取 policy.default_restatement_version；fix #1 结构化
     元数据确认时传入确认值（仅元数据，非金额）。
+    record_set_version 缺省取 candidate.record_set_version；标准化编排层传输出记录集
+    版本（区别于候选输入版本），使 record_id / record_hash 绑定到输出版本身份。
     """
     mult = unit_to_yuan(candidate.unit_candidate)
     assert mult is not None
     std_value_decimal = candidate.parsed_numeric_value * mult
     restatement = restatement_version if restatement_version is not None \
         else policy.default_restatement_version
+    rs_version = record_set_version if record_set_version is not None \
+        else candidate.record_set_version
 
     rec = S.SourceFinancialRecord(
         record_id="",
-        record_set_version=candidate.record_set_version,
+        record_set_version=rs_version,
         company_id=candidate.company_id,
         standard_item_code=standard_item_code,
         statement_type=candidate.statement_type_candidate,
@@ -147,7 +152,7 @@ def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
         created_at=_utcnow(),
         candidate_id=candidate.candidate_id,
     )
-    rec.record_id = S.derive_record_id(candidate.record_set_version, S.record_identity_fields(rec))
+    rec.record_id = S.derive_record_id(rs_version, S.record_identity_fields(rec))
     rec.record_hash = validator._record_hash(rec)
     return rec
 
@@ -227,6 +232,17 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
     confirmed_restatement = confirmations.get("restatement_version").value \
         if "restatement_version" in confirmations else None
 
+    # 输出记录集版本 = 输入候选版本 + 当前生效元数据确认身份（定点修复 3）：候选输入
+    # 版本与标准化输出记录集版本必须不同；scope/currency 确认变化必须派生新输出版本；
+    # 同一输出内容绝不用同一 record_set_version 重写。确认身份以内容寻址版本确定性纳入
+    # 依赖（与 resolutions 派生 "mapping_resolution" 依赖同构）。
+    deps = dict(policy.dependency_versions)
+    deps["metadata_confirmations"] = json.dumps(
+        sorted(mc.version for mc in confirmations.values()))
+    output_version = S.derive_record_set_version(
+        source_version, policy.extractor_version, policy.mapping_rule_version,
+        policy.normalization_rule_version, deps)
+
     records: list[S.SourceFinancialRecord] = []
     issues: list[S.ExtractionIssue] = []
     now = _utcnow()
@@ -251,7 +267,8 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
                 record_set_version, c, outcome.standard_item_code, reason, now))
             continue
         records.append(build_record(cc, outcome.standard_item_code, policy,
-                                    restatement_version=confirmed_restatement))
+                                    restatement_version=confirmed_restatement,
+                                    record_set_version=output_version))
 
     # 记录集合元信息（币种/单位/scope 仅当全部一致时才写集合级汇总，否则 None）。
     periods = sorted({r.report_period for r in records})
@@ -260,14 +277,14 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
     scopes = {r.statement_scope for r in records}
 
     record_set = S.FinancialRecordSet(
-        record_set_version=record_set_version,
+        record_set_version=output_version,
         source_version=source_version,
         extractor_name=("excel_extractor" if candidates[0].locator
                         and candidates[0].locator.kind == "excel" else "pdf_table_extractor"),
         extractor_version=policy.extractor_version,
         mapping_rule_version=policy.mapping_rule_version,
         normalization_rule_version=policy.normalization_rule_version,
-        dependency_versions=policy.dependency_versions,
+        dependency_versions=deps,
         report_periods=periods,
         currency=(next(iter(currencies)) if len(currencies) == 1 else None),
         unit=(next(iter(units)) if len(units) == 1 else None),
@@ -281,21 +298,17 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
     issues_committed = 0
     reused = False
     if persist:
-        if issues:
-            issues_committed = store.commit_issues(issues)
-        # 仅当有合格记录时才落库 record_set。0 记录时跳过：该状态可能是「等待元数据确认」
-        # 的中间态（fix #1 结构化确认 overlay 会在确认后以同一 record_set_version 重新
-        # 标准化并产出记录），而非最终「0 合格记录完成」态。若在此提交 record_count=0，
-        # 会锁死该版本，导致确认后 re-normalize 触发 StorageConflictError。
-        # 存储层已允许空记录（commit_record_set 不再对空 records 抛错），需要时可由
-        # 调用方显式提交一个 record_count=0 的完成态。
-        if records:
-            source_document_id = store.get_source_version(source_version).source_document_id
-            commit_result = store.commit_record_set(record_set, records, source_document_id)
-            reused = commit_result.reused
+        # 单事务原子提交 record_set + records + NORMALIZATION_REQUIRED 问题 + current
+        # 指针（定点修复 1）。record_count=0 是显式完成态：仍落盘可审计的 record_set +
+        # 问题 + current（定点修复 3），不再因空记录集跳过、也不锁死输入版本（输出与
+        # 输入版本已分离，确认变化会派生新输出版本而非覆盖旧内容）。
+        commit_result = store.commit_normalization_atomic(
+            record_set, records, issues, source_document_id)
+        reused = commit_result.reused
+        issues_committed = commit_result.issues_inserted
 
     return NormalizationResult(
-        record_set_version=record_set_version,
+        record_set_version=output_version,
         source_version=source_version,
         records=records,
         issues=issues,
