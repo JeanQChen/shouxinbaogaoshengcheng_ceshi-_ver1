@@ -101,6 +101,25 @@ class CommitReconciliationResult:
     current_switched: bool
 
 
+@dataclass
+class CommitNormalizationResult:
+    """commit_normalization_atomic 的返回结果。"""
+    record_set_version: str
+    reused: bool
+    current_switched: bool
+    record_count: int
+    issues_inserted: int
+
+
+@dataclass
+class CommitChecksResult:
+    """commit_checks_atomic 的返回结果。"""
+    run_id: str
+    run_reused: bool
+    checks_inserted: int
+    issues_inserted: int
+
+
 # ---------------------------------------------------------------------------
 # DDL（v1 冻结 + v2 当前）
 # ---------------------------------------------------------------------------
@@ -1687,6 +1706,118 @@ def commit_record_set(
         conn.close()
 
 
+def commit_normalization_atomic(
+    record_set: S.FinancialRecordSet,
+    records: list[S.SourceFinancialRecord],
+    issues: list[S.ExtractionIssue],
+    expected_source_document_id: str,
+) -> CommitNormalizationResult:
+    """单事务原子提交一次标准化产物（A4 定点修复 1：杜绝两次 commit 的中间态）。
+
+    在同一事务内：校验 → 归属链 → 逐记录公司归属 → 严格复用（record_set 已存在则
+    隔离/完整性/一致校验，否则写 record_set + records）→ 幂等写入 NORMALIZATION_REQUIRED
+    问题 → 原子切换 current_record_set 指针 → commit。任一步失败全部回滚，旧 current
+    保持不变，半成品（record_set / records / issues / current）均不可见。
+
+    record_count=0 是显式完成态：record_set + issues + current 仍一并落盘（0 条合格记录
+    可审计可查），不再因空记录集而跳过。issues 归属候选记录集版本（输入版本），其
+    candidate_id 引用必须指向已存在候选且同属该输入版本。
+    """
+    validator.validate_record_set(record_set)
+    validator.validate_records(records, record_set.record_set_version)
+    if record_set.record_count != len(records):
+        raise validator.ValidationError(
+            f"record_count 不一致: 声明 {record_set.record_count} != 实际 {len(records)}")
+    for iss in issues:
+        validator.validate_extraction_issue(iss)
+
+    conn = _get_conn()
+    try:
+        # 1. source_version 归属链（record_set 尚未写库）。
+        sv = conn.execute(
+            "SELECT source_document_id FROM financial_source_version WHERE source_version=?",
+            (record_set.source_version,),
+        ).fetchone()
+        if sv is None:
+            raise KeyError(f"source_version 不存在: {record_set.source_version}")
+        if sv["source_document_id"] != expected_source_document_id:
+            raise ValueError(
+                f"source_version 不属于文档 {expected_source_document_id!r} "
+                f"（属于 {sv['source_document_id']!r}）")
+        _require_not_quarantined(conn, "financial_source_version", record_set.source_version)
+
+        # 2. 逐记录公司归属。
+        authoritative_company = _authoritative_company_id(conn, record_set.source_version)
+        for r in records:
+            if r.company_id != authoritative_company:
+                raise validator.ValidationError(
+                    f"record.company_id 与权威公司不符: {r.company_id!r} != {authoritative_company!r}")
+
+        # 3. 严格复用或写入 record_set + records（含写后复核）。
+        existing = conn.execute(
+            "SELECT * FROM financial_record_set WHERE record_set_version=?",
+            (record_set.record_set_version,),
+        ).fetchone()
+        if existing is not None:
+            reuse_result = _reuse_existing(
+                conn, record_set, records, expected_source_document_id, existing)
+            reused = reuse_result.reused
+            current_switched = reuse_result.current_switched
+        else:
+            _insert_record_set_conn(conn, record_set)
+            for r in records:
+                _insert_record_conn(conn, r)
+            actual = conn.execute(
+                "SELECT COUNT(*) AS c FROM source_financial_record WHERE record_set_version=?",
+                (record_set.record_set_version,),
+            ).fetchone()["c"]
+            if actual != len(records):
+                raise RuntimeError(
+                    f"来源记录写入校验失败：实际落库 {actual} 行 != 传入 {len(records)} 行")
+            _set_current_record_set_conn(conn, expected_source_document_id, record_set.record_set_version)
+            reused = False
+            current_switched = True
+
+        # 4. 幂等写入 NORMALIZATION_REQUIRED 问题（候选引用同属其自身输入版本）。
+        issues_inserted = 0
+        for iss in issues:
+            if iss.candidate_id is not None:
+                c_row = conn.execute(
+                    "SELECT record_set_version FROM extracted_financial_cell WHERE candidate_id=?",
+                    (iss.candidate_id,),
+                ).fetchone()
+                if c_row is None:
+                    raise validator.ValidationError(
+                        f"issue.candidate_id 引用不存在的候选: {iss.candidate_id!r}")
+                if c_row["record_set_version"] != iss.record_set_version:
+                    raise validator.ValidationError(
+                        f"issue.candidate_id 跨 record_set 引用: {iss.candidate_id!r} "
+                        f"(期望 {iss.record_set_version!r})")
+            existing_issue = conn.execute(
+                "SELECT * FROM extraction_issue WHERE issue_id=?", (iss.issue_id,)
+            ).fetchone()
+            if existing_issue is not None:
+                if not _extraction_issue_identical(existing_issue, iss):
+                    raise StorageConflictError(f"issue_id 已存在但内容不一致: {iss.issue_id}")
+            else:
+                _insert_extraction_issue_conn(conn, iss)
+                issues_inserted += 1
+
+        conn.commit()
+        return CommitNormalizationResult(
+            record_set_version=record_set.record_set_version,
+            reused=reused,
+            current_switched=current_switched,
+            record_count=len(records),
+            issues_inserted=issues_inserted,
+        )
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # 读查询（公开）
 # ---------------------------------------------------------------------------
@@ -2054,6 +2185,29 @@ def list_candidates(record_set_version: str) -> list[S.ExtractedFinancialCell]:
         conn.close()
 
 
+def list_candidates_by_ids(candidate_ids: list[str]) -> list[S.ExtractedFinancialCell]:
+    """按 candidate_id 读取原始候选（跨 record_set_version 边界，供 checks/reconciliation
+    回读记录溯源候选的 Decimal 解析值 / 展示精度）。
+
+    标准化产出的 SourceFinancialRecord 归属输出 record_set_version，而其溯源候选仍归属
+    输入候选 record_set_version，因此不能再用 list_candidates(output_version) 回读；须按
+    record.candidate_id 直接命中（candidate_id 全局唯一）。
+    """
+    if not candidate_ids:
+        return []
+    conn = _get_conn()
+    try:
+        placeholders = ",".join("?" for _ in candidate_ids)
+        rows = conn.execute(
+            f"SELECT * FROM extracted_financial_cell WHERE candidate_id IN ({placeholders}) "
+            "ORDER BY candidate_id",
+            tuple(candidate_ids),
+        ).fetchall()
+        return [_row_to_extracted_cell(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def get_candidate(candidate_id: str) -> S.ExtractedFinancialCell | None:
     """按 candidate_id 读取单条原始候选（A5 映射确认用）。"""
     conn = _get_conn()
@@ -2282,6 +2436,95 @@ def commit_reconciliation_checks(checks: list[S.ReconciliationCheck]) -> int:
                 inserted += 1
         conn.commit()
         return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def commit_checks_atomic(
+    run: S.ReconciliationRun,
+    checks: list[S.ReconciliationCheck],
+    issues: list[S.ExtractionIssue],
+) -> CommitChecksResult:
+    """单事务原子提交一次同源勾稽（A4 定点修复 2：杜绝三次 commit 的中间态）。
+
+    在同一事务内：校验 → 幂等插入/复用 reconciliation_run → 幂等插入
+    reconciliation_check → 幂等插入 CHECK_FAILED 问题 → commit。任一步失败全部回滚，
+    零残留（不残留 run / check / issue 半成品）。
+    """
+    validator.validate_reconciliation_run(run)
+    if not checks:
+        raise ValueError("checks 不能为空")
+    for c in checks:
+        validator.validate_reconciliation_check(c)
+    run_ids = {c.run_id for c in checks}
+    if len(run_ids) != 1 or next(iter(run_ids)) != run.run_id:
+        raise validator.ValidationError(
+            f"checks 必须同属 run {run.run_id!r}: {sorted(run_ids)}")
+    for iss in issues:
+        validator.validate_extraction_issue(iss)
+
+    conn = _get_conn()
+    try:
+        # 1. run（幂等）。
+        run_reused = False
+        existing_run = conn.execute(
+            "SELECT * FROM reconciliation_run WHERE run_id=?", (run.run_id,)
+        ).fetchone()
+        if existing_run is not None:
+            if not _reconciliation_run_identical(existing_run, run):
+                raise StorageConflictError(f"run_id 已存在但内容不一致: {run.run_id}")
+            run_reused = True
+        else:
+            conn.execute(
+                "INSERT INTO reconciliation_run (run_id, company_id, input_record_set_ids, "
+                "rule_versions, input_hash, created_at) VALUES (?,?,?,?,?,?)",
+                (run.run_id, run.company_id, _json_dumps(run.input_record_set_ids),
+                 _json_dumps(run.rule_versions), run.input_hash, run.created_at),
+            )
+
+        # 2. checks（幂等）。
+        checks_inserted = 0
+        for c in checks:
+            existing = conn.execute(
+                "SELECT * FROM reconciliation_check WHERE check_id=?", (c.check_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _reconciliation_check_identical(existing, c):
+                    raise StorageConflictError(f"check_id 已存在但内容不一致: {c.check_id}")
+            else:
+                conn.execute(
+                    "INSERT INTO reconciliation_check (check_id, run_id, record_set_version, "
+                    "check_type, input_record_ids, left_value, right_value, diff, tolerance, "
+                    "status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (c.check_id, c.run_id, c.record_set_version, c.check_type,
+                     _json_dumps(c.input_record_ids), c.left_value, c.right_value,
+                     c.diff, c.tolerance, c.status, c.created_at),
+                )
+                checks_inserted += 1
+
+        # 3. CHECK_FAILED 问题（幂等；candidate_id 恒 None，无需候选引用校验）。
+        issues_inserted = 0
+        for iss in issues:
+            existing = conn.execute(
+                "SELECT * FROM extraction_issue WHERE issue_id=?", (iss.issue_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _extraction_issue_identical(existing, iss):
+                    raise StorageConflictError(f"issue_id 已存在但内容不一致: {iss.issue_id}")
+            else:
+                _insert_extraction_issue_conn(conn, iss)
+                issues_inserted += 1
+
+        conn.commit()
+        return CommitChecksResult(
+            run_id=run.run_id,
+            run_reused=run_reused,
+            checks_inserted=checks_inserted,
+            issues_inserted=issues_inserted,
+        )
     except Exception:
         conn.rollback()
         raise
