@@ -356,10 +356,9 @@ def run_reconciliation(company_id: str, record_set_ids: list[str], *,
         raise ValueError(
             f"记录公司归属与请求不符: {sorted(company_ids)} != {[company_id]}")
 
-    candidates_by_id: dict[str, S.ExtractedFinancialCell] = {}
-    for rs_id in record_set_ids:
-        for c in store.list_candidates(rs_id):
-            candidates_by_id[c.candidate_id] = c
+    candidate_ids = sorted({r.candidate_id for r in records if r.candidate_id})
+    candidates_by_id: dict[str, S.ExtractedFinancialCell] = {
+        c.candidate_id: c for c in store.list_candidates_by_ids(candidate_ids)}
 
     groups = group_records(records, candidates_by_id, record_set_source)
 
