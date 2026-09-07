@@ -7,7 +7,7 @@
 - 候选缺失 scope/currency（模拟 300750 Excel 抽取）→ 标准化 0 记录 + 阻断问题；
 - 结构化确认 scope=consolidated / currency=CNY / audit_status=audited /
   restatement_version → 重新标准化产出 ≥1 合格标准记录；
-- record_set_version 不因确认改变（确认是 overlay，非重抽取）；
+- 确认是 overlay（非重抽取），但会派生新的输出 record_set_version（定点修复 3）；
 - 确认历史追加式（list 返回历史，get_active 返回最新 head）；
 - 幂等重放：同内容确认复用（inserted=0），不同值追加新历史 + head 切换；
 - 确认只填元数据，绝不填替代金额（validator 拒非法字段/值）。
@@ -156,13 +156,13 @@ def main() -> dict:
         # ---- 确认后重新标准化 → ≥1 合格记录 + 元数据生效 ----
         r1 = norm.normalize_record_set(rs, persist=True)
         check(r1.normalized_count >= 1, "确认后标准化产出 ≥1 合格记录")
-        check(r1.record_set_version == rs, "record_set_version 不因确认改变")
-        recs = store.list_records(rs)
+        check(r1.record_set_version != rs, "确认派生新输出 record_set_version（非重抽取）")
+        recs = store.list_records(r1.record_set_version)
         check(len(recs) >= 1 and all(r.statement_scope == "consolidated" for r in recs),
               "记录 statement_scope = consolidated")
         check(all(r.currency == "CNY" for r in recs), "记录 currency = CNY")
         check(all(r.restatement_version == "0" for r in recs), "记录 restatement_version = 0")
-        rs_header = store.get_record_set(rs)
+        rs_header = store.get_record_set(r1.record_set_version)
         check(rs_header is not None and rs_header.audit_status == "audited",
               "记录集合头 audit_status = audited")
 

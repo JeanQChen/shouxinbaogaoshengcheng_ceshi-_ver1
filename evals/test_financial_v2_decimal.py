@@ -91,8 +91,7 @@ def _seed(company: str, ext_id: str, values: list[Decimal],
     cands = [_candidate(rs, source_version, company, v, row=i + 2, unit=unit)
              for i, v in enumerate(values)]
     store.commit_extracted_candidates(cands, [], source_document_id)
-    norm.normalize_record_set(rs, persist=True)
-    return rs
+    return norm.normalize_record_set(rs, persist=True).record_set_version
 
 
 def _build_v3_db(path: str) -> None:

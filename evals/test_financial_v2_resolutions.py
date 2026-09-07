@@ -100,8 +100,7 @@ class _Seed:
         cands = [self.make_candidate(rs, source_version, raw, st, value, row=i + 2)
                  for i, (raw, st, value) in enumerate(items)]
         store.commit_extracted_candidates(cands, [], source_document_id)
-        norm.normalize_record_set(rs, persist=True)
-        return rs
+        return norm.normalize_record_set(rs, persist=True).record_set_version
 
     def seed_unmapped(self, ext_id: str, raw: str) -> tuple[str, str]:
         """造一个映射失败的候选并落 MAPPING_REQUIRED issue，返回 (rs, candidate_id)。"""
@@ -130,8 +129,8 @@ class _Seed:
             unmapped_cids.append(c.candidate_id)
         store.commit_extracted_candidates(cands, [], source_document_id)
         mapping.map_record_set(rs, persist=True)
-        norm.normalize_record_set(rs, persist=True)
-        return rs, unmapped_cids, source_document_id
+        out_rs = norm.normalize_record_set(rs, persist=True).record_set_version
+        return out_rs, unmapped_cids, source_document_id
 
 
 def main() -> dict:

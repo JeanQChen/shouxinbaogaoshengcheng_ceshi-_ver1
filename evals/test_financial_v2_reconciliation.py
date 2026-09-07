@@ -286,8 +286,7 @@ def main() -> dict:
             cands = [make_candidate(rs, source_version, company, raw, st, value, row=i + 2)
                      for i, (raw, st, value) in enumerate(items)]
             store.commit_extracted_candidates(cands, [], source_document_id)
-            norm.normalize_record_set(rs, persist=True)
-            return rs
+            return norm.normalize_record_set(rs, persist=True).record_set_version
 
         rs_a = seed("ACME", "doc-a", [
             ("资产总计", "balance_sheet", Decimal("1000")),       # TOTAL_ASSETS

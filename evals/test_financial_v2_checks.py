@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import sys
 import tempfile
 from decimal import Decimal
@@ -180,8 +181,9 @@ def main() -> dict:
         store.commit_extracted_candidates(cands, [], source_document_id)
         norm_result = norm.normalize_record_set(record_set_version, persist=True)
         check(norm_result.normalized_count == 9, f"标准化 9 条记录（实际 {norm_result.normalized_count}）")
+        output_version = norm_result.record_set_version
 
-        result = checks.run_checks(record_set_version, persist=True)
+        result = checks.run_checks(output_version, persist=True)
         by_type = {e.check_type: e for e in result.evaluations}
         check(result.pass_count == 2 and result.fail_count == 0 and result.not_run_count == 2,
               f"2 PASS + 0 FAIL + 2 NOT_RUN（实际 {result.pass_count}/{result.fail_count}/{result.not_run_count}）")
@@ -203,7 +205,7 @@ def main() -> dict:
         check(run_row is not None and run_row.company_id == "ACME", "reconciliation_run 已落库")
 
         # 幂等重放。
-        result2 = checks.run_checks(record_set_version, persist=True)
+        result2 = checks.run_checks(output_version, persist=True)
         check(result2.reused is True, "二次勾稽 run 复用")
         check(result2.checks_committed == 0 and result2.issues_committed == 0,
               "二次勾稽不重复写 check/问题")
@@ -225,8 +227,8 @@ def main() -> dict:
                             "balance_sheet", Decimal("398"), row=4),
         ]
         store.commit_extracted_candidates(cands, [], source_document_id)
-        norm.normalize_record_set(record_set_version, persist=True)
-        result = checks.run_checks(record_set_version, persist=True)
+        norm_result = norm.normalize_record_set(record_set_version, persist=True)
+        result = checks.run_checks(norm_result.record_set_version, persist=True)
 
         bs = next(e for e in result.evaluations if e.check_type == "BALANCE_SHEET_IDENTITY")
         check(bs.status == "FAIL", f"权益缺口 → FAIL（diff={bs.diff}, tol={bs.tolerance}）")
@@ -234,7 +236,7 @@ def main() -> dict:
         check(bs.tolerance == Decimal("15000"), f"容差 15000 元（实际 {bs.tolerance}）")
         check(result.issues_committed == 1, f"FAIL → 落盘 1 条 CHECK_FAILED（实际 {result.issues_committed}）")
 
-        issues = store.list_extraction_issues(record_set_version)
+        issues = store.list_extraction_issues(norm_result.record_set_version)
         check_issues = [i for i in issues if i.issue_type == "CHECK_FAILED"]
         check(len(check_issues) == 1, "extraction_issue 表 1 条 CHECK_FAILED")
         check(check_issues[0].candidate_id is None, "CHECK_FAILED 不绑定单一候选")
@@ -257,13 +259,58 @@ def main() -> dict:
                             "balance_sheet", Decimal("400"), row=4),
         ]
         store.commit_extracted_candidates(cands, [], source_document_id)
-        norm.normalize_record_set(record_set_version, persist=True)
-        result = checks.run_checks(record_set_version, persist=False)
+        norm_result = norm.normalize_record_set(record_set_version, persist=True)
+        result = checks.run_checks(norm_result.record_set_version, persist=False)
         check(result.pass_count >= 1, "validate-only 仍计算（PASS ≥ 1）")
         check(result.checks_committed == 0, "validate-only 不写 check")
         check(store.get_reconciliation_run(result.run_id) is None, "validate-only 不写 run")
     finally:
         _cleanup_db(db3)
+
+    # ---- 故障注入：CHECK_FAILED issue 插入失败 → 全事务回滚（run + check + issue 零残留）----
+    db4 = _tmp_db()
+    try:
+        source_document_id, source_version = _register(db4)
+        record_set_version = S.derive_record_set_version(source_version, "1.0", "1.0", "1.0", {})
+        cands = [
+            _make_candidate(record_set_version, source_version, "ACME", "资产总计",
+                            "balance_sheet", Decimal("1000"), row=2),
+            _make_candidate(record_set_version, source_version, "ACME", "负债合计",
+                            "balance_sheet", Decimal("600"), row=3),
+            _make_candidate(record_set_version, source_version, "ACME", "所有者权益合计",
+                            "balance_sheet", Decimal("398"), row=4),
+        ]
+        store.commit_extracted_candidates(cands, [], source_document_id)
+        norm_result = norm.normalize_record_set(record_set_version, persist=True)
+        out_version = norm_result.record_set_version
+
+        conn = sqlite3.connect(db4)
+        conn.execute("CREATE TRIGGER tmp_fail_check_issue BEFORE INSERT ON extraction_issue "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            checks.run_checks(out_version, persist=True)
+            check(False, "checks 提交失败应抛错")
+        except sqlite3.IntegrityError:
+            check(True, "checks 提交失败抛错（单事务回滚）")
+        conn = sqlite3.connect(db4)
+        conn.execute("DROP TRIGGER tmp_fail_check_issue")
+        conn.commit()
+        conn.close()
+
+        # 零残留：run / check / CHECK_FAILED issue 均不落库。
+        fail_issues = [i for i in store.list_extraction_issues(out_version)
+                       if i.issue_type == "CHECK_FAILED"]
+        check(fail_issues == [], "零残留：无 CHECK_FAILED 问题")
+        conn = sqlite3.connect(db4)
+        run_count = conn.execute("SELECT COUNT(*) AS c FROM reconciliation_run").fetchone()[0]
+        check_count = conn.execute("SELECT COUNT(*) AS c FROM reconciliation_check").fetchone()[0]
+        conn.close()
+        check(run_count == 0, "零残留：无 reconciliation_run 行")
+        check(check_count == 0, "零残留：无 reconciliation_check 行")
+    finally:
+        _cleanup_db(db4)
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 
