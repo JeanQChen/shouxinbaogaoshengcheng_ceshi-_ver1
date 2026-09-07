@@ -1,7 +1,7 @@
 # 授信报告生成器 V2 总实施路线图
 
 > 版本：v0.2 · 2026-09-06  
-> 状态：路线图已建立；V1 Retrieval Baseline 已接纳；0B Section Contracts 任务书已就绪  
+> 状态：Phase 0A、0B、1、1F-A 已关闭；正在进入 Phase 2 Router + Hybrid Retrieval
 > 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.4  
 > 工程规则：[AGENTS.md](./AGENTS.md)  
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -73,10 +73,10 @@
 | 阶段 | 目标 | 必需前置 | 状态 |
 |---|---|---|---|
 | 0A | 接纳并保留 V1 Retrieval Baseline | 已有 Runner 与最终产物 | 已接纳 |
-| 0B | 将报告主题固化为首版 Section Contracts | 0A、设计 §4 | 任务书就绪 |
-| 1 | Evidence 与最小可追溯运行基础 | 0B | 未进入 |
+| 0B | 将报告主题固化为首版 Section Contracts | 0A、设计 §4 | 已关闭 |
+| 1 | Evidence 与最小可追溯运行基础 | 0B | 已关闭 |
 | 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
-| 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 未进入 |
+| 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 任务书就绪 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 未进入 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 未进入 |
 | 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 4、1F-A | 未进入 |
@@ -134,7 +134,10 @@
 
 **留到本阶段任务书：** 需要冻结的最小 Evidence/来源/状态接口、ID 与版本策略、存储和恢复边界。先落地本阶段所需基础，不先建设完整通用任务平台。
 
-**任务书状态：** `EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md` v0.2 已就绪；E1-01～E1-05 已确认。采用渐进式可靠表格处理、SQLite 权威 Evidence Store、稳定 document_id 登记与内容版本、只停用不物理删除、真实状态/checkpoint 加简单 UI 的范围。下一步为编码前实施计划评审，尚未开始 Evidence 代码实现。
+**关闭状态：** Phase 1 已实现并通过验收。已交付 Evidence schema、稳定 ID、Document/Evidence Set
+版本、SQLite Evidence Store、原子提交与幂等复用、损坏集合隔离、ProgressEvent/Checkpoint、
+V1 TextChunk 适配和只读状态展示。表格探针已用 `pdfplumber 0.11.4` 在真实电子 PDF 上验证，
+纯文本路径不伪造表格坐标；未修改 V1 Retriever。
 
 ### 1F：财务来源、计算与集中确认
 
@@ -172,6 +175,31 @@
 - 日志、结果归档、资源及延迟记录齐备，CLI、Router/Retrieval 测试和现有 eval 通过。
 
 **留到本阶段任务书：** BM25 分词、RRF 参数、各类 K、过滤/去重方案及成本上限；额外 reranker 仅在本阶段数据支持后决定，不先写成必装组件。
+
+**任务书状态：** `ROUTER_HYBRID_RETRIEVAL_DEVELOPMENT_TASK.md` 已生成，默认采用规则优先五路
+Router、中文字符二元组与英文/数字词元 BM25、BGE-M3 Dense、RRF(k=60)，首轮不安装
+Cross-Encoder。Phase 2 必须分别报告固定原问题的本地检索公平对照与带 Router 的系统能力，
+不得把 DB 直取、外部路径或多轮检索计入 V1→V2 本地 Retriever 提升。
+
+**编码前契约修正（已并入实现）：**
+
+- **修正 A（DB 能力判定）：** Router 只看「能力支持」。问题能确定性解析为
+  `supported_db_field` 或 `supported_metric_id` → 一律 `DB_LOOKUP`；删除「且
+  `available_db_fields` 含该字段」。`RouteContext` 四清单：`supported_db_fields` /
+  `supported_metric_ids` 决定路由，`available_db_fields` / `available_metric_ids` 决定
+  DB 执行返回结果还是 `DB_FIELD_UNAVAILABLE`。
+- **修正 B（EvidencePack 契约）：** 增加 `failure_code: str | None` 与
+  `structured_results: list[StructuredResultRef]`；`route_decision` 改为可空（仅
+  `ROUTER_FALLBACK_UNAVAILABLE` / `FAILED` 可无）。Validator 做 status / decision /
+  failure_code 组合校验。
+- **修正 C（DB 结果不伪造成 EvidenceRef）：** 新增 `StructuredResultRef`。本地检索 →
+  `evidence`；DB → `structured_results`；`DB_FIELD_UNAVAILABLE` → 两者皆空 +
+  `missing_requirements`。
+
+**实现状态：** 代码 9 commit 已落地（契约层 / Router / RouteContext / indexer_v2 / sparse /
+fusion / retriever_v2+trace / Track B 评测 / Track A Runner）；专项与完整 eval 全绿。
+**Phase 2 未关闭**：真实 BGE-M3 Track A 对照评测尚未跑通（环境阻塞），mock 全绿不能替代
+真实验收。
 
 ### 3：工具、外部来源与 Research Harness
 
@@ -274,9 +302,9 @@
 - [x] 0A：按用户确认接纳 `v1_baseline_final`，保留结果、排除项与重算来源。
 - [x] 总路线图建立，区分已完成基线与尚未实现的报告契约。
 - [x] 0B：首版机器可读 Section Contracts 已形成并复核，SC-01～SC-05 规则已固化（见下方关闭记录）。
-- [x] 1：Evidence 任务书就绪，E1-01～E1-05 已确认；尚未进入代码实施。
-- [ ] 1：Evidence 与最小状态/恢复基础通过。
+- [x] 1：Evidence 与最小状态/恢复基础通过。
 - [x] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过，1F-B 待 Phase 5）。
+- [x] 2：Router/Hybrid 开发任务书就绪。
 - [ ] 2：Router/Hybrid 对照评测通过。
 - [ ] 3：真实工具与受预算约束的 Harness 通过。
 - [ ] 4：章节 Worker 与章节质量门通过。

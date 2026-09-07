@@ -1,18 +1,18 @@
 # 授信报告生成器 V2 TODO
 
-> 更新时间：2026-09-06  
+> 更新时间：2026-09-07
 > 用途：记录 V2 已完成、正在进行和下一步工作。  
 > 上位依据：`DESIGN_V2.md`；阶段顺序：`V2_IMPLEMENTATION_PLAN.md`；具体实施以对应阶段开发任务书为准。
 
 ## 一、当前结论
 
-当前已经完成 V1 基线、报告章节契约和 Evidence Architecture。正在实施 Phase 1F-A 财务来源、对账、核准快照与公式计算基础。
+当前已经关闭 V1 基线、报告章节契约、Evidence Architecture 和 Phase 1F-A 财务基础。
+下一步进入 Phase 2 Router + Hybrid Retrieval；完整 1F 仍需在 Phase 5 完成 1F-B。
 
 完成 V2 第一阶段仍需依次完成：
 
 ```text
-1F-A 财务基础
-  → Phase 2 Router + Hybrid Retrieval
+Phase 2 Router + Hybrid Retrieval
   → Phase 3 Tool Layer + Research Harness
   → Phase 4 章节 Worker + Claim + Section Evaluator
   → Phase 5 综合生成 + Assurance + 正式导出门禁 + 1F-B
@@ -48,7 +48,7 @@
 - Streamlit 已接入简单只读进度展示，并避免 PDF 重复解析。
 - Phase 1 最终验收：Evidence 124 项及完整 eval 773 项通过；真实年报表格探针通过。
 
-## 三、正在进行
+## 三、最近关闭
 
 ### [x] Phase 1F-A：财务来源、对账与核准计算基础
 
@@ -76,12 +76,15 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ### [ ] Phase 2：Router + Hybrid Retrieval
 
-- 编写并确认 Phase 2 开发任务书。
-- 实现 `InformationNeed`、`RouteDecision` 和规则优先 Router。
-- 实现 BM25 + BGE-M3 Dense + RRF；是否增加 reranker 由评测决定。
-- 统一输出 EvidencePack，并保留 Evidence ID、文档和页码追溯。
-- 所有检索必须记录日志、延迟和资源信息。
-- 在冻结的共同题集上与 V1 公平对照，重点检查 RequiredPageCoverage@10、P0、完整覆盖、MRR 和逐题退步。
+- [x] 编写 Phase 2 开发任务书：`ROUTER_HYBRID_RETRIEVAL_DEVELOPMENT_TASK.md`。
+- [x] 审核 Claude Code 编码前实施计划（含三项契约修正 A/B/C，已并入实现）。
+- [x] 实现 `InformationNeed`、`RouteDecision` 和规则优先 Router（契约层/ Router / RouteContext）。
+- [x] 实现 BM25 + BGE-M3 Dense + RRF（indexer_v2 / sparse / fusion，reranker 首轮关闭）。
+- [x] 统一输出 EvidencePack + StructuredResultRef + trace，保留 Evidence ID、文档和页码追溯（retriever_v2）。
+- [x] 检索落盘 trace（logs/retrieval/）+ 延迟/索引版本/失败码记录。
+- [x] Track B：Router 评测 23 题手写 gold + 确定性 runner。
+- [x] Track A：V2 Hybrid Runner，复用冻结分母与 V1 命中口径。
+- [ ] 在冻结的共同题集上与 V1 公平对照（真实 BGE-M3），重点检查 RequiredPageCoverage@10、P0、完整覆盖、MRR 和逐题退步——**环境阻塞，未跑通前 Phase 2 不关闭**。
 
 ### [ ] Phase 3：Tool Layer + Research Harness
 
