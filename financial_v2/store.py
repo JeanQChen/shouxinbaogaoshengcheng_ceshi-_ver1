@@ -160,13 +160,14 @@ def _immutable_triggers(table: str) -> str:
 
 
 def build_ddl() -> str:
-    """返回最新（v6）建表语句（幂等）。
+    """返回最新（v7）建表语句（幂等）。
 
-    candidate_id / 十进制文本 / v6 快照指标列不进 v1/v2 冻结 DDL 文本（_shared_ddl_tail
-    为 v1/v2 冻结共享，不得改动），由 init_db / 迁移路径通过 _add_candidate_id_column /
-    _add_decimal_text_columns / _v6_ddl_statements 单独补齐。
+    candidate_id / 十进制文本 / v6 快照指标列 / v7 准入依赖列不进 v1/v2 冻结 DDL 文本
+    （_shared_ddl_tail 为 v1/v2 冻结共享，不得改动），由 init_db / 迁移路径通过
+    _add_candidate_id_column / _add_decimal_text_columns / _v6_ddl_statements /
+    _v7_ddl_statements 单独补齐。
     """
-    return _build_ddl_v2() + _build_ddl_v3() + _build_ddl_v5() + _build_ddl_v6()
+    return _build_ddl_v2() + _build_ddl_v3() + _build_ddl_v5() + _build_ddl_v6() + _build_ddl_v7()
 
 
 def _build_ddl_v1() -> str:
@@ -780,6 +781,23 @@ def _build_ddl_v6() -> str:
     return "\n".join(_v6_ddl_statements()) + "\n"
 
 
+def _v7_ddl_statements() -> list[str]:
+    """v7 追加 DDL 语句清单（仅追加 financial_snapshot.admission_dependencies 列）。
+
+    A6/A7 快照准入闭环：把「会改变快照内容的准入依赖」（已采纳映射决议 ID / 勾稽检查
+    身份 / 输入候选集合版本）纳入快照身份，杜绝「同 snapshot_id 不同 items/exceptions」。
+    不重写 v1~v6 已有表/列。
+    """
+    return [
+        "ALTER TABLE financial_snapshot ADD COLUMN admission_dependencies TEXT"
+    ]
+
+
+def _build_ddl_v7() -> str:
+    """返回 v7 追加 DDL 文本（仅用于全新库一次到位路径，走 executescript）。"""
+    return "\n".join(_v7_ddl_statements()) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # 迁移：v1 → v2（受控建新表 + 复制校验 + 替换）
 # ---------------------------------------------------------------------------
@@ -981,6 +999,21 @@ def _migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
         conn.execute(stmt)
 
 
+def _migrate_v6_to_v7(conn: sqlite3.Connection) -> None:
+    """v6 → v7：financial_snapshot 追加 admission_dependencies 列（追加式）。
+
+    前置校验：确认当前为 v6 结构（financial_snapshot 已含 v6 列、尚无 admission_dependencies），
+    否则失败关闭（不假装成功）。
+    """
+    snap_cols = _table_columns(conn, "financial_snapshot")
+    if "record_set_ids" not in snap_cols:
+        raise RuntimeError("迁移 v6→v7 前提不满足：financial_snapshot 缺 v6 列 record_set_ids")
+    if "admission_dependencies" in snap_cols:
+        raise RuntimeError("迁移 v6→v7 前提不满足：financial_snapshot 已含 admission_dependencies")
+    for stmt in _v7_ddl_statements():
+        conn.execute(stmt)
+
+
 def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r["version"] for r in conn.execute(
         "SELECT version FROM schema_migrations ORDER BY rowid")]
@@ -1084,7 +1117,8 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
     snap_cols = _table_columns(conn, "financial_snapshot")
     for col in ("record_set_ids", "reconciliation_run_id", "restatement_selection",
                 "policy_adjustments", "required_formula_versions",
-                "snapshot_builder_version", "admission_rule_version", "report_blocked"):
+                "snapshot_builder_version", "admission_rule_version", "report_blocked",
+                "admission_dependencies"):
         if col not in snap_cols:
             raise RuntimeError(f"结构校验失败：financial_snapshot 缺列 {col}")
     if "input_candidate_set_version" not in _table_columns(conn, "financial_record_set"):
@@ -1112,6 +1146,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("4", _migrate_v3_to_v4),   # v3 → v4：来源记录权威金额十进制文本列（追加式）
     ("5", _migrate_v4_to_v5),   # v4 → v5：结构化元数据确认（不可变历史表 + head 指针）
     ("6", _migrate_v5_to_v6),   # v5 → v6：快照/指标层列 + metric_result 表 + 不可变触发器
+    ("7", _migrate_v6_to_v7),   # v6 → v7：financial_snapshot 追加 admission_dependencies 列
 ]
 
 
@@ -3534,6 +3569,7 @@ def _row_to_snapshot(row: sqlite3.Row) -> S.FinancialSnapshot:
         snapshot_builder_version=row["snapshot_builder_version"],
         admission_rule_version=row["admission_rule_version"],
         report_blocked=bool(row["report_blocked"]),
+        admission_dependencies=_json_loads(row["admission_dependencies"]) or {},
         created_at=row["created_at"],
     )
 
@@ -3592,8 +3628,9 @@ def _insert_snapshot_conn(conn: sqlite3.Connection, s: S.FinancialSnapshot) -> N
         "INSERT INTO financial_snapshot (snapshot_id, snapshot_version, company_id, as_of_date, "
         "scope, currency, purpose, source_versions, resolution_versions, record_set_ids, "
         "reconciliation_run_id, restatement_selection, policy_adjustments, required_formula_versions, "
-        "snapshot_builder_version, admission_rule_version, report_blocked, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "snapshot_builder_version, admission_rule_version, report_blocked, admission_dependencies, "
+        "created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (s.snapshot_id, s.snapshot_version, s.company_id, s.as_of_date, s.scope, s.currency,
          s.purpose, _json_dumps(s.source_versions), _json_dumps(s.resolution_versions),
          _json_dumps(s.record_set_ids), s.reconciliation_run_id,
@@ -3601,7 +3638,7 @@ def _insert_snapshot_conn(conn: sqlite3.Connection, s: S.FinancialSnapshot) -> N
          _json_dumps([S.policy_adjustment_to_dict(pa) for pa in s.policy_adjustments]),
          _json_dumps(s.required_formula_versions),
          s.snapshot_builder_version, s.admission_rule_version,
-         int(s.report_blocked), s.created_at),
+         int(s.report_blocked), _json_dumps(s.admission_dependencies), s.created_at),
     )
 
 
@@ -3688,6 +3725,8 @@ def _snapshot_header_identical(row: sqlite3.Row, s: S.FinancialSnapshot) -> bool
         and row["snapshot_builder_version"] == s.snapshot_builder_version
         and row["admission_rule_version"] == s.admission_rule_version
         and bool(row["report_blocked"]) == s.report_blocked
+        and S._canonical_admission_dependencies(_json_loads(row["admission_dependencies"]) or {})
+        == S._canonical_admission_dependencies(s.admission_dependencies)
     )
 
 

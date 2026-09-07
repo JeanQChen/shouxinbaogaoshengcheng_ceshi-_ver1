@@ -367,7 +367,8 @@ def main() -> dict:
         proc = subprocess.run(
             [sys.executable, "-m", "financial_v2.progress", "--db", db,
              "run", "--company", COMPANY],
-            cwd=str(ROOT), env=env, capture_output=True, text=True, timeout=120)
+            cwd=str(ROOT), env=env, capture_output=True, text=True, encoding="utf-8",
+            timeout=120)
         check(proc.returncode == 0,
               f"progress CLI run 退出码 0（stderr={proc.stderr.strip()[:120]!r}）")
         if proc.returncode == 0:

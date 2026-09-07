@@ -36,7 +36,7 @@ from decimal import Decimal
 # 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "6"
+SCHEMA_VERSION = "7"
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ POLICY_ADJUSTMENT_DECISIONS = [
 
 # 快照构建器 / 准入规则版本（进入 snapshot_id，规则升级后 id 变化，杜绝同 id 不同内容）。
 SNAPSHOT_BUILDER_VERSION = "1.0"
-ADMISSION_RULE_VERSION = "1.0"
+ADMISSION_RULE_VERSION = "1.1"  # 1.1：未产出候选的 active MappingResolution 纳入准入依赖身份
 
 # 快照异常类型（固化未纳入计算的状态摘要，MetricResult reason_code 来源）。
 # 任务书 §6.3 九类；旧小写值仅兼容读取，v6 新写入只允许下列枚举。
@@ -379,6 +379,22 @@ def derive_candidate_id(
     return "cand-" + _sha256_hex(raw, 32)
 
 
+def _canonical_admission_dependencies(deps: dict | None) -> dict:
+    """把准入依赖规范化为稳定可比形式（列表排序、键排序），供快照身份派生。
+
+    admission_dependencies 是「会改变快照内容的准入输入」的归一化身份集合：已采纳的
+    科目映射决议 ID、本次读取的勾稽检查身份、输入候选集合版本。任何一项变化都会派生
+    新的 snapshot_id（未确认→确认、勾稽结果变化、候选集合版本变化）。
+    """
+    if not deps:
+        return {}
+    canonical: dict = {}
+    for key in sorted(deps):
+        val = deps[key]
+        canonical[key] = sorted(val) if isinstance(val, list) else val
+    return canonical
+
+
 def derive_snapshot_id(
     company_id: str,
     scope: str,
@@ -394,12 +410,14 @@ def derive_snapshot_id(
     required_formula_versions: dict[str, str],
     snapshot_builder_version: str,
     admission_rule_version: str,
+    admission_dependencies: dict | None = None,
 ) -> str:
     """快照身份：业务键 + 输入身份 + 决议身份 + 选择/政策/规则版本的稳定派生。
 
     任务书 §6.6 + 批准计划：snapshot_id 只由「决定快照内容的输入」派生，不含时间戳；
     任何准入规则/构建器版本升级都会改变 id，杜绝「同 id 不同内容」。policy_adjustments
     通过 policy_adjustment_to_dict 做规范序（record_refs 排序、列表按 JSON 序）。
+    admission_dependencies（映射决议/勾稽检查/候选集合版本身份）经规范序纳入派生。
     """
     pa_list = sorted(
         (policy_adjustment_to_dict(pa) for pa in policy_adjustments),
@@ -420,6 +438,7 @@ def derive_snapshot_id(
         "required_formula_versions": sorted(required_formula_versions.items()),
         "snapshot_builder_version": snapshot_builder_version,
         "admission_rule_version": admission_rule_version,
+        "admission_dependencies": _canonical_admission_dependencies(admission_dependencies),
     }, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "snap-" + _sha256_hex(raw, 32)
 
@@ -734,6 +753,8 @@ class FinancialSnapshot:
     policy_adjustments / required_formula_versions / snapshot_builder_version /
     admission_rule_version / report_blocked，全部进入 snapshot_id 派生（见 derive_snapshot_id），
     用于审计「这份快照由哪些输入、何种规则、何种政策选择算出」。
+    v7 追加 admission_dependencies（已采纳映射决议 ID / 勾稽检查身份 / 候选集合版本），
+    使「未确认→确认映射」「勾稽结果变化」「候选集合版本变化」均派生新 snapshot_id。
     """
 
     snapshot_id: str
@@ -754,6 +775,7 @@ class FinancialSnapshot:
     admission_rule_version: str
     report_blocked: bool                      # 报告生成是否被快照异常阻断
     created_at: str
+    admission_dependencies: dict = field(default_factory=dict)  # 准入依赖身份（映射决议/勾稽检查/候选集合版本）
 
 
 @dataclass

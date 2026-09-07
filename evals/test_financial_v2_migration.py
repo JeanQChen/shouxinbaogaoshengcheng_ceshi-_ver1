@@ -147,8 +147,8 @@ def main() -> dict:
     p1 = tmp_db()
     try:
         store.init_db(p1)
-        check(store.applied_schema_version() == "6", "全新库 schema_migrations 最新版本 == '6'")
-        check(S.SCHEMA_VERSION == "6" == store.applied_schema_version(),
+        check(store.applied_schema_version() == "7", "全新库 schema_migrations 最新版本 == '6'")
+        check(S.SCHEMA_VERSION == "7" == store.applied_schema_version(),
               "SCHEMA_VERSION == 最新 migration 版本 == 实际应用版本")
         conn = sqlite3.connect(p1)
         rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
@@ -186,6 +186,8 @@ def main() -> dict:
                     "policy_adjustments", "required_formula_versions",
                     "snapshot_builder_version", "admission_rule_version", "report_blocked"):
             check(col in snap_cols, f"全新库 financial_snapshot 含 v6 列 {col}")
+        check("admission_dependencies" in snap_cols,
+              "全新库 financial_snapshot 含 v7 列 admission_dependencies")
         check("input_candidate_set_version" in {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")},
               "全新库 financial_record_set 含 v6 列 input_candidate_set_version")
         fd_cols = {r[1] for r in conn.execute("PRAGMA table_info(formula_definition)")}
@@ -206,7 +208,7 @@ def main() -> dict:
         store.init_db(p2)
 
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "迁移后 schema_migrations == ['1','2','3','4','5','6']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6", "7"], "迁移后 schema_migrations == ['1','2','3','4','5','6']")
 
         # v1 数据迁移后可读（文档头 + 内容版本文件事实 + 记录集合关键字段）。
         doc = store.get_source_document("sd-v1")
@@ -252,7 +254,7 @@ def main() -> dict:
         # 幂等重跑：第二次 init 不重迁移、数据不变。
         store.init_db(p2)
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6", "7"], "第二次 init 不追加迁移记录")
         check(store.get_source_version("sv-v1").file_sha256 == "a" * 64, "第二次 init 数据不变")
         conn.close()
     finally:
@@ -284,7 +286,7 @@ def main() -> dict:
         conn.close()
         # 故障清除后可正常迁移。
         store.init_db(p3)
-        check(store.applied_schema_version() == "6", "故障清除后重跑迁移成功")
+        check(store.applied_schema_version() == "7", "故障清除后重跑迁移成功")
     finally:
         cleanup(p3)
 
@@ -374,7 +376,7 @@ def main() -> dict:
         conn.commit()
         conn.close()
         store.init_db(p7)
-        check(store.applied_schema_version() == "6", "修复故障后正常迁移到 v6")
+        check(store.applied_schema_version() == "7", "修复故障后正常迁移到 v6")
         conn = sqlite3.connect(p7)
         check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
               "修复后迁移 foreign_key_check 为空")
@@ -393,7 +395,7 @@ def main() -> dict:
 
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v2→v5 迁移后 schema_migrations == ['1','2','3','4','5','6']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6", "7"], "v2→v5 迁移后 schema_migrations == ['1','2','3','4','5','6']")
         rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
         check("candidate_id" in rec_cols, "v2→v5 后 source_financial_record 追加 candidate_id 列")
         check("raw_value_text" in rec_cols and "std_value_text" in rec_cols,
@@ -412,7 +414,7 @@ def main() -> dict:
         # 幂等重跑。
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v2→v5 第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6", "7"], "v2→v5 第二次 init 不追加迁移记录")
         conn.close()
     finally:
         cleanup(p8)
@@ -439,7 +441,7 @@ def main() -> dict:
         check(_applied_versions(conn) == ["1", "2"], "回滚后 schema_migrations 仍为 ['1','2']")
         conn.close()
         store.init_db(p9)
-        check(store.applied_schema_version() == "6", "故障清除后重跑迁移到 v6 成功")
+        check(store.applied_schema_version() == "7", "故障清除后重跑迁移到 v6 成功")
     finally:
         cleanup(p9)
 
@@ -456,11 +458,13 @@ def main() -> dict:
 
         store.init_db(p10)
         conn = sqlite3.connect(p10)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v5→v6 后 schema_migrations == ['1'..'6']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6", "7"], "v5→v6 后 schema_migrations == ['1'..'6']")
         check("amount_text" in {r[1] for r in conn.execute("PRAGMA table_info(snapshot_item)")},
               "v5→v6 后 snapshot_item 追加 amount_text 列")
         check("report_blocked" in {r[1] for r in conn.execute("PRAGMA table_info(financial_snapshot)")},
               "v5→v6 后 financial_snapshot 追加 report_blocked 列")
+        check("admission_dependencies" in {r[1] for r in conn.execute("PRAGMA table_info(financial_snapshot)")},
+              "v5→v7 后 financial_snapshot 追加 admission_dependencies 列")
         check("input_candidate_set_version" in {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")},
               "v5→v6 后 financial_record_set 追加 input_candidate_set_version 列")
         check("metric_result" in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")},

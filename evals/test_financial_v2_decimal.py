@@ -173,7 +173,7 @@ def main() -> dict:
         rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
         check("raw_value_text" in rec_cols and "std_value_text" in rec_cols,
               "v3→v6 迁移后十进制文本列就位")
-        check(store.applied_schema_version() == "6", "v3→v6 迁移后最新版本 == '6'")
+        check(store.applied_schema_version() == "7", "v3→v7 迁移后最新版本 == '7'")
         conn.close()
 
         # 旧行：迁移不重写 → 文本列 NULL，读时回退 REAL。

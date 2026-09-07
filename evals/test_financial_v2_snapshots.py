@@ -149,7 +149,7 @@ def _request(company, record_set_ids, *, reconciliation_run_id=None,
         company_id=company, as_of_date="2024-12-31", scope="consolidated",
         currency="CNY", purpose="credit_analysis", record_set_ids=record_set_ids,
         reconciliation_run_id=reconciliation_run_id,
-        required_formula_ids=required_formula_ids or ["current_ratio", "debt_to_asset"],
+        required_formula_ids=required_formula_ids or [],
         restatement_selection=restatement_selection or {},
         policy_adjustments=policy_adjustments or {}, run_id=run_id)
 

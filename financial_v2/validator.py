@@ -309,13 +309,15 @@ def validate_snapshot(s: S.FinancialSnapshot) -> None:
     _nonempty(s.snapshot_builder_version, "snapshot_builder_version")
     _nonempty(s.admission_rule_version, "admission_rule_version")
     _require(isinstance(s.report_blocked, bool), "report_blocked 必须为 bool")
+    _require(isinstance(s.admission_dependencies, dict),
+             "admission_dependencies 必须为 dict")
     # snapshot_id 与头部字段重算一致（防篡改头部字段沿用旧 id）。
     recomputed = S.derive_snapshot_id(
         s.company_id, s.scope, s.currency, s.as_of_date, s.purpose,
         s.record_set_ids, s.reconciliation_run_id, s.source_versions,
         s.resolution_versions, s.restatement_selection, s.policy_adjustments,
         s.required_formula_versions, s.snapshot_builder_version,
-        s.admission_rule_version)
+        s.admission_rule_version, s.admission_dependencies)
     _require(s.snapshot_id == recomputed,
              f"snapshot_id 与头部字段重算不一致: {s.snapshot_id!r}")
 
