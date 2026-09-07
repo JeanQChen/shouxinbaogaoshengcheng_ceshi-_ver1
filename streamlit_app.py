@@ -335,6 +335,81 @@ def _render_financial_v2_confirmation(company_id: str) -> None:
         st.rerun()
 
 
+def _render_financial_v2_snapshot(company_id: str) -> None:
+    """A7 V2 快照/指标展示（薄 UI，默认关闭）。
+
+    只调用 progress 公开接口（build_request_for_company / run_pipeline）并读取其返回的
+    progress 摘要与 adapters 载荷，展示快照状态、缺口（异常）和指标；不复制公式、
+    准入或计算业务逻辑。
+    """
+    from financial_v2 import progress as v2progress
+
+    st.subheader("🧪 V2 财务快照与指标（实验性）")
+    if not company_id:
+        st.warning("请先输入公司股票代码。")
+        return
+
+    if st.button("🚀 运行 V2 财务快照流水线", type="primary"):
+        try:
+            request = v2progress.build_request_for_company(company_id)
+            st.session_state["v2_pipeline_result"] = v2progress.run_pipeline(
+                request, persist=True)
+        except Exception as e:
+            st.error(f"V2 流水线运行失败：{e}")
+            logger.exception("V2 pipeline UI failed")
+            return
+
+    result = st.session_state.get("v2_pipeline_result")
+    if result is None:
+        st.caption("点击上方按钮，基于当前 Record Set / Reconciliation 构建不可变快照并计算指标。")
+        return
+
+    # ── 进度（真实持久化事件） ──
+    st.markdown(f"**终态**：`{result.final_state}`")
+    for s in result.progress.stages:
+        icon = "✅" if s.status == "completed" else ("❌" if s.status == "failed" else "🔄")
+        extra = f"（{s.completed_units}/{s.total_units}）" if s.total_units else ""
+        err = f"：{s.error_code}" if s.error_code else ""
+        st.write(f"   {icon} {s.label}{extra}{err}")
+
+    payload = result.payload
+    if payload is None:
+        st.warning(f"运行失败：{result.error}")
+        return
+
+    # ── 快照状态 ──
+    st.markdown(
+        f"**快照**：`{payload.snapshot_id}`（company={payload.company_id}，"
+        f"validity={payload.validity}，report_blocked={payload.report_blocked}）"
+    )
+
+    # ── 缺口（异常） ──
+    if payload.exceptions:
+        st.markdown(f"**缺口 {len(payload.exceptions)} 项**：")
+        for e in payload.exceptions:
+            st.write(f"   ⚠️ `{e.standard_item_code or e.comparison_key}` — {e.exception_type}"
+                     f"（{e.blocking_reason}）")
+    else:
+        st.write("   ✅ 无快照异常")
+
+    # ── 指标 ──
+    if payload.metrics:
+        st.markdown(f"**指标 {len(payload.metrics)} 项**（期间 {', '.join(payload.periods)}）：")
+        for m in payload.metrics:
+            if m.status == "CALCULATED_EXACT":
+                val = f"{m.display_value}{'%' if m.unit == 'percent' else ''}"
+                st.write(f"   ✅ `{m.formula_id}` {m.period} = {val}"
+                         + (f"（{m.note}）" if m.note else ""))
+            elif m.status == "CALCULATED_PROXY":
+                st.write(f"   🟠 `{m.formula_id}` {m.period} = {m.display_value}"
+                         f"（代理：{m.note}）")
+            else:
+                st.write(f"   ⚪ `{m.formula_id}` {m.period} — {m.status}"
+                         + (f"（{m.note}）" if m.note else ""))
+    else:
+        st.write("   （无已计算指标）")
+
+
 def _generate_report(company_id: str, template_path: str, **variables: str) -> tuple[str, list]:
     """生成完整报告：解析模板 → 三 agent 并行产出素材 → synthesizer 主笔 → 回检。
 
@@ -536,6 +611,16 @@ def main() -> None:
             ),
         )
 
+        # ── V2 财务快照与指标开关（实验性，默认关闭）──
+        enable_v2_snapshot = st.checkbox(
+            "🧪 启用 V2 财务快照与指标（实验性）",
+            value=False,
+            help=(
+                "默认关闭。开启后基于当前 V2 Record Set / Reconciliation 构建不可变快照、"
+                "计算版本化指标，并只读展示快照状态、缺口与指标。"
+            ),
+        )
+
         st.divider()
 
         # ── Demo 一键生成 ──
@@ -625,6 +710,10 @@ def main() -> None:
     # ── V2 财务对账确认（实验性，独立于 V1 主流程，默认不渲染）──
     if enable_v2:
         _render_financial_v2_confirmation(company_id)
+
+    # ── V2 财务快照与指标（实验性，独立于 V1 主流程，默认不渲染）──
+    if enable_v2_snapshot:
+        _render_financial_v2_snapshot(company_id)
 
     # ── Step 1: 上传文件 ──
     st.header("📋 第一步：导入数据")
