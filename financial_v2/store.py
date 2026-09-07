@@ -3293,6 +3293,32 @@ def invalidate_resolution_record(resolution_id: str, invalidated_by: str | None 
         conn.close()
 
 
+def invalidate_snapshot(snapshot_id: str, invalidated_by: str | None = None,
+                        invalidated_reason: str | None = None) -> str | None:
+    """定向失效一个快照：追加 snapshot_validity=`stale` 事件（幂等，已 stale 不产生新事件）。
+
+    快照本体不可变、历史 MetricResult 保留审计；本函数只追加有效性事件，使
+    latest_snapshot_validity 返回 stale → current_snapshot 与 compute_metric 不再采用。
+    返回新事件 id；无新事件（已 stale 或无有效性事件）返回 None。
+    """
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM financial_snapshot WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"financial_snapshot 不存在: {snapshot_id}")
+        event_id = _mark_stale_conn(conn, "snapshot_validity", "snapshot_id", snapshot_id,
+                                    invalidated_by, invalidated_reason)
+        conn.commit()
+        return event_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # 结构化元数据确认持久化（fix #1：追加式不可变历史 + head 指针）
 # ---------------------------------------------------------------------------
@@ -3939,6 +3965,22 @@ def get_snapshot(snapshot_id: str) -> S.FinancialSnapshot | None:
             "SELECT * FROM financial_snapshot WHERE snapshot_id=?", (snapshot_id,)
         ).fetchone()
         return _row_to_snapshot(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_snapshots(company_id: str | None = None) -> list[S.FinancialSnapshot]:
+    """列出全部（或指定公司的）快照，供定向失效检测按依赖筛选。"""
+    conn = _get_conn()
+    try:
+        if company_id is None:
+            rows = conn.execute(
+                "SELECT * FROM financial_snapshot ORDER BY created_at, snapshot_id").fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM financial_snapshot WHERE company_id=? "
+                "ORDER BY created_at, snapshot_id", (company_id,)).fetchall()
+        return [_row_to_snapshot(r) for r in rows]
     finally:
         conn.close()
 
