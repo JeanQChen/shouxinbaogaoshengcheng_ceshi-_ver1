@@ -806,6 +806,24 @@ def _migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
         conn.execute(stmt)
 
 
+def _add_decimal_text_columns(conn: sqlite3.Connection) -> None:
+    """给 source_financial_record 追加权威十进制文本列（幂等、可空、追加式）。
+
+    权威金额改为十进制文本（raw_value_text / std_value_text），REAL 列（raw_value /
+    std_value）保留仅作兼容/展示近似；不重写既有行（旧行 text 为 NULL，读时回退 REAL）。
+    """
+    cols = _table_columns(conn, "source_financial_record")
+    if "raw_value_text" not in cols:
+        conn.execute("ALTER TABLE source_financial_record ADD COLUMN raw_value_text TEXT")
+    if "std_value_text" not in cols:
+        conn.execute("ALTER TABLE source_financial_record ADD COLUMN std_value_text TEXT")
+
+
+def _migrate_v3_to_v4(conn: sqlite3.Connection) -> None:
+    """v3 → v4：来源记录权威金额十进制文本列（追加式，不重写既有行）。"""
+    _add_decimal_text_columns(conn)
+
+
 def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r["version"] for r in conn.execute(
         "SELECT version FROM schema_migrations ORDER BY rowid")]
@@ -884,10 +902,12 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
     for col in ("currency", "report_periods", "extractor_name", "quality_flags"):
         if col in ver_cols:
             raise RuntimeError(f"结构校验失败：financial_source_version 残留 v1 占位列 {col}")
-    # v3 结构探针：record 溯源列 + 新增表。
+    # v3/v4 结构探针：record 溯源列 + 权威十进制文本列 + 新增表。
     rec_cols = _table_columns(conn, "source_financial_record")
     if "candidate_id" not in rec_cols:
         raise RuntimeError("结构校验失败：source_financial_record 缺列 candidate_id")
+    if "raw_value_text" not in rec_cols or "std_value_text" not in rec_cols:
+        raise RuntimeError("结构校验失败：source_financial_record 缺十进制文本列 raw_value_text/std_value_text")
     for table in ("extracted_financial_cell", "mapping_rule", "extraction_issue",
                   "mapping_resolution", "reconciliation_run",
                   "reconciliation_group_result", "reconciliation_check",
@@ -901,6 +921,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("1", None),                # v1 初始 DDL（历史冻结，不再修改）
     ("2", _migrate_v1_to_v2),   # v1 → v2：内容版本瘦身 + 记录集合抽取事实
     ("3", _migrate_v2_to_v3),   # v2 → v3：原始候选层 + 映射/对账/科目映射确认 + record 溯源列
+    ("4", _migrate_v3_to_v4),   # v3 → v4：来源记录权威金额十进制文本列（追加式）
 ]
 
 
@@ -922,6 +943,7 @@ def init_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
         if not _table_exists(conn, "schema_migrations"):
             conn.executescript(build_ddl())
             _add_candidate_id_column(conn)
+            _add_decimal_text_columns(conn)
             now = _utcnow()
             for version, _ in MIGRATIONS:
                 conn.execute(
@@ -1017,10 +1039,10 @@ def _row_to_record(row: sqlite3.Row) -> S.SourceFinancialRecord:
         standard_item_code=row["standard_item_code"],
         statement_type=row["statement_type"],
         raw_item_text=row["raw_item_text"],
-        raw_value=row["raw_value"],
+        raw_value=_row_decimal(row, "raw_value_text", "raw_value"),
         raw_unit=row["raw_unit"],
         raw_currency=row["raw_currency"],
-        std_value=row["std_value"],
+        std_value=_row_decimal(row, "std_value_text", "std_value"),
         std_unit=row["std_unit"],
         std_currency=row["std_currency"],
         conversion_rule_version=row["conversion_rule_version"],
@@ -1057,6 +1079,19 @@ def _row_to_progress(row: sqlite3.Row) -> S.ProgressEvent:
 def _to_decimal(s: str | None) -> Decimal | None:
     """把库内 TEXT 十进制字符串转 Decimal（None 透传）。"""
     return Decimal(str(s)) if s is not None else None
+
+
+def _row_decimal(row: sqlite3.Row, text_col: str, real_col: str) -> Decimal | None:
+    """读取来源记录的权威金额 Decimal：优先 TEXT 十进制列，缺失回退 REAL 近似列。
+
+    追加式迁移不重写既有行（旧行 text 为 NULL），故读时须回退 REAL；新写入行 text
+    恒非 NULL，实现十进制往返精确相等。
+    """
+    t = row[text_col]
+    if t is not None:
+        return Decimal(str(t))
+    r = row[real_col]
+    return Decimal(str(r)) if r is not None else None
 
 
 def _row_to_extracted_cell(row: sqlite3.Row) -> S.ExtractedFinancialCell:
@@ -1319,15 +1354,21 @@ def _insert_record_set_conn(conn: sqlite3.Connection, rs: S.FinancialRecordSet) 
 
 
 def _insert_record_conn(conn: sqlite3.Connection, r: S.SourceFinancialRecord) -> None:
+    # 权威金额以十进制文本落库（raw_value_text/std_value_text）；REAL 列保留近似值
+    # 仅作兼容/展示，不作为权威存储（追加式，不重写既有行）。
+    raw_value_real = float(r.raw_value) if r.raw_value is not None else None
+    std_value_real = float(r.std_value) if r.std_value is not None else None
+    raw_value_text = _decimal_text(r.raw_value)
+    std_value_text = _decimal_text(r.std_value)
     conn.execute(
         "INSERT INTO source_financial_record (record_id, record_set_version, company_id, "
-        "standard_item_code, statement_type, raw_item_text, raw_value, raw_unit, raw_currency, "
-        "std_value, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
+        "standard_item_code, statement_type, raw_item_text, raw_value, raw_value_text, raw_unit, raw_currency, "
+        "std_value, std_value_text, std_unit, std_currency, conversion_rule_version, report_period, period_type, "
         "statement_scope, currency, restatement_version, locator, mapping_mode, confidence, "
-        "record_hash, quality_flags, created_at, candidate_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "record_hash, quality_flags, created_at, candidate_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (r.record_id, r.record_set_version, r.company_id, r.standard_item_code,
-         r.statement_type, r.raw_item_text, r.raw_value, r.raw_unit, r.raw_currency,
-         r.std_value, r.std_unit, r.std_currency, r.conversion_rule_version,
+         r.statement_type, r.raw_item_text, raw_value_real, raw_value_text, r.raw_unit, r.raw_currency,
+         std_value_real, std_value_text, r.std_unit, r.std_currency, r.conversion_rule_version,
          r.report_period, r.period_type, r.statement_scope, r.currency,
          r.restatement_version, _json_dumps(S.locator_to_dict(r.locator)),
          r.mapping_mode, r.confidence, r.record_hash, _json_dumps(r.quality_flags),
@@ -1445,10 +1486,10 @@ def _record_identical(row: sqlite3.Row, rec: S.SourceFinancialRecord) -> bool:
         and row["standard_item_code"] == rec.standard_item_code
         and row["statement_type"] == rec.statement_type
         and row["raw_item_text"] == rec.raw_item_text
-        and row["raw_value"] == rec.raw_value
+        and _row_decimal(row, "raw_value_text", "raw_value") == rec.raw_value
         and row["raw_unit"] == rec.raw_unit
         and row["raw_currency"] == rec.raw_currency
-        and row["std_value"] == rec.std_value
+        and _row_decimal(row, "std_value_text", "std_value") == rec.std_value
         and row["std_unit"] == rec.std_unit
         and row["std_currency"] == rec.std_currency
         and row["conversion_rule_version"] == rec.conversion_rule_version

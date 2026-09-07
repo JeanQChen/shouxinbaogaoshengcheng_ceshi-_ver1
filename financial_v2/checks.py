@@ -7,9 +7,9 @@
   问题；通过 → PASS；
 - 勾稽结果持久化到 reconciliation_check（绑定 reconciliation_run），幂等可重放。
 
-金额精确性：record.std_value 是 A1 遗留 REAL（float）；本模块优先经 candidate_id 回
-读候选层的 Decimal 解析值 × 单位换算还原精确元值，回读不可用时退化为
-Decimal(str(std_value))（仅作为兜底，量级远小于容差）。
+金额精确性：record.std_value 为 Decimal（权威十进制文本落库，非二进制 float）；
+本模块优先经 candidate_id 回读候选层的 Decimal 解析值 × 单位换算还原精确元值，
+回读不可用时直接采用 record.std_value（同为 Decimal，不损失精度）。
 
 CLI: python -m financial_v2.checks --record-set <id> [--validate-only] [--db <path>]
 """
@@ -92,7 +92,7 @@ class ChecksResult:
 
 def _std_value_decimal(record: S.SourceFinancialRecord,
                        candidates_by_id: dict[str, S.ExtractedFinancialCell]) -> Decimal | None:
-    """返回 record 的精确标准值（元）。候选 Decimal × 单位换算优先，失败退回 float 兜底。"""
+    """返回 record 的精确标准值（元）。候选 Decimal × 单位换算优先，失败退回 record.std_value。"""
     if record.std_value is None:
         return None
     cand = candidates_by_id.get(record.candidate_id)
@@ -101,7 +101,7 @@ def _std_value_decimal(record: S.SourceFinancialRecord,
         mult = norm.unit_to_yuan(cand.unit_candidate)
         if mult is not None:
             return cand.parsed_numeric_value * mult
-    return Decimal(str(record.std_value))
+    return record.std_value
 
 
 def _build_value_index(

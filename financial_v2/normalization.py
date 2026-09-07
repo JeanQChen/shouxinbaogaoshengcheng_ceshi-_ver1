@@ -122,10 +122,10 @@ def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
         standard_item_code=standard_item_code,
         statement_type=candidate.statement_type_candidate,
         raw_item_text=candidate.raw_item_text,
-        raw_value=float(candidate.parsed_numeric_value),
+        raw_value=candidate.parsed_numeric_value,
         raw_unit=candidate.unit_candidate,
         raw_currency=candidate.currency_candidate,
-        std_value=float(std_value_decimal),
+        std_value=std_value_decimal,
         std_unit="yuan",
         std_currency=candidate.currency_candidate,
         conversion_rule_version=CONVERSION_RULE_VERSION,
@@ -317,7 +317,8 @@ def _main(argv: list[str]) -> int:
         "reused": result.reused,
         "records": [
             {"item": r.raw_item_text, "standard_item_code": r.standard_item_code,
-             "report_period": r.report_period, "std_value_yuan": r.std_value,
+             "report_period": r.report_period,
+             "std_value_yuan": str(r.std_value) if r.std_value is not None else None,
              "scope": r.statement_scope, "currency": r.currency}
             for r in result.records[:10]
         ],

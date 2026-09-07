@@ -36,7 +36,7 @@ from decimal import Decimal
 # 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
 
 
 # ---------------------------------------------------------------------------
@@ -270,11 +270,20 @@ def record_identity_fields(record: "SourceFinancialRecord") -> dict:
         "statement_scope": record.statement_scope,
         "currency": record.currency,
         "restatement_version": record.restatement_version,
-        "std_value": record.std_value,
+        "std_value": _decimal_text(record.std_value),
         "std_unit": record.std_unit,
         "std_currency": record.std_currency,
         "locator": locator_to_dict(record.locator),
     }
+
+
+def _decimal_text(v: Decimal | None) -> str | None:
+    """把 Decimal 序列化为 JSON 安全的十进制字符串（None 透传）。
+
+    来源记录权威值为 Decimal，参与身份派生 / 哈希时须转 str（json.dumps 不接受
+    Decimal）；str(Decimal) 保持十进制文本（含指数/符号），往返不损失审计精度。
+    """
+    return str(v) if v is not None else None
 
 
 def derive_record_id(record_set_version: str, identity: dict) -> str:
@@ -498,10 +507,10 @@ class SourceFinancialRecord:
     standard_item_code: str
     statement_type: str
     raw_item_text: str
-    raw_value: float | None
+    raw_value: Decimal | None
     raw_unit: str
     raw_currency: str
-    std_value: float | None
+    std_value: Decimal | None
     std_unit: str
     std_currency: str
     conversion_rule_version: str
@@ -526,7 +535,7 @@ class ReconciliationGroup:
     comparison_key: str
     state: str
     candidate_record_ids: list[str]
-    std_values: list[float | None]
+    std_values: list[str]
     diff_detail: dict
     created_at: str
 

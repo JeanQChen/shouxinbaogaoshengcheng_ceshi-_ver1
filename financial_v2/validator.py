@@ -147,6 +147,11 @@ def validate_locator(locator: S.SourceLocator | None) -> None:
 # 来源记录
 # ---------------------------------------------------------------------------
 
+def _d(v) -> str | None:
+    """Decimal/float → JSON 安全十进制字符串（None 透传；记录权威值为 Decimal）。"""
+    return str(v) if v is not None else None
+
+
 def _record_hash(record: S.SourceFinancialRecord) -> str:
     """记录内容哈希：覆盖参与身份判定的字段 + 原始值 + 坐标，防静默篡改。
 
@@ -159,10 +164,10 @@ def _record_hash(record: S.SourceFinancialRecord) -> str:
         "standard_item_code": record.standard_item_code,
         "statement_type": record.statement_type,
         "raw_item_text": record.raw_item_text,
-        "raw_value": record.raw_value,
+        "raw_value": _d(record.raw_value),
         "raw_unit": record.raw_unit,
         "raw_currency": record.raw_currency,
-        "std_value": record.std_value,
+        "std_value": _d(record.std_value),
         "std_unit": record.std_unit,
         "std_currency": record.std_currency,
         "conversion_rule_version": record.conversion_rule_version,
