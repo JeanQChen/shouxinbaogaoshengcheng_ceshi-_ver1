@@ -1338,6 +1338,24 @@ def _row_to_mapping_rule(row: sqlite3.Row) -> S.MappingRule:
     )
 
 
+def _row_to_formula_definition(row: sqlite3.Row) -> S.FormulaDefinition:
+    return S.FormulaDefinition(
+        formula_id=row["formula_id"],
+        formula_version=row["formula_version"],
+        name=row["name"],
+        input_item_codes=_json_loads(row["input_item_codes"]) or [],
+        period_requirement=row["period_requirement"],
+        scope_requirement=row["scope_requirement"],
+        python_impl=row["python_impl"],
+        missing_rule=row["missing_rule"],
+        zero_denominator_rule=row["zero_denominator_rule"],
+        rounding_rule=row["rounding_rule"],
+        impl_version=row["impl_version"],
+        proxy_rule=_json_loads(row["proxy_rule"]) or {},
+        effective_at=row["effective_at"],
+    )
+
+
 def _row_to_mapping_resolution(row: sqlite3.Row) -> S.MappingResolution:
     return S.MappingResolution(
         resolution_id=row["resolution_id"],
@@ -2391,6 +2409,53 @@ def list_mapping_rules(rule_version: str | None = None,
             tuple(params),
         ).fetchall()
         return [_row_to_mapping_rule(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def insert_formula_definition(f: S.FormulaDefinition) -> None:
+    """幂等写入一条版本化公式定义（同 (formula_id, formula_version) 已存在则忽略）。
+
+    公式定义为代码内置的确定性常量，不可变触发器阻断 UPDATE/DELETE；INSERT OR IGNORE
+    保证重复登记幂等。入库前过 validator 校验。
+    """
+    validator.validate_formula_definition(f)
+    conn = _get_conn()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO formula_definition "
+            "(formula_id, formula_version, input_item_codes, period_requirement, "
+            "scope_requirement, python_impl, missing_rule, zero_denominator_rule, "
+            "rounding_rule, effective_at, name, impl_version, proxy_rule) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (f.formula_id, f.formula_version, _json_dumps(f.input_item_codes),
+             f.period_requirement, f.scope_requirement, f.python_impl,
+             f.missing_rule, f.zero_denominator_rule, f.rounding_rule,
+             f.effective_at, f.name, f.impl_version, _json_dumps(f.proxy_rule)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_formula_definition(formula_id: str,
+                          formula_version: str) -> S.FormulaDefinition | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM formula_definition WHERE formula_id=? AND formula_version=?",
+            (formula_id, formula_version)).fetchone()
+        return _row_to_formula_definition(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_formula_definitions() -> list[S.FormulaDefinition]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM formula_definition ORDER BY formula_id").fetchall()
+        return [_row_to_formula_definition(r) for r in rows]
     finally:
         conn.close()
 
