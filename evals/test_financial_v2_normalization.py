@@ -243,6 +243,51 @@ def main() -> dict:
     finally:
         _cleanup_db(db2)
 
+    # ---- 0 条合格记录：normalize 不锁死版本；存储层可显式提交空记录集（fix #7）----
+    db3 = _tmp_db()
+    try:
+        source_document_id, source_version = _register(db3)
+        record_set_version = S.derive_record_set_version(
+            source_version, "1.0", "1.0", "1.0", {})
+        # 全部候选被阻断（无合格记录）。
+        blocked = _make_candidate(record_set_version, source_version, "ACME",
+                                  "货币资金", "balance_sheet", Decimal("1000"), currency=None, row=2)
+        store.commit_extracted_candidates([blocked], [], source_document_id)
+
+        result = norm.normalize_record_set(record_set_version, _policy(), persist=True)
+        check(result.normalized_count == 0, "0 条合格记录")
+        check(result.blocked_count == 1, "1 条被阻断")
+        check(result.issues_committed == 1, "被阻断问题已落库")
+        # 0 合格记录 normalize 不落库 record_set：该状态可能是「等待元数据确认」中间态
+        # （fix #1 overlay 确认后以同版本重标准化），而非最终完成态，不得锁死版本。
+        check(store.get_record_set(record_set_version) is None,
+              "0 合格记录 normalize 不锁死 record_set（可继续补齐确认）")
+
+        # 存储层已放开空记录集：调用方可显式提交 record_count=0 的完成态（fix #7）。
+        empty_rs = S.FinancialRecordSet(
+            record_set_version=record_set_version, source_version=source_version,
+            extractor_name="excel_extractor", extractor_version="1.0",
+            mapping_rule_version="1.0", normalization_rule_version="1.0",
+            dependency_versions={}, report_periods=[], currency=None, unit=None,
+            statement_scope=None, audit_status=None, block_count=1,
+            record_count=0, created_at="2026-01-01T00:00:00Z")
+        cres = store.commit_record_set(empty_rs, [], source_document_id)
+        check(cres.reused is False and cres.record_count == 0,
+              "存储层接受 record_count=0 空记录集")
+        rs_row = store.get_record_set(record_set_version)
+        check(rs_row is not None and rs_row.record_count == 0, "空记录集已显式落库")
+        check(store.list_records(record_set_version) == [], "无 source_financial_record 行")
+        check(rs_row.currency is None, "空记录集集合级币种为 None（诚实）")
+        cur = store.get_current_record_set(source_document_id)
+        check(cur is not None and cur.record_set_version == record_set_version,
+              "空记录集可成为 current（0 合格记录完成态可查）")
+
+        # 幂等：同版本同内容（空）复用，不报冲突。
+        cres2 = store.commit_record_set(empty_rs, [], source_document_id)
+        check(cres2.reused is True, "空记录集二次提交复用（同版本同内容）")
+    finally:
+        _cleanup_db(db3)
+
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 
 

@@ -283,6 +283,12 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
     if persist:
         if issues:
             issues_committed = store.commit_issues(issues)
+        # 仅当有合格记录时才落库 record_set。0 记录时跳过：该状态可能是「等待元数据确认」
+        # 的中间态（fix #1 结构化确认 overlay 会在确认后以同一 record_set_version 重新
+        # 标准化并产出记录），而非最终「0 合格记录完成」态。若在此提交 record_count=0，
+        # 会锁死该版本，导致确认后 re-normalize 触发 StorageConflictError。
+        # 存储层已允许空记录（commit_record_set 不再对空 records 抛错），需要时可由
+        # 调用方显式提交一个 record_count=0 的完成态。
         if records:
             source_document_id = store.get_source_version(source_version).source_document_id
             commit_result = store.commit_record_set(record_set, records, source_document_id)

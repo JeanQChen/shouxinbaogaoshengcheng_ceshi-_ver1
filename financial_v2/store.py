@@ -1621,8 +1621,8 @@ def commit_record_set(
     任一步失败全部回滚，旧 current 不变，半成品不可见。
     """
     validator.validate_record_set(record_set)
-    if not records:
-        raise ValueError("records 不能为空")
+    # 0 条合格记录是显式完成态（record_count=0）：不再拒绝，交由 validate_records
+    # 空操作校验 + record_count 一致性断言兜底（record_count != len(records) 才报错）。
     validator.validate_records(records, record_set.record_set_version)
     if record_set.record_count != len(records):
         raise validator.ValidationError(

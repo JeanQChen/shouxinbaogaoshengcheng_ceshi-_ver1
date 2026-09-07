@@ -224,8 +224,11 @@ def validate_record(record: S.SourceFinancialRecord) -> None:
 
 
 def validate_records(records: list[S.SourceFinancialRecord], record_set_version: str) -> None:
-    """校验一批记录归属一致、无重复 record_id、id/hash 重算一致。"""
-    _require(len(records) > 0, "records 不能为空")
+    """校验一批记录归属一致、无重复 record_id、id/hash 重算一致。
+
+    空列表是合法输入：表示「0 条合格记录」的显式完成态（record_count=0），
+    逐条校验自然为空操作，由调用方决定是否落库。
+    """
     seen: set[str] = set()
     for r in records:
         validate_record(r)
