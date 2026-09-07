@@ -539,14 +539,22 @@ def extract_excel(
                     if is_empty_value(cell.value):
                         status = "EMPTY_OR_NOT_APPLICABLE"
                         parsed_numeric_value = None
+                    elif formula_text is not None:
+                        # 公式单元格：以可信缓存值为权威解析值（保留公式文本 + 缓存值来源）。
+                        if cached_formula_value is not None:
+                            parsed_numeric_value = cached_formula_value
+                            status = "EXTRACTED"
+                            quality_flags.append("FORMULA_CACHED_VALUE")
+                        else:
+                            parsed_numeric_value = None
+                            status = "PARSE_FAILED"
+                            quality_flags.append("FORMULA_VALUE_UNAVAILABLE")
                     else:
                         parsed_numeric_value = parse_decimal(cell.value)
                         if parsed_numeric_value is None:
                             status = "PARSE_FAILED"
                         else:
                             status = "EXTRACTED"
-                    if formula_text is not None and cached_formula_value is None:
-                        quality_flags.append("FORMULA_VALUE_UNAVAILABLE")
 
                     locator = S.SourceLocator(kind="excel", excel=S.ExcelCellLocator(
                         sheet_name=ws.title, row_number=r, column_number=col,

@@ -101,6 +101,54 @@ def _build_basic_workbook(path: str) -> None:
     wb.save(path)
 
 
+def _make_formula_cached_xlsx(path: str) -> None:
+    """构造一个真实含「公式 + 缓存值」单元格的 xlsx。
+
+    openpyxl 保存公式时不写缓存值（data_only 加载拿不到结果），故手写 OOXML：B2 单元格
+    同时含 <f>=100+200</f>（公式文本）与 <v>300</v>（Excel 保存的缓存结果）。
+    """
+    import zipfile
+
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        '</Types>')
+    rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>')
+    workbook = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        '<sheets><sheet name="利润表" sheetId="1" r:id="rId1"/></sheets></workbook>')
+    workbook_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        '</Relationships>')
+    sheet = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        '<sheetData>'
+        '<row r="1"><c r="A1" t="inlineStr"><is><t>利润表(单位：万元)</t></is></c>'
+        '<c r="B1" t="inlineStr"><is><t>2024-12-31</t></is></c></row>'
+        '<row r="2"><c r="A2" t="inlineStr"><is><t>营业利润</t></is></c>'
+        '<c r="B2"><f>100+200</f><v>300</v></c></row>'
+        '</sheetData></worksheet>')
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", content_types)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("xl/workbook.xml", workbook)
+        z.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        z.writestr("xl/worksheets/sheet1.xml", sheet)
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -294,6 +342,27 @@ def main() -> dict:
         _cleanup_db(db5)
         try:
             os.remove(xlsx5)
+        except FileNotFoundError:
+            pass
+
+    # ---- 公式 + 可信缓存值 → 缓存值为权威解析值（fix #3）----
+    db6 = _tmp_db()
+    xlsx6 = _tmp_xlsx(prefix="eval_ext_formula_")
+    try:
+        _make_formula_cached_xlsx(xlsx6)
+        _, sv = _register(db6, xlsx6)
+        result = ex.extract_excel(sv, _policy(xlsx6), persist=False)
+        formula_cell = next(c for c in result.candidates if c.raw_item_text == "营业利润")
+        check(formula_cell.formula_text == "=100+200", "公式文本保存（缓存值场景）")
+        check(formula_cell.cached_formula_value == Decimal("300"), "缓存值保存")
+        check(formula_cell.parsed_numeric_value == Decimal("300"),
+              "公式单元格以缓存值为权威解析值（300）")
+        check(formula_cell.status == "EXTRACTED", "公式有可信缓存值 → EXTRACTED（非 PARSE_FAILED）")
+        check("FORMULA_CACHED_VALUE" in formula_cell.quality_flags, "缓存值来源标记 FORMULA_CACHED_VALUE")
+    finally:
+        _cleanup_db(db6)
+        try:
+            os.remove(xlsx6)
         except FileNotFoundError:
             pass
 
