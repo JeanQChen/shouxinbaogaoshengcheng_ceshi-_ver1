@@ -75,7 +75,7 @@
 | 0A | 接纳并保留 V1 Retrieval Baseline | 已有 Runner 与最终产物 | 已接纳 |
 | 0B | 将报告主题固化为首版 Section Contracts | 0A、设计 §4 | 任务书就绪 |
 | 1 | Evidence 与最小可追溯运行基础 | 0B | 未进入 |
-| 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 未进入 |
+| 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 未进入 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 未进入 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 未进入 |
@@ -156,7 +156,7 @@
 
 **留到进入相应子阶段的任务书：** 财务抽取支持边界、公式清单、schema/接口迁移、批量操作细则；不在本路线图预先固定所有科目和表格算法。
 
-**任务书状态：** `FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md` v0.2 已就绪；FA-01～FA-06 已确认。A1～A5允许按批准后的编码计划推进；A6开始前必须先生成并由业务方复核 `FORMULA_REVIEW.md`，不得由开发代理自行冻结有歧义的财务公式。
+**任务书状态：** `FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md` v0.2 已就绪；FA-01～FA-06 已确认。A1～A5 已实施；A6～A7 依 `FINANCIAL_A6_A7_DEVELOPMENT_TASK.md` 实施并关闭（`FORMULA_REVIEW.md` 已由业务方复核、解除 A6 暂停门）。交付与关闭判定见 `A6_A7_DELIVERY_REPORT.md`。
 
 ### 2：Router 与 Hybrid Retrieval
 
@@ -276,7 +276,7 @@
 - [x] 0B：首版机器可读 Section Contracts 已形成并复核，SC-01～SC-05 规则已固化（见下方关闭记录）。
 - [x] 1：Evidence 任务书就绪，E1-01～E1-05 已确认；尚未进入代码实施。
 - [ ] 1：Evidence 与最小状态/恢复基础通过。
-- [ ] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过）。
+- [x] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过，1F-B 待 Phase 5）。
 - [ ] 2：Router/Hybrid 对照评测通过。
 - [ ] 3：真实工具与受预算约束的 Harness 通过。
 - [ ] 4：章节 Worker 与章节质量门通过。

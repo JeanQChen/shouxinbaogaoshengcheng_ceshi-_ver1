@@ -50,23 +50,27 @@
 
 ## 三、正在进行
 
-### [~] Phase 1F-A：财务来源、对账与核准计算基础
+### [x] Phase 1F-A：财务来源、对账与核准计算基础
 
-开发任务书：`FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md`。
+开发任务书：`FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md`（A1～A5）与
+`FINANCIAL_A6_A7_DEVELOPMENT_TASK.md`（A6～A7）。
 
-Claude Code 当前正在实施，完成情况必须以实际 commit、CLI、测试和验收记录为准，不能仅以计划或口头总结判定。
+A1～A7 已全部实施并通过专项 eval 与真实 300750 临时库主链验收，交付与关闭判定见
+`A6_A7_DELIVERY_REPORT.md`。
 
-- [ ] A1：Schema、来源登记、`financial_v2.db` 和权威 Store
-- [ ] A2：Excel 确定性抽取及真实单元格坐标
-- [ ] A3：电子 PDF 财务表格抽取及真实页/表/单元格坐标
-- [ ] A4：同源勾稽、跨来源对账和冲突分类
-- [ ] A5：集中人工确认、ResolutionRecord 和审计记录
-- [ ] 生成 `FORMULA_REVIEW.md`
-- [ ] 业务方复核存在歧义的公式口径
-- [ ] A6：Formula Registry、FinancialSnapshot 和 Python 指标计算
-- [ ] A7：V1 兼容适配、CLI、集成评测和阶段关闭验收
+- [x] A1：Schema、来源登记、`financial_v2.db` 和权威 Store
+- [x] A2：Excel 确定性抽取及真实单元格坐标
+- [x] A3：电子 PDF 财务表格抽取及真实页/表/单元格坐标
+- [x] A4：同源勾稽、跨来源对账和冲突分类
+- [x] A5：集中人工确认、ResolutionRecord 和审计记录
+- [x] 生成 `FORMULA_REVIEW.md`
+- [x] 业务方确认公式口径并解除 A6 暂停门（2026-09-07）
+- [x] A6：Formula Registry、FinancialSnapshot 和 Python 指标计算
+- [x] A7：V1 兼容适配、CLI、集成评测和阶段关闭验收
 
-强制门禁：A1～A5 可以连续实施；A6 开始前必须由业务方确认 `FORMULA_REVIEW.md`。未解决冲突不得进入 FinancialSnapshot，LLM 不得计算数字。
+强制门禁已满足：A1～A5 已关闭，`FORMULA_REVIEW.md` 已获业务确认；未解决冲突不得进入
+FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好）。Phase 1F-A 仅达成
+「基础出口」，不代表完整 1F（1F-B）通过。
 
 ## 四、后续 TODO
 
@@ -134,9 +138,9 @@ Claude Code 当前正在实施，完成情况必须以实际 commit、CLI、测�
 
 ## 六、当前最近的三个动作
 
-1. 等待 Claude Code 输出 Phase 1F-A 的实施/开发结果；若只完成 A1～A5，则检查并复核 `FORMULA_REVIEW.md`。
-2. 独立验收 Phase 1F-A：代码、数据库约束、真实 PDF/Excel 坐标、冲突路径、测试隔离和 V1 未受影响。
-3. Phase 1F-A 通过后，先同步 `V2_IMPLEMENTATION_PLAN.md` 的过期状态，再编写 Phase 2 Router + Hybrid Retrieval 开发任务书。
+1. 已完成 `FINANCIAL_A6_A7_DEVELOPMENT_TASK.md`（A6 Formula Registry / FinancialSnapshot / 指标计算；A7 V1 只读适配 / CLI / 进度 / 集成评测），见 `A6_A7_DELIVERY_REPORT.md`。
+2. 真实 300750 主链在临时库通过：Record Set(432) → Reconciliation(0 冲突) → Snapshot → Metric(112，81 exact/4 proxy/19 missing/8 not_applicable) → Adapter；V1 未受影响。
+3. Phase 1F-A 关闭后同步 `V2_IMPLEMENTATION_PLAN.md`，再编写 Phase 2 Router + Hybrid Retrieval 开发任务书。
 
 ## 七、完成定义
 

@@ -2,8 +2,8 @@
 
 > 交付时间：2026-09-07（含最后一次定点修复）
 > 范围：财务抽取（A2/A3）→ 确定性映射/标准化/勾稽/对账（A4）→ 集中确认（A5）
-> 状态：**A2～A5 完成；关闭缺口 9 项 + 最后一次定点修复 5 项；真实 PDF 三表坐标已验收；
-> 已生成 `FORMULA_REVIEW.md` 暂停门（`PROPOSED_DEFAULT` 未经业务确认），停止等待业务确认，不进入 A6/A7。**
+> 状态：**A2～A5 已验收关闭；真实 Excel/PDF 主链与三张主表坐标已验收；
+> `FORMULA_REVIEW.md` 已于 2026-09-07 完成业务确认，A6 公式确认门已关闭，可进入 A6/A7。**
 
 ---
 
@@ -236,16 +236,15 @@ python -m scripts.verify_pdf_acceptance data/samples/300750/announcements/NDSD_2
 | Progress/Checkpoint 来源于真实持久化事件 | ✅ Evidence progress/checkpoint 来自真实事件 |
 | 通用合成测试、真实样本坐标验收、完整 eval 通过 | ✅ 821/0 专项 + 真实 Excel/PDF 坐标验收 + 完整 eval（§11） |
 | V1 模块、数据库、Retriever、Baseline 未改变 | ✅ §9 零变更 |
-| `FORMULA_REVIEW.md` 已生成，执行停在 A6 业务确认门之前 | ✅ 已生成并修订（`PROPOSED_DEFAULT` 未经业务确认），未进入 A6 |
+| `FORMULA_REVIEW.md` 已生成，执行停在 A6 业务确认门之前 | ✅ 已生成并于 2026-09-07 完成业务确认；A6 确认门已关闭 |
 
-**结论：A2～A5 可关闭**（不进入 A6），前提是业务对 `FORMULA_REVIEW.md` 的
-`PROPOSED_DEFAULT` / `BUSINESS_CONFIRMATION_REQUIRED` 口径逐项确认后方可启动 A6。
+**结论：A2～A5 已关闭。** 业务已将 `FORMULA_REVIEW.md` 第 1～6 节口径确认为
+`BUSINESS_CONFIRMED`；季报增长明确不作为首版正式指标，A6 可以启动。
 
 ---
 
 ## 停止边界
 
-- 未实现 A6 Formula Registry / FinancialSnapshot / 财务指标计算 / A7。
-- 未把任何 `PROPOSED_DEFAULT` 或 `BUSINESS_CONFIRMATION_REQUIRED` 公式口径改为 confirmed
-  （见 `FORMULA_REVIEW.md`）。
-- 待业务对 `FORMULA_REVIEW.md` 逐项确认后，再进入 A6。
+- 本交付本身未实现 A6 Formula Registry / FinancialSnapshot / 财务指标计算 / A7。
+- 后续业务确认已单独记录在 `FORMULA_REVIEW.md`，不改写 A2～A5 的历史实现边界。
+- A6 开发必须继续遵守精确值/代理值/缺失值分离和 LLM 不计算数字的约束。
