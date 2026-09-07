@@ -52,6 +52,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_snapshots",
     "evals.test_financial_v2_formulas",
     "evals.test_financial_v2_metrics",
+    "evals.test_financial_v2_invalidation",
 ]
 
 
