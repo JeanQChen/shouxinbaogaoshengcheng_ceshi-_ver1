@@ -36,7 +36,7 @@ from decimal import Decimal
 # 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "5"
+SCHEMA_VERSION = "6"
 
 
 # ---------------------------------------------------------------------------
@@ -95,22 +95,54 @@ RESOLUTION_VALIDITY_STATUSES = ["active", "stale", "superseded"]
 # 快照有效性状态（存于 snapshot_validity 关系表，不修改快照本体）。
 SNAPSHOT_VALIDITY_STATUSES = ["valid", "stale", "superseded"]
 
-# 快照异常类型（固化未纳入计算的状态摘要，MetricResult reason_code 来源）。
-SNAPSHOT_EXCEPTION_TYPES = [
-    "missing_item",        # 缺输入科目
-    "excluded_item",       # 被排除的科目
-    "unresolved_conflict", # 未解决冲突
-    "insufficient_scope",  # scope 不足
-    "unconfirmed_mapping", # 未确认映射（LLM 候选等）
+# 政策调整白名单（首版仅速动比率对 OTHER_CURRENT_ASSETS 的结构化决策）。
+POLICY_ADJUSTMENT_TYPES = ["quick_ratio_other_current_asset"]
+
+# 政策调整决策（速动比率对 OTHER_CURRENT_ASSETS 只允许两种）。
+POLICY_ADJUSTMENT_DECISIONS = [
+    "NO_ADDITIONAL_EXCLUSION_CONFIRMED",  # 不追加扣除
+    "EXCLUDE_CONFIRMED_RECORDS",          # 仅扣除 record_refs 列出的真实记录
 ]
 
-# 指标计算状态与 reason_code。
+# 快照构建器 / 准入规则版本（进入 snapshot_id，规则升级后 id 变化，杜绝同 id 不同内容）。
+SNAPSHOT_BUILDER_VERSION = "1.0"
+ADMISSION_RULE_VERSION = "1.0"
+
+# 快照异常类型（固化未纳入计算的状态摘要，MetricResult reason_code 来源）。
+# 任务书 §6.3 九类；旧小写值仅兼容读取，v6 新写入只允许下列枚举。
+SNAPSHOT_EXCEPTION_TYPES = [
+    "MISSING_REQUIRED_ITEM",   # 缺必需输入科目
+    "UNRESOLVED_CONFLICT",     # 未解决冲突
+    "INSUFFICIENT_SCOPE",      # scope 不足
+    "UNCONFIRMED_MAPPING",     # 未确认映射（LLM 候选等）
+    "CHECK_FAILED",            # 同源勾稽失败影响的条目
+    "AMBIGUOUS_RESTATEMENT",   # 多个重述版本且未明确选择
+    "QUARANTINED_INPUT",       # 输入已隔离
+    "STALE_RESOLUTION",        # 决议已失效
+    "EXCLUDED_BY_POLICY",      # 被政策调整排除
+]
+
+# 指标计算主状态（任务书 §8.2 七个互斥状态）。
 METRIC_STATUSES = [
-    "ok",
-    "missing_input",
-    "zero_denominator",
-    "insufficient_period",
-    "conflict_blocked",
+    "CALCULATED_EXACT",       # 精确口径：全部必需输入真实存在且同口径
+    "CALCULATED_PROXY",       # 代理口径：使用了明确的代理输入（须带 reason_code）
+    "MISSING_INPUT",          # 必需输入整体缺失
+    "PARTIAL_INPUT",          # 部分输入缺失（如合计项混含非目标部分且无法拆分）
+    "ZERO_DENOMINATOR",       # 分母为 0
+    "NOT_APPLICABLE",         # 该期间/口径不适用（如季报正式增长率）
+    "BLOCKED_BY_SNAPSHOT",    # 快照异常阻断（冲突/重述/隔离/失效）
+]
+
+# 指标计算 reason_code（任务书 §8.2 至少覆盖；不得用 None 笼统表达失败）。
+METRIC_REASON_CODES = [
+    "PROXY_FINANCE_EXPENSES",
+    "MISSING_PRIOR_PERIOD",
+    "MISSING_REQUIRED_ITEM",
+    "MIXED_RECEIVABLE_BASIS_FORBIDDEN",
+    "UNRESOLVED_CONFLICT",
+    "AMBIGUOUS_RESTATEMENT",
+    "SNAPSHOT_STALE",
+    "QUARANTINED_INPUT",
 ]
 
 # 进度事件状态。
@@ -347,6 +379,62 @@ def derive_candidate_id(
     return "cand-" + _sha256_hex(raw, 32)
 
 
+def derive_snapshot_id(
+    company_id: str,
+    scope: str,
+    currency: str,
+    as_of_date: str,
+    purpose: str,
+    record_set_ids: list[str],
+    reconciliation_run_id: str | None,
+    source_versions: list[str],
+    resolution_versions: list[str],
+    restatement_selection: dict[str, str],
+    policy_adjustments: list["PolicyAdjustment"],
+    required_formula_versions: dict[str, str],
+    snapshot_builder_version: str,
+    admission_rule_version: str,
+) -> str:
+    """快照身份：业务键 + 输入身份 + 决议身份 + 选择/政策/规则版本的稳定派生。
+
+    任务书 §6.6 + 批准计划：snapshot_id 只由「决定快照内容的输入」派生，不含时间戳；
+    任何准入规则/构建器版本升级都会改变 id，杜绝「同 id 不同内容」。policy_adjustments
+    通过 policy_adjustment_to_dict 做规范序（record_refs 排序、列表按 JSON 序）。
+    """
+    pa_list = sorted(
+        (policy_adjustment_to_dict(pa) for pa in policy_adjustments),
+        key=lambda d: json.dumps(d, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+    )
+    raw = json.dumps({
+        "company_id": company_id,
+        "scope": scope,
+        "currency": currency,
+        "as_of_date": as_of_date,
+        "purpose": purpose,
+        "record_set_ids": sorted(record_set_ids),
+        "reconciliation_run_id": reconciliation_run_id,
+        "source_versions": sorted(source_versions),
+        "resolution_versions": sorted(resolution_versions),
+        "restatement_selection": sorted(restatement_selection.items()),
+        "policy_adjustments": pa_list,
+        "required_formula_versions": sorted(required_formula_versions.items()),
+        "snapshot_builder_version": snapshot_builder_version,
+        "admission_rule_version": admission_rule_version,
+    }, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "snap-" + _sha256_hex(raw, 32)
+
+
+def derive_metric_result_id(
+    snapshot_id: str,
+    formula_id: str,
+    formula_version: str,
+    period: str,
+) -> str:
+    """指标结果身份：快照 + 公式 + 版本 + 期间 的稳定派生（幂等重放得同一 id）。"""
+    raw = "|".join([snapshot_id, formula_id, formula_version, period])
+    return "mr-" + _sha256_hex(raw, 32)
+
+
 # ---------------------------------------------------------------------------
 # SourceLocator（显式联合类型，任务书 §6.2）
 # ---------------------------------------------------------------------------
@@ -526,6 +614,7 @@ class FinancialRecordSet:
     block_count: int
     record_count: int
     created_at: str
+    input_candidate_set_version: str | None = None   # 溯源指针（v6；旧行 None，normalization 写入非空）
 
 
 # ---------------------------------------------------------------------------
@@ -594,8 +683,58 @@ class ResolutionRecord:
 
 
 @dataclass
+class PolicyAdjustment:
+    """政策调整（批准计划 §4）：首版仅速动比率对 OTHER_CURRENT_ASSETS 的结构化决策。
+
+    决策只允许两种：NO_ADDITIONAL_EXCLUSION_CONFIRMED（不追加扣除）或
+    EXCLUDE_CONFIRMED_RECORDS（仅扣除 record_refs 列出的真实记录）。record_refs 必须
+    指向已存在的 SourceFinancialRecord / SnapshotItem 引用，禁止凭空造扣除。
+    """
+
+    adjustment_type: str
+    decision: str
+    record_refs: list[str]
+    reason_code: str
+    note: str
+    operator: str
+    confirmed_at: str
+
+
+def policy_adjustment_to_dict(pa: PolicyAdjustment) -> dict:
+    """把 PolicyAdjustment 规范化为可存储 JSON 的 dict（record_refs 排序）。"""
+    return {
+        "adjustment_type": pa.adjustment_type,
+        "decision": pa.decision,
+        "record_refs": sorted(pa.record_refs),
+        "reason_code": pa.reason_code,
+        "note": pa.note,
+        "operator": pa.operator,
+        "confirmed_at": pa.confirmed_at,
+    }
+
+
+def policy_adjustment_from_dict(d: dict) -> PolicyAdjustment:
+    """从存储 JSON 反序列化 PolicyAdjustment。"""
+    return PolicyAdjustment(
+        adjustment_type=d.get("adjustment_type", ""),
+        decision=d.get("decision", ""),
+        record_refs=list(d.get("record_refs", [])),
+        reason_code=d.get("reason_code", ""),
+        note=d.get("note", ""),
+        operator=d.get("operator", ""),
+        confirmed_at=d.get("confirmed_at", ""),
+    )
+
+
+@dataclass
 class FinancialSnapshot:
-    """财务快照（不可变，§6.6 / v3 修订 3：无 stale/retired 状态列）。"""
+    """财务快照（不可变，§6.6 / v3 修订 3：无 stale/retired 状态列）。
+
+    v6 追加 8 个头部字段：record_set_ids / reconciliation_run_id / restatement_selection /
+    policy_adjustments / required_formula_versions / snapshot_builder_version /
+    admission_rule_version / report_blocked，全部进入 snapshot_id 派生（见 derive_snapshot_id），
+    用于审计「这份快照由哪些输入、何种规则、何种政策选择算出」。
+    """
 
     snapshot_id: str
     snapshot_version: str
@@ -606,18 +745,37 @@ class FinancialSnapshot:
     purpose: str
     source_versions: list[str]
     resolution_versions: list[str]
+    record_set_ids: list[str]                 # 本次快照纳入的输入记录集合身份
+    reconciliation_run_id: str | None         # 精确准入的对账运行身份（无对账时为 None）
+    restatement_selection: dict[str, str]     # comparison_key → 选定的 restatement_version
+    policy_adjustments: list[PolicyAdjustment]  # 政策调整（白名单类型 + 结构化决策）
+    required_formula_versions: dict[str, str] # formula_id → 本次快照锁定的公式版本
+    snapshot_builder_version: str
+    admission_rule_version: str
+    report_blocked: bool                      # 报告生成是否被快照异常阻断
     created_at: str
 
 
 @dataclass
 class SnapshotItem:
-    """快照条目：标准值只出现一次，source_refs 恒非空，resolution_id 可空。"""
+    """快照条目：标准值只出现一次，source_refs 恒非空，resolution_id 可空。
+
+    v6 追加 6 个查询维度（report_period / period_type / statement_type / statement_scope /
+    currency / restatement_version），使指标计算无需回查来源记录即可按维度选取条目；
+    amount 由 float 升级为 Decimal（库内 amount_text 权威、amount REAL 兼容）。
+    """
 
     snapshot_id: str
     comparison_key: str
     standard_item_code: str
-    amount: float | None
+    amount: Decimal | None
     unit: str | None
+    report_period: str
+    period_type: str
+    statement_type: str
+    statement_scope: str
+    currency: str
+    restatement_version: str
     source_refs: list[str]       # 至少一个 SourceFinancialRecord.record_id
     resolution_id: str | None
 
@@ -637,10 +795,15 @@ class SnapshotException:
 
 @dataclass
 class FormulaDefinition:
-    """公式定义（§6.7，A6 填充内容）。"""
+    """公式定义（§6.7，A6 填充内容）。
+
+    v6 追加 name（展示名）/ impl_version（实现版本，与 formula_version 分离）/
+    proxy_rule（代理输入 + PROXY_* reason_code 映射的 JSON）。
+    """
 
     formula_id: str
     formula_version: str
+    name: str
     input_item_codes: list[str]
     period_requirement: str
     scope_requirement: str
@@ -648,22 +811,34 @@ class FormulaDefinition:
     missing_rule: str
     zero_denominator_rule: str
     rounding_rule: str
+    impl_version: str
+    proxy_rule: dict
     effective_at: str
 
 
 @dataclass
 class MetricResult:
-    """指标计算结果（§6.7，A6 填充）。"""
+    """指标计算结果（§6.7 / 任务书 §5.1 完整形态，A6 填充）。
 
+    raw_value / display_value 用 Decimal 承载（库内 TEXT 十进制字符串），unit 为展示单位；
+    input_snapshot_item_refs 存 comparison_key 列表，input_record_refs 存 record_id 列表，
+    双引用把指标结果同时溯源到快照条目与原始来源记录。status / reason_code 见 §8.2。
+    """
+
+    metric_result_id: str
     snapshot_id: str
     formula_id: str
     formula_version: str
     period: str
-    value: float | None
+    raw_value: Decimal | None
+    display_value: Decimal | None
     unit: str | None
-    input_refs: list[str]
+    input_snapshot_item_refs: list[str]
+    input_record_refs: list[str]
     status: str
     reason_code: str | None
+    calculation_detail: dict
+    created_at: str
 
 
 # ---------------------------------------------------------------------------

@@ -142,12 +142,13 @@ def _immutable_triggers(table: str) -> str:
 
 
 def build_ddl() -> str:
-    """返回最新（v5）建表语句（幂等）。
+    """返回最新（v6）建表语句（幂等）。
 
-    candidate_id 列不进 DDL 文本（_shared_ddl_tail 为 v1/v2 冻结共享，不得改动），
-    由 init_db / 迁移路径通过 _add_candidate_id_column() 单独补齐。
+    candidate_id / 十进制文本 / v6 快照指标列不进 v1/v2 冻结 DDL 文本（_shared_ddl_tail
+    为 v1/v2 冻结共享，不得改动），由 init_db / 迁移路径通过 _add_candidate_id_column /
+    _add_decimal_text_columns / _v6_ddl_statements 单独补齐。
     """
-    return _build_ddl_v2() + _build_ddl_v3() + _build_ddl_v5()
+    return _build_ddl_v2() + _build_ddl_v3() + _build_ddl_v5() + _build_ddl_v6()
 
 
 def _build_ddl_v1() -> str:
@@ -706,6 +707,61 @@ def _build_ddl_v5() -> str:
     return "\n".join(_v5_ddl_statements()) + "\n"
 
 
+def _v6_ddl_statements() -> list[str]:
+    """v6 追加 DDL 语句清单（每条一条语句，供事务内逐条执行，保证迁移原子性）。
+
+    A6 快照/指标层：不重写 v1~v5 已有表，仅追加列 + 新建 metric_result 表 + 补齐
+    snapshot_exception / formula_definition / metric_result 的不可变触发器（snapshot_exception
+    在 v2 冻结 DDL 中缺失触发器，此处显式补齐）。
+    """
+    stmts: list[str] = []
+    # snapshot_item：权威十进制金额 + 6 个查询维度（REAL amount 保留兼容）。
+    for col in ("amount_text", "report_period", "period_type", "statement_type",
+                "statement_scope", "currency", "restatement_version"):
+        stmts.append(f"ALTER TABLE snapshot_item ADD COLUMN {col} TEXT")
+    # financial_snapshot：8 个头部字段（全部进入 snapshot_id 派生，审计快照输入来源）。
+    for col in ("record_set_ids", "reconciliation_run_id", "restatement_selection",
+                "policy_adjustments", "required_formula_versions",
+                "snapshot_builder_version", "admission_rule_version"):
+        stmts.append(f"ALTER TABLE financial_snapshot ADD COLUMN {col} TEXT")
+    stmts.append("ALTER TABLE financial_snapshot ADD COLUMN report_blocked INTEGER")
+    # financial_record_set：溯源指针（指向输入候选集合版本，旧 v5 行可空）。
+    stmts.append("ALTER TABLE financial_record_set ADD COLUMN input_candidate_set_version TEXT")
+    # formula_definition：展示名 + 实现版本 + 代理规则。
+    stmts.append("ALTER TABLE formula_definition ADD COLUMN name TEXT")
+    stmts.append("ALTER TABLE formula_definition ADD COLUMN impl_version TEXT")
+    stmts.append("ALTER TABLE formula_definition ADD COLUMN proxy_rule TEXT")
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS metric_result (
+    metric_result_id         TEXT PRIMARY KEY,
+    snapshot_id              TEXT NOT NULL REFERENCES financial_snapshot(snapshot_id),
+    formula_id               TEXT NOT NULL,
+    formula_version          TEXT NOT NULL,
+    period                   TEXT NOT NULL,
+    raw_value                TEXT,
+    display_value            TEXT,
+    unit                     TEXT,
+    input_snapshot_item_refs TEXT NOT NULL,
+    input_record_refs        TEXT NOT NULL,
+    status                   TEXT NOT NULL,
+    reason_code              TEXT,
+    calculation_detail       TEXT NOT NULL,
+    created_at               TEXT NOT NULL,
+    UNIQUE (snapshot_id, formula_id, formula_version, period)
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_metric_result_snapshot ON metric_result(snapshot_id)")
+    # 补齐不可变触发器（snapshot_exception 原本缺失；formula_definition / metric_result 新设）。
+    for table in ("snapshot_exception", "formula_definition", "metric_result"):
+        stmts.extend(_immutable_trigger_sqls(table))
+    return [s if s.rstrip().endswith(";") else s.rstrip() + ";" for s in stmts]
+
+
+def _build_ddl_v6() -> str:
+    """返回 v6 追加 DDL 文本（仅用于全新库一次到位路径，走 executescript）。"""
+    return "\n".join(_v6_ddl_statements()) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # 迁移：v1 → v2（受控建新表 + 复制校验 + 替换）
 # ---------------------------------------------------------------------------
@@ -892,6 +948,21 @@ def _migrate_v4_to_v5(conn: sqlite3.Connection) -> None:
         conn.execute(stmt)
 
 
+def _migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
+    """v5 → v6：快照/指标层列 + metric_result 表 + 不可变触发器（追加式）。
+
+    逐条 conn.execute 而非 executescript，保证迁移原子性（失败回滚不残留半建表）。
+    前置校验：确认当前为 v5 结构（metric_result 尚未建表、snapshot_item 尚无 amount_text），
+    否则失败关闭（不假装成功）。
+    """
+    if _table_exists(conn, "metric_result"):
+        raise RuntimeError("迁移 v5→v6 前提不满足：metric_result 表已存在")
+    if "amount_text" in _table_columns(conn, "snapshot_item"):
+        raise RuntimeError("迁移 v5→v6 前提不满足：snapshot_item 已含 amount_text")
+    for stmt in _v6_ddl_statements():
+        conn.execute(stmt)
+
+
 def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r["version"] for r in conn.execute(
         "SELECT version FROM schema_migrations ORDER BY rowid")]
@@ -986,6 +1057,33 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
     for table in ("financial_metadata_confirmation", "financial_metadata_confirmation_head"):
         if not _table_exists(conn, table):
             raise RuntimeError(f"结构校验失败：缺 v5 表 {table}")
+    # v6 结构探针：快照/指标层列 + metric_result 表 + 不可变触发器。
+    si_cols = _table_columns(conn, "snapshot_item")
+    for col in ("amount_text", "report_period", "period_type", "statement_type",
+                "statement_scope", "currency", "restatement_version"):
+        if col not in si_cols:
+            raise RuntimeError(f"结构校验失败：snapshot_item 缺列 {col}")
+    snap_cols = _table_columns(conn, "financial_snapshot")
+    for col in ("record_set_ids", "reconciliation_run_id", "restatement_selection",
+                "policy_adjustments", "required_formula_versions",
+                "snapshot_builder_version", "admission_rule_version", "report_blocked"):
+        if col not in snap_cols:
+            raise RuntimeError(f"结构校验失败：financial_snapshot 缺列 {col}")
+    if "input_candidate_set_version" not in _table_columns(conn, "financial_record_set"):
+        raise RuntimeError("结构校验失败：financial_record_set 缺列 input_candidate_set_version")
+    fd_cols = _table_columns(conn, "formula_definition")
+    for col in ("name", "impl_version", "proxy_rule"):
+        if col not in fd_cols:
+            raise RuntimeError(f"结构校验失败：formula_definition 缺列 {col}")
+    if not _table_exists(conn, "metric_result"):
+        raise RuntimeError("结构校验失败：缺 v6 表 metric_result")
+    for table in ("snapshot_exception", "formula_definition", "metric_result"):
+        for trig in (f"trg_{table}_no_update", f"trg_{table}_no_delete"):
+            exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?", (trig,)
+            ).fetchone() is not None
+            if not exists:
+                raise RuntimeError(f"结构校验失败：缺不可变触发器 {trig}")
 
 
 # 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。
@@ -995,6 +1093,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("3", _migrate_v2_to_v3),   # v2 → v3：原始候选层 + 映射/对账/科目映射确认 + record 溯源列
     ("4", _migrate_v3_to_v4),   # v3 → v4：来源记录权威金额十进制文本列（追加式）
     ("5", _migrate_v4_to_v5),   # v4 → v5：结构化元数据确认（不可变历史表 + head 指针）
+    ("6", _migrate_v5_to_v6),   # v5 → v6：快照/指标层列 + metric_result 表 + 不可变触发器
 ]
 
 
@@ -1088,6 +1187,7 @@ def _row_to_record_set(row: sqlite3.Row) -> S.FinancialRecordSet:
     return S.FinancialRecordSet(
         record_set_version=row["record_set_version"],
         source_version=row["source_version"],
+        input_candidate_set_version=row["input_candidate_set_version"],
         extractor_name=row["extractor_name"],
         extractor_version=row["extractor_version"],
         mapping_rule_version=row["mapping_rule_version"],

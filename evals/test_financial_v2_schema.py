@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -262,17 +263,23 @@ def main() -> dict:
 
     item_empty_refs = S.SnapshotItem(
         snapshot_id="snap-1", comparison_key=ck, standard_item_code="TOTAL_ASSETS",
-        amount=1.0, unit="yuan", source_refs=[], resolution_id=None,
+        amount=Decimal("1.0"), unit="yuan", report_period="2024-12-31",
+        period_type="annual", statement_type="balance_sheet",
+        statement_scope="consolidated", currency="CNY", restatement_version="0",
+        source_refs=[], resolution_id=None,
     )
     _expect_validation_error(lambda: V.validate_snapshot_item(item_empty_refs),
                              "validator 拒绝 snapshot_item source_refs 为空")
 
     metric_ok_no_value = S.MetricResult(
-        snapshot_id="snap-1", formula_id="f1", formula_version="1", period="2024",
-        value=None, unit="yuan", input_refs=["rec-1"], status="ok", reason_code=None,
+        metric_result_id="mr-1", snapshot_id="snap-1", formula_id="f1",
+        formula_version="1", period="2024", raw_value=None, display_value=None,
+        unit="%", input_snapshot_item_refs=[], input_record_refs=[],
+        status="CALCULATED_EXACT", reason_code=None, calculation_detail={},
+        created_at="t",
     )
     _expect_validation_error(lambda: V.validate_metric_result(metric_ok_no_value),
-                             "validator 拒绝 status=ok 但 value=None")
+                             "validator 拒绝 CALCULATED_EXACT 但 raw_value=None")
 
     # ------------------------------------------------------------------
     # record_hash 覆盖（A1 修订 11）

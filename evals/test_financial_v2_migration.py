@@ -92,6 +92,30 @@ def _build_v2_db(path: str) -> None:
     conn.close()
 
 
+def _build_v5_db(path: str) -> None:
+    """构造一个「真实旧 v5 库」：完整 v2+v3+v5 DDL + candidate_id/十进制文本列 + 一行 v5 快照。
+
+    schema_migrations=['1'..'5']，financial_snapshot / snapshot_item / snapshot_exception /
+    formula_definition 均为 v2 冻结结构（无 v6 列），用于验证 v5→v6 追加式迁移与旧行存活。
+    """
+    conn = sqlite3.connect(path)
+    conn.executescript(store._build_ddl_v2() + store._build_ddl_v3() + store._build_ddl_v5())
+    store._add_candidate_id_column(conn)
+    store._add_decimal_text_columns(conn)
+    for v in ("1", "2", "3", "4", "5"):
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (?,?)",
+            (v, "2026-01-01T00:00:00Z"))
+    conn.execute(
+        "INSERT INTO financial_snapshot (snapshot_id, snapshot_version, company_id, as_of_date, "
+        "scope, currency, purpose, source_versions, resolution_versions, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("snap-v5", "ver-v5", "300750", "2024-12-31", "consolidated", "CNY",
+         "report", "[]", "[]", "2026-01-01T00:00:00Z"))
+    conn.commit()
+    conn.close()
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -123,8 +147,8 @@ def main() -> dict:
     p1 = tmp_db()
     try:
         store.init_db(p1)
-        check(store.applied_schema_version() == "5", "全新库 schema_migrations 最新版本 == '5'")
-        check(S.SCHEMA_VERSION == "5" == store.applied_schema_version(),
+        check(store.applied_schema_version() == "6", "全新库 schema_migrations 最新版本 == '6'")
+        check(S.SCHEMA_VERSION == "6" == store.applied_schema_version(),
               "SCHEMA_VERSION == 最新 migration 版本 == 实际应用版本")
         conn = sqlite3.connect(p1)
         rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
@@ -152,6 +176,25 @@ def main() -> dict:
                   "financial_metadata_confirmation"):
             check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
                   f"全新库 {t} 不可变触发器就位")
+        # v6 结构探针：快照/指标层列 + metric_result 表 + 不可变触发器。
+        si_cols = {r[1] for r in conn.execute("PRAGMA table_info(snapshot_item)")}
+        for col in ("amount_text", "report_period", "period_type", "statement_type",
+                    "statement_scope", "currency", "restatement_version"):
+            check(col in si_cols, f"全新库 snapshot_item 含 v6 列 {col}")
+        snap_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_snapshot)")}
+        for col in ("record_set_ids", "reconciliation_run_id", "restatement_selection",
+                    "policy_adjustments", "required_formula_versions",
+                    "snapshot_builder_version", "admission_rule_version", "report_blocked"):
+            check(col in snap_cols, f"全新库 financial_snapshot 含 v6 列 {col}")
+        check("input_candidate_set_version" in {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")},
+              "全新库 financial_record_set 含 v6 列 input_candidate_set_version")
+        fd_cols = {r[1] for r in conn.execute("PRAGMA table_info(formula_definition)")}
+        for col in ("name", "impl_version", "proxy_rule"):
+            check(col in fd_cols, f"全新库 formula_definition 含 v6 列 {col}")
+        check("metric_result" in tables, "全新库含 v6 表 metric_result")
+        for t in ("snapshot_exception", "formula_definition", "metric_result"):
+            check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
+                  f"全新库 {t} 不可变触发器就位")
         conn.close()
     finally:
         cleanup(p1)
@@ -163,7 +206,7 @@ def main() -> dict:
         store.init_db(p2)
 
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "迁移后 schema_migrations == ['1','2','3','4','5']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "迁移后 schema_migrations == ['1','2','3','4','5','6']")
 
         # v1 数据迁移后可读（文档头 + 内容版本文件事实 + 记录集合关键字段）。
         doc = store.get_source_document("sd-v1")
@@ -179,6 +222,8 @@ def main() -> dict:
               "v1 记录集合关键字段迁移后保留")
         check(rs is not None and rs.report_periods == [] and rs.currency is None
               and rs.extractor_name is None, "v2 新列以空/None 补齐（不猜测）")
+        check(rs is not None and rs.input_candidate_set_version is None,
+              "v6 列 input_candidate_set_version 旧行以 None 补齐（兼容读取）")
 
         # v2 新列 + 唯一键 + 触发器就位。
         rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
@@ -193,12 +238,21 @@ def main() -> dict:
         check("trg_financial_source_version_no_update" in triggers
               and "trg_financial_record_set_no_delete" in triggers,
               "迁移后不可变触发器重建就位")
+        # v6 结构探针：v1 一路迁移到 v6 后快照/指标层就位。
+        check("amount_text" in {r[1] for r in conn.execute("PRAGMA table_info(snapshot_item)")},
+              "v1→v6 后 snapshot_item 追加 amount_text 列")
+        check("report_blocked" in {r[1] for r in conn.execute("PRAGMA table_info(financial_snapshot)")},
+              "v1→v6 后 financial_snapshot 追加 report_blocked 列")
+        check("metric_result" in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")},
+              "v1→v6 后含 metric_result 表")
+        check("trg_snapshot_exception_no_update" in triggers,
+              "v1→v6 后 snapshot_exception 不可变触发器补齐")
         conn.close()
 
         # 幂等重跑：第二次 init 不重迁移、数据不变。
         store.init_db(p2)
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "第二次 init 不追加迁移记录")
         check(store.get_source_version("sv-v1").file_sha256 == "a" * 64, "第二次 init 数据不变")
         conn.close()
     finally:
@@ -230,7 +284,7 @@ def main() -> dict:
         conn.close()
         # 故障清除后可正常迁移。
         store.init_db(p3)
-        check(store.applied_schema_version() == "5", "故障清除后重跑迁移成功")
+        check(store.applied_schema_version() == "6", "故障清除后重跑迁移成功")
     finally:
         cleanup(p3)
 
@@ -320,7 +374,7 @@ def main() -> dict:
         conn.commit()
         conn.close()
         store.init_db(p7)
-        check(store.applied_schema_version() == "5", "修复故障后正常迁移到 v5")
+        check(store.applied_schema_version() == "6", "修复故障后正常迁移到 v6")
         conn = sqlite3.connect(p7)
         check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
               "修复后迁移 foreign_key_check 为空")
@@ -339,7 +393,7 @@ def main() -> dict:
 
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "v2→v5 迁移后 schema_migrations == ['1','2','3','4','5']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v2→v5 迁移后 schema_migrations == ['1','2','3','4','5','6']")
         rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
         check("candidate_id" in rec_cols, "v2→v5 后 source_financial_record 追加 candidate_id 列")
         check("raw_value_text" in rec_cols and "std_value_text" in rec_cols,
@@ -358,7 +412,7 @@ def main() -> dict:
         # 幂等重跑。
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "v2→v5 第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v2→v5 第二次 init 不追加迁移记录")
         conn.close()
     finally:
         cleanup(p8)
@@ -385,9 +439,62 @@ def main() -> dict:
         check(_applied_versions(conn) == ["1", "2"], "回滚后 schema_migrations 仍为 ['1','2']")
         conn.close()
         store.init_db(p9)
-        check(store.applied_schema_version() == "5", "故障清除后重跑迁移到 v5 成功")
+        check(store.applied_schema_version() == "6", "故障清除后重跑迁移到 v6 成功")
     finally:
         cleanup(p9)
+
+    # ---- v5 → v6：追加列 + metric_result 表 + 不可变触发器，旧 v5 快照行存活 ----
+    p10 = tmp_db()
+    try:
+        _build_v5_db(p10)
+        conn = sqlite3.connect(p10)
+        check("amount_text" not in {r[1] for r in conn.execute("PRAGMA table_info(snapshot_item)")},
+              "v5 库 snapshot_item 无 amount_text 列（迁移前）")
+        check("metric_result" not in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")},
+              "v5 库无 metric_result 表（迁移前）")
+        conn.close()
+
+        store.init_db(p10)
+        conn = sqlite3.connect(p10)
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5", "6"], "v5→v6 后 schema_migrations == ['1'..'6']")
+        check("amount_text" in {r[1] for r in conn.execute("PRAGMA table_info(snapshot_item)")},
+              "v5→v6 后 snapshot_item 追加 amount_text 列")
+        check("report_blocked" in {r[1] for r in conn.execute("PRAGMA table_info(financial_snapshot)")},
+              "v5→v6 后 financial_snapshot 追加 report_blocked 列")
+        check("input_candidate_set_version" in {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")},
+              "v5→v6 后 financial_record_set 追加 input_candidate_set_version 列")
+        check("metric_result" in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")},
+              "v5→v6 后含 metric_result 表")
+        triggers = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
+        for t in ("snapshot_exception", "formula_definition", "metric_result"):
+            check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
+                  f"v5→v6 后 {t} 不可变触发器就位")
+        row = conn.execute(
+            "SELECT snapshot_id, record_set_ids, report_blocked FROM financial_snapshot "
+            "WHERE snapshot_id='snap-v5'").fetchone()
+        check(row is not None and row[0] == "snap-v5" and row[1] is None and row[2] is None,
+              "v5→v6 后旧快照行存活且新列为 NULL（不重写历史行）")
+        check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
+              "v5→v6 迁移后 foreign_key_check 为空")
+        conn.close()
+    finally:
+        cleanup(p10)
+
+    # ---- v6 迁移前置校验失败关闭（metric_result 已存在 → 拒绝，不假装成功）----
+    p11 = tmp_db()
+    try:
+        _build_v5_db(p11)
+        conn = sqlite3.connect(p11)
+        conn.execute("CREATE TABLE metric_result (x INTEGER)")
+        conn.commit()
+        conn.close()
+        try:
+            store.init_db(p11)
+            check(False, "v5→v6 前置校验失败被拒绝")
+        except RuntimeError:
+            check(True, "v5→v6 前置校验失败（metric_result 已存在）→ 失败关闭")
+    finally:
+        cleanup(p11)
 
     # ---- 合成测试：版本顺序不依赖字符串大小（"9" vs "10"）----
     orig_migrations = store.MIGRATIONS

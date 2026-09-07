@@ -93,6 +93,9 @@ def validate_record_set(rs: S.FinancialRecordSet) -> None:
     _require(rs.block_count >= 0, f"block_count 必须非负: {rs.block_count!r}")
     _require(rs.record_count >= 0, f"record_count 必须非负: {rs.record_count!r}")
     _nonempty(rs.created_at, "created_at")
+    # v6 溯源指针：旧 v5 行允许 None（兼容读取）；新 normalized Record Set 由调用方写入非空。
+    if rs.input_candidate_set_version is not None:
+        _nonempty(rs.input_candidate_set_version, "input_candidate_set_version")
     # record_set_version 与派生规则重算一致（依赖版本纳入身份，A1 修订 5）。
     recomputed = S.derive_record_set_version(
         rs.source_version, rs.extractor_version, rs.mapping_rule_version,
@@ -262,6 +265,24 @@ def validate_resolution(res: S.ResolutionRecord) -> None:
     _nonempty(res.operator, "operator")
 
 
+def validate_policy_adjustment(pa: S.PolicyAdjustment) -> None:
+    _require(pa.adjustment_type in S.POLICY_ADJUSTMENT_TYPES,
+             f"adjustment_type 非法: {pa.adjustment_type!r}")
+    _require(pa.decision in S.POLICY_ADJUSTMENT_DECISIONS,
+             f"decision 非法: {pa.decision!r}")
+    _nonempty(pa.reason_code, "reason_code")
+    _require(isinstance(pa.record_refs, list), "record_refs 必须为 list")
+    _nonempty(pa.operator, "operator")
+    _nonempty(pa.confirmed_at, "confirmed_at")
+    if pa.decision == "EXCLUDE_CONFIRMED_RECORDS":
+        _require(len(pa.record_refs) > 0, "EXCLUDE_CONFIRMED_RECORDS 必须提供 record_refs")
+        for ref in pa.record_refs:
+            _nonempty(ref, "record_refs 元素")
+    else:  # NO_ADDITIONAL_EXCLUSION_CONFIRMED
+        _require(len(pa.record_refs) == 0,
+                 "NO_ADDITIONAL_EXCLUSION_CONFIRMED 不应携带 record_refs")
+
+
 def validate_snapshot(s: S.FinancialSnapshot) -> None:
     _nonempty(s.snapshot_id, "snapshot_id")
     _nonempty(s.snapshot_version, "snapshot_version")
@@ -270,12 +291,52 @@ def validate_snapshot(s: S.FinancialSnapshot) -> None:
     _require(s.scope in S.STATEMENT_SCOPES, f"scope 非法: {s.scope!r}")
     _require(s.currency in S.CURRENCIES, f"currency 非法: {s.currency!r}")
     _nonempty(s.purpose, "purpose")
+    _require(len(s.record_set_ids) > 0, "record_set_ids 不能为空")
+    if s.reconciliation_run_id is not None:
+        _nonempty(s.reconciliation_run_id, "reconciliation_run_id")
+    _require(isinstance(s.restatement_selection, dict),
+             "restatement_selection 必须为 dict")
+    for ck, rv in s.restatement_selection.items():
+        _nonempty(ck, "restatement_selection.key")
+        _nonempty(rv, "restatement_selection.value")
+    _require(isinstance(s.required_formula_versions, dict),
+             "required_formula_versions 必须为 dict")
+    for fid, ver in s.required_formula_versions.items():
+        _nonempty(fid, "required_formula_versions.key")
+        _nonempty(ver, "required_formula_versions.value")
+    for pa in s.policy_adjustments:
+        validate_policy_adjustment(pa)
+    _nonempty(s.snapshot_builder_version, "snapshot_builder_version")
+    _nonempty(s.admission_rule_version, "admission_rule_version")
+    _require(isinstance(s.report_blocked, bool), "report_blocked 必须为 bool")
+    # snapshot_id 与头部字段重算一致（防篡改头部字段沿用旧 id）。
+    recomputed = S.derive_snapshot_id(
+        s.company_id, s.scope, s.currency, s.as_of_date, s.purpose,
+        s.record_set_ids, s.reconciliation_run_id, s.source_versions,
+        s.resolution_versions, s.restatement_selection, s.policy_adjustments,
+        s.required_formula_versions, s.snapshot_builder_version,
+        s.admission_rule_version)
+    _require(s.snapshot_id == recomputed,
+             f"snapshot_id 与头部字段重算不一致: {s.snapshot_id!r}")
 
 
 def validate_snapshot_item(item: S.SnapshotItem) -> None:
     _nonempty(item.snapshot_id, "snapshot_id")
     _nonempty(item.comparison_key, "comparison_key")
     _nonempty(item.standard_item_code, "standard_item_code")
+    if item.amount is not None:
+        _require(_finite_decimal(item.amount),
+                 f"amount 必须为有限 Decimal: {item.amount!r}")
+        _require(item.unit is not None and item.unit in S.UNITS,
+                 f"amount 非空时 unit 必须为合法单位: {item.unit!r}")
+    _nonempty(item.report_period, "report_period")
+    _require(item.period_type in S.PERIOD_TYPES, f"period_type 非法: {item.period_type!r}")
+    _require(item.statement_type in S.STATEMENT_TYPES,
+             f"statement_type 非法: {item.statement_type!r}")
+    _require(item.statement_scope in S.STATEMENT_SCOPES,
+             f"statement_scope 非法: {item.statement_scope!r}")
+    _require(item.currency in S.CURRENCIES, f"currency 非法: {item.currency!r}")
+    _nonempty(item.restatement_version, "restatement_version")
     _require(len(item.source_refs) >= 1,
              "snapshot_item.source_refs 必须至少含一个来源引用")
     if item.resolution_id is not None:
@@ -292,25 +353,59 @@ def validate_snapshot_exception(exc: S.SnapshotException) -> None:
 
 
 def validate_metric_result(m: S.MetricResult) -> None:
+    _nonempty(m.metric_result_id, "metric_result_id")
     _nonempty(m.snapshot_id, "snapshot_id")
     _nonempty(m.formula_id, "formula_id")
     _nonempty(m.formula_version, "formula_version")
     _nonempty(m.period, "period")
     _require(m.status in S.METRIC_STATUSES, f"metric status 非法: {m.status!r}")
-    if m.status == "ok":
-        _require(m.value is not None, "status=ok 时 value 不能为 None")
-        _require(m.reason_code is None, "status=ok 时 reason_code 应为 None")
+    _require(isinstance(m.input_snapshot_item_refs, list),
+             "input_snapshot_item_refs 必须为 list")
+    _require(isinstance(m.input_record_refs, list),
+             "input_record_refs 必须为 list")
+    _require(isinstance(m.calculation_detail, dict),
+             "calculation_detail 必须为 dict")
+    _nonempty(m.created_at, "created_at")
+    if m.raw_value is not None:
+        _require(_finite_decimal(m.raw_value),
+                 f"raw_value 必须为有限 Decimal: {m.raw_value!r}")
+    if m.display_value is not None:
+        _require(_finite_decimal(m.display_value),
+                 f"display_value 必须为有限 Decimal: {m.display_value!r}")
+
+    if m.status in ("CALCULATED_EXACT", "CALCULATED_PROXY"):
+        _require(m.raw_value is not None, f"status={m.status} 时 raw_value 不能为 None")
+        _require(m.display_value is not None, f"status={m.status} 时 display_value 不能为 None")
+        _require(bool(m.unit) and bool(str(m.unit).strip()),
+                 f"status={m.status} 时 unit 不能为空")
+        if m.status == "CALCULATED_EXACT":
+            _require(m.reason_code is None, "CALCULATED_EXACT 时 reason_code 应为 None")
+        else:  # CALCULATED_PROXY
+            _require(m.reason_code in S.METRIC_REASON_CODES,
+                     f"CALCULATED_PROXY 时 reason_code 非法: {m.reason_code!r}")
     else:
-        _require(m.reason_code is not None, f"status={m.status} 必须含 reason_code")
+        # 非成功状态：不得产出数值，且必须给出具体 reason_code（不得用 None 笼统表达失败）。
+        _require(m.raw_value is None, f"status={m.status} 时 raw_value 应为 None")
+        _require(m.display_value is None, f"status={m.status} 时 display_value 应为 None")
+        _require(m.reason_code is not None and bool(str(m.reason_code).strip()),
+                 f"status={m.status} 必须含非空 reason_code")
+        if m.status in ("MISSING_INPUT", "PARTIAL_INPUT", "BLOCKED_BY_SNAPSHOT"):
+            _require(m.reason_code in S.METRIC_REASON_CODES,
+                     f"status={m.status} 时 reason_code 非法: {m.reason_code!r}")
+        # ZERO_DENOMINATOR / NOT_APPLICABLE：reason_code 允许自描述（如状态本身），只需非空。
 
 
 def validate_formula_definition(f: S.FormulaDefinition) -> None:
     _nonempty(f.formula_id, "formula_id")
     _nonempty(f.formula_version, "formula_version")
+    _nonempty(f.name, "name")
     _nonempty(f.python_impl, "python_impl")
+    _nonempty(f.impl_version, "impl_version")
     _nonempty(f.missing_rule, "missing_rule")
     _nonempty(f.zero_denominator_rule, "zero_denominator_rule")
     _nonempty(f.effective_at, "effective_at")
+    _require(isinstance(f.proxy_rule, dict), "proxy_rule 必须为 dict")
+    _require(len(f.input_item_codes) > 0, "input_item_codes 不能为空")
 
 
 # ---------------------------------------------------------------------------
