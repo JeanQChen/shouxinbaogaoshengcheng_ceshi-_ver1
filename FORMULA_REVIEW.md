@@ -11,22 +11,30 @@
 ## 0. 符号与约定
 
 - **输入科目代码**：与 `financial/schema.py` 常量名一致（V2 `standard_item_code` 同为英文大写）。
+- **版本**：本文件全部公式均为 V1 基线版本 `1.0`（「FORMULA_REVIEW 阶段」的冻结口径）。
+  A6 Formula Registry 落地时才分配正式版本号并升版；本文件不预注册 A6 版本号，也不把
+  任何待确认项提前升版为 confirmed。
 - **期间口径**：`end` = 期末值（报表日余额/流量）；`avg` = 期初期末平均值
   `(期初 + 期末) / 2`，期初 = 上一报告期同科目值。
+- **报告期**：比率/周转/费用类取「本期」（同一 `report_period` + `period_type`，annual 或
+  quarterly）；成长类取「本期 + 前期」（年报同比 = 最近上一个年报；季报环比 = 紧前期间）。
+  同一公式的所有输入科目必须来自同一报告期，不得跨期混比。
 - **scope**：V1 与 V2 均要求 `consolidated`（合并口径）；`parent`（母公司口径）不得与合并口径混用。
 - **单位**：V2 标准值为 `yuan`；比率无量纲；增长率无量纲（百分比）。
+- **负值规则**：比率类负分子/分母不阻断计算（保留符号供研判），仅分母为 0 判 `missing`；
+  增长率分母取 `|前期|`，负前期仍可算但符号含义需业务确认；期间不足（缺前期）判 `missing`。
 - **舍入**：V1 指标计算未做显式舍入（`float` 全精度）；A6 落地时建议统一输出 2 位小数（比率）
   与 2 位小数百分比（增长率），需业务确认。
 
 ## 1. 偿债能力（5 项）
 
-| Formula ID | 名称 | 表达式 | 分子 | 分母 | 期间口径 | scope | 异常规则 |
-|---|---|---|---|---|---|---|---|
-| `SOLV_CURRENT_RATIO` | 流动比率 | 流动 / 流动负债 | `CURRENT_ASSETS` | `CURRENT_LIABILITIES` | end | consolidated | 分母 0 → missing |
-| `SOLV_QUICK_RATIO` | 速动比率 | (流动 − 存货) / 流动负债 | `CURRENT_ASSETS` − `INVENTORY` | `CURRENT_LIABILITIES` | end | consolidated | 任一分子缺失 → missing；分母 0 → missing |
-| `SOLV_DEBT_RATIO` | 资产负债率 | 负债 / 资产 | `TOTAL_LIABILITIES` | `TOTAL_ASSETS` | end | consolidated | 分母 0 → missing |
-| `SOLV_INTEREST_COVER` | 利息保障倍数 | 息税前利润 / 财务费用 | `TOTAL_PROFIT` + `FINANCE_EXPENSES` | `FINANCE_EXPENSES` | end | consolidated | 分母 0 → missing |
-| `SOLV_EQUITY_MULT` | 权益乘数 | 资产 / 权益 | `TOTAL_ASSETS` | `TOTAL_EQUITY` | end | consolidated | 分母 0 → missing |
+| Formula ID | 版本 | 名称 | 表达式 | 分子 | 分母 | 期间口径 | 报告期 | scope | 异常规则 |
+|---|---|---|---|---|---|---|---|---|---|
+| `SOLV_CURRENT_RATIO` | 1.0 | 流动比率 | 流动 / 流动负债 | `CURRENT_ASSETS` | `CURRENT_LIABILITIES` | end | 本期 | consolidated | 分母 0 → missing |
+| `SOLV_QUICK_RATIO` | 1.0 | 速动比率 | (流动 − 存货) / 流动负债 | `CURRENT_ASSETS` − `INVENTORY` | `CURRENT_LIABILITIES` | end | 本期 | consolidated | 任一分子缺失 → missing；分母 0 → missing |
+| `SOLV_DEBT_RATIO` | 1.0 | 资产负债率 | 负债 / 资产 | `TOTAL_LIABILITIES` | `TOTAL_ASSETS` | end | 本期 | consolidated | 分母 0 → missing |
+| `SOLV_INTEREST_COVER` | 1.0 | 利息保障倍数 | 息税前利润 / 财务费用 | `TOTAL_PROFIT` + `FINANCE_EXPENSES` | `FINANCE_EXPENSES` | end | 本期 | consolidated | 分母 0 → missing |
+| `SOLV_EQUITY_MULT` | 1.0 | 权益乘数 | 资产 / 权益 | `TOTAL_ASSETS` | `TOTAL_EQUITY` | end | 本期 | consolidated | 分母 0 → missing |
 
 **口径差异 / 待确认：**
 
@@ -38,13 +46,13 @@
 
 ## 2. 盈利能力（5 项）
 
-| Formula ID | 名称 | 表达式 | 分子 | 分母 | 期间口径 | scope | 异常规则 |
-|---|---|---|---|---|---|---|---|
-| `PROF_GROSS_MARGIN` | 毛利率 | 毛利 / 营业收入 | `TOTAL_REVENUE` − `OPERATING_COST` | `TOTAL_REVENUE` | end | consolidated | 分母 0 → missing |
-| `PROF_NET_MARGIN` | 净利率 | 净利 / 营业收入 | `NET_PROFIT` | `TOTAL_REVENUE` | end | consolidated | 分母 0 → missing |
-| `PROF_ROE` | ROE | 净利 / 权益 | `NET_PROFIT` | `TOTAL_EQUITY` | end | consolidated | 分母 0 → missing |
-| `PROF_ROA` | ROA | 净利 / 资产 | `NET_PROFIT` | `TOTAL_ASSETS` | end | consolidated | 分母 0 → missing |
-| `PROF_OPER_MARGIN` | 营业利润率 | 营业利润 / 营业收入 | `OPERATING_PROFIT` | `TOTAL_REVENUE` | end | consolidated | 分母 0 → missing |
+| Formula ID | 版本 | 名称 | 表达式 | 分子 | 分母 | 期间口径 | 报告期 | scope | 异常规则 |
+|---|---|---|---|---|---|---|---|---|---|
+| `PROF_GROSS_MARGIN` | 1.0 | 毛利率 | 毛利 / 营业收入 | `TOTAL_REVENUE` − `OPERATING_COST` | `TOTAL_REVENUE` | end | 本期 | consolidated | 分母 0 → missing |
+| `PROF_NET_MARGIN` | 1.0 | 净利率 | 净利 / 营业收入 | `NET_PROFIT` | `TOTAL_REVENUE` | end | 本期 | consolidated | 分母 0 → missing |
+| `PROF_ROE` | 1.0 | ROE | 净利 / 权益 | `NET_PROFIT` | `TOTAL_EQUITY` | end | 本期 | consolidated | 分母 0 → missing |
+| `PROF_ROA` | 1.0 | ROA | 净利 / 资产 | `NET_PROFIT` | `TOTAL_ASSETS` | end | 本期 | consolidated | 分母 0 → missing |
+| `PROF_OPER_MARGIN` | 1.0 | 营业利润率 | 营业利润 / 营业收入 | `OPERATING_PROFIT` | `TOTAL_REVENUE` | end | 本期 | consolidated | 分母 0 → missing |
 
 **口径差异 / 待确认：**
 
@@ -56,11 +64,11 @@
 
 ## 3. 营运能力（3 项，期初期末平均）
 
-| Formula ID | 名称 | 表达式 | 分子 | 分母 | 期间口径 | scope | 异常规则 |
-|---|---|---|---|---|---|---|---|
-| `OPER_ASSET_TURNOVER` | 总资产周转率 | 营收 / 平均总资产 | `TOTAL_REVENUE` | avg(`TOTAL_ASSETS`) | avg | consolidated | 缺前期 → missing；分母 0 → missing |
-| `OPER_INV_TURNOVER` | 存货周转率 | 成本 / 平均存货 | `OPERATING_COST` | avg(`INVENTORY`) | avg | consolidated | 缺前期 → missing；分母 0 → missing |
-| `OPER_AR_TURNOVER` | 应收账款周转率 | 营收 / 平均应收 | `TOTAL_REVENUE` | avg(`ACCOUNTS_RECEIVABLE` ∨ `ACCOUNTS_RECEIVABLE_COMBINED`) | avg | consolidated | 缺前期 → missing；分母 0 → missing |
+| Formula ID | 版本 | 名称 | 表达式 | 分子 | 分母 | 期间口径 | 报告期 | scope | 异常规则 |
+|---|---|---|---|---|---|---|---|---|---|
+| `OPER_ASSET_TURNOVER` | 1.0 | 总资产周转率 | 营收 / 平均总资产 | `TOTAL_REVENUE` | avg(`TOTAL_ASSETS`) | avg | 本期 | consolidated | 缺前期 → missing；分母 0 → missing |
+| `OPER_INV_TURNOVER` | 1.0 | 存货周转率 | 成本 / 平均存货 | `OPERATING_COST` | avg(`INVENTORY`) | avg | 本期 | consolidated | 缺前期 → missing；分母 0 → missing |
+| `OPER_AR_TURNOVER` | 1.0 | 应收账款周转率 | 营收 / 平均应收 | `TOTAL_REVENUE` | avg(`ACCOUNTS_RECEIVABLE` ∨ `ACCOUNTS_RECEIVABLE_COMBINED`) | avg | 本期 | consolidated | 缺前期 → missing；分母 0 → missing |
 
 **口径差异 / 待确认：**
 
@@ -71,27 +79,27 @@
 
 ## 4. 现金流 / 费用（4 项）
 
-| Formula ID | 名称 | 表达式 | 分子 | 分母 | 期间口径 | scope | 异常规则 |
-|---|---|---|---|---|---|---|---|
-| `CASH_OCF_TO_NP` | 经营现金流/净利润 | 经营现金流 / 净利 | `OPERATING_CASH_FLOW` | `NET_PROFIT` | end | consolidated | 分母 0 → missing |
-| `CASH_OCF_TO_ASSET` | 现金流/总资产 | 经营现金流 / 资产 | `OPERATING_CASH_FLOW` | `TOTAL_ASSETS` | end | consolidated | 分母 0 → missing |
-| `CASH_OCF_TO_REV` | 现金流/营业收入 | 经营现金流 / 营收 | `OPERATING_CASH_FLOW` | `TOTAL_REVENUE` | end | consolidated | 分母 0 → missing |
-| `EXP_PERIOD_RATE` | 期间费用率 | 期间费用 / 营收 | `SALES_EXPENSES` + `ADMIN_EXPENSES` + `R_AND_D_EXPENSES` + `FINANCE_EXPENSES` | `TOTAL_REVENUE` | end | consolidated | 任一项缺失 → missing；分母 0 → missing |
+| Formula ID | 版本 | 名称 | 表达式 | 分子 | 分母 | 期间口径 | 报告期 | scope | 异常规则 |
+|---|---|---|---|---|---|---|---|---|---|
+| `CASH_OCF_TO_NP` | 1.0 | 经营现金流/净利润 | 经营现金流 / 净利 | `OPERATING_CASH_FLOW` | `NET_PROFIT` | end | 本期 | consolidated | 分母 0 → missing |
+| `CASH_OCF_TO_ASSET` | 1.0 | 现金流/总资产 | 经营现金流 / 资产 | `OPERATING_CASH_FLOW` | `TOTAL_ASSETS` | end | 本期 | consolidated | 分母 0 → missing |
+| `CASH_OCF_TO_REV` | 1.0 | 现金流/营业收入 | 经营现金流 / 营收 | `OPERATING_CASH_FLOW` | `TOTAL_REVENUE` | end | 本期 | consolidated | 分母 0 → missing |
+| `EXP_PERIOD_RATE` | 1.0 | 期间费用率 | 期间费用 / 营收 | `SALES_EXPENSES` + `ADMIN_EXPENSES` + `R_AND_D_EXPENSES` + `FINANCE_EXPENSES` | `TOTAL_REVENUE` | end | 本期 | consolidated | 任一项缺失 → missing；分母 0 → missing |
 
 **口径差异 / 待确认：** 无重大歧义；期间费用范围（是否含财务费用）默认确认即可，但若需细分口径请业务确认。
 
 ## 5. 成长（8 项，同比/环比）
 
-| Formula ID | 名称 | 表达式 | 科目 | 期间口径 | scope | 异常规则 |
-|---|---|---|---|---|---|---|
-| `GROWTH_REVENUE` | 营收增长率 | (本期 − 前期) / \|前期\| | `TOTAL_REVENUE` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_NET_PROFIT` | 净利增长率 | (本期 − 前期) / \|前期\| | `NET_PROFIT` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_ASSET` | 资产增长率 | (本期 − 前期) / \|前期\| | `TOTAL_ASSETS` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_LIABILITY` | 负债增长率 | (本期 − 前期) / \|前期\| | `TOTAL_LIABILITIES` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_EQUITY` | 净资产增长率 | (本期 − 前期) / \|前期\| | `TOTAL_EQUITY` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_OCF` | 经营现金流增长率 | (本期 − 前期) / \|前期\| | `OPERATING_CASH_FLOW` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_ICF` | 投资现金流增长率 | (本期 − 前期) / \|前期\| | `INVESTING_CASH_FLOW` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
-| `GROWTH_FCF` | 筹资现金流增长率 | (本期 − 前期) / \|前期\| | `FINANCING_CASH_FLOW` | 年报同比 / 季报环比 | consolidated | 前期 0 → missing |
+| Formula ID | 版本 | 名称 | 表达式 | 科目 | 期间口径 | 报告期 | scope | 异常规则 |
+|---|---|---|---|---|---|---|---|---|
+| `GROWTH_REVENUE` | 1.0 | 营收增长率 | (本期 − 前期) / \|前期\| | `TOTAL_REVENUE` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_NET_PROFIT` | 1.0 | 净利增长率 | (本期 − 前期) / \|前期\| | `NET_PROFIT` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_ASSET` | 1.0 | 资产增长率 | (本期 − 前期) / \|前期\| | `TOTAL_ASSETS` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_LIABILITY` | 1.0 | 负债增长率 | (本期 − 前期) / \|前期\| | `TOTAL_LIABILITIES` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_EQUITY` | 1.0 | 净资产增长率 | (本期 − 前期) / \|前期\| | `TOTAL_EQUITY` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_OCF` | 1.0 | 经营现金流增长率 | (本期 − 前期) / \|前期\| | `OPERATING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_ICF` | 1.0 | 投资现金流增长率 | (本期 − 前期) / \|前期\| | `INVESTING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_FCF` | 1.0 | 筹资现金流增长率 | (本期 − 前期) / \|前期\| | `FINANCING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
 
 **口径差异 / 待确认：** 分母取绝对值 `|前期|`，负前期仍可算（符号含义需业务确认）；
 前期为 0 时视为不可算。年报期同比取「最近上一个年报」，季报期环比取「紧前期间」。
@@ -124,6 +132,8 @@ V1 全部公式输入科目（第 1–5 节）在 V2 `financial_v2/mapping.py` �
 |---|---|---|
 | `CONFIRMED_DEFAULT` | 偿债 3（流动比率 / 资产负债率 / 权益乘数）、盈利 2（净利率 / 营业利润率）、现金流 3、费用 1、成长 8 | 表达式无歧义、输入可得 |
 | `BUSINESS_CONFIRMATION_REQUIRED` | 速动比率、利息保障倍数、毛利率、ROE、ROA、应收账款周转率、EBITDA、利息费用、有息负债、自由现金流 | 口径有歧义或定义缺失 |
+
+全部公式当前版本均为 V1 基线 `1.0`；进入 A6 Formula Registry 后才分配正式版本号并升版。
 
 ## 9. 暂停门结论
 
