@@ -49,6 +49,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_resolutions",
     "evals.test_financial_v2_resolutions_ui",
     "evals.test_financial_v2_snapshot_store",
+    "evals.test_financial_v2_snapshots",
 ]
 
 
