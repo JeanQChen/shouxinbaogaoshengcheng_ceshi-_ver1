@@ -152,16 +152,25 @@ python -m financial_v2.metadata_confirmation --company <id> --source-document <d
 
 ### 6.1 真实电子年报 PDF 验收（300750 / NDSD_2024_year.pdf，定点修复 ⑤）
 
-通过 `scripts/verify_pdf_acceptance.py`（`python -m scripts.verify_pdf_acceptance`）走已实现接口
-完成真实 PDF 验收，结果如下：
+通过 `scripts/verify_pdf_acceptance.py` 走已实现接口完成真实 PDF 验收（pdfplumber **`0.11.4`**，
+页范围 **`114-124`**，1-based 物理页，覆盖合并 + 母公司三张主表）。运行命令：
+
+```bash
+python -m scripts.verify_pdf_acceptance data/samples/300750/announcements/NDSD_2024_year.pdf \
+  --company 300750 --pages 114-124 \
+  --declared-name "宁德时代新能源科技股份有限公司" \
+  --detected-name "宁德时代新能源科技股份有限公司"
+```
+
+结果如下：
 
 | 环节 | 结果 |
 |---|---|
-| source 登记（Evidence 联动入口） | `source_registry.register_source` → `source_version=sv-ad5b007d5d460624f363516c`，`file_sha256=b4f1713d…`，`subject_match_status=matched` |
-| Evidence document_id/document_version 查找 | `evidence.store.get_document` 回查 `document_id=doc-…`、`document_version=sha256-b4f1713d7b821eb0`，company/file_sha256/document_version 三方一致（`consistent=True`） |
+| source 登记（Evidence 联动入口） | `source_registry.register_source` → `source_version=sv-ad5b007d5d460624f363516c`，`file_sha256=b4f1713d7b821eb0`，`subject_match_status=matched`（`--declared-name`/`--detected-name` 显式传入；二者缺省 → `None`/`unverified`，脚本不按 company_id 猜公司名） |
+| Evidence document_id/document_version 查找 | `evidence.store.get_document` 回查 `document_id=doc-b4decc72fbc64f10`、`document_version=sha256-b4f1713d7b821eb0`，company/file_sha256/document_version 三方一致（`consistent=True`） |
 | 三张主表定位（真实 `table_bbox`） | 合并资产负债表 p114 `[56.84, 195.32, 538.44, 764.43]`；合并利润表 p119 `[56.84, 165.08, 538.44, 759.45]`；合并现金流量表 p122 `[56.84, 563.4, 538.44, 769.5]` |
 | 各表抽样金额（真实 `cell_bbox`） | 资产负债表「货币资金」303,511,993 千元（cell `[217.38, 229.30, 377.96, 246.87]`）；利润表「营业总收入」362,012,554 千元（cell `[217.37, 182.08, 377.95, 199.36]`）；现金流量表「销售商品、提供劳务收到的现金」417,525,378 千元（cell `[217.38, 596.83, 377.96, 614.30]`） |
-| 抽取统计 | 候选 238、问题 52（`CELL_BBOX_UNAVAILABLE`/`CLASSIFICATION_REQUIRED`/`HEADER_UNRESOLVED`，均为跨页续表/标题缺页等结构性未对齐，非「尚未登记关联」） |
+| 抽取统计 | 候选 **246**、问题 52（`CELL_BBOX_UNAVAILABLE`/`CLASSIFICATION_REQUIRED`/`HEADER_UNRESOLVED`，均为跨页续表/标题缺页等结构性未对齐，非「尚未登记关联」） |
 
 验收发现并修复了 pdfplumber 网格的**表头标签列与数值/科目列错位**问题（表头含附注/对齐子列、
 数据行合并为宽数值列，导致期间标签在 col4/col7、数值在 col3/col6、科目长文本向左合并到 col0）：

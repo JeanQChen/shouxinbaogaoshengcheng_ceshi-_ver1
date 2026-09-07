@@ -1,6 +1,7 @@
 """真实电子年报 PDF 验收（A2~A5 定点修复 5）：走 Evidence 联动入口完成三张主表定位 + 金额抽样。
 
 用法: python -m scripts.verify_pdf_acceptance <pdf> --company 300750 [--pages 114-124]
+     [--declared-name 宁德时代新能源科技股份有限公司] [--detected-name 宁德时代新能源科技股份有限公司]
 
 流程（全部走已实现接口，不绕过契约）：
 1. source_registry.register_source —— 登记财务来源，PDF 自动联动 Phase 1 Evidence Registry
@@ -52,6 +53,8 @@ def main() -> int:
     ap.add_argument("--db", default=None, help="financial_v2 SQLite 路径（缺省临时库）")
     ap.add_argument("--evidence-db", default=None, help="Evidence SQLite 路径（缺省临时库）")
     ap.add_argument("--source-doc-id", default=None, help="外部业务文档编号（缺省用文件名）")
+    ap.add_argument("--declared-name", default=None, help="申报主体名（缺省 None → subject_match_status=unverified）")
+    ap.add_argument("--detected-name", default=None, help="检测主体名（缺省 None → subject_match_status=unverified）")
     args = ap.parse_args()
 
     pdf_path = Path(args.pdf).resolve()
@@ -77,8 +80,8 @@ def main() -> int:
             source_name=pdf_path.name,
             source_class="financial_statement",
             external_document_id=args.source_doc_id or pdf_path.name,
-            declared_company_name="宁德时代新能源科技股份有限公司",
-            detected_company_name="宁德时代新能源科技股份有限公司",
+            declared_company_name=args.declared_name,
+            detected_company_name=args.detected_name,
         )
         reg = source_registry.register_source(str(pdf_path), ctx, evidence_db_path=evid_db)
         v = reg.version
