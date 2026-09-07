@@ -123,12 +123,12 @@ def _immutable_triggers(table: str) -> str:
 
 
 def build_ddl() -> str:
-    """返回最新（v3）建表语句（幂等）。
+    """返回最新（v5）建表语句（幂等）。
 
     candidate_id 列不进 DDL 文本（_shared_ddl_tail 为 v1/v2 冻结共享，不得改动），
     由 init_db / 迁移路径通过 _add_candidate_id_column() 单独补齐。
     """
-    return _build_ddl_v2() + _build_ddl_v3()
+    return _build_ddl_v2() + _build_ddl_v3() + _build_ddl_v5()
 
 
 def _build_ddl_v1() -> str:
@@ -647,6 +647,46 @@ def _build_ddl_v3() -> str:
     return "\n".join(_v3_ddl_statements()) + "\n"
 
 
+def _v5_ddl_statements() -> list[str]:
+    """v5 追加 DDL 语句清单（每条一条语句，供事务内逐条执行，保证迁移原子性）。
+
+    新增结构化元数据确认（fix #1）：追加式不可变历史表 + head 指针表。只新增表，
+    不重写 v1~v4 已有表。
+    """
+    stmts: list[str] = []
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS financial_metadata_confirmation (
+    confirmation_id    TEXT PRIMARY KEY,
+    version            TEXT NOT NULL,
+    company_id         TEXT NOT NULL,
+    source_document_id TEXT NOT NULL REFERENCES financial_source_document(source_document_id),
+    field              TEXT NOT NULL,
+    value              TEXT NOT NULL,
+    source_type        TEXT NOT NULL,
+    basis              TEXT NOT NULL,
+    operator           TEXT NOT NULL,
+    confirmed_at       TEXT NOT NULL
+)""")
+    stmts.append("CREATE INDEX IF NOT EXISTS idx_metaconf_src_doc ON financial_metadata_confirmation(source_document_id, field)")
+    stmts.extend(_immutable_trigger_sqls("financial_metadata_confirmation"))
+
+    stmts.append("""
+CREATE TABLE IF NOT EXISTS financial_metadata_confirmation_head (
+    company_id         TEXT NOT NULL,
+    source_document_id TEXT NOT NULL,
+    field              TEXT NOT NULL,
+    confirmation_id    TEXT NOT NULL REFERENCES financial_metadata_confirmation(confirmation_id),
+    updated_at         TEXT NOT NULL,
+    PRIMARY KEY (company_id, source_document_id, field)
+)""")
+    return [s if s.rstrip().endswith(";") else s.rstrip() + ";" for s in stmts]
+
+
+def _build_ddl_v5() -> str:
+    """返回 v5 追加 DDL 文本（仅用于全新库一次到位路径，走 executescript）。"""
+    return "\n".join(_v5_ddl_statements()) + "\n"
+
+
 # ---------------------------------------------------------------------------
 # 迁移：v1 → v2（受控建新表 + 复制校验 + 替换）
 # ---------------------------------------------------------------------------
@@ -824,6 +864,15 @@ def _migrate_v3_to_v4(conn: sqlite3.Connection) -> None:
     _add_decimal_text_columns(conn)
 
 
+def _migrate_v4_to_v5(conn: sqlite3.Connection) -> None:
+    """v4 → v5：结构化元数据确认（不可变历史表 + head 指针，追加式）。
+
+    逐条 conn.execute 而非 executescript，保证迁移原子性（失败回滚不残留半建表）。
+    """
+    for stmt in _v5_ddl_statements():
+        conn.execute(stmt)
+
+
 def _read_applied_versions(conn: sqlite3.Connection) -> list[str]:
     return [r["version"] for r in conn.execute(
         "SELECT version FROM schema_migrations ORDER BY rowid")]
@@ -914,6 +963,10 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
                   "current_reconciliation"):
         if not _table_exists(conn, table):
             raise RuntimeError(f"结构校验失败：缺 v3 表 {table}")
+    # v5 结构探针：结构化元数据确认表。
+    for table in ("financial_metadata_confirmation", "financial_metadata_confirmation_head"):
+        if not _table_exists(conn, table):
+            raise RuntimeError(f"结构校验失败：缺 v5 表 {table}")
 
 
 # 迁移列表（追加式；已应用版本记录在 schema_migrations 表）。
@@ -922,6 +975,7 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("2", _migrate_v1_to_v2),   # v1 → v2：内容版本瘦身 + 记录集合抽取事实
     ("3", _migrate_v2_to_v3),   # v2 → v3：原始候选层 + 映射/对账/科目映射确认 + record 溯源列
     ("4", _migrate_v3_to_v4),   # v3 → v4：来源记录权威金额十进制文本列（追加式）
+    ("5", _migrate_v4_to_v5),   # v4 → v5：结构化元数据确认（不可变历史表 + head 指针）
 ]
 
 
@@ -2803,6 +2857,131 @@ def invalidate_resolution_record(resolution_id: str, invalidated_by: str | None 
     except Exception:
         conn.rollback()
         raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 结构化元数据确认持久化（fix #1：追加式不可变历史 + head 指针）
+# ---------------------------------------------------------------------------
+
+def _row_to_metadata_confirmation(row: sqlite3.Row) -> S.MetadataConfirmation:
+    return S.MetadataConfirmation(
+        confirmation_id=row["confirmation_id"],
+        version=row["version"],
+        company_id=row["company_id"],
+        source_document_id=row["source_document_id"],
+        field=row["field"],
+        value=row["value"],
+        source_type=row["source_type"],
+        basis=row["basis"],
+        operator=row["operator"],
+        confirmed_at=row["confirmed_at"],
+    )
+
+
+def _metadata_confirmation_identical(row: sqlite3.Row, mc: S.MetadataConfirmation) -> bool:
+    """内容寻址复用核对：只比较身份字段（version 已由 validator 与内容重算一致）。
+
+    basis/operator/confirmed_at 属审计事实，不参与版本身份——同一 (公司/文档/字段/值/
+    来源类型) 重复确认视为幂等重复提交，复用首条历史行（不同操作者不产生新行）。
+    """
+    return (
+        row["confirmation_id"] == mc.confirmation_id
+        and row["version"] == mc.version
+        and row["company_id"] == mc.company_id
+        and row["source_document_id"] == mc.source_document_id
+        and row["field"] == mc.field
+        and row["value"] == mc.value
+        and row["source_type"] == mc.source_type
+    )
+
+
+def commit_metadata_confirmations(confirmations: list[S.MetadataConfirmation]) -> int:
+    """原子提交一批元数据确认（不可变历史 + head 指针，幂等可重放）。
+
+    全有或全无：任一条非法/冲突即回滚，零写入。同 (公司/文档/字段) 的重复确认：
+    内容寻址 version 相同 → 复用历史行；值不同 → 追加新历史行，head 指向最新。
+    返回实际新插入条数。
+    """
+    if not confirmations:
+        raise ValueError("confirmations 不能为空")
+    for mc in confirmations:
+        validator.validate_metadata_confirmation(mc)
+    heads = {(mc.company_id, mc.source_document_id, mc.field) for mc in confirmations}
+    if len(heads) != len(confirmations):
+        raise validator.ValidationError("批内 (company_id, source_document_id, field) 重复")
+
+    conn = _get_conn()
+    try:
+        now = _utcnow()
+        inserted = 0
+        for mc in confirmations:
+            existing = conn.execute(
+                "SELECT * FROM financial_metadata_confirmation WHERE confirmation_id=?",
+                (mc.confirmation_id,),
+            ).fetchone()
+            if existing is not None:
+                if not _metadata_confirmation_identical(existing, mc):
+                    raise StorageConflictError(
+                        f"confirmation_id 已存在但内容不一致: {mc.confirmation_id}")
+            else:
+                conn.execute(
+                    "INSERT INTO financial_metadata_confirmation (confirmation_id, version, "
+                    "company_id, source_document_id, field, value, source_type, basis, "
+                    "operator, confirmed_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (mc.confirmation_id, mc.version, mc.company_id, mc.source_document_id,
+                     mc.field, mc.value, mc.source_type, mc.basis, mc.operator, mc.confirmed_at),
+                )
+                inserted += 1
+            conn.execute(
+                "INSERT INTO financial_metadata_confirmation_head (company_id, "
+                "source_document_id, field, confirmation_id, updated_at) VALUES (?,?,?,?,?) "
+                "ON CONFLICT(company_id, source_document_id, field) DO UPDATE SET "
+                "confirmation_id=excluded.confirmation_id, updated_at=excluded.updated_at",
+                (mc.company_id, mc.source_document_id, mc.field, mc.confirmation_id, now),
+            )
+        conn.commit()
+        return inserted
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def list_metadata_confirmations(company_id: str, source_document_id: str | None = None) -> list[S.MetadataConfirmation]:
+    """按公司（可选按文档）读取全部元数据确认历史行（含被后续覆盖的旧值）。"""
+    conn = _get_conn()
+    try:
+        if source_document_id is not None:
+            rows = conn.execute(
+                "SELECT * FROM financial_metadata_confirmation "
+                "WHERE company_id=? AND source_document_id=? ORDER BY confirmed_at, rowid",
+                (company_id, source_document_id),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM financial_metadata_confirmation "
+                "WHERE company_id=? ORDER BY confirmed_at, rowid",
+                (company_id,),
+            ).fetchall()
+        return [_row_to_metadata_confirmation(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_active_metadata_confirmations(company_id: str, source_document_id: str) -> dict[str, S.MetadataConfirmation]:
+    """读取某文档当前生效的元数据确认（head 指针），按 field 返回 {field: confirmation}。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT m.* FROM financial_metadata_confirmation_head h "
+            "JOIN financial_metadata_confirmation m ON m.confirmation_id = h.confirmation_id "
+            "WHERE h.company_id=? AND h.source_document_id=?",
+            (company_id, source_document_id),
+        ).fetchall()
+        return {r["field"]: _row_to_metadata_confirmation(r) for r in rows}
     finally:
         conn.close()
 

@@ -36,7 +36,7 @@ from decimal import Decimal
 # 版本常量
 # ---------------------------------------------------------------------------
 
-SCHEMA_VERSION = "4"
+SCHEMA_VERSION = "5"
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +184,18 @@ CHECK_TYPES = [
     "REVENUE_COST_BREAKDOWN",      # 收入/成本附注构成合计 vs 主表（字段可得且口径一致时）
 ]
 
+# 结构化元数据确认可确认的字段（fix #1：statement_scope / currency / audit_status /
+# restatement_version；用户只确认元数据，绝不填替代财务金额）。
+METADATA_CONFIRMATION_FIELDS = [
+    "statement_scope",
+    "currency",
+    "audit_status",
+    "restatement_version",
+]
+
+# 元数据确认来源类型：document_body = 从文档正文识别；user_declaration = 用户结构化声明。
+METADATA_CONFIRMATION_SOURCE_TYPES = ["document_body", "user_declaration"]
+
 
 # ---------------------------------------------------------------------------
 # 纯函数：身份 / 版本 / 比较键派生（无 I/O）
@@ -290,6 +302,28 @@ def derive_record_id(record_set_version: str, identity: dict) -> str:
     """记录不可变身份：record_set_version + 规范化内容 + 坐标。"""
     canonical = json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return "rec-" + _sha256_hex(f"{record_set_version}|{canonical}", 32)
+
+
+def derive_metadata_confirmation_version(
+    company_id: str,
+    source_document_id: str,
+    field: str,
+    value: str,
+    source_type: str,
+) -> str:
+    """元数据确认的内容版本：同一 (公司/文档/字段/值/来源类型) 得到稳定版本。
+
+    不含时间戳（content-addressed，幂等重放得同一版本）；basis/operator/time 属
+    审计事实，不参与版本身份（同一内容不同操作者视为同一确认的重复提交）。
+    """
+    raw = json.dumps({
+        "company_id": company_id,
+        "source_document_id": source_document_id,
+        "field": field,
+        "value": value,
+        "source_type": source_type,
+    }, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "mc-" + _sha256_hex(raw, 24)
 
 
 def derive_candidate_id(
@@ -796,5 +830,26 @@ class MappingResolution:
     chosen_item_code: str | None
     reason_code: str
     note: str | None
+    operator: str
+    confirmed_at: str
+
+
+@dataclass
+class MetadataConfirmation:
+    """结构化元数据确认（fix #1：statement_scope/currency/audit_status/restatement_version）。
+
+    用户只确认元数据，绝不填替代财务金额；记录值 value / source_type / basis /
+    operator / confirmed_at 全审计。同一 (公司/文档/字段/值/来源类型) 内容寻址
+    得到同一 version；追加式（head 指针指向最新，历史行不可变，不 UPDATE）。
+    """
+
+    confirmation_id: str
+    version: str
+    company_id: str
+    source_document_id: str
+    field: str                  # METADATA_CONFIRMATION_FIELDS 之一
+    value: str                  # 归一化后的枚举/文本值（如 "consolidated" / "CNY" / "audited" / "0"）
+    source_type: str            # document_body | user_declaration
+    basis: str                  # 依据：正文片段 / 用户声明说明
     operator: str
     confirmed_at: str

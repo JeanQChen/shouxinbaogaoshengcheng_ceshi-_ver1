@@ -447,6 +447,42 @@ def validate_mapping_resolution(res: S.MappingResolution) -> None:
     _nonempty(res.confirmed_at, "confirmed_at")
 
 
+# ---------------------------------------------------------------------------
+# 结构化元数据确认（fix #1）
+# ---------------------------------------------------------------------------
+
+def validate_metadata_confirmation(mc: S.MetadataConfirmation) -> None:
+    """校验一条元数据确认：字段/值/来源类型白名单 + 内容寻址版本重算一致。"""
+    _nonempty(mc.confirmation_id, "confirmation_id")
+    _nonempty(mc.version, "version")
+    _nonempty(mc.company_id, "company_id")
+    _nonempty(mc.source_document_id, "source_document_id")
+    _require(mc.field in S.METADATA_CONFIRMATION_FIELDS,
+             f"field 非法: {mc.field!r}")
+    _nonempty(mc.value, "value")
+    _require(mc.source_type in S.METADATA_CONFIRMATION_SOURCE_TYPES,
+             f"source_type 非法: {mc.source_type!r}")
+    _nonempty(mc.basis, "basis")
+    _nonempty(mc.operator, "operator")
+    _nonempty(mc.confirmed_at, "confirmed_at")
+
+    # 字段值白名单：不同字段有各自合法取值域（枚举/占位文本）。
+    if mc.field == "statement_scope":
+        _require(mc.value in S.STATEMENT_SCOPES, f"statement_scope 值非法: {mc.value!r}")
+    elif mc.field == "currency":
+        _require(mc.value in S.CURRENCIES, f"currency 值非法: {mc.value!r}")
+    elif mc.field == "audit_status":
+        _require(mc.value in S.AUDIT_STATUSES, f"audit_status 值非法: {mc.value!r}")
+    elif mc.field == "restatement_version":
+        _require(bool(mc.value.strip()), "restatement_version 值不能为空")
+
+    # 内容寻址版本重算一致（防篡改 field/value/source_type 沿用旧 version）。
+    recomputed = S.derive_metadata_confirmation_version(
+        mc.company_id, mc.source_document_id, mc.field, mc.value, mc.source_type)
+    _require(mc.version == recomputed,
+             f"version 与内容重算不一致: {mc.version!r} != {recomputed!r}")
+
+
 if __name__ == "__main__":
     # 冒烟自检：构造非法坐标 / 非法状态，验证校验路径可独立运行。
     bad_locator = S.SourceLocator(kind="pdf", pdf=S.PdfCellLocator(

@@ -123,8 +123,8 @@ def main() -> dict:
     p1 = tmp_db()
     try:
         store.init_db(p1)
-        check(store.applied_schema_version() == "4", "全新库 schema_migrations 最新版本 == '4'")
-        check(S.SCHEMA_VERSION == "4" == store.applied_schema_version(),
+        check(store.applied_schema_version() == "5", "全新库 schema_migrations 最新版本 == '5'")
+        check(S.SCHEMA_VERSION == "5" == store.applied_schema_version(),
               "SCHEMA_VERSION == 最新 migration 版本 == 实际应用版本")
         conn = sqlite3.connect(p1)
         rs_cols = {r[1] for r in conn.execute("PRAGMA table_info(financial_record_set)")}
@@ -143,10 +143,13 @@ def main() -> dict:
                   "reconciliation_run", "reconciliation_group_result", "reconciliation_check",
                   "current_reconciliation"):
             check(t in tables, f"全新库含 v3 表 {t}")
+        for t in ("financial_metadata_confirmation", "financial_metadata_confirmation_head"):
+            check(t in tables, f"全新库含 v5 表 {t}")
         # 不可变候选层触发器就位。
         triggers = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'")}
         for t in ("extracted_financial_cell", "extraction_issue", "mapping_resolution",
-                  "reconciliation_run", "reconciliation_group_result", "reconciliation_check"):
+                  "reconciliation_run", "reconciliation_group_result", "reconciliation_check",
+                  "financial_metadata_confirmation"):
             check(f"trg_{t}_no_update" in triggers and f"trg_{t}_no_delete" in triggers,
                   f"全新库 {t} 不可变触发器就位")
         conn.close()
@@ -160,7 +163,7 @@ def main() -> dict:
         store.init_db(p2)
 
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4"], "迁移后 schema_migrations == ['1','2','3','4']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "迁移后 schema_migrations == ['1','2','3','4','5']")
 
         # v1 数据迁移后可读（文档头 + 内容版本文件事实 + 记录集合关键字段）。
         doc = store.get_source_document("sd-v1")
@@ -195,7 +198,7 @@ def main() -> dict:
         # 幂等重跑：第二次 init 不重迁移、数据不变。
         store.init_db(p2)
         conn = sqlite3.connect(p2)
-        check(_applied_versions(conn) == ["1", "2", "3", "4"], "第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "第二次 init 不追加迁移记录")
         check(store.get_source_version("sv-v1").file_sha256 == "a" * 64, "第二次 init 数据不变")
         conn.close()
     finally:
@@ -227,7 +230,7 @@ def main() -> dict:
         conn.close()
         # 故障清除后可正常迁移。
         store.init_db(p3)
-        check(store.applied_schema_version() == "4", "故障清除后重跑迁移成功")
+        check(store.applied_schema_version() == "5", "故障清除后重跑迁移成功")
     finally:
         cleanup(p3)
 
@@ -317,7 +320,7 @@ def main() -> dict:
         conn.commit()
         conn.close()
         store.init_db(p7)
-        check(store.applied_schema_version() == "4", "修复故障后正常迁移到 v4")
+        check(store.applied_schema_version() == "5", "修复故障后正常迁移到 v5")
         conn = sqlite3.connect(p7)
         check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
               "修复后迁移 foreign_key_check 为空")
@@ -336,24 +339,26 @@ def main() -> dict:
 
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4"], "v2→v4 迁移后 schema_migrations == ['1','2','3','4']")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "v2→v5 迁移后 schema_migrations == ['1','2','3','4','5']")
         rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
-        check("candidate_id" in rec_cols, "v2→v4 后 source_financial_record 追加 candidate_id 列")
+        check("candidate_id" in rec_cols, "v2→v5 后 source_financial_record 追加 candidate_id 列")
         check("raw_value_text" in rec_cols and "std_value_text" in rec_cols,
-              "v2→v4 后 source_financial_record 追加权威十进制文本列")
+              "v2→v5 后 source_financial_record 追加权威十进制文本列")
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         for t in ("extracted_financial_cell", "extraction_issue", "mapping_rule",
                   "mapping_resolution", "reconciliation_run", "reconciliation_group_result",
                   "reconciliation_check", "current_reconciliation"):
-            check(t in tables, f"v2→v3 后含新表 {t}")
+            check(t in tables, f"v2→v5 后含新表 {t}")
+        for t in ("financial_metadata_confirmation", "financial_metadata_confirmation_head"):
+            check(t in tables, f"v2→v5 后含新表 {t}")
         check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
-              "v2→v3 迁移后 foreign_key_check 为空")
+              "v2→v5 迁移后 foreign_key_check 为空")
         conn.close()
 
         # 幂等重跑。
         store.init_db(p8)
         conn = sqlite3.connect(p8)
-        check(_applied_versions(conn) == ["1", "2", "3", "4"], "v2→v4 第二次 init 不追加迁移记录")
+        check(_applied_versions(conn) == ["1", "2", "3", "4", "5"], "v2→v5 第二次 init 不追加迁移记录")
         conn.close()
     finally:
         cleanup(p8)
@@ -380,7 +385,7 @@ def main() -> dict:
         check(_applied_versions(conn) == ["1", "2"], "回滚后 schema_migrations 仍为 ['1','2']")
         conn.close()
         store.init_db(p9)
-        check(store.applied_schema_version() == "4", "故障清除后重跑迁移到 v4 成功")
+        check(store.applied_schema_version() == "5", "故障清除后重跑迁移到 v5 成功")
     finally:
         cleanup(p9)
 

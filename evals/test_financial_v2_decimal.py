@@ -164,17 +164,17 @@ def main() -> dict:
     finally:
         _cleanup_db(db)
 
-    # ---- 追加式迁移 v3→v4：旧行不重写 + 读回退 REAL；新行 text 非 NULL ----
+    # ---- 追加式迁移 v3→v5：旧行不重写 + 读回退 REAL；新行 text 非 NULL ----
     db2 = _tmp_db()
     try:
         _build_v3_db(db2)
-        store.init_db(db2)  # 触发 v3→v4 迁移
+        store.init_db(db2)  # 触发 v3→v4→v5 迁移
 
         conn = sqlite3.connect(db2)
         rec_cols = {r[1] for r in conn.execute("PRAGMA table_info(source_financial_record)")}
         check("raw_value_text" in rec_cols and "std_value_text" in rec_cols,
-              "v3→v4 迁移后十进制文本列就位")
-        check(store.applied_schema_version() == "4", "v3→v4 迁移后最新版本 == '4'")
+              "v3→v5 迁移后十进制文本列就位")
+        check(store.applied_schema_version() == "5", "v3→v5 迁移后最新版本 == '5'")
         conn.close()
 
         # 旧行：迁移不重写 → 文本列 NULL，读时回退 REAL。

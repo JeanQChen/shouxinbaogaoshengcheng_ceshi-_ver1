@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -105,15 +105,20 @@ def _admission_block_reason(candidate: S.ExtractedFinancialCell) -> str | None:
 
 def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
                  policy: NormalizationPolicy, *,
-                 mapping_mode: str = "rule") -> S.SourceFinancialRecord:
+                 mapping_mode: str = "rule",
+                 restatement_version: str | None = None) -> S.SourceFinancialRecord:
     """由已通过准入的候选构造标准化记录（std_unit=yuan；Decimal 换算；id/hash 重算）。
 
     前提：candidate.parsed_numeric_value 非 None、unit_candidate 可换算、各维度已明确。
     mapping_mode 缺省为 "rule"；A5 人工科目映射确认派生时传 "human_confirmed"。
+    restatement_version 缺省取 policy.default_restatement_version；fix #1 结构化
+    元数据确认时传入确认值（仅元数据，非金额）。
     """
     mult = unit_to_yuan(candidate.unit_candidate)
     assert mult is not None
     std_value_decimal = candidate.parsed_numeric_value * mult
+    restatement = restatement_version if restatement_version is not None \
+        else policy.default_restatement_version
 
     rec = S.SourceFinancialRecord(
         record_id="",
@@ -133,7 +138,7 @@ def build_record(candidate: S.ExtractedFinancialCell, standard_item_code: str,
         period_type=candidate.period_type_candidate,
         statement_scope=candidate.scope_candidate,
         currency=candidate.currency_candidate,
-        restatement_version=policy.default_restatement_version,
+        restatement_version=restatement,
         locator=candidate.locator,
         mapping_mode=mapping_mode,
         confidence=1.0,
@@ -207,6 +212,21 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
             f"!= 候选 {record_set_version!r}（extractor/mapping/normalization/依赖版本须与抽取一致）")
 
     rules = mapping.build_builtin_rules(policy.mapping_rule_version)
+
+    # 结构化元数据确认（fix #1）：读取当前生效确认，作为 gap-fill 喂给候选（只补缺失
+    # 维度，不覆盖正文已识别值）。用户只确认元数据，绝不填替代金额。
+    company_id = candidates[0].company_id
+    source_document_id = store.get_source_version(source_version).source_document_id
+    confirmations = store.get_active_metadata_confirmations(company_id, source_document_id)
+    confirmed_scope = confirmations.get("statement_scope").value \
+        if "statement_scope" in confirmations else None
+    confirmed_currency = confirmations.get("currency").value \
+        if "currency" in confirmations else None
+    confirmed_audit = confirmations.get("audit_status").value \
+        if "audit_status" in confirmations else None
+    confirmed_restatement = confirmations.get("restatement_version").value \
+        if "restatement_version" in confirmations else None
+
     records: list[S.SourceFinancialRecord] = []
     issues: list[S.ExtractionIssue] = []
     now = _utcnow()
@@ -218,12 +238,20 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
         if c.status != "EXTRACTED" or c.parsed_numeric_value is None:
             continue  # 非数值/不适用/解析失败由抽取阶段处理，不进入可计算记录
 
-        reason = _admission_block_reason(c)
+        # gap-fill：仅当候选维度缺失时才用确认值补齐（用户结构化声明 ≠ 改写正文）。
+        cc = c
+        if cc.scope_candidate is None and confirmed_scope is not None:
+            cc = replace(cc, scope_candidate=confirmed_scope)
+        if cc.currency_candidate is None and confirmed_currency is not None:
+            cc = replace(cc, currency_candidate=confirmed_currency)
+
+        reason = _admission_block_reason(cc)
         if reason is not None:
             issues.append(_make_normalization_issue(
                 record_set_version, c, outcome.standard_item_code, reason, now))
             continue
-        records.append(build_record(c, outcome.standard_item_code, policy))
+        records.append(build_record(cc, outcome.standard_item_code, policy,
+                                    restatement_version=confirmed_restatement))
 
     # 记录集合元信息（币种/单位/scope 仅当全部一致时才写集合级汇总，否则 None）。
     periods = sorted({r.report_period for r in records})
@@ -244,7 +272,7 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
         currency=(next(iter(currencies)) if len(currencies) == 1 else None),
         unit=(next(iter(units)) if len(units) == 1 else None),
         statement_scope=(next(iter(scopes)) if len(scopes) == 1 else None),
-        audit_status=None,
+        audit_status=confirmed_audit,
         block_count=len(issues),
         record_count=len(records),
         created_at=now,
