@@ -421,6 +421,23 @@ def validate_progress_event(ev: S.ProgressEvent) -> None:
     _nonempty(ev.created_at, "created_at")
 
 
+def validate_checkpoint(cp: S.Checkpoint) -> None:
+    """校验一次恢复断点（A6 §6.4 / §8.4：完整快照/指标批次提交后写入）。"""
+    _nonempty(cp.checkpoint_id, "checkpoint_id")
+    _nonempty(cp.run_id, "run_id")
+    _require(cp.stage_id in S.STAGES, f"stage_id 非法: {cp.stage_id!r}")
+    _require(isinstance(cp.state_version, int) and cp.state_version >= 0,
+             f"state_version 必须为非负整数: {cp.state_version!r}")
+    _require(isinstance(cp.artifact_refs, list), "artifact_refs 必须为 list")
+    _require(isinstance(cp.input_hashes, dict), "input_hashes 必须为 dict")
+    _require(isinstance(cp.dependency_versions, dict),
+             "dependency_versions 必须为 dict")
+    _require(isinstance(cp.resolution_refs, list), "resolution_refs 必须为 list")
+    _require(isinstance(cp.completed_unit_ids, list),
+             "completed_unit_ids 必须为 list")
+    _nonempty(cp.created_at, "created_at")
+
+
 # ---------------------------------------------------------------------------
 # A2/A3 原始候选 / 映射规则 / 抽取问题
 # ---------------------------------------------------------------------------

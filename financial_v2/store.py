@@ -120,6 +120,24 @@ class CommitChecksResult:
     issues_inserted: int
 
 
+@dataclass
+class CommitSnapshotResult:
+    """commit_snapshot_atomic 的返回结果。"""
+    snapshot_id: str
+    reused: bool
+    items_inserted: int
+    exceptions_inserted: int
+    current_switched: bool
+
+
+@dataclass
+class CommitMetricsResult:
+    """commit_metrics_atomic 的返回结果。"""
+    snapshot_id: str
+    inserted: int
+    reused: int
+
+
 # ---------------------------------------------------------------------------
 # DDL（v1 冻结 + v2 当前）
 # ---------------------------------------------------------------------------
@@ -2930,22 +2948,28 @@ def _resolution_record_identical(row: sqlite3.Row, r: S.ResolutionRecord) -> boo
     )
 
 
-def _ensure_active_validity_conn(conn: sqlite3.Connection, table: str, id_column: str,
-                                 object_id: str, now: str) -> bool:
-    """幂等写入首条 active 有效性事件（已 active 则跳过）。"""
+def _ensure_validity_status_conn(conn: sqlite3.Connection, table: str, id_column: str,
+                                 object_id: str, status: str, now: str) -> bool:
+    """幂等写入指定状态的首条有效性事件（已同状态则跳过，不产生新事件）。"""
     row = conn.execute(
         f"SELECT status FROM {table} WHERE {id_column}=? ORDER BY event_at DESC, rowid DESC LIMIT 1",
         (object_id,),
     ).fetchone()
-    if row is not None and row["status"] == "active":
+    if row is not None and row["status"] == status:
         return False
     event_id = "v-" + uuid.uuid4().hex[:16]
     conn.execute(
         f"INSERT INTO {table} (event_id, {id_column}, status, invalidated_by, invalidated_reason, event_at) "
         "VALUES (?,?,?,?,?,?)",
-        (event_id, object_id, "active", None, None, now),
+        (event_id, object_id, status, None, None, now),
     )
     return True
+
+
+def _ensure_active_validity_conn(conn: sqlite3.Connection, table: str, id_column: str,
+                                 object_id: str, now: str) -> bool:
+    """幂等写入首条 active 有效性事件（决议/映射确认；已 active 则跳过）。"""
+    return _ensure_validity_status_conn(conn, table, id_column, object_id, "active", now)
 
 
 def _mark_stale_conn(conn: sqlite3.Connection, table: str, id_column: str, object_id: str,
@@ -3369,6 +3393,574 @@ def list_company_record_set_versions(company_id: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# A6 快照 / 指标持久化（§6.4 / §8.4：不可变 + 单事务原子提交 + 严格复用 + current 切换）
+# ---------------------------------------------------------------------------
+
+def _row_to_snapshot(row: sqlite3.Row) -> S.FinancialSnapshot:
+    return S.FinancialSnapshot(
+        snapshot_id=row["snapshot_id"],
+        snapshot_version=row["snapshot_version"],
+        company_id=row["company_id"],
+        as_of_date=row["as_of_date"],
+        scope=row["scope"],
+        currency=row["currency"],
+        purpose=row["purpose"],
+        source_versions=_json_loads(row["source_versions"]) or [],
+        resolution_versions=_json_loads(row["resolution_versions"]) or [],
+        record_set_ids=_json_loads(row["record_set_ids"]) or [],
+        reconciliation_run_id=row["reconciliation_run_id"],
+        restatement_selection=_json_loads(row["restatement_selection"]) or {},
+        policy_adjustments=[S.policy_adjustment_from_dict(d)
+                            for d in (_json_loads(row["policy_adjustments"]) or [])],
+        required_formula_versions=_json_loads(row["required_formula_versions"]) or {},
+        snapshot_builder_version=row["snapshot_builder_version"],
+        admission_rule_version=row["admission_rule_version"],
+        report_blocked=bool(row["report_blocked"]),
+        created_at=row["created_at"],
+    )
+
+
+def _row_to_snapshot_item(row: sqlite3.Row) -> S.SnapshotItem:
+    return S.SnapshotItem(
+        snapshot_id=row["snapshot_id"],
+        comparison_key=row["comparison_key"],
+        standard_item_code=row["standard_item_code"],
+        amount=_row_decimal(row, "amount_text", "amount"),
+        unit=row["unit"],
+        report_period=row["report_period"],
+        period_type=row["period_type"],
+        statement_type=row["statement_type"],
+        statement_scope=row["statement_scope"],
+        currency=row["currency"],
+        restatement_version=row["restatement_version"],
+        source_refs=_json_loads(row["source_refs"]) or [],
+        resolution_id=row["resolution_id"],
+    )
+
+
+def _row_to_snapshot_exception(row: sqlite3.Row) -> S.SnapshotException:
+    return S.SnapshotException(
+        snapshot_id=row["snapshot_id"],
+        comparison_key=row["comparison_key"],
+        standard_item_code=row["standard_item_code"],
+        exception_type=row["exception_type"],
+        blocking_reason=row["blocking_reason"],
+        impact_scope=_json_loads(row["impact_scope"]) or [],
+        detail=_json_loads(row["detail"]) or {},
+    )
+
+
+def _row_to_metric_result(row: sqlite3.Row) -> S.MetricResult:
+    return S.MetricResult(
+        metric_result_id=row["metric_result_id"],
+        snapshot_id=row["snapshot_id"],
+        formula_id=row["formula_id"],
+        formula_version=row["formula_version"],
+        period=row["period"],
+        raw_value=_to_decimal(row["raw_value"]),
+        display_value=_to_decimal(row["display_value"]),
+        unit=row["unit"],
+        input_snapshot_item_refs=_json_loads(row["input_snapshot_item_refs"]) or [],
+        input_record_refs=_json_loads(row["input_record_refs"]) or [],
+        status=row["status"],
+        reason_code=row["reason_code"],
+        calculation_detail=_json_loads(row["calculation_detail"]) or {},
+        created_at=row["created_at"],
+    )
+
+
+def _insert_snapshot_conn(conn: sqlite3.Connection, s: S.FinancialSnapshot) -> None:
+    conn.execute(
+        "INSERT INTO financial_snapshot (snapshot_id, snapshot_version, company_id, as_of_date, "
+        "scope, currency, purpose, source_versions, resolution_versions, record_set_ids, "
+        "reconciliation_run_id, restatement_selection, policy_adjustments, required_formula_versions, "
+        "snapshot_builder_version, admission_rule_version, report_blocked, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (s.snapshot_id, s.snapshot_version, s.company_id, s.as_of_date, s.scope, s.currency,
+         s.purpose, _json_dumps(s.source_versions), _json_dumps(s.resolution_versions),
+         _json_dumps(s.record_set_ids), s.reconciliation_run_id,
+         _json_dumps(s.restatement_selection),
+         _json_dumps([S.policy_adjustment_to_dict(pa) for pa in s.policy_adjustments]),
+         _json_dumps(s.required_formula_versions),
+         s.snapshot_builder_version, s.admission_rule_version,
+         int(s.report_blocked), s.created_at),
+    )
+
+
+def _insert_snapshot_item_conn(conn: sqlite3.Connection, item: S.SnapshotItem) -> None:
+    # 权威金额以十进制文本落库（amount_text）；REAL amount 保留仅作兼容/展示近似。
+    amount_real = float(item.amount) if item.amount is not None else None
+    conn.execute(
+        "INSERT INTO snapshot_item (snapshot_id, comparison_key, standard_item_code, amount, "
+        "amount_text, unit, source_refs, resolution_id, report_period, period_type, statement_type, "
+        "statement_scope, currency, restatement_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (item.snapshot_id, item.comparison_key, item.standard_item_code, amount_real,
+         _decimal_text(item.amount), item.unit, _json_dumps(item.source_refs),
+         item.resolution_id, item.report_period, item.period_type, item.statement_type,
+         item.statement_scope, item.currency, item.restatement_version),
+    )
+
+
+def _insert_snapshot_exception_conn(conn: sqlite3.Connection, exc: S.SnapshotException) -> None:
+    conn.execute(
+        "INSERT INTO snapshot_exception (snapshot_id, comparison_key, standard_item_code, "
+        "exception_type, blocking_reason, impact_scope, detail) VALUES (?,?,?,?,?,?,?)",
+        (exc.snapshot_id, exc.comparison_key, exc.standard_item_code, exc.exception_type,
+         exc.blocking_reason, _json_dumps(exc.impact_scope), _json_dumps(exc.detail)),
+    )
+
+
+def _insert_metric_result_conn(conn: sqlite3.Connection, m: S.MetricResult) -> None:
+    conn.execute(
+        "INSERT INTO metric_result (metric_result_id, snapshot_id, formula_id, formula_version, "
+        "period, raw_value, display_value, unit, input_snapshot_item_refs, input_record_refs, "
+        "status, reason_code, calculation_detail, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (m.metric_result_id, m.snapshot_id, m.formula_id, m.formula_version, m.period,
+         _decimal_text(m.raw_value), _decimal_text(m.display_value), m.unit,
+         _json_dumps(m.input_snapshot_item_refs), _json_dumps(m.input_record_refs),
+         m.status, m.reason_code, _json_dumps(m.calculation_detail), m.created_at),
+    )
+
+
+def _insert_checkpoint_conn(conn: sqlite3.Connection, cp: S.Checkpoint) -> None:
+    conn.execute(
+        "INSERT INTO checkpoints (checkpoint_id, run_id, stage_id, state_version, artifact_refs, "
+        "input_hashes, dependency_versions, resolution_refs, completed_unit_ids, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (cp.checkpoint_id, cp.run_id, cp.stage_id, cp.state_version,
+         _json_dumps(cp.artifact_refs), _json_dumps(cp.input_hashes),
+         _json_dumps(cp.dependency_versions), _json_dumps(cp.resolution_refs),
+         _json_dumps(cp.completed_unit_ids), cp.created_at),
+    )
+
+
+def _canonical_pa_list(pas: list[S.PolicyAdjustment]) -> list[dict]:
+    """把政策调整列表规范化为按 JSON 排序的 dict 列表（与 derive_snapshot_id 同序）。"""
+    return sorted(
+        (S.policy_adjustment_to_dict(pa) for pa in pas),
+        key=lambda d: json.dumps(d, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+    )
+
+
+def _pa_list_from_stored(stored: list[dict]) -> list[dict]:
+    """把库内反序列化的政策调整列表规范化为同序（复用深比对）。"""
+    return sorted(
+        stored,
+        key=lambda d: json.dumps(d, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
+    )
+
+
+def _snapshot_header_identical(row: sqlite3.Row, s: S.FinancialSnapshot) -> bool:
+    """快照头深比对（不含 created_at，复用不比较时间戳）。"""
+    return (
+        row["snapshot_id"] == s.snapshot_id
+        and row["snapshot_version"] == s.snapshot_version
+        and row["company_id"] == s.company_id
+        and row["as_of_date"] == s.as_of_date
+        and row["scope"] == s.scope
+        and row["currency"] == s.currency
+        and row["purpose"] == s.purpose
+        and sorted(_json_loads(row["source_versions"]) or []) == sorted(s.source_versions)
+        and sorted(_json_loads(row["resolution_versions"]) or []) == sorted(s.resolution_versions)
+        and sorted(_json_loads(row["record_set_ids"]) or []) == sorted(s.record_set_ids)
+        and row["reconciliation_run_id"] == s.reconciliation_run_id
+        and (_json_loads(row["restatement_selection"]) or {}) == s.restatement_selection
+        and _pa_list_from_stored(_json_loads(row["policy_adjustments"]) or []) == _canonical_pa_list(s.policy_adjustments)
+        and (_json_loads(row["required_formula_versions"]) or {}) == s.required_formula_versions
+        and row["snapshot_builder_version"] == s.snapshot_builder_version
+        and row["admission_rule_version"] == s.admission_rule_version
+        and bool(row["report_blocked"]) == s.report_blocked
+    )
+
+
+def _snapshot_item_identical(row: sqlite3.Row, item: S.SnapshotItem) -> bool:
+    return (
+        row["snapshot_id"] == item.snapshot_id
+        and row["comparison_key"] == item.comparison_key
+        and row["standard_item_code"] == item.standard_item_code
+        and _row_decimal(row, "amount_text", "amount") == item.amount
+        and row["unit"] == item.unit
+        and sorted(_json_loads(row["source_refs"]) or []) == sorted(item.source_refs)
+        and row["resolution_id"] == item.resolution_id
+        and row["report_period"] == item.report_period
+        and row["period_type"] == item.period_type
+        and row["statement_type"] == item.statement_type
+        and row["statement_scope"] == item.statement_scope
+        and row["currency"] == item.currency
+        and row["restatement_version"] == item.restatement_version
+    )
+
+
+def _snapshot_exception_identical(row: sqlite3.Row, exc: S.SnapshotException) -> bool:
+    return (
+        row["snapshot_id"] == exc.snapshot_id
+        and row["comparison_key"] == exc.comparison_key
+        and row["standard_item_code"] == exc.standard_item_code
+        and row["exception_type"] == exc.exception_type
+        and row["blocking_reason"] == exc.blocking_reason
+        and (_json_loads(row["impact_scope"]) or []) == exc.impact_scope
+        and (_json_loads(row["detail"]) or {}) == exc.detail
+    )
+
+
+def _metric_result_identical(row: sqlite3.Row, m: S.MetricResult) -> bool:
+    return (
+        row["metric_result_id"] == m.metric_result_id
+        and row["snapshot_id"] == m.snapshot_id
+        and row["formula_id"] == m.formula_id
+        and row["formula_version"] == m.formula_version
+        and row["period"] == m.period
+        and _to_decimal(row["raw_value"]) == m.raw_value
+        and _to_decimal(row["display_value"]) == m.display_value
+        and row["unit"] == m.unit
+        and sorted(_json_loads(row["input_snapshot_item_refs"]) or []) == sorted(m.input_snapshot_item_refs)
+        and sorted(_json_loads(row["input_record_refs"]) or []) == sorted(m.input_record_refs)
+        and row["status"] == m.status
+        and row["reason_code"] == m.reason_code
+        and (_json_loads(row["calculation_detail"]) or {}) == m.calculation_detail
+    )
+
+
+def _items_all_identical(existing_rows: list[sqlite3.Row], items: list[S.SnapshotItem]) -> bool:
+    incoming_sorted = sorted(items, key=lambda i: i.comparison_key)
+    if len(existing_rows) != len(incoming_sorted):
+        return False
+    for er, it in zip(existing_rows, incoming_sorted):
+        if not _snapshot_item_identical(er, it):
+            return False
+    return True
+
+
+def _exceptions_all_identical(existing_rows: list[sqlite3.Row],
+                              exceptions: list[S.SnapshotException]) -> bool:
+    incoming_sorted = sorted(exceptions, key=lambda e: (e.comparison_key, e.exception_type))
+    if len(existing_rows) != len(incoming_sorted):
+        return False
+    for er, ex in zip(existing_rows, incoming_sorted):
+        if not _snapshot_exception_identical(er, ex):
+            return False
+    return True
+
+
+def _switch_current_snapshot_conn(conn: sqlite3.Connection, s: S.FinancialSnapshot,
+                                  now: str) -> bool:
+    """原子切换 (company, scope, currency, as_of, purpose) 的 current 指针 + 写 switch log。
+
+    已是同一快照返回 False（未切换）；否则 upsert 指针并追加 switch log（旧快照 id 可空）。
+    """
+    existing = conn.execute(
+        "SELECT snapshot_id FROM current_snapshot "
+        "WHERE company_id=? AND scope=? AND currency=? AND as_of_date=? AND purpose=?",
+        (s.company_id, s.scope, s.currency, s.as_of_date, s.purpose),
+    ).fetchone()
+    if existing is not None and existing["snapshot_id"] == s.snapshot_id:
+        return False
+    old_id = existing["snapshot_id"] if existing is not None else None
+    conn.execute(
+        "INSERT INTO current_snapshot (company_id, scope, currency, as_of_date, purpose, "
+        "snapshot_id, switched_at) VALUES (?,?,?,?,?,?,?) "
+        "ON CONFLICT(company_id, scope, currency, as_of_date, purpose) DO UPDATE SET "
+        "snapshot_id=excluded.snapshot_id, switched_at=excluded.switched_at",
+        (s.company_id, s.scope, s.currency, s.as_of_date, s.purpose, s.snapshot_id, now),
+    )
+    conn.execute(
+        "INSERT INTO snapshot_switch_log (log_id, old_snapshot_id, new_snapshot_id, reason, "
+        "switched_at) VALUES (?,?,?,?,?)",
+        ("sw-" + uuid.uuid4().hex[:16], old_id, s.snapshot_id, "snapshot_commit", now),
+    )
+    return True
+
+
+def commit_snapshot_atomic(
+    snapshot: S.FinancialSnapshot,
+    items: list[S.SnapshotItem],
+    exceptions: list[S.SnapshotException],
+    *,
+    checkpoint: S.Checkpoint | None = None,
+    switch_current: bool = True,
+) -> CommitSnapshotResult:
+    """单事务原子提交一个财务快照（§6.4）。
+
+    同一事务内：校验 → 严格复用（深比对快照头/全部 items/全部 exceptions）或写入 →
+    写 snapshot_validity=`valid` 首条事件 → 写 checkpoint → 原子切换 current_snapshot 指针
+    → 写 switch log → commit。任一步失败全部回滚，旧 current 保持不变。
+
+    严格复用不比较 created_at；深度不一致（含来源/决议版本、数量）报 StorageConflictError，
+    不覆盖历史快照。items/exceptions 必须同属该 snapshot_id，且 item 的 scope/currency 与
+    快照一致（跨 scope/currency 拒绝）。复用路径不重写 checkpoint（原运行已落盘）。
+    """
+    validator.validate_snapshot(snapshot)
+    seen_ck: set[str] = set()
+    for item in items:
+        validator.validate_snapshot_item(item)
+        if item.snapshot_id != snapshot.snapshot_id:
+            raise validator.ValidationError(
+                f"item.snapshot_id 与快照不一致: {item.snapshot_id!r}")
+        if item.statement_scope != snapshot.scope or item.currency != snapshot.currency:
+            raise validator.ValidationError(
+                f"item 与快照 scope/currency 不一致: {item.comparison_key!r}")
+        if item.comparison_key in seen_ck:
+            raise validator.ValidationError(f"同批重复 comparison_key: {item.comparison_key!r}")
+        seen_ck.add(item.comparison_key)
+    seen_exc: set[tuple[str, str, str]] = set()
+    for exc in exceptions:
+        validator.validate_snapshot_exception(exc)
+        if exc.snapshot_id != snapshot.snapshot_id:
+            raise validator.ValidationError(
+                f"exc.snapshot_id 与快照不一致: {exc.snapshot_id!r}")
+        key = (exc.comparison_key, exc.standard_item_code, exc.exception_type)
+        if key in seen_exc:
+            raise validator.ValidationError(f"同批重复 exception 键: {key!r}")
+        seen_exc.add(key)
+    if checkpoint is not None:
+        validator.validate_checkpoint(checkpoint)
+
+    conn = _get_conn()
+    try:
+        now = _utcnow()
+        existing = conn.execute(
+            "SELECT * FROM financial_snapshot WHERE snapshot_id=?", (snapshot.snapshot_id,)
+        ).fetchone()
+        if existing is not None:
+            # 严格复用：深比对快照头 + 全部 items + 全部 exceptions。
+            if not _snapshot_header_identical(existing, snapshot):
+                raise StorageConflictError(
+                    f"snapshot_id 已存在但头部不一致: {snapshot.snapshot_id}")
+            existing_items = conn.execute(
+                "SELECT * FROM snapshot_item WHERE snapshot_id=? ORDER BY comparison_key",
+                (snapshot.snapshot_id,),
+            ).fetchall()
+            if not _items_all_identical(existing_items, items):
+                raise StorageConflictError(
+                    f"snapshot_id 已存在但 items 不一致: {snapshot.snapshot_id}")
+            existing_exc = conn.execute(
+                "SELECT * FROM snapshot_exception WHERE snapshot_id=? "
+                "ORDER BY comparison_key, exception_type",
+                (snapshot.snapshot_id,),
+            ).fetchall()
+            if not _exceptions_all_identical(existing_exc, exceptions):
+                raise StorageConflictError(
+                    f"snapshot_id 已存在但 exceptions 不一致: {snapshot.snapshot_id}")
+            # 复用：确保 valid 事件 + 可选 current 切换（不重写 checkpoint）。
+            _ensure_validity_status_conn(conn, "snapshot_validity", "snapshot_id",
+                                         snapshot.snapshot_id, "valid", now)
+            current_switched = False
+            if switch_current:
+                current_switched = _switch_current_snapshot_conn(conn, snapshot, now)
+            conn.commit()
+            return CommitSnapshotResult(
+                snapshot_id=snapshot.snapshot_id, reused=True, items_inserted=0,
+                exceptions_inserted=0, current_switched=current_switched)
+
+        # 写入新快照（头 + items + exceptions）。
+        _insert_snapshot_conn(conn, snapshot)
+        for item in items:
+            _insert_snapshot_item_conn(conn, item)
+        for exc in exceptions:
+            _insert_snapshot_exception_conn(conn, exc)
+
+        # 写后复核。
+        item_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM snapshot_item WHERE snapshot_id=?",
+            (snapshot.snapshot_id,),
+        ).fetchone()["c"]
+        exc_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM snapshot_exception WHERE snapshot_id=?",
+            (snapshot.snapshot_id,),
+        ).fetchone()["c"]
+        if item_count != len(items) or exc_count != len(exceptions):
+            raise RuntimeError(
+                f"快照写入复核失败：items {item_count}!={len(items)} / "
+                f"exceptions {exc_count}!={len(exceptions)}")
+
+        # 首条 validity 事件（valid）。
+        _ensure_validity_status_conn(conn, "snapshot_validity", "snapshot_id",
+                                     snapshot.snapshot_id, "valid", now)
+        # checkpoint（完整快照提交后写入）。
+        if checkpoint is not None:
+            _insert_checkpoint_conn(conn, checkpoint)
+        # current 指针原子切换 + switch log。
+        current_switched = False
+        if switch_current:
+            current_switched = _switch_current_snapshot_conn(conn, snapshot, now)
+
+        conn.commit()
+        return CommitSnapshotResult(
+            snapshot_id=snapshot.snapshot_id, reused=False, items_inserted=len(items),
+            exceptions_inserted=len(exceptions), current_switched=current_switched)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def commit_metrics_atomic(
+    results: list[S.MetricResult],
+    *,
+    checkpoint: S.Checkpoint | None = None,
+) -> CommitMetricsResult:
+    """单事务原子提交/严格复用一批 MetricResult（§8.4）。
+
+    整批校验 → 快照存在性 → 严格复用（metric_result_id 已存在则深比对，不一致冲突）→
+    写入 → checkpoint → commit。任一冲突/完整性错误整批回滚；业务缺失状态（raw/display
+    None）是合法结果，不造成事务失败。返回新插入/复用数量。
+    """
+    if not results:
+        raise ValueError("results 不能为空")
+    for m in results:
+        validator.validate_metric_result(m)
+    snapshot_ids = {m.snapshot_id for m in results}
+    if len(snapshot_ids) != 1:
+        raise validator.ValidationError(
+            f"results 必须同属一个 snapshot_id: {sorted(snapshot_ids)}")
+    snapshot_id = next(iter(snapshot_ids))
+    ids = [m.metric_result_id for m in results]
+    if len(ids) != len(set(ids)):
+        raise validator.ValidationError("同批存在重复 metric_result_id")
+    if checkpoint is not None:
+        validator.validate_checkpoint(checkpoint)
+
+    conn = _get_conn()
+    try:
+        snap_row = conn.execute(
+            "SELECT 1 FROM financial_snapshot WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+        if snap_row is None:
+            raise KeyError(f"financial_snapshot 不存在: {snapshot_id}")
+
+        inserted = 0
+        reused = 0
+        for m in results:
+            existing = conn.execute(
+                "SELECT * FROM metric_result WHERE metric_result_id=?", (m.metric_result_id,)
+            ).fetchone()
+            if existing is not None:
+                if not _metric_result_identical(existing, m):
+                    raise StorageConflictError(
+                        f"metric_result_id 已存在但内容不一致: {m.metric_result_id}")
+                reused += 1
+            else:
+                # 防御唯一键冲突（metric_result_id 派生自 4 元组，此处拦截手造 id）。
+                dup = conn.execute(
+                    "SELECT 1 FROM metric_result WHERE snapshot_id=? AND formula_id=? "
+                    "AND formula_version=? AND period=?",
+                    (m.snapshot_id, m.formula_id, m.formula_version, m.period),
+                ).fetchone()
+                if dup is not None:
+                    raise StorageConflictError(
+                        f"metric 唯一键冲突（同 snapshot/formula/version/period）: {m.period!r}")
+                _insert_metric_result_conn(conn, m)
+                inserted += 1
+
+        if checkpoint is not None:
+            _insert_checkpoint_conn(conn, checkpoint)
+
+        conn.commit()
+        return CommitMetricsResult(snapshot_id=snapshot_id, inserted=inserted, reused=reused)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_snapshot(snapshot_id: str) -> S.FinancialSnapshot | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM financial_snapshot WHERE snapshot_id=?", (snapshot_id,)
+        ).fetchone()
+        return _row_to_snapshot(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_snapshot_items(snapshot_id: str) -> list[S.SnapshotItem]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM snapshot_item WHERE snapshot_id=? ORDER BY comparison_key",
+            (snapshot_id,),
+        ).fetchall()
+        return [_row_to_snapshot_item(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_snapshot_item(snapshot_id: str, comparison_key: str) -> S.SnapshotItem | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM snapshot_item WHERE snapshot_id=? AND comparison_key=?",
+            (snapshot_id, comparison_key),
+        ).fetchone()
+        return _row_to_snapshot_item(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_snapshot_exceptions(snapshot_id: str) -> list[S.SnapshotException]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM snapshot_exception WHERE snapshot_id=? "
+            "ORDER BY comparison_key, exception_type",
+            (snapshot_id,),
+        ).fetchall()
+        return [_row_to_snapshot_exception(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_current_snapshot(company_id: str, scope: str, currency: str,
+                         as_of_date: str, purpose: str) -> S.FinancialSnapshot | None:
+    """读取 (company, scope, currency, as_of, purpose) 的 current 指针指向的快照。
+
+    仅返回指针指向对象；stale/invalid 过滤由上层（snapshots.current_snapshot）结合
+    latest_snapshot_validity 完成。
+    """
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT s.* FROM current_snapshot c "
+            "JOIN financial_snapshot s ON s.snapshot_id = c.snapshot_id "
+            "WHERE c.company_id=? AND c.scope=? AND c.currency=? AND c.as_of_date=? "
+            "AND c.purpose=?",
+            (company_id, scope, currency, as_of_date, purpose),
+        ).fetchone()
+        return _row_to_snapshot(row) if row else None
+    finally:
+        conn.close()
+
+
+def list_metric_results(snapshot_id: str) -> list[S.MetricResult]:
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM metric_result WHERE snapshot_id=? ORDER BY formula_id, period",
+            (snapshot_id,),
+        ).fetchall()
+        return [_row_to_metric_result(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_metric_result(snapshot_id: str, formula_id: str, formula_version: str,
+                      period: str) -> S.MetricResult | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT * FROM metric_result WHERE snapshot_id=? AND formula_id=? "
+            "AND formula_version=? AND period=?",
+            (snapshot_id, formula_id, formula_version, period),
+        ).fetchone()
+        return _row_to_metric_result(row) if row else None
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # 隔离（quarantine）
 # ---------------------------------------------------------------------------
 
@@ -3478,20 +4070,84 @@ def _cli_inspect(company_id: str) -> dict:
     return result
 
 
+def _cli_snapshot(snapshot_id: str) -> dict:
+    snap = get_snapshot(snapshot_id)
+    if snap is None:
+        return {"snapshot_id": snapshot_id, "found": False}
+    items = list_snapshot_items(snapshot_id)
+    exceptions = list_snapshot_exceptions(snapshot_id)
+    return {
+        "found": True,
+        "snapshot": {
+            "snapshot_id": snap.snapshot_id,
+            "company_id": snap.company_id,
+            "as_of_date": snap.as_of_date,
+            "scope": snap.scope,
+            "currency": snap.currency,
+            "purpose": snap.purpose,
+            "record_set_ids": snap.record_set_ids,
+            "report_blocked": snap.report_blocked,
+        },
+        "item_count": len(items),
+        "exception_count": len(exceptions),
+        "items": [
+            {"comparison_key": it.comparison_key, "standard_item_code": it.standard_item_code,
+             "amount": str(it.amount) if it.amount is not None else None, "unit": it.unit,
+             "report_period": it.report_period}
+            for it in items
+        ],
+        "exceptions": [
+            {"comparison_key": e.comparison_key, "exception_type": e.exception_type,
+             "blocking_reason": e.blocking_reason}
+            for e in exceptions
+        ],
+    }
+
+
+def _cli_metrics(snapshot_id: str) -> dict:
+    results = list_metric_results(snapshot_id)
+    return {
+        "snapshot_id": snapshot_id,
+        "metric_count": len(results),
+        "metrics": [
+            {"metric_result_id": m.metric_result_id, "formula_id": m.formula_id,
+             "formula_version": m.formula_version, "period": m.period,
+             "raw_value": str(m.raw_value) if m.raw_value is not None else None,
+             "display_value": str(m.display_value) if m.display_value is not None else None,
+             "unit": m.unit, "status": m.status, "reason_code": m.reason_code}
+            for m in results
+        ],
+    }
+
+
 def _main(argv: list[str]) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(prog="python -m financial_v2.store",
                                      description="financial_v2 Store CLI")
+    parser.add_argument("--db", default=str(DEFAULT_DB_PATH),
+                        help="SQLite 库路径（dev/test 注入临时库，避免污染生产库）")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_inspect = sub.add_parser("inspect", help="查看某公司的财务来源登记概览")
     p_inspect.add_argument("--company", required=True, help="公司标识（company_id）")
 
+    p_snapshot = sub.add_parser("snapshot", help="查看某快照（头 + items + exceptions）")
+    p_snapshot.add_argument("--snapshot", required=True, dest="snapshot_id")
+
+    p_metrics = sub.add_parser("metrics", help="查看某快照的全部 MetricResult")
+    p_metrics.add_argument("--snapshot", required=True, dest="snapshot_id")
+
     args = parser.parse_args(argv)
-    init_db()
+    init_db(args.db)
     if args.cmd == "inspect":
         print(json.dumps(_cli_inspect(args.company), ensure_ascii=False, indent=2))
+        return 0
+    if args.cmd == "snapshot":
+        print(json.dumps(_cli_snapshot(args.snapshot_id), ensure_ascii=False, indent=2))
+        return 0
+    if args.cmd == "metrics":
+        print(json.dumps(_cli_metrics(args.snapshot_id), ensure_ascii=False, indent=2))
         return 0
     return 1
 
