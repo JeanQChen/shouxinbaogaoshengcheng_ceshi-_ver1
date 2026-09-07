@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 import sys
 import tempfile
 from decimal import Decimal
@@ -336,6 +337,35 @@ def main() -> dict:
         result3 = recon.run_reconciliation("ACME", [rs_a, rs_b], persist=False)
         check(result3.run_reused is False and result3.groups_committed == 0
               and result3.issues_committed == 0, "validate-only 不落盘")
+
+        # ---- 故障注入：reconciliation_group_result 插入失败 → 全事务回滚，旧 current 保留 ----
+        # 造一个新输入（净利润异值 → CONFLICT），使第二次 run 是「新 run」而非复用。
+        rs_c = seed("ACME", "doc-c", [("净利润", "income_statement", Decimal("70"))])
+        rs_d = seed("ACME", "doc-d", [("净利润", "income_statement", Decimal("90"))])
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TRIGGER tmp_fail_recon_group BEFORE INSERT ON reconciliation_group_result "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            recon.run_reconciliation("ACME", [rs_c, rs_d], persist=True)
+            check(False, "reconciliation group 插入失败被注入触发")
+        except sqlite3.IntegrityError:
+            check(True, "reconciliation group 插入失败（注入）")
+        conn = sqlite3.connect(db)
+        conn.execute("DROP TRIGGER tmp_fail_recon_group")
+        conn.commit()
+        conn.close()
+        # 旧 current 保留（仍指向第一次 run），不残留半成品 run。
+        cur_after = store.get_current_reconciliation("ACME")
+        check(cur_after is not None and cur_after.run_id == result.run_id,
+              "故障后旧 current_reconciliation 保留")
+        conn = sqlite3.connect(db)
+        run_rows = conn.execute("SELECT COUNT(*) FROM reconciliation_run").fetchone()[0]
+        group_rows = conn.execute("SELECT COUNT(*) FROM reconciliation_group_result").fetchone()[0]
+        conn.close()
+        check(run_rows == 1, f"故障后 reconciliation_run 仅 1 行（不残留半成品 run，实际 {run_rows}）")
+        check(group_rows == 3, f"故障后 reconciliation_group_result 仅首次 run 的 3 行（实际 {group_rows}）")
     finally:
         _cleanup_db(db)
 

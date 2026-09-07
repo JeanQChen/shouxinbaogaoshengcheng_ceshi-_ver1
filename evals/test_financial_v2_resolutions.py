@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 import sys
 import tempfile
 from decimal import Decimal
@@ -281,6 +282,61 @@ def main() -> dict:
               "输入未变化 → 不失效")
         # 其余 active 决议不受影响（仅对 gid0 失效）。
         check(store.get_active_resolution(gid1) is not None, "无关 group 决议保持 active")
+
+        # ---- 故障注入：mapping_resolution_head 插入失败 → 全批回滚，零写入 ----
+        rs_u3, cid_u3 = seed.seed_unmapped("doc-u3", "第三个未知科目")
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TRIGGER tmp_fail_mres_head BEFORE INSERT ON mapping_resolution_head "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        fr = res.submit_mapping_resolutions(res.MappingResolutionBatchRequest(
+            company_id="ACME", operator="op1",
+            items=[res.MappingResolutionItem(candidate_id=cid_u3, chosen_item_code="TOTAL_ASSETS",
+                                             reason_code="PERIOD_MATCH")]))
+        check(fr.committed is False, "mapping head 插入失败 → committed=false")
+        conn = sqlite3.connect(db)
+        conn.execute("DROP TRIGGER tmp_fail_mres_head")
+        conn.commit()
+        conn.close()
+        check(store.get_active_mapping_resolution(cid_u3) is None, "零写入：无 active 映射决议")
+        check(store.list_mapping_resolutions_by_candidate(cid_u3) == [],
+              "零写入：无 mapping_resolution 行")
+
+        # ---- 故障注入：resolution_head 插入失败 → 全批回滚，零写入 ----
+        # 用「资产总计」造全新冲突组（此前该组 MATCHED，无任何 resolution），避免与
+        # 前面已提交/已失效的「净利润」「营业收入」决议撞 group。
+        rs_e = seed.seed("doc-e", [("资产总计", "balance_sheet", Decimal("1001"))])
+        rs_f = seed.seed("doc-f", [("资产总计", "balance_sheet", Decimal("1002"))])
+        recon.run_reconciliation("ACME", [rs_e, rs_f], persist=True)
+        vpend = res.list_pending("ACME", res.PendingFilters(issue_type=res.ISSUE_TYPE_VALUE))
+        vitem = vpend.items[0]
+        srcs = vitem.payload["sources"]
+        chosen = sorted(srcs, key=lambda s: s["std_value"])[0]
+        gid_fail = vitem.payload["group_id"]
+        check(store.list_resolution_records_by_group(gid_fail) == [],
+              "故障注入前该 group 无任何 resolution")
+        vreq_fail = res.ValueResolutionBatchRequest(
+            company_id="ACME", operator="op1",
+            items=[res.ValueResolutionItem(
+                group_id=gid_fail,
+                accepted_record_ids=[chosen["record_id"]],
+                rejected_record_ids=[s["record_id"] for s in srcs if s["record_id"] != chosen["record_id"]],
+                reason_code="AUDITED_SOURCE", note=None)])
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TRIGGER tmp_fail_vres_head BEFORE INSERT ON resolution_head "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        vr = res.submit_value_resolutions(vreq_fail)
+        check(vr.committed is False, "resolution head 插入失败 → committed=false")
+        conn = sqlite3.connect(db)
+        conn.execute("DROP TRIGGER tmp_fail_vres_head")
+        conn.commit()
+        conn.close()
+        check(store.get_active_resolution(gid_fail) is None, "零写入：无 active 冲突决议")
+        check(store.list_resolution_records_by_group(gid_fail) == [],
+              "零写入：无 resolution_record 行")
 
     finally:
         _cleanup_db(db)
