@@ -3918,7 +3918,9 @@ def commit_metrics_atomic(
                 _insert_metric_result_conn(conn, m)
                 inserted += 1
 
-        if checkpoint is not None:
+        # 全复用（无新增）不重写 checkpoint，对齐 commit_snapshot_atomic 的复用路径
+        # （同批复用不重复写恢复断点，避免确定性 checkpoint_id 唯一键冲突）。
+        if checkpoint is not None and inserted > 0:
             _insert_checkpoint_conn(conn, checkpoint)
 
         conn.commit()
