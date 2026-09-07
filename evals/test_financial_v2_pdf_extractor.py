@@ -250,6 +250,101 @@ def main() -> dict:
     ap, apt = ex.extract_anchor_period("合并资产负债表\n2024年12月31日\n单位：千元")
     check(ap == "2024-12-31" and apt == "annual", "页面锚点提取")
 
+    # ---- 单元格 bbox 读取（None cell / 越界 → None，绝不伪造 [0,0,0,0]）----
+    class _Cell(list):
+        pass
+
+    class _Row:
+        def __init__(self, cells):
+            self.cells = cells
+
+    class _Tbl:
+        def __init__(self, rows):
+            self.rows = rows
+
+    check(ex._cell_bbox(_Tbl([_Row([_Cell([1.0, 2.0, 3.0, 4.0]), _Cell([5.0, 6.0, 7.0, 8.0])])]), 0, 1)
+          == [5.0, 6.0, 7.0, 8.0], "有效 cell → bbox 列表")
+    check(ex._cell_bbox(_Tbl([_Row([_Cell([1.0, 2.0, 3.0, 4.0]), None])]), 0, 1) is None,
+          "None cell → None（不崩溃）")
+    check(ex._cell_bbox(_Tbl([_Row([_Cell([1.0, 2.0, 3.0, 4.0])])]), 0, 5) is None, "列越界 → None")
+    check(ex._cell_bbox(_Tbl([_Row([_Cell([1.0, 2.0, 3.0, 4.0])])]), 9, 0) is None, "行越界 → None")
+
+    # ---- None-bbox 单元格：record issue + skip（不伪造 [0,0,0,0] 占位）----
+    db_bbox = _tmp_db()
+    pdf_bbox = _tmp_pdf(prefix="eval_bbox_")
+    orig_pp = ex.pdfplumber
+    try:
+        with open(pdf_bbox, "wb") as f:
+            f.write(b"%PDF-1.4\n%%EOF\n")
+        source_document_id, source_version = _register(db_bbox, pdf_bbox)
+
+        grid = [
+            ["Item", "2024-12-31", "2023-12-31"],
+            ["CASH", "1000", "900"],
+            ["TOTAL ASSETS", "1234", "1000"],
+        ]
+        tbl_rows = [
+            _Row([_Cell([10.0, 700.0, 130.0, 725.0]), _Cell([130.0, 700.0, 250.0, 725.0]),
+                  _Cell([250.0, 700.0, 370.0, 725.0])]),
+            _Row([_Cell([10.0, 675.0, 130.0, 700.0]), _Cell([130.0, 675.0, 250.0, 700.0]),
+                  None]),  # 第二期间列单元格 bbox 缺失
+            _Row([_Cell([10.0, 650.0, 130.0, 675.0]), _Cell([130.0, 650.0, 250.0, 675.0]),
+                  _Cell([250.0, 650.0, 370.0, 675.0])]),
+        ]
+
+        class _FakeTable:
+            def __init__(self):
+                self.rows = tbl_rows
+                self.bbox = [10.0, 700.0, 370.0, 625.0]
+
+            def extract(self):
+                return [list(r) for r in grid]
+
+        class _FakePage:
+            def __init__(self):
+                self._text = "ACME Inc. Consolidated Balance Sheet 2024-12-31"
+                self._tables = [_FakeTable()]
+
+            def extract_text(self):
+                return self._text
+
+            def find_tables(self, settings=None):
+                return self._tables
+
+        class _FakePdf:
+            def __init__(self):
+                self.pages = [_FakePage()]
+
+            def close(self):
+                pass
+
+        class _FakePdfPlumber:
+            def __init__(self, pdf):
+                self._pdf = pdf
+
+            def open(self, path):
+                return self._pdf
+
+        ex.pdfplumber = _FakePdfPlumber(_FakePdf())
+        result = ex.extract_pdf(source_version, _policy(pdf_bbox), persist=True)
+
+        bbox_issues = [i for i in result.issues if i.issue_type == "CELL_BBOX_UNAVAILABLE"]
+        check(len(bbox_issues) == 1,
+              f"bbox 缺失单元格 → 1 条 CELL_BBOX_UNAVAILABLE（实际 {len(bbox_issues)}）")
+        check(len(result.candidates) == 3,
+              f"跳过 bbox 缺失单元格，其余 3 候选保留（实际 {len(result.candidates)}）")
+        all_bbox = [c.locator.pdf.bbox for c in result.candidates if c.locator and c.locator.pdf]
+        check(all(b != [0.0, 0.0, 0.0, 0.0] for b in all_bbox), "无 [0,0,0,0] 占位 bbox")
+        persisted_types = {i.issue_type for i in store.list_extraction_issues(result.record_set_version)}
+        check("CELL_BBOX_UNAVAILABLE" in persisted_types, "CELL_BBOX_UNAVAILABLE 持久化可审计")
+    finally:
+        ex.pdfplumber = orig_pp
+        _cleanup_db(db_bbox)
+        try:
+            os.remove(pdf_bbox)
+        except FileNotFoundError:
+            pass
+
     # ---- 三张主表合成 PDF ----
     db = _tmp_db()
     pdf = _tmp_pdf()

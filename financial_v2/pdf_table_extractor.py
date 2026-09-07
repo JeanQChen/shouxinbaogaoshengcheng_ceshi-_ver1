@@ -400,6 +400,21 @@ def _grid_and_cells_align(table) -> bool:
     return True
 
 
+def _cell_bbox(table, ri: int, col: int) -> list[float] | None:
+    """读取单元格物理 bbox（[x0, top, x1, bottom]）。
+
+    pdfplumber 的 rows[ri].cells[col] 在合并单元格/跨行空位等情形可能为 None
+    （无法给出该单元格独立坐标）；越界同样返回 None。返回 None 表示「物理坐标不可得」，
+    调用方据此记录 issue + 跳过，绝不伪造 [0,0,0,0] 占位坐标（§6.3：cell bbox 是候选
+    必备物理证据，缺失即不生成可对账数值）。
+    """
+    try:
+        cell = table.rows[ri].cells[col]
+    except (IndexError, TypeError, AttributeError):
+        return None
+    return list(cell) if cell is not None else None
+
+
 def extract_pdf(
     source_version: str,
     policy: PdfFinancialExtractionPolicy,
@@ -582,15 +597,21 @@ def extract_pdf(
                         period_type = period_types.get(col)
                         header_text = grid[header_row][col] if col < len(grid[header_row]) else None
 
-                        cell_bbox = list(table.rows[ri].cells[col]) if (
-                            ri < len(table.rows) and col < len(table.rows[ri].cells)) else None
+                        cell_bbox = _cell_bbox(table, ri, col)
+                        if cell_bbox is None:
+                            # 单元格物理坐标不可得 → 记录 issue + 跳过，绝不伪造 [0,0,0,0]。
+                            _issue("CELL_BBOX_UNAVAILABLE",
+                                   {"pdf_page": page_no, "table_id": table_id,
+                                    "row_index": ri, "column_index": col,
+                                    "raw_item_text": raw_item_text,
+                                    "raw_value_text": raw_value_text})
+                            continue
 
                         # 合并单元格：同 bbox 只取首个（不扩增为多个独立金额）。
-                        if cell_bbox is not None:
-                            bbox_key = tuple(round(float(v), 3) for v in cell_bbox)
-                            if bbox_key in seen_bboxes:
-                                continue
-                            seen_bboxes.add(bbox_key)
+                        bbox_key = tuple(round(float(v), 3) for v in cell_bbox)
+                        if bbox_key in seen_bboxes:
+                            continue
+                        seen_bboxes.add(bbox_key)
 
                         status: str
                         parsed_numeric_value: Decimal | None
@@ -607,7 +628,7 @@ def extract_pdf(
                             pdf_page=page_no,
                             row_index=ri,
                             column_index=col,
-                            bbox=cell_bbox or [0.0, 0.0, 0.0, 0.0],
+                            bbox=cell_bbox,
                             table_id=table_id,
                             row_header=raw_item_text,
                             column_header=str(header_text) if header_text is not None else None,
