@@ -415,6 +415,44 @@ def _cell_bbox(table, ri: int, col: int) -> list[float] | None:
     return list(cell) if cell is not None else None
 
 
+def _map_value_columns(
+    table,
+    header_row: int,
+    item_col: int,
+    period_cols: dict[int, str],
+) -> dict[int, int]:
+    """把期间「表头标签列」映射到「数据值列」（grid 列索引）。
+
+    中文财报 pdfplumber 网格中，表头期间标签（「期末余额」「2024年度」）常落在与
+    数值列不同的 grid 列：表头行含附注/对齐子列（窄空列），数据行把这些子列合并成
+    宽数值列，导致 label 列 index ≠ value 列 index（如 label 在 col4、value 在 col3）。
+
+    以表头标签单元格 bbox 的 x 区间为基准，在数据行中找 x 区间水平重叠的单元格，即
+    该期间的数值列；找不到重叠则回退到标签列本身（网格已对齐的常规表 → 无改动）。
+    """
+    value_cols: dict[int, int] = {}
+    for col in period_cols:
+        label_bbox = _cell_bbox(table, header_row, col)
+        if label_bbox is None:
+            value_cols[col] = col
+            continue
+        lx0, _, lx1, _ = label_bbox
+        found = col
+        for ri in range(header_row + 1, len(table.rows)):
+            row_cells = table.rows[ri].cells
+            for ci, cb in enumerate(row_cells):
+                if ci == item_col or cb is None:
+                    continue
+                # 水平重叠：cb.x1 > lx0 且 lx1 > cb.x0（不要求完全包含）。
+                if cb[2] > lx0 and lx1 > cb[0]:
+                    found = ci
+                    break
+            if found != col:
+                break
+        value_cols[col] = found
+    return value_cols
+
+
 def extract_pdf(
     source_version: str,
     policy: PdfFinancialExtractionPolicy,
@@ -574,6 +612,8 @@ def extract_pdf(
                         unit=unit, unit_text=unit_text, scope=scope, evidence=stmt_evidence))
                     continue
 
+                value_cols = _map_value_columns(table, header_row, item_col, period_cols)
+
                 regions.append(PdfTableRegion(
                     document_id=sv.document_id, document_version=sv.document_version,
                     pdf_page=page_no, table_id=table_id, statement_type=statement_type,
@@ -584,25 +624,33 @@ def extract_pdf(
 
                 # 逐数据行 × 期间列生成候选。
                 seen_bboxes: set[tuple[float, ...]] = set()
+                # 科目文本列：中文财报中科目长文本会向左合并（落到表头「项目」标签列
+                # 左侧的网格列），故取最左数值列之前的第一个非空单元格作为科目文本，
+                # 而不是固定用表头「项目」标签列 index。
+                item_region_end = min(value_cols.values()) if value_cols else item_col + 1
                 for ri in range(header_row + 1, len(grid)):
-                    item_val = grid[ri][item_col] if item_col < len(grid[ri]) else None
-                    if item_val is None or not str(item_val).strip():
+                    raw_item_text: str | None = None
+                    for ci in range(0, item_region_end):
+                        if ci < len(grid[ri]) and grid[ri][ci] and str(grid[ri][ci]).strip():
+                            raw_item_text = str(grid[ri][ci]).strip()
+                            break
+                    if raw_item_text is None:
                         continue
-                    raw_item_text = str(item_val).strip()
                     for col in sorted(period_cols):
-                        if col >= len(grid[ri]):
+                        vcol = value_cols[col]
+                        if vcol >= len(grid[ri]):
                             continue
-                        raw_value_text = grid[ri][col]
+                        raw_value_text = grid[ri][vcol]
                         period = period_cols[col]
                         period_type = period_types.get(col)
                         header_text = grid[header_row][col] if col < len(grid[header_row]) else None
 
-                        cell_bbox = _cell_bbox(table, ri, col)
+                        cell_bbox = _cell_bbox(table, ri, vcol)
                         if cell_bbox is None:
                             # 单元格物理坐标不可得 → 记录 issue + 跳过，绝不伪造 [0,0,0,0]。
                             _issue("CELL_BBOX_UNAVAILABLE",
                                    {"pdf_page": page_no, "table_id": table_id,
-                                    "row_index": ri, "column_index": col,
+                                    "row_index": ri, "column_index": vcol,
                                     "raw_item_text": raw_item_text,
                                     "raw_value_text": raw_value_text})
                             continue
@@ -627,7 +675,7 @@ def extract_pdf(
                             document_version=sv.document_version,
                             pdf_page=page_no,
                             row_index=ri,
-                            column_index=col,
+                            column_index=vcol,
                             bbox=cell_bbox,
                             table_id=table_id,
                             row_header=raw_item_text,

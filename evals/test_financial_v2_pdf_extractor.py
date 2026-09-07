@@ -345,6 +345,91 @@ def main() -> dict:
         except FileNotFoundError:
             pass
 
+    # ---- 中文财报网格错位：表头标签列 ≠ 数值/科目列（定点修复 5 回归）----
+    # 表头「项目」在 col1、期间标签「2024-12-31/2023-12-31」在 col4/col7；
+    # 数据行科目文本在 col0、数值在 col3/col6（pdfplumber 合并子列导致）。
+    db_mis = _tmp_db()
+    pdf_mis = _tmp_pdf(prefix="eval_misalign_")
+    orig_pp2 = ex.pdfplumber
+    try:
+        with open(pdf_mis, "wb") as f:
+            f.write(b"%PDF-1.4\n%%EOF\n")
+        source_document_id2, source_version2 = _register(db_mis, pdf_mis)
+
+        grid_mis = [
+            ["", "项目", "", "", "2024-12-31", "", "", "2023-12-31", ""],
+            ["货币资金", "", "", "303511993", "", "", "264306515", "", ""],
+        ]
+        hdr = [[56.8, 195.3, 62.3, 212.6], [62.3, 195.3, 212.1, 212.6],
+               [212.1, 195.3, 217.4, 212.6], [217.4, 195.3, 222.9, 212.6],
+               [222.9, 195.3, 372.7, 212.6], [372.7, 195.3, 378.0, 212.6],
+               [378.0, 195.3, 383.5, 212.6], [383.5, 195.3, 533.2, 212.6],
+               [533.2, 195.3, 538.4, 212.6]]
+        dat = [[56.8, 229.3, 62.3, 246.9], [62.3, 229.3, 212.1, 246.9],
+               [212.1, 229.3, 217.4, 246.9], [217.4, 229.3, 378.0, 246.9],
+               None, None, [378.0, 229.3, 538.4, 246.9], None, None]
+        tbl_rows_mis = [_Row([_Cell(b) for b in hdr]),
+                        _Row([_Cell(b) if b is not None else None for b in dat])]
+
+        class _FakeTableMis:
+            def __init__(self):
+                self.rows = tbl_rows_mis
+                self.bbox = [56.8, 195.3, 538.4, 246.9]
+
+            def extract(self):
+                return [list(r) for r in grid_mis]
+
+        class _FakePageMis:
+            def __init__(self):
+                self._text = "Consolidated Balance Sheet 2024-12-31"
+                self._tables = [_FakeTableMis()]
+
+            def extract_text(self):
+                return self._text
+
+            def find_tables(self, settings=None):
+                return self._tables
+
+        class _FakePdfMis:
+            def __init__(self):
+                self.pages = [_FakePageMis()]
+
+            def close(self):
+                pass
+
+        class _FakePdfPlumberMis:
+            def __init__(self, pdf):
+                self._pdf = pdf
+
+            def open(self, path):
+                return self._pdf
+
+        ex.pdfplumber = _FakePdfPlumberMis(_FakePdfMis())
+        result_mis = ex.extract_pdf(source_version2, _policy(pdf_mis), persist=True)
+
+        check(len(result_mis.candidates) == 2,
+              f"错位网格 → 2 候选（实际 {len(result_mis.candidates)}）")
+        by_period = {c.period_candidate: c for c in result_mis.candidates}
+        c2024 = by_period.get("2024-12-31")
+        c2023 = by_period.get("2023-12-31")
+        check(c2024 is not None and c2024.raw_item_text == "货币资金"
+              and c2024.parsed_numeric_value == 303511993,
+              "科目文本取自 col0（非表头「项目」列）+ 2024 数值取 col3")
+        check(c2023 is not None and c2023.parsed_numeric_value == 264306515,
+              "2023 数值取 col6（表头标签 col7 的左侧数值列）")
+        check(c2024 is not None and [round(x, 1) for x in c2024.locator.pdf.bbox]
+              == [217.4, 229.3, 378.0, 246.9],
+              "数值 cell bbox 指向真实数值列（col3），非表头标签列（col4）")
+        mis_bbox_issues = [i for i in result_mis.issues if i.issue_type == "CELL_BBOX_UNAVAILABLE"]
+        check(len(mis_bbox_issues) == 0, "错位网格数值列 bbox 齐备，无 CELL_BBOX_UNAVAILABLE")
+    finally:
+        ex.pdfplumber = orig_pp2
+        _cleanup_db(db_mis)
+        try:
+            os.remove(pdf_mis)
+        except FileNotFoundError:
+            pass
+
     # ---- 三张主表合成 PDF ----
     db = _tmp_db()
     pdf = _tmp_pdf()
