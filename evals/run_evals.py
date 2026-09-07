@@ -63,6 +63,7 @@ EVAL_MODULES = [
     "evals.test_router",
     "evals.test_context",
     "evals.test_indexer_v2",
+    "evals.test_sparse",
 ]
 
 
