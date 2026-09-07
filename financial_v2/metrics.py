@@ -227,14 +227,14 @@ def compute_metric(snapshot_id: str, formula_id: str, period: str,
         raise KeyError(f"snapshot 不存在: {snapshot_id}")
     fd = _resolve_formula(snapshot, formula_id)
 
-    # 快照失效 → 阻断（§9：stale 快照不得作为当前报告输入）。
+    # 快照失效 → 阻断（§9：stale 快照不得作为当前报告输入）；stale 快照冻结，
+    # 不落盘新 MetricResult（历史结果保留审计），避免与既有结果的唯一键冲突。
     validity = store.latest_snapshot_validity(snapshot_id)
     if validity in ("stale", "superseded"):
-        result = _build_blocked(snapshot_id, fd, period, "SNAPSHOT_STALE",
-                                {"validity": validity})
-    else:
-        result = _compute_live(snapshot, fd, period)
+        return _build_blocked(snapshot_id, fd, period, "SNAPSHOT_STALE",
+                              {"validity": validity})
 
+    result = _compute_live(snapshot, fd, period)
     if persist:
         store.commit_metrics_atomic([result])
     return result
@@ -287,6 +287,8 @@ def compute_all(snapshot_id: str, periods: list[str] | None = None,
     snapshot = store.get_snapshot(snapshot_id)
     if snapshot is None:
         raise KeyError(f"snapshot 不存在: {snapshot_id}")
+    validity = store.latest_snapshot_validity(snapshot_id)
+    snapshot_stale = validity in ("stale", "superseded")
     items = store.list_snapshot_items(snapshot_id)
     if periods is None:
         periods = sorted({it.report_period for it in items})
@@ -299,7 +301,8 @@ def compute_all(snapshot_id: str, periods: list[str] | None = None,
         for period in periods:
             results.append(compute_metric(snapshot_id, fid, period, persist=False))
 
-    if persist and results:
+    # stale 快照冻结：整批返回阻断态但不落盘（历史 MetricResult 保留审计）。
+    if persist and results and not snapshot_stale:
         checkpoint = _make_checkpoint(snapshot_id, results)
         store.commit_metrics_atomic(results, checkpoint=checkpoint)
 
