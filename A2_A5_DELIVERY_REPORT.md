@@ -1,14 +1,18 @@
 # Phase 1F-A2～A5 统一交付报告
 
-> 交付时间：2026-09-07
+> 交付时间：2026-09-07（含最后一次定点修复）
 > 范围：财务抽取（A2/A3）→ 确定性映射/标准化/勾稽/对账（A4）→ 集中确认（A5）
-> 状态：**A2～A5 完成，含 9 项关闭缺口修复；已生成 `FORMULA_REVIEW.md` 暂停门，停止等待业务确认，不进入 A6/A7。**
+> 状态：**A2～A5 完成；关闭缺口 9 项 + 最后一次定点修复 5 项；真实 PDF 三表坐标已验收；
+> 已生成 `FORMULA_REVIEW.md` 暂停门（`PROPOSED_DEFAULT` 未经业务确认），停止等待业务确认，不进入 A6/A7。**
 
 ---
 
 ## 1. 改动文件与提交
 
-A2～A5 主体实现 **9 个 commit**，随后关闭缺口 **9 个 commit**，合计 **18 个 commit**，一职责一提交：
+A2～A5 主体实现 **9 个 commit**，关闭缺口 **9 个 commit**，最后一次定点修复 **7 个 commit**，
+合计 **25 个 commit**，一职责一提交。最后一次定点修复（①～⑤）是对早前 #6/#7 两项
+「原子事务」「0 记录完成态」的不完整实现的**补正**（#6 原仅覆盖 mapping/resolution/reconciliation
+故障注入，缺 normalization/checks；#7 原仅放开空记录集，缺输出版本分离与 0 记录审计落库）：
 
 **主体实现：**
 
@@ -37,6 +41,18 @@ A2～A5 主体实现 **9 个 commit**，随后关闭缺口 **9 个 commit**，�
 | `e3da64d` | #6 | A4/A5 | 原子持久化边界故障注入测试（mapping/resolution/reconciliation） |
 | `a2c56e5` | #4 | A5 | 确认后 Record Set 派生不丢失既有记录（carry-forward + 失败保留旧 current） |
 | `9e6aac2` | #9 | 暂停门 | FORMULA_REVIEW 补齐 §15 暂停门清单 |
+
+**最后一次定点修复（本轮，5 项，一职责一提交）：**
+
+| Commit | Fix | 职责 | 内容 |
+|---|---|---|---|
+| `2c37ec0` | ① | store | 新增 `commit_normalization_atomic` / `commit_checks_atomic` 单事务原子接口 + `list_candidates_by_ids` 跨版本回读 |
+| `7b4b198` | ①③ | normalization | 输出版本与输入候选版本分离（metadata confirmations 进 deps）+ 单事务原子提交 + 0 记录完成态落库 |
+| `0a84af9` | ② | checks | `run_checks` 走 `commit_checks_atomic`（run+checks+issues 单事务）+ 按 candidate_id 回读候选 |
+| `23ef48a` | ②③ | reconciliation | 按 candidate_id 回读候选（跨版本边界，修复 list_candidates 空读） |
+| `74dce05` | ①③ | evals | normalization/checks 真实故障注入 + 0→确认→新版本 + 输出版本分离回归 |
+| `58a5a46` | ④ | 暂停门 | FORMULA_REVIEW 修订：`PROPOSED_DEFAULT` + 季报累计值环比限制 + `GROWTH_FINANCING_CASH_FLOW` + 去除未经抽取验证的「材料可得性满足」 |
+| `7153c2d` | ⑤ | A3 | PDF 表头标签列与数值/科目列错位映射 + `scripts/verify_pdf_acceptance.py` 真实验收 + 回归测试 |
 
 **新增模块**（`financial_v2/`）：`excel_extractor.py`、`pdf_table_extractor.py`、`mapping.py`、
 `normalization.py`、`checks.py`、`reconciliation.py`、`resolutions.py`、`metadata_confirmation.py`。
@@ -105,15 +121,15 @@ python -m financial_v2.metadata_confirmation --company <id> --source-document <d
 
 ## 5. 测试与 eval
 
-- `financial_v2` 专项 eval **792 passed / 0 failed**（14 个模块，本次交付前复跑确认）：
+- `financial_v2` 专项 eval **821 passed / 0 failed**（14 个模块，最后一次定点修复后复跑确认）：
   schema 70 / store 100 / source_registry 31 / migration 81 / decimal 14 /
-  metadata_confirmation 20 / extractors 53 / pdf_extractor 47 / mapping 177 /
-  normalization 54 / checks 34 / reconciliation 42 / resolutions 56 / resolutions_ui 13。
-- 完整 eval（V1 + V2）最后一次全量：**1565 passed / 0 failed / 0 skipped**。
+  metadata_confirmation 20 / extractors 53 / pdf_extractor 52 / mapping 177 /
+  normalization 74 / checks 38 / reconciliation 42 / resolutions 56 / resolutions_ui 13。
+- 完整 eval（V1 + V2，`python -m evals.run_evals`，MOCK LLM）最后一次全量：**1594 passed / 0 failed / 0 skipped**（231.0s；`test_company_subject`/`test_industry` 因 akshare `ProxyError` 走网络降级仍 PASS，属环境失败非代码失败）。
 - 测试全部合成 fixture、注入临时 DB / 临时目录，**不污染生产库**（见 §8）。
-- 关闭缺口专项新增：`decimal`（Decimal 权威全链）、`metadata_confirmation`（确认幂等/gap-fill）、
-  migration 81（v4/v5 迁移原子性 + 结构探针）、normalization 54（fix #7 空记录集）、
-  reconciliation 42（fix #6 故障注入）、resolutions 56（fix #4 carry-forward + fix #6 故障注入）。
+- 定点修复专项新增：`normalization` 74（fix ① 输出版本分离 + 0→确认→新版本 + 事务故障注入）、
+  `checks` 38（fix ② 单事务原子提交 + 事务故障注入）、`pdf_extractor` 52（fix ⑤ 表头/数值/科目
+  列错位映射回归）、`metadata_confirmation` 20（确认派生新输出 record_set_version）。
 
 ## 6. 真实样本集成验收（300750，临时 DB）
 
@@ -134,8 +150,23 @@ python -m financial_v2.metadata_confirmation --company <id> --source-document <d
 再重标准化时 gap-fill 只补缺失维度、不覆盖正文，即产出 432 条标准记录，下游勾稽/对账/确认
 在本样本上全部可跑。scope 缺口不再阻塞，用户（或 ingest 编排）补齐一条声明即可闭环。
 
-A3 PDF 路径本轮未重跑验收；fix #2 已实现 PDF→Evidence Registry 关联，样本仍需先登记
-`document_id/document_version` 关联方可抽取（见 §10 限制 #2）。
+### 6.1 真实电子年报 PDF 验收（300750 / NDSD_2024_year.pdf，定点修复 ⑤）
+
+通过 `scripts/verify_pdf_acceptance.py`（`python -m scripts.verify_pdf_acceptance`）走已实现接口
+完成真实 PDF 验收，结果如下：
+
+| 环节 | 结果 |
+|---|---|
+| source 登记（Evidence 联动入口） | `source_registry.register_source` → `source_version=sv-ad5b007d5d460624f363516c`，`file_sha256=b4f1713d…`，`subject_match_status=matched` |
+| Evidence document_id/document_version 查找 | `evidence.store.get_document` 回查 `document_id=doc-…`、`document_version=sha256-b4f1713d7b821eb0`，company/file_sha256/document_version 三方一致（`consistent=True`） |
+| 三张主表定位（真实 `table_bbox`） | 合并资产负债表 p114 `[56.84, 195.32, 538.44, 764.43]`；合并利润表 p119 `[56.84, 165.08, 538.44, 759.45]`；合并现金流量表 p122 `[56.84, 563.4, 538.44, 769.5]` |
+| 各表抽样金额（真实 `cell_bbox`） | 资产负债表「货币资金」303,511,993 千元（cell `[217.38, 229.30, 377.96, 246.87]`）；利润表「营业总收入」362,012,554 千元（cell `[217.37, 182.08, 377.95, 199.36]`）；现金流量表「销售商品、提供劳务收到的现金」417,525,378 千元（cell `[217.38, 596.83, 377.96, 614.30]`） |
+| 抽取统计 | 候选 238、问题 52（`CELL_BBOX_UNAVAILABLE`/`CLASSIFICATION_REQUIRED`/`HEADER_UNRESOLVED`，均为跨页续表/标题缺页等结构性未对齐，非「尚未登记关联」） |
+
+验收发现并修复了 pdfplumber 网格的**表头标签列与数值/科目列错位**问题（表头含附注/对齐子列、
+数据行合并为宽数值列，导致期间标签在 col4/col7、数值在 col3/col6、科目长文本向左合并到 col0）：
+`_map_value_columns` 按表头标签单元格 bbox x 区间映射数值列，科目文本取最左数值列之前的首个
+非空单元格。修复后三张合并主表均产出带真实坐标的金额（对齐网格场景零改动，回归 52 项全过）。
 
 ## 7. 环境失败 vs 代码失败
 
@@ -143,7 +174,7 @@ A3 PDF 路径本轮未重跑验收；fix #2 已实现 PDF→Evidence Registry �
 |---|---|---|
 | 环境失败 | eval 中 `ProxyError` / PDF 网络检索降级（test_company_subject / test_industry） | 网络不可达，模块已降级处理，仍 PASS |
 | 数据缺口 | 300750 无 scope 标注 → 标准化首轮阻断（§6） | 输入缺标注，非代码故障；已由 fix #1 结构化确认关闭 |
-| 数据缺口 | PDF 缺 Evidence Registry 关联 → `DOCUMENT_LINK_UNAVAILABLE` | 前置关联，fix #2 已实现关联路径，样本待登记关联 |
+| 数据缺口（已关闭） | PDF 缺 Evidence Registry 关联 → `DOCUMENT_LINK_UNAVAILABLE` | fix #2 已实现关联路径，fix ⑤ 真实 PDF 验收已走通关联（§6.1），样本登记后即可抽取 |
 | **代码失败** | **无**（全部 eval 0 failed） | — |
 
 ## 8. 数据库污染
@@ -166,6 +197,7 @@ A3 PDF 路径本轮未重跑验收；fix #2 已实现 PDF→Evidence Registry �
    闭环（§6）。未确认前仍不会产出含 scope 的记录。
 2. **PDF 抽取前置依赖**：`extract_pdf` 要求来源先关联 Evidence Registry 的
    `document_id/document_version`（fix #2 已实现该关联路径），否则 `DOCUMENT_LINK_UNAVAILABLE`。
+   fix ⑤ 真实 PDF 验收已走通该关联（§6.1），确认关联路径可用。
 3. **对账空记录集边界**：当全部 record_set 均无标准化记录时，`run_reconciliation` 抛
    `KeyError("输入 record_sets 下无任何标准化记录")` 而非返回空结果。fix #7 放开存储层空记录集后，
    `record_set 不存在` 分支仅对「从未登记 head 行」的 record_set 触发（normalize 0 记录不再落库
@@ -178,8 +210,33 @@ A3 PDF 路径本轮未重跑验收；fix #2 已实现 PDF→Evidence Registry �
 
 ---
 
+## 11. 完整 eval 结果 + §16 关闭判定
+
+- 完整 eval（V1 + V2，`python -m evals.run_evals`，MOCK LLM）：**1594 passed / 0 failed / 0 skipped**（231.0s）。
+- 对照任务书 §16「A2～A5 完成标准」逐条判定：
+
+| §16 条件 | 判定 |
+|---|---|
+| Excel/PDF 原始候选与合格记录层次清楚，未知值未伪造 | ✅ 未知维度显式 `None`，标准化准入按「不伪造」阻断（§6）；Decimal 权威文本列 |
+| 三张主表真实坐标可回查；不可靠 PDF 明确失败关闭且不回退 RAG/OCR/LLM | ✅ fix ⑤ 真实 PDF 三表坐标已验收（§6.1）；不可靠网格 → `CELL_BBOX_UNAVAILABLE`/`TABLE_GRID_UNAVAILABLE` 明确失败，无 RAG/OCR/LLM |
+| 标准化/勾稽/舍入容差/comparison group 版本化确定性 | ✅ 身份链确定性派生（§3），勾稽 Decimal/容差、对账分组均确定性 |
+| 单来源可用；多来源一致不翻倍；不同口径不混组；冲突不自动选择 | ✅ reconciliation 分组/容差/current 原子切换（§2） |
+| 映射与冲突确认全有或全无批量事务，不覆盖历史事实 | ✅ `commit_normalization_atomic`/`commit_checks_atomic`/`commit_reconciliation_atomic`/`commit_mapping_resolutions` 单事务，历史不可变触发器 |
+| 新材料/规则变化只定向失效相关 Resolution | ✅ `invalidate_*` 定向失效 |
+| UI 保持薄层，无冲突路径零新增确认 | ✅ `streamlit_app.py` 只调 agent，`enable_v2` 默认关闭 |
+| Progress/Checkpoint 来源于真实持久化事件 | ✅ Evidence progress/checkpoint 来自真实事件 |
+| 通用合成测试、真实样本坐标验收、完整 eval 通过 | ✅ 821/0 专项 + 真实 Excel/PDF 坐标验收 + 完整 eval（§11） |
+| V1 模块、数据库、Retriever、Baseline 未改变 | ✅ §9 零变更 |
+| `FORMULA_REVIEW.md` 已生成，执行停在 A6 业务确认门之前 | ✅ 已生成并修订（`PROPOSED_DEFAULT` 未经业务确认），未进入 A6 |
+
+**结论：A2～A5 可关闭**（不进入 A6），前提是业务对 `FORMULA_REVIEW.md` 的
+`PROPOSED_DEFAULT` / `BUSINESS_CONFIRMATION_REQUIRED` 口径逐项确认后方可启动 A6。
+
+---
+
 ## 停止边界
 
 - 未实现 A6 Formula Registry / FinancialSnapshot / 财务指标计算 / A7。
-- 未把任何 `BUSINESS_CONFIRMATION_REQUIRED` 公式口径改为 confirmed（见 `FORMULA_REVIEW.md`）。
+- 未把任何 `PROPOSED_DEFAULT` 或 `BUSINESS_CONFIRMATION_REQUIRED` 公式口径改为 confirmed
+  （见 `FORMULA_REVIEW.md`）。
 - 待业务对 `FORMULA_REVIEW.md` 逐项确认后，再进入 A6。
