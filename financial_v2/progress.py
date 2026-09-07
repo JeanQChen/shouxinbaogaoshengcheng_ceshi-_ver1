@@ -203,7 +203,7 @@ def build_request_for_company(company_id: str, *, as_of_date: str | None = None,
         company_id=company_id, as_of_date=as_of_date, scope=scope, currency=currency,
         purpose=purpose, record_set_ids=sorted(set(record_set_ids)),
         reconciliation_run_id=reconciliation_run_id,
-        required_formula_ids=list(formulas.ACTIVE_FORMULA_VERSIONS.keys()),
+        required_formula_ids=list(formulas.DEFAULT_REQUIRED_FORMULA_IDS),
         restatement_selection={}, policy_adjustments={}, run_id=run_id,
     )
 

@@ -654,6 +654,25 @@ ACTIVE_FORMULA_VERSIONS: dict[str, str] = {
     fid: FORMULA_VERSION for fid in _CALLABLES
 }
 
+# 默认必算公式集合（快照准入默认 required_formula_ids；任务书 §6.3「已请求必算公式」）。
+# 依据 CLAUDE.md §financial.metrics「必须包含至少这些指标」：流动比率、速动比率、
+# 资产负债率、利息保障倍数、毛利率、净利率、ROE、ROA、营收增长率、净利增长率、
+# 经营现金流/净利润。§6 三项目（EBITDA / 有息负债 / 自由现金流）为「输入可得时计算」，
+# 不在默认必算集合 —— 只有被显式列入 required_formula_ids 才参与输入缺失阻断。
+DEFAULT_REQUIRED_FORMULA_IDS: list[str] = [
+    "SOLV_CURRENT_RATIO",
+    "SOLV_QUICK_RATIO",
+    "SOLV_DEBT_RATIO",
+    "SOLV_INTEREST_COVER",
+    "PROF_GROSS_MARGIN",
+    "PROF_NET_MARGIN",
+    "PROF_ROE",
+    "PROF_ROA",
+    "GROWTH_REVENUE",
+    "GROWTH_NET_PROFIT",
+    "CASH_OCF_TO_NP",
+]
+
 
 # ---------------------------------------------------------------------------
 # 对外接口（fail-closed）

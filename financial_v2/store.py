@@ -1552,13 +1552,14 @@ def _insert_record_set_conn(conn: sqlite3.Connection, rs: S.FinancialRecordSet) 
     conn.execute(
         "INSERT INTO financial_record_set (record_set_version, source_version, extractor_name, "
         "extractor_version, mapping_rule_version, normalization_rule_version, dependency_versions, "
-        "report_periods, currency, unit, statement_scope, audit_status, block_count, record_count, created_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "report_periods, currency, unit, statement_scope, audit_status, block_count, record_count, "
+        "created_at, input_candidate_set_version) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (rs.record_set_version, rs.source_version, rs.extractor_name,
          rs.extractor_version, rs.mapping_rule_version, rs.normalization_rule_version,
          _json_dumps(rs.dependency_versions), _json_dumps(rs.report_periods),
          rs.currency, rs.unit, rs.statement_scope, rs.audit_status,
-         rs.block_count, rs.record_count, rs.created_at),
+         rs.block_count, rs.record_count, rs.created_at, rs.input_candidate_set_version),
     )
 
 
@@ -1683,6 +1684,7 @@ def _record_set_header_identical(incoming: S.FinancialRecordSet, row: sqlite3.Ro
         and row["audit_status"] == incoming.audit_status
         and row["block_count"] == incoming.block_count
         and row["record_count"] == incoming.record_count
+        and row["input_candidate_set_version"] == incoming.input_candidate_set_version
     )
 
 
@@ -2731,6 +2733,31 @@ def list_reconciliation_checks(run_id: str) -> list[S.ReconciliationCheck]:
     try:
         rows = conn.execute(
             "SELECT * FROM reconciliation_check WHERE run_id=? ORDER BY check_id", (run_id,)
+        ).fetchall()
+        return [_row_to_reconciliation_check(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def list_reconciliation_checks_by_record_sets(
+    record_set_ids: list[str],
+) -> list[S.ReconciliationCheck]:
+    """按输出 record_set_version 读取勾稽结果（供快照准入读同源勾稽失败）。
+
+    勾稽结果（checks.run_checks 产出）绑定其输出 record_set_version，与跨来源对账
+    （recon.run_reconciliation）的 run_id 不同；快照按输入 record_set 读取，避免依赖
+    二者 run_id 的耦合。
+    """
+    record_set_ids = sorted(set(record_set_ids))
+    if not record_set_ids:
+        return []
+    conn = _get_conn()
+    try:
+        placeholders = ",".join("?" for _ in record_set_ids)
+        rows = conn.execute(
+            f"SELECT * FROM reconciliation_check WHERE record_set_version IN ({placeholders}) "
+            "ORDER BY check_id",
+            tuple(record_set_ids),
         ).fetchall()
         return [_row_to_reconciliation_check(r) for r in rows]
     finally:

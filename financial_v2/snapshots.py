@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
+from financial_v2 import formulas
 from financial_v2 import schema as S
 from financial_v2 import store
 from financial_v2 import validator
@@ -37,10 +38,51 @@ SNAPSHOT_VERSION = "1.0"
 # 首版公式版本锁定；与 formulas.py 的 ACTIVE_FORMULA_VERSIONS 保持一致（Commit 4 对齐）。
 _REQUIRED_FORMULA_VERSION = "1.0"
 
-# 除「政策排除」外，其余异常都表示某值无法被准入为可计算值 → 阻断正式报告导出。
-_BLOCKING_EXCEPTION_TYPES = frozenset(
-    t for t in S.SNAPSHOT_EXCEPTION_TYPES if t != "EXCLUDED_BY_POLICY"
-)
+# 阻断模型（任务书 §6.3）：
+# - 恒阻断：未解决冲突 / scope 不足 / 重述歧义 / 隔离输入 / 决议失效 / 缺必需科目，
+#   均表示某值无法被准入为可计算值 → 阻断正式报告导出。
+# - 条件阻断：未确认映射 / 勾稽失败，仅当影响「必算公式 / 主体偿债 / 关键数字」
+#   时才阻断（detail["critical"] 判定），非关键问题仍固化审计异常但不阻断。
+_ALWAYS_BLOCKING_EXCEPTION_TYPES = frozenset({
+    "UNRESOLVED_CONFLICT",
+    "INSUFFICIENT_SCOPE",
+    "AMBIGUOUS_RESTATEMENT",
+    "QUARANTINED_INPUT",
+    "STALE_RESOLUTION",
+    "MISSING_REQUIRED_ITEM",
+})
+_CONDITIONAL_EXCEPTION_TYPES = frozenset({"UNCONFIRMED_MAPPING", "CHECK_FAILED"})
+
+# 三大表关键数字 + 主体偿债判断核心科目（§6.3：即使不在 required_formula_ids 也阻断）。
+_KEY_CREDIT_ITEMS = frozenset({
+    "TOTAL_ASSETS", "TOTAL_LIABILITIES", "TOTAL_EQUITY",
+    "CURRENT_ASSETS", "CURRENT_LIABILITIES", "INVENTORY", "PREPAYMENTS",
+    "TOTAL_PROFIT", "INTEREST_EXPENSE", "FINANCE_EXPENSES",
+    "TOTAL_REVENUE", "OPERATING_COST", "NET_PROFIT", "OPERATING_CASH_FLOW",
+})
+
+
+def _exception_is_blocking(e: S.SnapshotException) -> bool:
+    if e.exception_type in _ALWAYS_BLOCKING_EXCEPTION_TYPES:
+        return True
+    if e.exception_type in _CONDITIONAL_EXCEPTION_TYPES:
+        return bool(e.detail.get("critical", False))
+    return False
+
+
+def _critical_item_codes(req: SnapshotBuildRequest) -> set[str]:
+    """关键科目集合 = 必算公式输入 ∪ 三大表关键数字/主体偿债核心（§6.3）。
+
+    未知公式 ID（如测试用假 ID）跳过，不 fail-closed（关键性判定是启发式，不是注册表校验）。
+    """
+    codes: set[str] = set(_KEY_CREDIT_ITEMS)
+    for fid in req.required_formula_ids:
+        try:
+            fd = formulas.get_formula(fid, _REQUIRED_FORMULA_VERSION)
+        except KeyError:
+            continue
+        codes.update(fd.input_item_codes)
+    return codes
 
 
 @dataclass
@@ -260,9 +302,14 @@ def _resolve_state(comparison_key: str, group_records: list[S.SourceFinancialRec
 
 
 def _admit(req: SnapshotBuildRequest, records: list[S.SourceFinancialRecord],
-           groups_by_key: dict[str, S.ReconciliationGroupResult]
+           groups_by_key: dict[str, S.ReconciliationGroupResult],
+           excluded_record_ids: frozenset[str],
            ) -> tuple[list[S.SnapshotItem], list[S.SnapshotException], list[str]]:
-    """逐条准入 + 重述歧义 + 冲突决议，返回 (items, exceptions, used_resolution_ids)。"""
+    """逐条准入 + 重述歧义 + 冲突决议，返回 (items, exceptions, used_resolution_ids)。
+
+    excluded_record_ids = 未确认映射 ∪ 勾稽失败影响的记录；这两类异常分别由
+    _unresolved_mapping_exceptions / _check_failed_exceptions 固化，此处只排除不重复报。
+    """
     items: list[S.SnapshotItem] = []
     exceptions: list[S.SnapshotException] = []
     used_resolution_ids: list[str] = []
@@ -274,6 +321,8 @@ def _admit(req: SnapshotBuildRequest, records: list[S.SourceFinancialRecord],
             continue
         if r.currency != req.currency:
             continue
+        if r.record_id in excluded_record_ids:
+            continue
         missing = _missing_dimensions(r)
         if missing:
             exceptions.append(_make_exception(
@@ -284,10 +333,6 @@ def _admit(req: SnapshotBuildRequest, records: list[S.SourceFinancialRecord],
                 or store.is_quarantined("financial_record_set", r.record_set_version):
             exceptions.append(_make_exception(
                 "QUARANTINED_INPUT", r, {"record_id": r.record_id}))
-            continue
-        if r.mapping_mode == "llm_suggested":
-            exceptions.append(_make_exception(
-                "UNCONFIRMED_MAPPING", r, {"record_id": r.record_id}))
             continue
         if r.std_value is None:
             exceptions.append(_make_exception(
@@ -344,10 +389,173 @@ def _admit(req: SnapshotBuildRequest, records: list[S.SourceFinancialRecord],
             exceptions.append(_make_group_exception(
                 "INSUFFICIENT_SCOPE", group_records,
                 {"candidate_record_ids": sorted(r.record_id for r in group_records)}))
-        # 其余状态（如 CHECK_FAILED 表示勾稽失败影响）不入项，也不产生额外异常
-        # ——对账运行中已就 CHECK_FAILED 条目独立固化为 issue；此处防御性跳过。
 
     return items, exceptions, used_resolution_ids
+
+
+# ---------------------------------------------------------------------------
+# 定点修复：上游候选/问题血缘、勾稽失败、必算公式输入闭环
+# ---------------------------------------------------------------------------
+
+def _unresolved_mapping_exceptions(req: SnapshotBuildRequest,
+                                   records: list[S.SourceFinancialRecord],
+                                   critical_codes: set[str]
+                                   ) -> tuple[list[S.SnapshotException], set[str]]:
+    """Fix 1：接入上游候选/问题血缘（精确 input_candidate_set_version 指针，非 source_version 模糊回扫）。
+
+    通过 record_set.input_candidate_set_version 读取候选，再查各候选当前 active 映射决议：
+    - 有有效决议（chosen_item_code 非空）且记录已产出 → 已确认，不再报 UNCONFIRMED_MAPPING；
+    - 否则 → 未确认映射，固化 UNCONFIRMED_MAPPING（标准科目命中关键集合 → critical=True 阻断）。
+    未确认映射记录不得作为可计算值（§6.2），返回其 record_id 集合供 _admit 排除。
+    """
+    # 读取候选血缘（精确指针），构建 candidate_id → 是否已确认 的当前决议映射。
+    resolved: dict[str, bool] = {}
+    for rs_id in req.record_set_ids:
+        rs = store.get_record_set(rs_id)
+        if rs is None or not rs.input_candidate_set_version:
+            continue
+        for cand in store.list_candidates(rs.input_candidate_set_version):
+            mr = store.get_active_mapping_resolution(cand.candidate_id)
+            resolved[cand.candidate_id] = mr is not None and mr.chosen_item_code is not None
+
+    exceptions: list[S.SnapshotException] = []
+    excluded: set[str] = set()
+    for r in records:
+        if r.mapping_mode != "llm_suggested":
+            continue
+        excluded.add(r.record_id)
+        is_resolved = resolved.get(r.candidate_id)
+        if is_resolved is None and r.candidate_id:
+            # 候选不在输入候选集（跨集合追溯）→ 回退直查当前 active 决议。
+            mr = store.get_active_mapping_resolution(r.candidate_id)
+            is_resolved = mr is not None and mr.chosen_item_code is not None
+        if is_resolved:
+            continue
+        exceptions.append(_make_exception(
+            "UNCONFIRMED_MAPPING", r,
+            {"record_id": r.record_id, "candidate_id": r.candidate_id,
+             "critical": r.standard_item_code in critical_codes}))
+    return exceptions, excluded
+
+
+def _check_failed_exceptions(req: SnapshotBuildRequest,
+                             records: list[S.SourceFinancialRecord],
+                             critical_codes: set[str]
+                             ) -> tuple[list[S.SnapshotException], set[str]]:
+    """Fix 2：接入同源勾稽失败（按输入 record_set_version 读取，非 reconciliation run_id）。
+
+    - NOT_RUN_MISSING_INPUT ≠ FAIL：只有 status=FAIL 才固化 CHECK_FAILED。
+    - FAIL 的 input_record_ids 受影响记录不得作为可计算值（§6.2），返回其 record_id 集合。
+    - 异常携带 run/check/record/item 引用；受影响科目命中关键集合 → critical=True（阻断）。
+    - 无关期间/scope/currency/record_set 的勾稽结果不参与（只读请求的 record_set_ids）。
+    """
+    checks = store.list_reconciliation_checks_by_record_sets(req.record_set_ids)
+    rec_by_id = {r.record_id: r for r in records}
+    exceptions: list[S.SnapshotException] = []
+    failed: set[str] = set()
+    for chk in checks:
+        if chk.status != "FAIL":
+            continue
+        affected = [rec_by_id[rid] for rid in chk.input_record_ids if rid in rec_by_id]
+        if not affected:
+            continue
+        affected_ids = sorted({r.record_id for r in affected})
+        item_codes = sorted({r.standard_item_code for r in affected if r.standard_item_code})
+        failed.update(affected_ids)
+        critical = any(code in critical_codes for code in item_codes)
+        exceptions.append(_make_group_exception(
+            "CHECK_FAILED", affected,
+            {"run_id": chk.run_id, "check_id": chk.check_id,
+             "check_type": chk.check_type, "record_ids": affected_ids,
+             "item_codes": item_codes, "critical": critical,
+             "left": chk.left_value, "right": chk.right_value, "diff": chk.diff}))
+    return exceptions, failed
+
+
+def _prior_period_of(period: str, period_type: str) -> str | None:
+    """由当前报告期推导上一报告期（与 metrics._prior_period 语义一致，供缺口闭环复用）。"""
+    try:
+        y, m, _ = (int(x) for x in period.split("-"))
+    except (ValueError, AttributeError):
+        return None
+    if period_type == "annual":
+        return f"{y - 1:04d}-12-31"
+    if period_type == "quarterly":
+        return {"03": f"{y - 1:04d}-12-31", "06": f"{y:04d}-03-31",
+                "09": f"{y:04d}-06-30", "12": f"{y:04d}-09-30"}.get(f"{m:02d}")
+    if period_type == "interim":
+        return f"{y:04d}-06-30" if m == 12 else f"{y - 1:04d}-12-31"
+    return None
+
+
+_PRIOR_PERIOD_REQUIREMENTS = frozenset({"flow/avg", "yoy_flow", "yoy_end"})
+
+
+def _required_formula_gap_exceptions(req: SnapshotBuildRequest,
+                                     items: list[S.SnapshotItem],
+                                     ) -> list[S.SnapshotException]:
+    """Fix 3：快照构建后、提交前，对 request.required_formula_ids 做输入闭环。
+
+    复用 formulas.compute_formula（与 metrics 层口径一致），自动继承代理/前期/可选/NA 判定：
+    - CALCULATED_PROXY（如利息保障以 FINANCE_EXPENSES 代理）→ 非缺口；
+    - NOT_APPLICABLE（季报增长率）→ 非缺口；
+    - MISSING_INPUT 且 detail["missing"] 非空 → 完全缺失的必需科目 → MISSING_REQUIRED_ITEM；
+    - 仅有 missing_prior（前期缺失）→ 非「完全缺失必需科目」，不在此固化；
+    - 未知 formula_id（测试用假 ID）跳过，不 fail-closed。
+    按 (formula_id, missing_code, period, scope, currency) 去重；仅检查 requested 公式。
+    """
+    scope, currency = req.scope, req.currency
+    # {report_period: {code: amount}} 仅含请求 scope/currency 的已准入项。
+    by_period: dict[str, dict[str, Decimal]] = {}
+    period_types: dict[str, str] = {}
+    for it in items:
+        if it.amount is None or it.statement_scope != scope or it.currency != currency:
+            continue
+        by_period.setdefault(it.report_period, {})[it.standard_item_code] = it.amount
+        period_types.setdefault(it.report_period, it.period_type)
+
+    # 去重维度 (code, period, scope, currency)：同一缺失科目被多个公式引用只固化一条异常，
+    # 避免与 snapshot_store 的 (comparison_key, standard_item_code, exception_type) 唯一键冲突。
+    # 仅检查主报告期 as_of_date：前期（2023 等）仅为同比/平均的分母依赖，天然只有子集，
+    # 其缺失输入属于 MISSING_PRIOR_PERIOD 而非「完全缺失必需科目」，不应触发阻断。
+    periods_to_check = [req.as_of_date] if req.as_of_date in by_period else []
+    gaps: dict[tuple[str, str], set[str]] = {}
+    for fid in req.required_formula_ids:
+        try:
+            fd = formulas.get_formula(fid, _REQUIRED_FORMULA_VERSION)
+        except KeyError:
+            continue
+        for period in periods_to_check:
+            period_type = period_types.get(period, "annual")
+            current = by_period.get(period, {})
+            prior: dict[str, Decimal] = {}
+            if fd.period_requirement in _PRIOR_PERIOD_REQUIREMENTS:
+                pp = _prior_period_of(period, period_type)
+                if pp is not None:
+                    prior = by_period.get(pp, {})
+            outcome = formulas.compute_formula(
+                fid, current, prior, policy={}, period_type=period_type)
+            if outcome.status != "MISSING_INPUT":
+                continue
+            for code in (outcome.detail.get("missing") or []):
+                gaps.setdefault((code, period), set()).add(fid)
+
+    exceptions: list[S.SnapshotException] = []
+    for (code, period), fids in sorted(gaps.items()):
+        period_type = period_types.get(period, "annual")
+        exceptions.append(S.SnapshotException(
+            snapshot_id="",
+            comparison_key=S.comparison_key(
+                req.company_id, code, "", period, period_type, scope, currency, ""),
+            standard_item_code=code,
+            exception_type="MISSING_REQUIRED_ITEM",
+            blocking_reason="MISSING_REQUIRED_ITEM",
+            impact_scope=sorted(fids),
+            detail={"formula_ids": sorted(fids), "period": period,
+                    "scope": scope, "currency": currency,
+                    "missing_item_code": code},
+        ))
+    return exceptions
 
 
 def _make_checkpoint(req: SnapshotBuildRequest, snapshot_id: str,
@@ -422,11 +630,27 @@ def build_snapshot(request: SnapshotBuildRequest, persist: bool = True) -> Snaps
     # 5. 政策调整（校验类型 + 引用）。
     policy_adjustments = _build_policy_adjustments(request, records)
 
-    # 6. 准入。
-    items, exceptions, used_resolution_ids = _admit(request, records, groups_by_key)
+    # 6. 关键性判定（必算公式输入 ∪ 关键数字）→ 决定条件阻断异常的 critical 标记。
+    critical_codes = _critical_item_codes(request)
 
-    # 7. 报告阻断：任一非「政策排除」异常都阻断正式导出。
-    report_blocked = any(e.exception_type in _BLOCKING_EXCEPTION_TYPES for e in exceptions)
+    # 7. 上游候选/问题血缘（Fix 1）+ 同源勾稽失败（Fix 2）：固化异常并排除受影响记录。
+    mapping_exceptions, mapping_excluded = _unresolved_mapping_exceptions(
+        request, records, critical_codes)
+    check_exceptions, check_failed_record_ids = _check_failed_exceptions(
+        request, records, critical_codes)
+    excluded_record_ids = frozenset(mapping_excluded | check_failed_record_ids)
+
+    # 8. 准入（未确认映射 / 勾稽失败记录已排除）。
+    items, admit_exceptions, used_resolution_ids = _admit(
+        request, records, groups_by_key, excluded_record_ids)
+
+    # 9. 必算公式输入闭环（Fix 3）：构建后、提交前，对 required_formula_ids 补 MISSING_REQUIRED_ITEM。
+    formula_gap_exceptions = _required_formula_gap_exceptions(request, items)
+
+    exceptions = admit_exceptions + mapping_exceptions + check_exceptions + formula_gap_exceptions
+
+    # 10. 报告阻断：恒阻断异常，或命中关键集合的条件阻断异常（§6.3）。
+    report_blocked = any(_exception_is_blocking(e) for e in exceptions)
 
     # 8. 公式版本锁定（首版 1.0；公式白名单校验在 metrics/formulas 层 fail-closed）。
     required_formula_versions = {

@@ -293,6 +293,7 @@ def normalize_record_set(record_set_version: str, policy: NormalizationPolicy | 
         block_count=len(issues),
         record_count=len(records),
         created_at=now,
+        input_candidate_set_version=record_set_version,
     )
 
     issues_committed = 0
