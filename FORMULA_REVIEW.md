@@ -5,8 +5,9 @@
 > 数据来源：V1 `financial/metrics.py` 现实现 + V2 抽取覆盖（`financial_v2/mapping.py` 内置规则）。
 
 本文件按任务书 §15 逐项列出 V1 现有指标公式、输入科目（V2 标准代码）、期间/scope 口径、
-异常规则、材料可得性、与 V1 口径差异，并标注 `CONFIRMED_DEFAULT`（无歧义、可默认确认）
-或 `BUSINESS_CONFIRMATION_REQUIRED`（口径有歧义或定义缺失，需业务确认后才可在 A6 实现）。
+异常规则、材料可得性、与 V1 口径差异，并标注 `PROPOSED_DEFAULT`（暂拟默认口径，**未经业务
+确认，不可视为 confirmed**）或 `BUSINESS_CONFIRMATION_REQUIRED`（口径有歧义或定义缺失，
+需业务确认后才可在 A6 实现）。任何 `PROPOSED_DEFAULT` 未经业务确认前不得进入 A6 实现。
 
 ## 0. 符号与约定
 
@@ -19,6 +20,9 @@
 - **报告期**：比率/周转/费用类取「本期」（同一 `report_period` + `period_type`，annual 或
   quarterly）；成长类取「本期 + 前期」（年报同比 = 最近上一个年报；季报环比 = 紧前期间）。
   同一公式的所有输入科目必须来自同一报告期，不得跨期混比。
+- **季报累计值限制**：利润表与现金流量表在季报口径通常为「年初至今累计值」。环比（QoQ）
+  **不得直接用累计值相减**，须先由累计值推导单季度值，或改用同期同比（YoY）。两种口径待
+  业务确认（见 §5），确认前成长类季报环比不得进入 A6 实现。
 - **scope**：V1 与 V2 均要求 `consolidated`（合并口径）；`parent`（母公司口径）不得与合并口径混用。
 - **单位**：V2 标准值为 `yuan`；比率无量纲；增长率无量纲（百分比）。
 - **负值规则**：比率类负分子/分母不阻断计算（保留符号供研判），仅分母为 0 判 `missing`；
@@ -99,10 +103,16 @@
 | `GROWTH_EQUITY` | 1.0 | 净资产增长率 | (本期 − 前期) / \|前期\| | `TOTAL_EQUITY` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
 | `GROWTH_OCF` | 1.0 | 经营现金流增长率 | (本期 − 前期) / \|前期\| | `OPERATING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
 | `GROWTH_ICF` | 1.0 | 投资现金流增长率 | (本期 − 前期) / \|前期\| | `INVESTING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
-| `GROWTH_FCF` | 1.0 | 筹资现金流增长率 | (本期 − 前期) / \|前期\| | `FINANCING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
+| `GROWTH_FINANCING_CASH_FLOW` | 1.0 | 筹资现金流增长率 | (本期 − 前期) / \|前期\| | `FINANCING_CASH_FLOW` | 同比/环比 | 本期+前期 | consolidated | 前期 0 → missing |
 
 **口径差异 / 待确认：** 分母取绝对值 `|前期|`，负前期仍可算（符号含义需业务确认）；
-前期为 0 时视为不可算。年报期同比取「最近上一个年报」，季报期环比取「紧前期间」。
+前期为 0 时视为不可算。年报期同比取「最近上一个年报」。季报期环比（QoQ）存在口径未决：
+利润表（营收/净利）与现金流量表（经营/投资/筹资现金流）在季报通常为「年初至今累计值」，
+**不得直接用累计值相减作环比**。两种待确认口径（均为 `BUSINESS_CONFIRMATION_REQUIRED`，
+确认前成长类季报环比不得进入 A6 实现）：
+
+1. **同期同比（YoY）**：季报一律取「去年同期累计值」同比，规避累计值环比失真；
+2. **由累计值推导单季度后环比**：先由连续两期累计值相减得到单季度值，再对单季度值做环比。
 
 ## 6. 信用分析关键定义（V1 未实现，A6 需业务确认后再建）
 
@@ -121,8 +131,8 @@ V1 全部公式输入科目（第 1–5 节）在 V2 `financial_v2/mapping.py` �
 `TOTAL_PROFIT` / `FINANCE_EXPENSES` / `OPERATING_PROFIT` / `SALES_EXPENSES` /
 `ADMIN_EXPENSES` / `R_AND_D_EXPENSES` / `ACCOUNTS_RECEIVABLE` /
 `ACCOUNTS_RECEIVABLE_COMBINED` / `OPERATING_CASH_FLOW` / `INVESTING_CASH_FLOW` /
-`FINANCING_CASH_FLOW`）。**材料可得性：满足**（前提：三张主表真实坐标成功抽取，且为
-`consolidated` + 明确期间 + 明确单位）。
+`FINANCING_CASH_FLOW`）。以上仅证明「输入科目代码在 mapping 内置规则中存在」，**不等于
+真实材料已验证可抽取**；本轮未对三张主表做真实 PDF 抽取验收前，不声称「材料可得性满足」。
 
 缺失项仅影响第 6 节的进阶定义（EBITDA 折旧摊销、利息费用、CAPEX）。
 
@@ -130,13 +140,13 @@ V1 全部公式输入科目（第 1–5 节）在 V2 `financial_v2/mapping.py` �
 
 | 结论 | 数量 | 说明 |
 |---|---|---|
-| `CONFIRMED_DEFAULT` | 偿债 3（流动比率 / 资产负债率 / 权益乘数）、盈利 2（净利率 / 营业利润率）、现金流 3、费用 1、成长 8 | 表达式无歧义、输入可得 |
-| `BUSINESS_CONFIRMATION_REQUIRED` | 速动比率、利息保障倍数、毛利率、ROE、ROA、应收账款周转率、EBITDA、利息费用、有息负债、自由现金流 | 口径有歧义或定义缺失 |
+| `PROPOSED_DEFAULT`（未经业务确认） | 偿债 3（流动比率 / 资产负债率 / 权益乘数）、盈利 2（净利率 / 营业利润率）、现金流 3、费用 1、成长 8（仅年报同比口径） | 表达式无歧义、输入可得，但**未获业务确认**，不得视为 confirmed |
+| `BUSINESS_CONFIRMATION_REQUIRED` | 速动比率、利息保障倍数、毛利率、ROE、ROA、应收账款周转率、EBITDA、利息费用、有息负债、自由现金流、成长类季报环比口径 | 口径有歧义或定义缺失 |
 
 全部公式当前版本均为 V1 基线 `1.0`；进入 A6 Formula Registry 后才分配正式版本号并升版。
 
 ## 9. 暂停门结论
 
 - 未实现 A6 Formula Registry / FinancialSnapshot / 指标计算 / A7。
-- 未把任何 `BUSINESS_CONFIRMATION_REQUIRED` 项改为 confirmed。
+- 未把任何 `PROPOSED_DEFAULT` 或 `BUSINESS_CONFIRMATION_REQUIRED` 项改为 confirmed。
 - 待业务对第 1–6 节口径逐项确认后，再进入 A6。
