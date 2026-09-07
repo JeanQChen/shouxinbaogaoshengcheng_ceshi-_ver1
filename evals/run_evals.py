@@ -61,6 +61,7 @@ EVAL_MODULES = [
     "evals.test_routing_schema",
     "evals.test_db_targets",
     "evals.test_router",
+    "evals.test_context",
 ]
 
 
