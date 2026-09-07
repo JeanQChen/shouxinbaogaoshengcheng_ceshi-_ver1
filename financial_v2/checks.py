@@ -362,7 +362,8 @@ def run_checks(record_set_version: str, persist: bool = True) -> ChecksResult:
         raise ValueError(f"记录跨公司: {sorted(company_ids)}")
     company_id = next(iter(company_ids))
 
-    candidates_by_id = {c.candidate_id: c for c in store.list_candidates(record_set_version)}
+    candidate_ids = sorted({r.candidate_id for r in records if r.candidate_id})
+    candidates_by_id = {c.candidate_id: c for c in store.list_candidates_by_ids(candidate_ids)}
     resolve = lambda r: _std_value_decimal(r, candidates_by_id)
     index = _build_value_index(records, resolve)
 
@@ -418,10 +419,10 @@ def run_checks(record_set_version: str, persist: bool = True) -> ChecksResult:
             input_hash=input_hash,
             created_at=now,
         )
-        reused = store.commit_reconciliation_run(run)
-        checks_committed = store.commit_reconciliation_checks(checks)
-        if fail_issues:
-            issues_committed = store.commit_issues(fail_issues)
+        commit = store.commit_checks_atomic(run, checks, fail_issues)
+        reused = commit.run_reused
+        checks_committed = commit.checks_inserted
+        issues_committed = commit.issues_inserted
 
     return ChecksResult(
         run_id=run_id,
