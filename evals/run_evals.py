@@ -59,6 +59,8 @@ EVAL_MODULES = [
     "evals.test_financial_v2_snapshot_admission",
     "evals.test_financial_v2_snapshot_admission_p0",
     "evals.test_routing_schema",
+    "evals.test_db_targets",
+    "evals.test_router",
 ]
 
 
