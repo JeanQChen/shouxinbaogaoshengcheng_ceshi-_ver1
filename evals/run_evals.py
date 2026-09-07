@@ -58,6 +58,7 @@ EVAL_MODULES = [
     "evals.test_financial_v2_a7_integration",
     "evals.test_financial_v2_snapshot_admission",
     "evals.test_financial_v2_snapshot_admission_p0",
+    "evals.test_routing_schema",
 ]
 
 
