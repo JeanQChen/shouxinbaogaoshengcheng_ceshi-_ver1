@@ -112,6 +112,27 @@ class _Seed:
         mapping.map_record_set(rs, persist=True)
         return rs, cand.candidate_id
 
+    def seed_mixed(self, ext_id: str, mapped_items: list[tuple[str, str, Decimal]],
+                   unmapped_raws: list[str]) -> tuple[str, list[str], str]:
+        """一个 source 内既有可映射（→ 记录/current）又有多个未映射（→ MAPPING_REQUIRED）。
+
+        用于 fix #4 carry-forward 派生测试。返回 (rs, [未映射 candidate_id], source_document_id)。
+        """
+        source_document_id, source_version = self.register(ext_id)
+        rs = S.derive_record_set_version(source_version, "1.0", "1.0", "1.0", {})
+        cands = [self.make_candidate(rs, source_version, raw, st, value, row=i + 2)
+                 for i, (raw, st, value) in enumerate(mapped_items)]
+        unmapped_cids: list[str] = []
+        for j, raw in enumerate(unmapped_raws):
+            c = self.make_candidate(rs, source_version, raw, "balance_sheet",
+                                    Decimal("100"), row=len(cands) + j + 2)
+            cands.append(c)
+            unmapped_cids.append(c.candidate_id)
+        store.commit_extracted_candidates(cands, [], source_document_id)
+        mapping.map_record_set(rs, persist=True)
+        norm.normalize_record_set(rs, persist=True)
+        return rs, unmapped_cids, source_document_id
+
 
 def main() -> dict:
     passed = 0
@@ -192,6 +213,83 @@ def main() -> dict:
         check(store.get_candidate(cid_u).record_set_version == old_cand.record_set_version,
               "旧候选未被 UPDATE")
         check(der.record.raw_item_text == "未知科目XYZ", "派生记录保留原始文本")
+
+        # ---- fix #4：确认后派生 Record Set 不丢失既有记录（carry-forward）----
+        rs_mix, cids_mix, sdoc_mix = seed.seed_mixed("doc-mix", [
+            ("货币资金", "balance_sheet", Decimal("5000")),
+        ], ["未知科目MIX"])
+        cur_mix = store.get_current_record_set(sdoc_mix)
+        check(cur_mix is not None and cur_mix.record_count == 1,
+              "mixed source 现有 1 条 current 记录")
+        smres = res.submit_mapping_resolutions(res.MappingResolutionBatchRequest(
+            company_id="ACME", operator="op1",
+            items=[res.MappingResolutionItem(candidate_id=cids_mix[0],
+                                             chosen_item_code="TOTAL_ASSETS",
+                                             reason_code="PERIOD_MATCH")]))
+        check(smres.committed, "提交映射确认成功")
+        dmix = res.derive_confirmed_record(cids_mix[0])
+        check(dmix.record_set_version != rs_mix, "派生新 record_set_version")
+        mix_recs = store.list_records(dmix.record_set_version)
+        check(len(mix_recs) == 2, "新集合 = 现有 1 + 新增 1 = 2 条")
+        mix_codes = {r.standard_item_code for r in mix_recs}
+        check("CASH_AND_EQUIVALENTS" in mix_codes and "TOTAL_ASSETS" in mix_codes,
+              "既有 CASH_AND_EQUIVALENTS + 新确认 TOTAL_ASSETS 并存")
+        check(any(r.mapping_mode == "human_confirmed" and r.standard_item_code == "TOTAL_ASSETS"
+                  for r in mix_recs), "新确认记录 mapping_mode=human_confirmed")
+        cur_mix_after = store.get_current_record_set(sdoc_mix)
+        check(cur_mix_after is not None and cur_mix_after.record_set_version == dmix.record_set_version
+              and cur_mix_after.record_count == 2, "新集合成为 current")
+        check(store.get_record_set(rs_mix).record_count == 1, "旧 record_set 未被 UPDATE（仍 1 条）")
+
+        # ---- fix #4：批量派生（现有 2 + 新确认 2 = 4，new_record_ids 精确指向新增）----
+        rs_m2, cids_m2, sdoc_m2 = seed.seed_mixed("doc-m2", [
+            ("货币资金", "balance_sheet", Decimal("7000")),
+            ("净利润", "income_statement", Decimal("300")),
+        ], ["未知科目M2A", "未知科目M2B"])
+        check(store.get_current_record_set(sdoc_m2).record_count == 2, "现有 2 条 current 记录")
+        bmres = res.submit_mapping_resolutions(res.MappingResolutionBatchRequest(
+            company_id="ACME", operator="op1",
+            items=[res.MappingResolutionItem(candidate_id=cid, chosen_item_code="TOTAL_ASSETS",
+                                             reason_code="PERIOD_MATCH") for cid in cids_m2]))
+        check(bmres.committed and len(bmres.accepted) == 2, "批量提交 2 条映射确认")
+        dbatch = res.derive_confirmed_records(cids_m2)
+        check(len(dbatch.records) == 4, "新集合 = 现有 2 + 新增 2 = 4 条")
+        check(len(dbatch.new_record_ids) == 2, "new_record_ids 精确指向 2 条新增")
+        check(sum(1 for r in dbatch.records if r.mapping_mode == "human_confirmed") == 2,
+              "2 条 human_confirmed 新增")
+        cur_m2_after = store.get_current_record_set(sdoc_m2)
+        check(cur_m2_after.record_set_version == dbatch.record_set_version
+              and cur_m2_after.record_count == 4, "批量派生后 current 切换到 4 条新集合")
+        check(store.get_record_set(rs_m2).record_count == 2, "旧 record_set 保持 2 条（不 UPDATE）")
+
+        # ---- fix #4：派生提交失败（故障注入）→ 旧 current 保留，零残留 ----
+        rs_m3, cids_m3, sdoc_m3 = seed.seed_mixed("doc-m3", [
+            ("货币资金", "balance_sheet", Decimal("9000")),
+        ], ["未知科目M3"])
+        res.submit_mapping_resolutions(res.MappingResolutionBatchRequest(
+            company_id="ACME", operator="op1",
+            items=[res.MappingResolutionItem(candidate_id=cids_m3[0],
+                                             chosen_item_code="TOTAL_ASSETS",
+                                             reason_code="PERIOD_MATCH")]))
+        conn = sqlite3.connect(db)
+        conn.execute("CREATE TRIGGER tmp_fail_derive_rs BEFORE INSERT ON financial_record_set "
+                     "BEGIN SELECT RAISE(ABORT, 'injected'); END;")
+        conn.commit()
+        conn.close()
+        try:
+            res.derive_confirmed_record(cids_m3[0], persist=True)
+            check(False, "derive 提交失败应抛错")
+        except Exception:
+            check(True, "derive 提交失败抛错（单事务回滚）")
+        conn = sqlite3.connect(db)
+        conn.execute("DROP TRIGGER tmp_fail_derive_rs")
+        conn.commit()
+        conn.close()
+        cur_m3 = store.get_current_record_set(sdoc_m3)
+        check(cur_m3 is not None and cur_m3.record_set_version == rs_m3
+              and cur_m3.record_count == 1, "失败后旧 current 保留（版本未变、1 条）")
+        check(len(store.list_record_sets(store.get_record_set(rs_m3).source_version)) == 1,
+              "失败后无新 record_set 残留（仅原 1 个）")
 
         # ---- 映射确认整批全有或全无 ----
         rs_u2, cid_u2 = seed.seed_unmapped("doc-u2", "另一未知科目")

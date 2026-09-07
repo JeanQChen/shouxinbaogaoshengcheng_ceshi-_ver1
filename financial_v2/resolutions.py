@@ -26,7 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 
 from financial_v2 import mapping
@@ -127,6 +127,17 @@ class BatchResult:
 class DeriveResult:
     record_set_version: str
     record: S.SourceFinancialRecord
+    reused: bool
+
+
+@dataclass
+class DeriveBatchResult:
+    """一批映射确认派生结果：新 Record Set 包含「现有记录 + 新增确认记录」的完整集合。"""
+
+    record_set_version: str
+    source_version: str
+    records: list[S.SourceFinancialRecord]   # 新集合全部记录（现有 + 新增）
+    new_record_ids: list[str]                # 本次新增确认记录的 record_id
     reused: bool
 
 
@@ -629,22 +640,105 @@ def invalidate_value_resolution_if_input_changed(group_id: str, *,
 
 
 # ---------------------------------------------------------------------------
-# derive_confirmed_record（§8.4 派生新版本，不 UPDATE 旧候选/旧记录）
+# derive_confirmed_record(s)（§8.4 派生新版本，不 UPDATE 旧候选/旧记录）
 # ---------------------------------------------------------------------------
 
-def derive_confirmed_record(candidate_id: str,
-                            policy: norm.NormalizationPolicy | None = None,
-                            persist: bool = True) -> DeriveResult:
-    """基于 active 科目映射确认派生新 SourceFinancialRecord / Record Set 版本。
+def _repoint_record(rec: S.SourceFinancialRecord, new_rs: str) -> S.SourceFinancialRecord:
+    """把记录重指向新 record_set_version（record_id / record_hash 重算，内容与坐标不变）。
 
-    chosen_item_code 为 None（无法确认）时不派生。派生记录 mapping_mode="human_confirmed"，
-    写入新的 record_set_version（dependency_versions 携带 mapping_resolution 引用）。
+    记录不可变；「现有记录并入新集合」通过重算身份实现，绝不 UPDATE 旧行。
+    """
+    r = replace(rec, record_set_version=new_rs, record_id="", record_hash="")
+    r.record_id = S.derive_record_id(new_rs, S.record_identity_fields(r))
+    r.record_hash = validator._record_hash(r)
+    return r
+
+
+def _derive_confirmed_record_set(
+    new_records: list[S.SourceFinancialRecord],
+    source_version: str,
+    company_id: str,
+    mapping_resolution_ids: list[str],
+    policy: norm.NormalizationPolicy,
+    *,
+    persist: bool,
+) -> DeriveBatchResult:
+    """把「现有 current 记录 + 新增确认记录」合并成一个完整的新 Record Set 版本。
+
+    现有记录取自 source_document 的 current record set（若无 current 则从零开始），
+    与新增确认记录一并重指向新版本后单事务原子提交；任一失败回滚，旧 current 保留。
+    """
+    source_document_id = store.get_source_version(source_version).source_document_id
+
+    existing: list[S.SourceFinancialRecord] = []
+    cur_rs = store.get_current_record_set(source_document_id)
+    if cur_rs is not None:
+        existing = store.list_records(cur_rs.record_set_version)
+
+    deps = dict(policy.dependency_versions)
+    deps["mapping_resolution"] = json.dumps(sorted(mapping_resolution_ids))
+    new_rs_version = S.derive_record_set_version(
+        source_version, policy.extractor_version, policy.mapping_rule_version,
+        policy.normalization_rule_version, deps)
+
+    # 现有 + 新增全部重指向新版本（不可变：不 UPDATE 旧行）。
+    all_records = [_repoint_record(r, new_rs_version) for r in existing] + \
+                  [_repoint_record(r, new_rs_version) for r in new_records]
+
+    periods = sorted({r.report_period for r in all_records})
+    currencies = {r.currency for r in all_records}
+    units = {r.raw_unit for r in all_records}
+    scopes = {r.statement_scope for r in all_records}
+    extractor_name = ("excel_extractor" if new_records[0].locator
+                      and new_records[0].locator.kind == "excel" else "pdf_table_extractor")
+
+    record_set = S.FinancialRecordSet(
+        record_set_version=new_rs_version,
+        source_version=source_version,
+        extractor_name=extractor_name,
+        extractor_version=policy.extractor_version,
+        mapping_rule_version=policy.mapping_rule_version,
+        normalization_rule_version=policy.normalization_rule_version,
+        dependency_versions=deps,
+        report_periods=periods,
+        currency=(next(iter(currencies)) if len(currencies) == 1 else None),
+        unit=(next(iter(units)) if len(units) == 1 else None),
+        statement_scope=(next(iter(scopes)) if len(scopes) == 1 else None),
+        audit_status=None,
+        block_count=0,
+        record_count=len(all_records),
+        created_at=_utcnow(),
+    )
+
+    reused = False
+    if persist:
+        result = store.commit_record_set(record_set, all_records, source_document_id)
+        reused = result.reused
+
+    new_candidate_ids = {nr.candidate_id for nr in new_records}
+    return DeriveBatchResult(
+        record_set_version=new_rs_version,
+        source_version=source_version,
+        records=all_records,
+        new_record_ids=[r.record_id for r in all_records if r.candidate_id in new_candidate_ids],
+        reused=reused,
+    )
+
+
+def _build_confirmed_record(candidate_id: str,
+                            policy: norm.NormalizationPolicy) -> tuple[S.SourceFinancialRecord,
+                                                                       S.MappingResolution,
+                                                                       S.ExtractedFinancialCell]:
+    """校验候选存在有效映射决议 + 满足标准化准入，构造单条 human_confirmed 记录。
+
+    返回 (record, resolution, candidate)；candidate 用于取 source_version / company_id
+    （SourceFinancialRecord 不含 source_version 字段）。
     """
     resolution = store.get_active_mapping_resolution(candidate_id)
     if resolution is None:
         raise KeyError(f"无 active 映射决议: {candidate_id}")
     if resolution.chosen_item_code is None:
-        raise ValueError("该决议未选择标准科目（无法确认），不能派生记录")
+        raise ValueError(f"该决议未选择标准科目（无法确认），不能派生记录: {candidate_id}")
 
     cand = store.get_candidate(candidate_id)
     if cand is None:
@@ -652,51 +746,62 @@ def derive_confirmed_record(candidate_id: str,
 
     block = _admission_block_reason(cand)
     if block is not None:
-        raise ValueError(f"候选不满足标准化准入，无法派生记录: {block}")
+        raise ValueError(f"候选不满足标准化准入，无法派生记录: {candidate_id}（{block}）")
 
-    policy = policy or norm.NormalizationPolicy()
     rec = norm.build_record(cand, resolution.chosen_item_code, policy,
                             mapping_mode="human_confirmed")
+    return rec, resolution, cand
 
-    deps = dict(policy.dependency_versions)
-    deps["mapping_resolution"] = resolution.resolution_id
-    new_rs_version = S.derive_record_set_version(
-        cand.source_version, policy.extractor_version, policy.mapping_rule_version,
-        policy.normalization_rule_version, deps)
 
-    rec.record_set_version = new_rs_version
-    rec.record_id = S.derive_record_id(new_rs_version, S.record_identity_fields(rec))
-    rec.record_hash = validator._record_hash(rec)
+def derive_confirmed_record(candidate_id: str,
+                            policy: norm.NormalizationPolicy | None = None,
+                            persist: bool = True) -> DeriveResult:
+    """基于 active 科目映射确认派生新 SourceFinancialRecord / Record Set 版本（单候选）。
 
-    extractor_name = ("excel_extractor" if cand.locator and cand.locator.kind == "excel"
-                      else "pdf_table_extractor")
-    record_set = S.FinancialRecordSet(
-        record_set_version=new_rs_version,
-        source_version=cand.source_version,
-        extractor_name=extractor_name,
-        extractor_version=policy.extractor_version,
-        mapping_rule_version=policy.mapping_rule_version,
-        normalization_rule_version=policy.normalization_rule_version,
-        dependency_versions=deps,
-        report_periods=[rec.report_period],
-        currency=rec.currency,
-        unit=rec.raw_unit,
-        statement_scope=rec.statement_scope,
-        audit_status=None,
-        block_count=0,
-        record_count=1,
-        created_at=_utcnow(),
-    )
+    新 Record Set 是「现有 current 记录 + 本条确认记录」的完整集合（fix #4：不丢失
+    既有记录）；chosen_item_code 为 None（无法确认）时不派生。旧候选/旧记录不被 UPDATE。
+    """
+    policy = policy or norm.NormalizationPolicy()
+    rec, resolution, cand = _build_confirmed_record(candidate_id, policy)
+    batch = _derive_confirmed_record_set(
+        [rec], cand.source_version, cand.company_id, [resolution.resolution_id],
+        policy, persist=persist)
+    new_rec = next(r for r in batch.records if r.candidate_id == candidate_id)
+    return DeriveResult(record_set_version=batch.record_set_version, record=new_rec,
+                        reused=batch.reused)
 
-    reused = False
-    if persist:
-        sv = store.get_source_version(cand.source_version)
-        if sv is None:
-            raise KeyError(f"source_version 不存在: {cand.source_version}")
-        result = store.commit_record_set(record_set, [rec], sv.source_document_id)
-        reused = result.reused
 
-    return DeriveResult(record_set_version=new_rs_version, record=rec, reused=reused)
+def derive_confirmed_records(candidate_ids: list[str],
+                             policy: norm.NormalizationPolicy | None = None,
+                             persist: bool = True) -> DeriveBatchResult:
+    """批量派生确认记录集合（§8.4）：现有 current 记录 + 全部确认候选 → 新 Record Set。
+
+    全有或全无：任一候选无有效映射决议 / 准入不满足 / 跨公司或跨 source_version，
+    即在提交前抛错（零写入）；提交走 store.commit_record_set 单事务，失败保留旧 current。
+    """
+    if not candidate_ids:
+        raise ValueError("candidate_ids 不能为空")
+    policy = policy or norm.NormalizationPolicy()
+
+    new_records: list[S.SourceFinancialRecord] = []
+    resolution_ids: list[str] = []
+    source_versions: set[str] = set()
+    company_ids: set[str] = set()
+    for cid in candidate_ids:
+        rec, resolution, cand = _build_confirmed_record(cid, policy)
+        new_records.append(rec)
+        resolution_ids.append(resolution.resolution_id)
+        source_versions.add(cand.source_version)
+        company_ids.add(cand.company_id)
+
+    if len(source_versions) != 1:
+        raise ValueError(f"候选跨 source_version，不能同批派生: {sorted(source_versions)}")
+    if len(company_ids) != 1:
+        raise ValueError(f"候选跨公司，不能同批派生: {sorted(company_ids)}")
+
+    return _derive_confirmed_record_set(
+        new_records, next(iter(source_versions)), next(iter(company_ids)),
+        resolution_ids, policy, persist=persist)
 
 
 # ---------------------------------------------------------------------------
