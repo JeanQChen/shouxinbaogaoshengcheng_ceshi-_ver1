@@ -440,28 +440,37 @@ def extract_pdf(
     def _issue(issue_type: str, detail: dict, candidate_id: str | None = None) -> None:
         issues.append(_make_issue(record_set_version, issue_type, detail, candidate_id, now=now))
 
+    def _finalize(cands: list[S.ExtractedFinancialCell], iss: list[S.ExtractionIssue],
+                  regs: list[PdfTableRegion]) -> PdfExtractionResult:
+        """统一收尾：persist=True 时持久化候选/问题（含早退 issue，如 DOCUMENT_LINK_UNAVAILABLE），
+        保证 early-fail 的问题与进度在 persist 模式下仍落盘可审计。"""
+        reused = False
+        if persist and (cands or iss):
+            reused = store.commit_extracted_candidates(cands, iss, source_document_id).reused
+        return PdfExtractionResult(source_version, record_set_version, cands, [], iss, regs, reused)
+
     # 依赖缺失。
     if pdfplumber is None:
         _issue("DEPENDENCY_ERROR", {"reason": "pdfplumber 不可用", "expected": "0.11.4"})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
 
     # 文件存在 / 后缀 / 哈希。
     if not path.exists():
         _issue("UNSUPPORTED_FORMAT", {"file": str(path), "reason": "missing"})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
     if path.suffix.lower() != ".pdf":
         _issue("UNSUPPORTED_FORMAT", {"file": str(path), "suffix": path.suffix})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
     actual_hash = sha256_file(path)
     if actual_hash != sv.file_sha256:
         _issue("FILE_HASH_MISMATCH", {"file": str(path), "registered": sv.file_sha256[:16],
                                       "actual": actual_hash[:16]})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
 
     # subject mismatch / 未关联 Phase 1 document。
     if doc.subject_match_status == "mismatch":
         _issue("SUBJECT_MISMATCH", {"company_id": company_id, "source_document_id": source_document_id})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
     if not sv.document_id or not sv.document_version:
         _issue("DOCUMENT_LINK_UNAVAILABLE", {
             "source_version": source_version,
@@ -469,7 +478,7 @@ def extract_pdf(
             "document_version": sv.document_version,
             "reason": "PDF 未关联 Phase 1 document_id/document_version",
         })
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
 
     # 打开 PDF。
     try:
@@ -477,14 +486,14 @@ def extract_pdf(
     except Exception as e:  # noqa: BLE001 — 损坏/加密/无法打开须区分错误码并落 issue
         logger.warning("PDF 打开失败: %s", e)
         _issue("UNSUPPORTED_FORMAT", {"file": str(path), "reason": f"open_failed: {type(e).__name__}"})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
 
     try:
         pages = parse_page_range(policy.pages, len(pdf.pages))
     except ValueError as e:
         pdf.close()
         _issue("UNSUPPORTED_FORMAT", {"file": str(path), "reason": f"page_range: {e}"})
-        return PdfExtractionResult(source_version, record_set_version, [], [], issues, [], False)
+        return _finalize([], issues, [])
 
     table_settings = dict(policy.table_settings)
 
@@ -655,20 +664,7 @@ def extract_pdf(
     finally:
         pdf.close()
 
-    reused = False
-    if persist and (candidates or issues):
-        res = store.commit_extracted_candidates(candidates, issues, source_document_id)
-        reused = res.reused
-
-    return PdfExtractionResult(
-        source_version=source_version,
-        record_set_version=record_set_version,
-        candidates=candidates,
-        records=[],
-        issues=issues,
-        table_regions=regions,
-        reused=reused,
-    )
+    return _finalize(candidates, issues, regions)
 
 
 # ---------------------------------------------------------------------------

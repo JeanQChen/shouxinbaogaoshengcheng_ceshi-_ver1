@@ -85,10 +85,67 @@ def _resolve_source_document_id(ctx: S.FinancialSourceContext) -> str:
     return "sd-" + uuid.uuid4().hex[:16]
 
 
-def register_source(file_path: str, context: S.FinancialSourceContext) -> store.RegisterSourceResult:
+def _link_pdf_evidence(
+    path: Path,
+    context: S.FinancialSourceContext,
+    sha: str,
+    evidence_db_path: str | Path | None,
+) -> tuple[str, str]:
+    """为 PDF 财务来源在 Phase 1 Evidence Registry 登记并返回 (document_id, document_version)。
+
+    - document_version 由文件内容哈希派生（content-addressed，确定性可重建）；
+    - document_id 由内容哈希识别复用或新建（E1-03），不按文件名合并；
+    - 登记后校验 company / file_sha256 / document_version 三者一致，任一不符即拒绝
+      （绝不把不一致的 Phase 1 文档关联到财务来源）。
+
+    本函数只在登记时调用一次：financial_source_version 为不可变历史事实，document_id /
+    document_version 随 INSERT 原子写入，登记后不 UPDATE（追加新内容版本另行登记）。
+    """
+    from evidence import store as estore
+    from evidence.ids import derive_document_version
+    from evidence.schema import DocumentContext as EDocContext
+
+    estore.init_db(evidence_db_path or estore.DEFAULT_DB_PATH)
+    ectx = EDocContext(
+        company_id=context.company_id,
+        source_name=context.source_name,
+        source_type="annual_report",
+        material_group="financial",
+        source_path=str(path),
+        document_id=None,          # 由内容哈希识别复用或自动生成
+        declared_company_name=context.declared_company_name,
+        detected_company_names=(
+            [context.detected_company_name] if context.detected_company_name else []
+        ),
+    )
+    record = estore.register_document(str(path), ectx)
+
+    # 一致性校验（company / file_sha256 / content-version）。
+    if record.company_id != context.company_id:
+        raise validator.ValidationError(
+            f"Evidence 文档 company 不一致: {record.company_id!r} != {context.company_id!r}")
+    if record.file_sha256 != sha:
+        raise validator.ValidationError(
+            f"Evidence 文档 file_sha256 不一致: {record.file_sha256!r} != {sha!r}")
+    expected_version = derive_document_version(sha)
+    if record.document_version != expected_version:
+        raise validator.ValidationError(
+            f"Evidence 文档 document_version 与内容派生不一致: "
+            f"{record.document_version!r} != {expected_version!r}")
+    return record.document_id, record.document_version
+
+
+def register_source(
+    file_path: str,
+    context: S.FinancialSourceContext,
+    *,
+    evidence_db_path: str | Path | None = None,
+) -> store.RegisterSourceResult:
     """登记一份来源文件（内容版本），不做解析，调用原子登记接口。
 
-    幂等：同业务文档 + 同文件哈希重复登记返回现有版本，reused=True，不新增记录。
+    - 幂等：同业务文档 + 同文件哈希重复登记返回现有版本，reused=True，不新增记录。
+    - PDF 来源在登记时原子写入并校验 Phase 1 Evidence Registry 的 document_id /
+      document_version，供 A3 表格抽取回查坐标；xlsx 不关联 Evidence（保持 None）。
     """
     validator.validate_source_context(context)
     p = Path(file_path)
@@ -101,6 +158,12 @@ def register_source(file_path: str, context: S.FinancialSourceContext) -> store.
     source_version = S.derive_source_version(source_document_id, sha)
     now = _utcnow()
     subject = _subject_match_status(context.declared_company_name, context.detected_company_name)
+
+    document_id: str | None = None
+    document_version: str | None = None
+    if ftype == "pdf":
+        document_id, document_version = _link_pdf_evidence(
+            p, context, sha, evidence_db_path)
 
     doc = S.FinancialSourceDocument(
         source_document_id=source_document_id,
@@ -118,8 +181,8 @@ def register_source(file_path: str, context: S.FinancialSourceContext) -> store.
         file_sha256=sha,
         file_type=ftype,
         file_size=p.stat().st_size,
-        document_id=None,
-        document_version=None,
+        document_id=document_id,
+        document_version=document_version,
         created_at=now,
     )
     return store.register_source_atomic(doc, version)

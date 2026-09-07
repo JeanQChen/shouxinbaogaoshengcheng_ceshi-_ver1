@@ -403,6 +403,25 @@ def main() -> dict:
         except FileNotFoundError:
             pass
 
+    # ---- 未关联 Phase 1 document（persist=True 仍持久化问题，不得静默丢弃）----
+    db5b = _tmp_db()
+    pdf5b = _tmp_pdf()
+    try:
+        build_pdf(pdf5b, [[_bs_table()]])
+        _, sv = _register(db5b, pdf5b, document_id=None, document_version=None)
+        result = ex.extract_pdf(sv, _policy(pdf5b), persist=True)
+        check(any(i.issue_type == "DOCUMENT_LINK_UNAVAILABLE" for i in result.issues),
+              "persist=True 时 DOCUMENT_LINK_UNAVAILABLE 仍在返回 issues")
+        persisted = store.list_extraction_issues(result.record_set_version)
+        check(any(i.issue_type == "DOCUMENT_LINK_UNAVAILABLE" for i in persisted),
+              "persist=True 时 DOCUMENT_LINK_UNAVAILABLE 落盘 extraction_issue（可审计）")
+    finally:
+        _cleanup_db(db5b)
+        try:
+            os.remove(pdf5b)
+        except FileNotFoundError:
+            pass
+
     # ---- subject mismatch ----
     db6 = _tmp_db()
     pdf6 = _tmp_pdf()

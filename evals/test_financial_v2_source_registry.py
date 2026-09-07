@@ -21,6 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from evidence import store as estore
+from evidence.ids import derive_document_version
 from financial_v2 import schema as S
 from financial_v2 import source_registry as SR
 from financial_v2 import store
@@ -172,6 +174,49 @@ def main() -> dict:
               "list 按公司过滤")
         check(all(d.company_id == "600000" for d in SR.list_source_documents("600000")),
               "跨公司不串数据")
+
+        # ---- PDF → Evidence Registry 关联（fix #2）----
+        ev_fd, ev_db = tempfile.mkstemp(suffix=".db", prefix="eval_fv2_sr_ev_")
+        os.close(ev_fd)
+        try:
+            ctx_pdf = S.FinancialSourceContext(company_id="300750", source_name="note.pdf",
+                                               source_class="financial_statement",
+                                               external_document_id="ANNUAL_2024")
+            rp = SR.register_source(str(file_pdf), ctx_pdf, evidence_db_path=ev_db)
+            sha_pdf = hashlib.sha256(b"%PDF-fake").hexdigest()
+            check(rp.version.document_id is not None and rp.version.document_version is not None,
+                  "PDF 登记后 document_id/document_version 非空（关联 Evidence）")
+            check(rp.version.document_version == derive_document_version(sha_pdf),
+                  "document_version 由文件内容哈希派生")
+            edoc = estore.get_document("300750", rp.version.document_id, rp.version.document_version)
+            check(edoc is not None and edoc.file_sha256 == sha_pdf and edoc.company_id == "300750",
+                  "Evidence Registry 可回查同内容/同公司文档")
+            # 幂等复用：同 PDF 再登记 → 复用同一 document_id/version，不新增内容版本。
+            rp2 = SR.register_source(str(file_pdf), ctx_pdf, evidence_db_path=ev_db)
+            check(rp2.reused is True and rp2.version.document_id == rp.version.document_id
+                  and rp2.version.document_version == rp.version.document_version,
+                  "PDF 幂等复用，document_id/version 稳定")
+
+            # xlsx 不关联 Evidence。
+            ctx_xlsx = S.FinancialSourceContext(company_id="300750", source_name="BS.xlsx",
+                                                source_class="financial_statement",
+                                                external_document_id="XLSX_NOEVID")
+            rx = SR.register_source(str(file_a), ctx_xlsx)
+            check(rx.version.document_id is None and rx.version.document_version is None,
+                  "xlsx 不关联 Evidence（document_id/version 保持 None）")
+
+            # 一致性校验：传入错误哈希 → 拒绝关联（绝不把不一致文档关联到财务来源）。
+            try:
+                SR._link_pdf_evidence(Path(file_pdf), ctx_pdf, "0" * 64, ev_db)
+                check(False, "错误 file_sha256 应拒绝关联")
+            except validator.ValidationError:
+                check(True, "错误 file_sha256 被一致性校验拒绝")
+        finally:
+            for suffix in ("", "-wal", "-shm", "-journal"):
+                try:
+                    os.remove(ev_db + suffix)
+                except FileNotFoundError:
+                    pass
 
     finally:
         import shutil
