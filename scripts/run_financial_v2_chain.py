@@ -21,6 +21,7 @@ import logging
 import os
 import sys
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -155,6 +156,7 @@ def run(company: str, excel_files: list[str], *, scope: str, currency: str,
     req = progress.build_request_for_company(company)
     res = progress.run_pipeline(req, persist=persist)
     payload = res.payload
+    summary_required_formula_ids = list(req.required_formula_ids)
 
     if target_period is None and payload is not None:
         target_period = _latest_annual(payload.periods)
@@ -166,6 +168,7 @@ def run(company: str, excel_files: list[str], *, scope: str, currency: str,
         "final_state": res.final_state,
         "snapshot_id": res.snapshot_id,
         "report_blocked": res.report_blocked,
+        "required_formula_ids": summary_required_formula_ids,
     }
     if res.error:
         summary["error"] = res.error
@@ -186,9 +189,17 @@ def run(company: str, excel_files: list[str], *, scope: str, currency: str,
         summary["metric_count"] = len(payload.metrics)
         summary["metric_status_counts"] = res.metrics.status_counts if res.metrics else {}
         summary["exception_count"] = len(payload.exceptions)
+        summary["exception_type_counts"] = dict(
+            Counter(e.exception_type for e in payload.exceptions))
         summary["exceptions"] = [
-            {"item_code": e.standard_item_code, "period": e.report_period,
-             "reason": e.reason}
+            {
+                "exception_type": e.exception_type,
+                "standard_item_code": e.standard_item_code,
+                "comparison_key": e.comparison_key,
+                "blocking_reason": e.blocking_reason,
+                "impact_scope": e.impact_scope,
+                "detail": e.detail,
+            }
             for e in payload.exceptions[:20]
         ]
         summary["sample_metrics"] = sample_metrics
