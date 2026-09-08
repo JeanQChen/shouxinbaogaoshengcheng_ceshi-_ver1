@@ -6,7 +6,7 @@
 - inspect_evidence_corpus：Evidence Store current 块 → V1 对齐 CorpusState
   （source_file 经 manifest document_id 映射）；
 - _evidence_to_snapshot：EvidenceRef → RetrievedChunkSnapshot（document_id+页码）；
-- run_case_v2：Router → local 三路由 Hybrid → 快照映射 + route_info；
+- run_case_v2：固定本地 Hybrid 决策（de-Router，不调 Router）→ 快照映射 + route_info；
 - run_retrieval_v2 端到端：冻结分母、eligible 判定、命中计分（复用 V1 口径）、
   DB/External 排除题不计本地召回。
 
@@ -219,17 +219,55 @@ def main() -> dict:
           f"RequiredPageCoverage@10 == 1.0（{agg.required_page_coverage[10]}）")
     check(agg.page_hit[10] == 1.0, f"PageHit@10 == 1.0（{agg.page_hit[10]}）")
 
-    # 逐题：eligible 题命中 page1 + route_info 为 DIRECT_EVIDENCE
+    # 逐题：eligible 题命中 page1 + 固定本地决策（de-Router）
     cr_a = next(r for r in result.case_results if r.case_id == "A")
     check(len(cr_a.retrieved) >= 1
           and any(c.source_file == "DOC1.pdf" and c.page_number == 1 for c in cr_a.retrieved),
           "eligible 题返回 DOC1.pdf 第 1 页命中")
     check(cr_a.error is None, "eligible 题无错误")
 
+    # de-Router：固定本地决策（不调 Router，reason_code=TRACK_A_FIXED_LOCAL）
+    fixed = runner._fixed_local_decision(S.InformationNeed(
+        need_id="X", section_id="s", question="q", required_evidence_types=[],
+        required_source_types=[], time_scope=None, priority="P0", depends_on=[]))
+    check(fixed.route == "STANDARD_RAG" and fixed.reason_code == "TRACK_A_FIXED_LOCAL"
+          and fixed.decided_by == "rule",
+          "固定本地决策：STANDARD_RAG + TRACK_A_FIXED_LOCAL + decided_by=rule")
+    check(fixed.budget.candidate_k_sparse == 20 and fixed.budget.candidate_k_dense == 20
+          and fixed.budget.context_k == 10,
+          "固定预算：candidate_k=20、context_k=10（公平对照口径）")
+
+    # route_info 落盘（case_results.jsonl）：eligible 题 route 为固定决策
+    with open(Path(result.output_dir) / "case_results.jsonl", encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f]
+    row_a = next(r for r in rows if r["case_id"] == "A")
+    check(row_a["route"]["route"] == "STANDARD_RAG"
+          and row_a["route"]["reason_code"] == "TRACK_A_FIXED_LOCAL",
+          "case_results.jsonl 记录固定决策（TRACK_A_FIXED_LOCAL）")
+
     # 产物落盘
     check(Path(result.output_dir).exists()
           and (Path(result.output_dir) / "metrics.json").exists(),
           "产物目录 + metrics.json 落盘")
+
+    # ---- 冻结分母校验（真实 41 问，纯资格判定，不加载 BGE-M3） ----
+    from evaluation.dataset import load_dataset
+    from evaluation.failure_classifier import classify_eligibility
+    _repo = Path(__file__).resolve().parent.parent
+    real_cases = load_dataset(_repo / "evaluation/datasets/v1_baseline.jsonl")
+    real_manifest = load_corpus_manifest(_repo / "evaluation/datasets/corpus_manifest.json")
+    real_excl: dict[str, int] = {}
+    for case in real_cases:
+        elig = classify_eligibility(case, real_manifest, None)
+        real_excl[elig.status] = real_excl.get(elig.status, 0) + 1
+    check(real_excl == runner.FROZEN_ELIGIBILITY_BREAKDOWN,
+          f"冻结分母 == {runner.FROZEN_ELIGIBILITY_BREAKDOWN}（实际 {real_excl}）")
+    try:
+        runner.verify_frozen_denominator(
+            {"ELIGIBLE_LOCAL": 36, "EXTERNAL_ONLY": 3, "INVALID_GOLD_MAPPING": 1})
+        check(False, "冻结分母不符应抛 ValueError")
+    except ValueError:
+        check(True, "冻结分母不符 → fail-closed 抛 ValueError")
 
     # 清理
     for p in (fin_db,):

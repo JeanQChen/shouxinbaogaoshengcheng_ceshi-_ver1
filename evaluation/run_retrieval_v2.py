@@ -1,15 +1,16 @@
-"""Track A：V2 Hybrid Retrieval 公平对照 Runner。
+"""Track A：V2 Hybrid Retrieval 公平对照 Runner（de-Router，固定本地 Hybrid 决策）。
 
-对冻结 41 问 ELIGIBLE_LOCAL 集合逐题：规则优先 Router → V2 Hybrid（sparse BM25 +
-BGE-M3 Dense → RRF）→ EvidencePack，评价正确本地文档页是否进入 Top-K。
+对冻结 41 问 ELIGIBLE_LOCAL 集合逐题：不调 Router，统一用同一固定本地 Hybrid 决策
+（sparse BM25 + BGE-M3 Dense → RRF → EvidencePack），评价正确本地文档页是否进入 Top-K。
 
 与 V1 `run_baseline.py` 的区别（不修改 V1 行为）：
 - 检索对象是 V2 的 Evidence Store current 证据块 + 版本化索引，不读 V1 Chroma；
-- 每题先经 Router 判定能力：local 三路由走 Hybrid，DB/External/fallback 计空本地
-  召回（DB 直取、外部、多轮不计入本地 Retriever 提升）；
+- de-Router：每题不再经 Router 判定，全部 ELIGIBLE_LOCAL 用同一固定决策
+  （route=STANDARD_RAG、reason_code=TRACK_A_FIXED_LOCAL、candidate_k=20、context_k=10），
+  避免 Router 的 DB/External 判定干扰本地检索计分；DB/External/多轮不计本地召回；
 - 命中判据与 V1 完全一致：document_id + PDF 1-based 页码，K=1/5/10 前缀；
-- 复用 evaluation 的 dataset / eligibility / metrics 计分管线，分母运行前冻结，
-  空召回计 0。
+- 复用 evaluation 的 dataset / eligibility / metrics 计分管线，分母运行前冻结并
+  fail-closed 校验（FROZEN_ELIGIBILITY_BREAKDOWN），空召回计 0。
 
 Track A 通过门槛（任务书 §9）：Macro RequiredPageCoverage@10 ≥ 25.3%、
 P0 ≥ 24.4%，逐题均有 trace 与处理结论。真实 BGE-M3 实际加载一次（warmup），
@@ -43,12 +44,30 @@ from evaluation.schema import (
     RetrievedChunkSnapshot,
     RetrievalEvalCase,
 )
-from routing import db_targets, router
 from routing import schema as S
 
 logger = logging.getLogger(__name__)
 
-_LOCAL_ROUTES = ("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL")
+# ---------------------------------------------------------------------------
+# Track A 固定本地决策（de-Router）
+# ---------------------------------------------------------------------------
+#
+# Track A 只评「本地 Hybrid 检索」质量，不得被 Router 的 DB/External 判定干扰：
+# 对全部 ELIGIBLE_LOCAL 题用同一固定本地 Hybrid 决策（不调 Router），路由固定
+# STANDARD_RAG（base hybrid），reason_code 固定 TRACK_A_FIXED_LOCAL，预算固定为
+# 任务书 §3 公平对照口径（candidate_k=20、context_k=10、§9 每题一次检索）。
+_TRACK_A_BUDGET = S.RetrievalBudget(
+    candidate_k_sparse=20, candidate_k_dense=20, fusion_k=20, context_k=10,
+    timeout_ms=5000)
+
+# 冻结分母（任务书 §9 Track A）：41 问 → ELIGIBLE_LOCAL 37 / EXTERNAL_ONLY 3 /
+# INVALID_GOLD_MAPPING 1（COMP-DZ1 募集资金章节缺页码）。运行前校验，与冻结值不符
+# 即 fail-closed，防止 gold/语料/资格规则漂移导致分母被静默重算。
+FROZEN_ELIGIBILITY_BREAKDOWN: dict[str, int] = {
+    "ELIGIBLE_LOCAL": 37,
+    "EXTERNAL_ONLY": 3,
+    "INVALID_GOLD_MAPPING": 1,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -211,13 +230,42 @@ def _build_need(case: RetrievalEvalCase) -> S.InformationNeed:
 
 
 def _build_context(company_id: str, report_as_of: str | None) -> S.RouteContext:
+    """Track A 固定上下文：de-Router 后不再需要 DB 能力清单，四清单置空。"""
     return S.RouteContext(
         company_id=company_id, report_as_of=report_as_of,
         available_document_ids=[], available_source_types=[],
-        supported_db_fields=db_targets.supported_db_fields(),
-        supported_metric_ids=db_targets.supported_metric_ids(),
+        supported_db_fields=[], supported_metric_ids=[],
         available_db_fields=[], available_metric_ids=[],
         external_research_enabled=True)
+
+
+def _fixed_local_decision(need: S.InformationNeed) -> S.RouteDecision:
+    """Track A 固定本地决策：所有 ELIGIBLE_LOCAL 共用同一 Hybrid 预算，不调 Router。"""
+    return S.RouteDecision(
+        need_id=need.need_id, route="STANDARD_RAG",
+        reason_code="TRACK_A_FIXED_LOCAL", filters={},
+        budget=_TRACK_A_BUDGET, fallback_routes=[],
+        decided_by="rule", rule_version=S.RULE_VERSION, confidence="high",
+    )
+
+
+def verify_frozen_denominator(
+    exclusion: dict[str, int],
+    frozen: dict[str, int] | None = FROZEN_ELIGIBILITY_BREAKDOWN,
+) -> None:
+    """校验排除计数与冻结分母一致（fail-closed）。
+
+    冻结分母（任务书 §9 Track A）：41 问 → ELIGIBLE_LOCAL 37 / EXTERNAL_ONLY 3 /
+    INVALID_GOLD_MAPPING 1（COMP-DZ1）。`frozen=None` 时跳过校验（供 mock/合成小数据集）。
+    任一状态计数漂移即抛 ValueError，防止分母被静默重算。
+    """
+    if frozen is None:
+        return
+    actual = {k: int(v) for k, v in exclusion.items()}
+    expected = {k: int(v) for k, v in frozen.items()}
+    if actual != expected:
+        raise ValueError(
+            f"分母与冻结值不符（fail-closed）：实际 {actual} != 冻结 {expected}")
 
 
 # ---------------------------------------------------------------------------
@@ -232,14 +280,16 @@ def run_case_v2(
     session,
     sf_by_id: dict[str, str],
 ) -> tuple[CaseResult, dict]:
-    """对单题：路由 →（local 三路由）Hybrid 检索 → 映射快照。
+    """对单题：固定本地 Hybrid 决策 → 检索 → 映射快照（de-Router，不调 Router）。
 
-    返回 (CaseResult, route_info)。route_info 记录实际路由/状态/trace，供产物落盘。
-    DB/External/fallback 不产本地证据，local 召回计 0（不计入 Retriever 提升）。
+    返回 (CaseResult, route_info)。route_info 记录固定决策/状态/trace，供产物落盘。
+    Track A 只评本地检索质量，Router 的 DB/External 判定不得干扰本地召回计分。
     """
     need = _build_need(case)
+    decision = _fixed_local_decision(need)
     route_info: dict = {
-        "route": None, "reason_code": None, "decided_by": None,
+        "route": decision.route, "reason_code": decision.reason_code,
+        "decided_by": decision.decided_by,
         "pack_status": None, "failure_code": None, "trace_id": None,
     }
     snapshots: list[RetrievedChunkSnapshot] = []
@@ -247,26 +297,14 @@ def run_case_v2(
     t0 = time.perf_counter()
 
     try:
-        result = router.route(need, context)
-        route_info["trace_id"] = result.trace_id
-        if result.status != "DECIDED":
-            route_info["route"] = result.status
-            route_info["failure_code"] = result.error_code
-            error = f"ROUTER_{result.status}: {result.error_code}"
-        else:
-            decision = result.decision
-            route_info.update(route=decision.route, reason_code=decision.reason_code,
-                              decided_by=decision.decided_by)
-            if decision.route in _LOCAL_ROUTES:
-                pack = session.retrieve(need, decision, context)
-                route_info["pack_status"] = pack.status
-                route_info["failure_code"] = pack.failure_code
-                route_info["trace_id"] = pack.retrieval_trace_id or route_info["trace_id"]
-                if pack.status in ("COMPLETED", "PARTIAL", "EMPTY"):
-                    snapshots = [_evidence_to_snapshot(r, sf_by_id) for r in pack.evidence]
-                elif pack.status == "FAILED":
-                    error = f"RETRIEVE_FAILED: {pack.failure_code}"
-            # DB_LOOKUP / EXTERNAL_RESEARCH：不产本地证据（snapshots 保持空）
+        pack = session.retrieve(need, decision, context)
+        route_info["pack_status"] = pack.status
+        route_info["failure_code"] = pack.failure_code
+        route_info["trace_id"] = pack.retrieval_trace_id
+        if pack.status in ("COMPLETED", "PARTIAL", "EMPTY"):
+            snapshots = [_evidence_to_snapshot(r, sf_by_id) for r in pack.evidence]
+        elif pack.status == "FAILED":
+            error = f"RETRIEVE_FAILED: {pack.failure_code}"
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
 
@@ -296,6 +334,7 @@ def run_retrieval_v2(
     output_root: str = "evaluation/results",
     report_as_of: str | None = "2024-12-31",
     validate_only: bool = False,
+    frozen_eligibility: dict[str, int] | None = None,
     session=None,
 ) -> BaselineRunResult:
     from evaluation.dataset import load_corpus_manifest, load_dataset, validate_dataset
@@ -341,6 +380,8 @@ def run_retrieval_v2(
     exclusion: dict[str, int] = {}
     for e in elig_by_id.values():
         exclusion[e.status] = exclusion.get(e.status, 0) + 1
+    # 冻结分母校验（fail-closed）：真实 41 问必须与 FROZEN_ELIGIBILITY_BREAKDOWN 一致。
+    verify_frozen_denominator(exclusion, frozen_eligibility)
     result.validation.exclusion_breakdown = exclusion
     result.validation.n_eligible = n_eligible
 
@@ -623,6 +664,7 @@ def main(argv: list[str] | None = None) -> int:
             sparse_dir=args.sparse_dir, manifest_dir=args.manifest_dir,
             output_root=args.output_root, report_as_of=args.report_as_of,
             validate_only=args.validate_only,
+            frozen_eligibility=FROZEN_ELIGIBILITY_BREAKDOWN,
         )
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
