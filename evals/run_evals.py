@@ -71,6 +71,7 @@ EVAL_MODULES = [
     "evals.test_router_eval",
     "evals.test_retrieval_v2_runner",
     "evals.test_perf_compare",
+    "evals.test_tool_contracts",
 ]
 
 
