@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -244,6 +245,40 @@ def main() -> dict:
     tpath = trace_v2.write_trace(t, Path(tdir))
     check(Path(tpath).exists() and Path(tpath).name.endswith(".jsonl"),
           "trace 落盘为 JSONL 文件")
+
+    # ---- 契约修正 6：扩展字段序列化 + fail-closed ----
+    t2 = trace_v2.RetrievalTrace(
+        trace_id="abc456", timestamp="20260101T000001", company_id="ACME",
+        need_id="n1", route="STANDARD_RAG", query="实际控制人",
+        index_version="v", status="COMPLETED", failure_code=None,
+        run_id="run-1", case_id="r001", dataset_sha256="dsha",
+        corpus_manifest_sha256="msha", evidence_inventory_fingerprint="efp",
+        code_config_fingerprint="ccfp",
+        rrf_full_ranking=[{"evidence_id": "e1", "rrf_score": 0.5, "rank": 1}],
+        embedding_model="mock", embedding_device="cpu", embedding_first_load_ms=1.0,
+        filter_pre_count=20, filter_post_count=18,
+        timings_ms={"sparse": 1, "dense": 2, "total": 3},
+        rss_bytes=123, rss_note=None)
+    t2path = trace_v2.write_trace(t2, Path(tdir))
+    rec = json.loads(Path(t2path).read_text(encoding="utf-8"))
+    check(rec["run_id"] == "run-1" and rec["case_id"] == "r001"
+          and rec["rrf_full_ranking"][0]["evidence_id"] == "e1"
+          and rec["timings_ms"]["total"] == 3,
+          "trace 扩展字段（run/case/完整排名/timings）正确序列化")
+
+    # fail-closed：logs_dir 被文件占据 → 抛 TraceWriteError
+    blocker = Path(tdir) / "not-a-dir"
+    blocker.write_text("x", encoding="utf-8")
+    try:
+        trace_v2.write_trace(t, blocker)
+        check(False, "不可写 logs_dir 应抛 TraceWriteError")
+    except trace_v2.TraceWriteError:
+        check(True, "trace 落盘失败抛 TraceWriteError（fail-closed）")
+
+    # code_config_fingerprint 确定性
+    fp_a = trace_v2.code_config_fingerprint({"tokenizer": "1", "indexer": "1"}, "v2-rule-1.0")
+    fp_b = trace_v2.code_config_fingerprint({"indexer": "1", "tokenizer": "1"}, "v2-rule-1.0")
+    check(fp_a == fp_b and len(fp_a) == 32, "code/config 指纹确定性且长度 32")
 
     # ---- Hybrid 检索 ----
     ev_db = _tmp_dir("eval_rv2_ev_")
