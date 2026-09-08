@@ -29,6 +29,14 @@ data/financial_v2.db
 data/financial_v2.db-journal
 data/financial_v2.db-wal
 data/financial_v2.db-shm
+data/external_sources.db
+data/external_sources.db-journal
+data/external_sources.db-wal
+data/external_sources.db-shm
+data/harness.db
+data/harness.db-journal
+data/harness.db-wal
+data/harness.db-shm
 data/cache/
 data/chroma/
 data/chroma_v2/
