@@ -76,6 +76,25 @@ def main() -> dict:
     check(synth["content_hash"] and synth["content_hash"] == synth2["content_hash"],
           "synthetic content_hash 非空且确定性（两次一致）")
 
+    # ---- confusion matrix + 正式产物（Phase 2 收口新增）----
+    for tag, s in (("real", real), ("synthetic", synth)):
+        total = sum(n for acts in s["confusion"].values() for n in acts.values())
+        diag = sum(s["confusion"].get(g, {}).get(g, 0) for g in s["confusion"])
+        check(total == s["denominator"],
+              f"[{tag}] confusion 总数 == 分母（{total}）")
+        check(diag == s["correct"],
+              f"[{tag}] confusion 对角线 == correct（{diag}）")
+        check(s["file_sha256"] and len(s["file_sha256"]) == 64,
+              f"[{tag}] file_sha256 非空且 64 位")
+
+    import tempfile
+    _tb_out = tempfile.mkdtemp(prefix="eval_trackb_")
+    runner.write_track_b_artifacts(both, _tb_out)
+    check((Path(_tb_out) / "summary.json").exists()
+          and (Path(_tb_out) / "report.md").exists()
+          and (Path(_tb_out) / "inputs" / "cases_real.json").exists(),
+          "Track B 正式产物落盘（summary.json + report.md + inputs/）")
+
     for tag, s in (("real", real), ("synthetic", synth)):
         for err in s["errors"]:
             details.append(

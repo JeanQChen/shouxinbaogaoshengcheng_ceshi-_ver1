@@ -70,6 +70,7 @@ EVAL_MODULES = [
     "evals.test_retriever_v2",
     "evals.test_router_eval",
     "evals.test_retrieval_v2_runner",
+    "evals.test_perf_compare",
 ]
 
 

@@ -250,6 +250,86 @@ def main() -> dict:
           and (Path(result.output_dir) / "metrics.json").exists(),
           "产物目录 + metrics.json 落盘")
 
+    # ---- trace_meta 接线：mock run 的 trace 记录 run_id/case_id/dataset/corpus ----
+    v2_logs = Path("logs/retrieval_v2")
+    run_traces: list[dict] = []
+    if v2_logs.exists():
+        for p in sorted(v2_logs.glob("*.jsonl")):
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if obj.get("run_id") == result.run_id:
+                run_traces.append(obj)
+    check(len(run_traces) == 1 and run_traces[0].get("case_id") == "A",
+          f"trace_meta 接线：mock run 落 1 条 trace 且 case_id=A（{len(run_traces)}）")
+    if run_traces:
+        t = run_traces[0]
+        check(t.get("run_id") == result.run_id, "trace 记录 run_id")
+        check(t.get("dataset_sha256") and t.get("corpus_manifest_sha256")
+              and t.get("evidence_inventory_fingerprint")
+              and t.get("code_config_fingerprint"),
+              "trace 记录 dataset/corpus/inventory/code-config 指纹（非空）")
+
+    # ---- fail-closed 完整性校验（verify_trace_integrity，纯函数 + 临时目录）----
+    import tempfile as _tf
+    from evaluation.run_retrieval_v2 import verify_trace_integrity
+
+    tl_dir = Path(_tf.mkdtemp(prefix="eval_trace_"))
+    rl_dir = Path(_tf.mkdtemp(prefix="eval_router_"))
+
+    def _w_trace(d, rid, cid, ds, cm, emb="BAAI/bge-m3", dev="cpu", status="COMPLETED"):
+        (d / f"{rid}__{cid}.jsonl").write_text(json.dumps({
+            "run_id": rid, "case_id": cid, "status": status,
+            "dataset_sha256": ds, "corpus_manifest_sha256": cm,
+            "embedding_model": emb, "embedding_device": dev,
+            "trace_id": f"t-{cid}",
+        }, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    cids37 = [f"C{i:02d}" for i in range(37)]
+    for cid in cids37:
+        _w_trace(tl_dir, "RUN1", cid, "DS", "CM")
+    rep = verify_trace_integrity("RUN1", cids37, "DS", "CM",
+                                 router_audits_before=set(), logs_dir=tl_dir,
+                                 router_logs_dir=rl_dir)
+    check(rep.ok and rep.n_traces == 37,
+          f"37 条 trace 完整性通过（n={rep.n_traces}）")
+    check("BAAI/bge-m3" in rep.embedding_model_seen and "cpu" in rep.devices_seen,
+          "embedding_model/device 被记录")
+
+    rep_missing = verify_trace_integrity("RUN1", cids37 + ["C99"], "DS", "CM",
+                                         router_audits_before=set(), logs_dir=tl_dir,
+                                         router_logs_dir=rl_dir)
+    check(not rep_missing.ok and any("不一致" in e or "非 eligible" in e
+                                     for e in rep_missing.errors),
+          "case 集合不一致 → fail-closed")
+
+    tl2 = Path(_tf.mkdtemp(prefix="eval_trace2_"))
+    for cid in cids37:
+        _w_trace(tl2, "RUN1", cid, "DS_DRIFT", "CM")
+    rep_drift = verify_trace_integrity("RUN1", cids37, "DS", "CM",
+                                       router_audits_before=set(), logs_dir=tl2,
+                                       router_logs_dir=rl_dir)
+    check(not rep_drift.ok and any("dataset_sha256" in e for e in rep_drift.errors),
+          "dataset_sha256 漂移 → fail-closed")
+
+    tl3 = Path(_tf.mkdtemp(prefix="eval_trace3_"))
+    for cid in cids37:
+        _w_trace(tl3, "RUN1", cid, "DS", "CM", dev=None)
+    rep_dev = verify_trace_integrity("RUN1", cids37, "DS", "CM",
+                                     router_audits_before=set(), logs_dir=tl3,
+                                     router_logs_dir=rl_dir)
+    check(not rep_dev.ok and any("embedding_device" in e for e in rep_dev.errors),
+          "embedding_device 为空 → fail-closed")
+
+    rl2 = Path(_tf.mkdtemp(prefix="eval_router2_"))
+    (rl2 / "audit1.jsonl").write_text("{}\n", encoding="utf-8")
+    rep_router = verify_trace_integrity("RUN1", cids37, "DS", "CM",
+                                        router_audits_before=set(), logs_dir=tl_dir,
+                                        router_logs_dir=rl2)
+    check(not rep_router.ok and any("Router audit" in e for e in rep_router.errors),
+          "新增 Router audit → fail-closed")
+
     # ---- 冻结分母校验（真实 41 问，纯资格判定，不加载 BGE-M3） ----
     from evaluation.dataset import load_dataset
     from evaluation.failure_classifier import classify_eligibility

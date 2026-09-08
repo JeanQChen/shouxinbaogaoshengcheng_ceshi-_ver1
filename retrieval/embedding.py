@@ -27,6 +27,21 @@ class EmbeddingModel:
             self._model = BGEM3FlagModel(self._model_name, use_fp16=self._use_fp16)
         return self._model
 
+    @property
+    def model_name(self) -> str:
+        """模型 ID（如 BAAI/bge-m3），供 trace 记录真实 embedding model。"""
+        return self._model_name
+
+    @property
+    def device(self) -> str | None:
+        """真实运行设备（模型未加载返回 None；加载后取 FlagEmbedding target_devices[0]）。"""
+        if self._model is None:
+            return None
+        tds = getattr(self._model, "target_devices", None)
+        if tds:
+            return str(tds[0])
+        return None
+
     def encode(self, texts: list[str]) -> list[list[float]]:
         """将文本列表编码为 embedding 向量列表（每行 1024 维）。"""
         if not texts:

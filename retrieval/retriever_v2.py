@@ -172,10 +172,18 @@ class RetrievalSession:
                     f"sparse_current={sparse_expected}")
 
     def _ensure_model(self):
-        """懒加载 BGE-M3（仅 Dense 通道触发；DB_LOOKUP / EXTERNAL 不触碰）。"""
+        """懒加载 BGE-M3（仅 Dense 通道触发；DB_LOOKUP / EXTERNAL 不触碰）。
+
+        无论模型是懒加载还是由 Runner 注入（eval 注入 mock / 真实 BGE-M3），都记录
+        真实 model/device（契约修正 6），不得因注入路径而落 null。
+        """
         if self.model is None:
             self.model = get_embedding_model()
-            self._embedding_model_name = getattr(self.model, "_model_name", None)
+        if self._embedding_model_name is None:
+            self._embedding_model_name = (
+                getattr(self.model, "model_name", None)
+                or getattr(self.model, "_model_name", None))
+        if self._embedding_device is None:
             self._embedding_device = getattr(self.model, "device", None)
         return self.model
 
@@ -235,8 +243,10 @@ class RetrievalSession:
             run_id=meta.get("run_id"), case_id=meta.get("case_id"),
             dataset_sha256=meta.get("dataset_sha256"),
             corpus_manifest_sha256=meta.get("corpus_manifest_sha256"),
-            evidence_inventory_fingerprint=self._inventory_fp,
-            code_config_fingerprint=self._code_config_fp,
+            evidence_inventory_fingerprint=meta.get("evidence_inventory_fingerprint")
+            or self._inventory_fp,
+            code_config_fingerprint=meta.get("code_config_fingerprint")
+            or self._code_config_fp,
             embedding_model=self._embedding_model_name,
             embedding_device=self._embedding_device,
             embedding_first_load_ms=self._embedding_first_load_ms,

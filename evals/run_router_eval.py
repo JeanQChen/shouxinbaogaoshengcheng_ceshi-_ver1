@@ -49,6 +49,10 @@ def _canonical(cases: list[dict]) -> str:
     return json.dumps(cases, ensure_ascii=False, sort_keys=True)
 
 
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _materialize(case: dict) -> tuple[S.InformationNeed, S.RouteContext]:
     need = S.InformationNeed(
         need_id=case["case_id"], section_id="router-eval",
@@ -114,12 +118,15 @@ def run_eval(path: Path = DEFAULT_DATASET) -> dict:
     per_route: dict[str, dict[str, int]] = {
         r: {"total": 0, "correct": 0} for r in list(S.ROUTES) + ["FALLBACK_UNAVAILABLE"]
     }
+    confusion: dict[str, dict[str, int]] = {}
 
     for c in cases:
         need, context = _materialize(c)
         result = router.route(need, context)
         gold = c["gold_route"]
         actual = _actual(result)
+        confusion.setdefault(gold, {}).setdefault(actual, 0)
+        confusion[gold][actual] += 1
         per_route.setdefault(gold, {"total": 0, "correct": 0})["total"] += 1
         if actual == gold:
             correct += 1
@@ -144,7 +151,9 @@ def run_eval(path: Path = DEFAULT_DATASET) -> dict:
         "accuracy": (correct / denominator) if denominator else 0.0,
         "severe": severe,
         "content_hash": content_hash,
+        "file_sha256": _file_sha256(path),
         "per_route": per_route,
+        "confusion": confusion,
         "errors": errors,
     }
 
@@ -156,6 +165,98 @@ def run_both() -> dict:
     return {"real": real, "synthetic": synthetic}
 
 
+def write_track_b_artifacts(summary: dict, output_dir: str | Path) -> Path:
+    """保存 Track B 正式产物（真实 41 + 合成 23）到独立结果目录。
+
+    落盘内容（任务书 §9 Track B 验收）：
+    - summary.json：两个数据集 hash（content_hash + file_sha256）、denominator、
+      accuracy、per-route、confusion matrix、severe/非 severe 误路由明细；
+    - report.md：可读摘要；
+    - inputs/：两个数据集的字节级快照。
+    """
+    from datetime import datetime, timezone
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    def _split_errors(r: dict) -> tuple[list[dict], list[dict]]:
+        sev = [e for e in r["errors"] if e["severe"]]
+        non = [e for e in r["errors"] if not e["severe"]]
+        return sev, non
+
+    payload: dict = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "real": {}, "synthetic": {},
+    }
+    for key in ("real", "synthetic"):
+        r = summary[key]
+        sev, non = _split_errors(r)
+        payload[key] = {
+            "name": r["name"],
+            "rule_version": r["rule_version"],
+            "denominator": r["denominator"],
+            "n_cases": r["n_cases"],
+            "content_hash": r["content_hash"],
+            "file_sha256": r["file_sha256"],
+            "accuracy": r["accuracy"],
+            "correct": r["correct"],
+            "severe": r["severe"],
+            "n_invalid_gold": r["n_invalid_gold"],
+            "per_route": r["per_route"],
+            "confusion": r["confusion"],
+            "severe_errors": sev,
+            "non_severe_errors": non,
+        }
+
+    (output_dir / "summary.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # report.md
+    lines: list[str] = ["# Track B：Router 评测正式产物", ""]
+    for key, label in (("real", "真实 41 题"), ("synthetic", "合成 23 题")):
+        r = summary[key]
+        p = payload[key]
+        lines += [
+            f"## {label}（{r['name']}）",
+            "",
+            f"- denominator: {r['denominator']}",
+            f"- accuracy: {r['accuracy']:.2%}（{r['correct']}/{r['denominator']}）",
+            f"- severe mis-routing: {r['severe']}",
+            f"- content_hash: `{r['content_hash']}`",
+            f"- file_sha256: `{r['file_sha256']}`",
+            "",
+            "| gold → actual | count |",
+            "|---|---|",
+        ]
+        for gold, acts in sorted(r["confusion"].items()):
+            for actual, n in sorted(acts.items()):
+                if n:
+                    lines.append(f"| {gold} → {actual} | {n} |")
+        lines += ["", "### 非严重误路由明细", ""]
+        if p["non_severe_errors"]:
+            for e in p["non_severe_errors"]:
+                lines.append(f"- `{e['case_id']}`：{e['gold']} → {e['actual']} — {e['question']}")
+        else:
+            lines.append("- 无")
+        lines += ["", "### 严重误路由明细", ""]
+        if p["severe_errors"]:
+            for e in p["severe_errors"]:
+                lines.append(f"- `{e['case_id']}`：{e['gold']} → {e['actual']} — {e['question']}")
+        else:
+            lines.append("- 无")
+        lines.append("")
+    (output_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # inputs/ 快照
+    inputs_dir = output_dir / "inputs"
+    inputs_dir.mkdir(exist_ok=True)
+    for src, dst in ((REAL_DATASET, "cases_real.json"),
+                     (SYNTHETIC_DATASET, "cases_synthetic.json")):
+        (inputs_dir / dst).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+    return output_dir
+
+
 def main(argv: list[str] | None = None) -> dict:
     parser = argparse.ArgumentParser(
         prog="python -m evals.run_router_eval",
@@ -163,10 +264,15 @@ def main(argv: list[str] | None = None) -> dict:
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET))
     parser.add_argument("--both", action="store_true",
                         help="同时跑真实 + 合成两个数据集")
+    parser.add_argument("--save", default=None,
+                        help="保存正式产物到指定目录（需 --both）")
     args = parser.parse_args(argv)
 
     if args.both:
         summary = run_both()
+        if args.save:
+            out = write_track_b_artifacts(summary, args.save)
+            print(f"track_b_artifacts: {out}", file=sys.stderr)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return summary
 
@@ -176,4 +282,9 @@ def main(argv: list[str] | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    sys.exit(0 if main()["accuracy"] == 1.0 else 1)
+    result = main()
+    # --dataset 单数据集：accuracy == 1.0 视为通过；--both 返回 {"real","synthetic"}，
+    # 真实题门槛 ≥90% + severe=0（由 test_router_eval 断言），CLI 退出码不卡真实题。
+    if isinstance(result, dict) and "accuracy" in result:
+        sys.exit(0 if result["accuracy"] == 1.0 else 1)
+    sys.exit(0)

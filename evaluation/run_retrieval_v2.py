@@ -31,7 +31,7 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -68,6 +68,14 @@ FROZEN_ELIGIBILITY_BREAKDOWN: dict[str, int] = {
     "EXTERNAL_ONLY": 3,
     "INVALID_GOLD_MAPPING": 1,
 }
+
+# 冻结输入 SHA256（任务书 §9 Track A 验收接线）：v1_baseline.jsonl 与
+# corpus_manifest.json 当前提交内容。fail-closed 完整性校验用其核对：文件本身与
+# 每条 trace 记录的 dataset/corpus SHA256 都必须与冻结值一致，防止 gold/语料漂移后
+# 仍产出"通过"结论。
+FROZEN_DATASET_SHA256 = "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8"
+FROZEN_CORPUS_MANIFEST_SHA256 = "9606de19a0fedfb16a527e9b6e8b378ccc8e1bb189e55f6abbfad24098087d24"
+FROZEN_EMBEDDING_MODEL = "BAAI/bge-m3"
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +277,116 @@ def verify_frozen_denominator(
 
 
 # ---------------------------------------------------------------------------
+# fail-closed 完整性校验（任务书 §9 Track A 验收接线）
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TraceIntegrityReport:
+    """Track A trace 完整性校验结果（任一失败 → ok=False，run 标记 failed）。"""
+
+    ok: bool
+    errors: list[str] = field(default_factory=list)
+    n_traces: int = 0
+    case_id_set: list[str] = field(default_factory=list)
+    router_audits_before: int = 0
+    router_audits_after: int = 0
+    embedding_model_seen: list[str] = field(default_factory=list)
+    devices_seen: list[str] = field(default_factory=list)
+
+
+def _snapshot_router_audits(router_logs_dir: Path) -> set[str]:
+    """列出 logs/router_v2/ 下已落盘的 Router audit 文件名集合（用于 before/after 对比）。"""
+    if not router_logs_dir.exists():
+        return set()
+    return {p.name for p in router_logs_dir.glob("*.jsonl")}
+
+
+def verify_trace_integrity(
+    run_id: str,
+    eligible_case_ids: list[str],
+    frozen_dataset_sha256: str,
+    frozen_corpus_manifest_sha256: str,
+    frozen_embedding_model: str = FROZEN_EMBEDDING_MODEL,
+    router_audits_before: set[str] | None = None,
+    logs_dir: Path = Path("logs/retrieval_v2"),
+    router_logs_dir: Path = Path("logs/router_v2"),
+) -> TraceIntegrityReport:
+    """fail-closed：核对本次 run 的检索 trace 与 Router audit。
+
+    校验项（任一不满足即 ok=False）：
+    - 每个 eligible case 恰好 1 条 trace（run_id 过滤）；
+    - trace 的 case_id 集合与冻结 eligible 集合完全一致；
+    - 每条 trace status 非空；
+    - 每条 trace dataset/corpus SHA256 与冻结值一致；
+    - embedding_model == 冻结值（BAAI/bge-m3），embedding_device 非空（真实设备）；
+    - 本次 run 不产生新的 Router audit（de-Router，Router audit count == 0）。
+    """
+    errors: list[str] = []
+    traces_by_case: dict[str, list[dict]] = {}
+    traces: list[dict] = []
+
+    if logs_dir.exists():
+        for p in sorted(logs_dir.glob("*.jsonl")):
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+            except Exception as e:  # 落盘损坏 → fail-closed
+                errors.append(f"trace 解析失败: {p.name}: {e}")
+                continue
+            if obj.get("run_id") == run_id:
+                traces.append(obj)
+                traces_by_case.setdefault(obj.get("case_id"), []).append(obj)
+
+    expected = set(eligible_case_ids)
+    got = set(traces_by_case.keys())
+
+    for cid in sorted(expected):
+        n = len(traces_by_case.get(cid, []))
+        if n != 1:
+            errors.append(f"case {cid} 的 trace 数 != 1（实际 {n}）")
+    for cid in sorted(got - expected):
+        errors.append(f"出现非 eligible case 的 trace: {cid}")
+    if got != expected:
+        errors.append(f"trace case_id 集合与冻结 eligible 集合不一致")
+
+    embedding_models: set = set()
+    devices: set = set()
+    for t in traces:
+        cid = t.get("case_id", "?")
+        if not t.get("status"):
+            errors.append(f"trace status 为空: {cid} (trace_id={t.get('trace_id')})")
+        if t.get("dataset_sha256") != frozen_dataset_sha256:
+            errors.append(f"dataset_sha256 不符: {cid} "
+                          f"({t.get('dataset_sha256')} != {frozen_dataset_sha256})")
+        if t.get("corpus_manifest_sha256") != frozen_corpus_manifest_sha256:
+            errors.append(f"corpus_manifest_sha256 不符: {cid} "
+                          f"({t.get('corpus_manifest_sha256')} != {frozen_corpus_manifest_sha256})")
+        if t.get("embedding_model") != frozen_embedding_model:
+            errors.append(f"embedding_model 不符: {cid} "
+                          f"({t.get('embedding_model')} != {frozen_embedding_model})")
+        if not t.get("embedding_device"):
+            errors.append(f"embedding_device 为空: {cid}")
+        embedding_models.add(t.get("embedding_model"))
+        devices.add(t.get("embedding_device"))
+
+    router_audits_after = _snapshot_router_audits(router_logs_dir)
+    new_audits = router_audits_after - (router_audits_before or set())
+    if new_audits:
+        errors.append(f"本次 run 产生 {len(new_audits)} 条 Router audit（应为 0）: "
+                      f"{sorted(new_audits)}")
+
+    return TraceIntegrityReport(
+        ok=not errors,
+        errors=errors,
+        n_traces=len(traces),
+        case_id_set=sorted(got),
+        router_audits_before=len(router_audits_before or set()),
+        router_audits_after=len(router_audits_after),
+        embedding_model_seen=sorted(embedding_models),
+        devices_seen=sorted(d for d in devices if d),
+    )
+
+
+# ---------------------------------------------------------------------------
 # 逐题运行
 # ---------------------------------------------------------------------------
 
@@ -279,11 +397,14 @@ def run_case_v2(
     context: S.RouteContext,
     session,
     sf_by_id: dict[str, str],
+    trace_meta: dict | None = None,
 ) -> tuple[CaseResult, dict]:
     """对单题：固定本地 Hybrid 决策 → 检索 → 映射快照（de-Router，不调 Router）。
 
     返回 (CaseResult, route_info)。route_info 记录固定决策/状态/trace，供产物落盘。
     Track A 只评本地检索质量，Router 的 DB/External 判定不得干扰本地召回计分。
+    trace_meta 透传给 session.retrieve，使每条 trace 记录 run_id/case_id/dataset/
+    corpus/fingerprint 等元数据（任务书 §9 验收接线）。
     """
     need = _build_need(case)
     decision = _fixed_local_decision(need)
@@ -297,7 +418,7 @@ def run_case_v2(
     t0 = time.perf_counter()
 
     try:
-        pack = session.retrieve(need, decision, context)
+        pack = session.retrieve(need, decision, context, trace_meta=trace_meta)
         route_info["pack_status"] = pack.status
         route_info["failure_code"] = pack.failure_code
         route_info["trace_id"] = pack.retrieval_trace_id
@@ -350,6 +471,10 @@ def run_retrieval_v2(
     if validation.errors:
         raise ValueError("数据集校验失败: " + "; ".join(validation.errors))
 
+    # 提前算好 dataset/corpus SHA256：既写进每条 trace，又用于 fail-closed 核对。
+    dataset_sha256 = _sha256_file(dataset_path)
+    corpus_manifest_sha256 = _sha256_file(corpus_manifest_path)
+
     from evidence import store as estore
     estore.init_db(ev_db_path)
 
@@ -369,6 +494,7 @@ def run_retrieval_v2(
     n_eligible = sum(1 for e in elig_by_id.values() if e.is_eligible)
     if n_eligible == 0:
         raise ValueError("没有任何 eligible case，无法运行 Track A")
+    eligible_case_ids = [c.case_id for c in cases if elig_by_id[c.case_id].is_eligible]
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
     result = BaselineRunResult(
@@ -395,7 +521,7 @@ def run_retrieval_v2(
 
     # ── 正式运行 ──
     from financial_v2 import store as fstore
-    from retrieval import indexer_v2, retriever_v2
+    from retrieval import indexer_v2, retriever_v2, trace_v2
 
     fstore.init_db(fin_db_path)
 
@@ -413,13 +539,32 @@ def run_retrieval_v2(
             company_id, chroma_dir=Path(chroma_dir), sparse_dir=Path(sparse_dir),
             manifest_dir=Path(manifest_dir), model=model)
 
+    # trace 元数据（任务书 §9 验收接线）：每条 trace 记录 run_id/case_id/dataset/corpus/
+    # Evidence inventory fingerprint/code-config fingerprint。
+    code_config_fp = trace_v2.code_config_fingerprint(
+        indexer_v2._component_versions(), S.RULE_VERSION)
+    evidence_inventory_fp = (
+        getattr(session, "_inventory_fp", None) or corpus_state.fingerprint)
+    base_trace_meta: dict = {
+        "run_id": run_id,
+        "dataset_sha256": dataset_sha256,
+        "corpus_manifest_sha256": corpus_manifest_sha256,
+        "evidence_inventory_fingerprint": evidence_inventory_fp,
+        "code_config_fingerprint": code_config_fp,
+    }
+
+    # Router audit 快照（de-Router：本次 run 不得产生任何 Router audit）。
+    router_audits_before = _snapshot_router_audits(Path("logs/router_v2"))
+
     # 逐题运行（仅 eligible 实际检索）
     case_results: list[CaseResult] = []
     route_by_id: dict[str, dict] = {}
     for case in cases:
         elig = elig_by_id[case.case_id]
         if elig.is_eligible:
-            cr, route_info = run_case_v2(case, elig, ks, context, session, sf_by_id)
+            trace_meta = dict(base_trace_meta, case_id=case.case_id)
+            cr, route_info = run_case_v2(case, elig, ks, context, session, sf_by_id,
+                                         trace_meta=trace_meta)
         else:
             cr = CaseResult(case_id=case.case_id, eligibility=elig, ks=list(ks),
                             retrieved=[], latency_ms=0.0, error=None)
@@ -459,13 +604,30 @@ def run_retrieval_v2(
     result.case_metrics = case_metrics
     result.failures = failures
     result.aggregate = aggregate
+
+    # fail-closed 完整性校验（任务书 §9 验收接线）：仅正式 run（提供 frozen_eligibility）
+    # 执行；任一不满足 → run 标记 failed，不得输出 Phase 2 通过结论。
+    integrity_report: TraceIntegrityReport | None = None
+    if frozen_eligibility is not None:
+        integrity_report = verify_trace_integrity(
+            run_id=run_id,
+            eligible_case_ids=eligible_case_ids,
+            frozen_dataset_sha256=FROZEN_DATASET_SHA256,
+            frozen_corpus_manifest_sha256=FROZEN_CORPUS_MANIFEST_SHA256,
+            frozen_embedding_model=FROZEN_EMBEDDING_MODEL,
+            router_audits_before=router_audits_before,
+        )
+        if integrity_report.errors:
+            for err in integrity_report.errors:
+                logger.error("Track A 完整性校验失败: %s", err)
+
     result.metadata = {
         "runner": "run_retrieval_v2",
         "runner_label": "V2 Hybrid Retrieval",
         "dataset_path": dataset_path,
-        "dataset_sha256": _sha256_file(dataset_path),
+        "dataset_sha256": dataset_sha256,
         "corpus_manifest_path": corpus_manifest_path,
-        "corpus_manifest_sha256": _sha256_file(corpus_manifest_path),
+        "corpus_manifest_sha256": corpus_manifest_sha256,
         "company_id": company_id,
         "collection": collection,
         "index_version": index_version,
@@ -479,16 +641,20 @@ def run_retrieval_v2(
         "corpus_fingerprint": corpus_state.fingerprint,
         "model_load_ms": model_load_ms,
         "embedding_model": _model_info(model or getattr(session, "model", None)),
+        "trace_integrity": asdict(integrity_report) if integrity_report else None,
         "git": _git_state(),
         "dependencies": _dependency_versions(),
         "generated_at": _now_iso(),
     }
     result.completed = True
-    result.status = (
-        "completed_with_case_errors"
-        if any(cr.error for cr in case_results)
-        else "completed"
-    )
+    if integrity_report is not None and not integrity_report.ok:
+        result.status = "failed"
+    else:
+        result.status = (
+            "completed_with_case_errors"
+            if any(cr.error for cr in case_results)
+            else "completed"
+        )
 
     out_dir = _write_v2_artifacts(result, output_root, cases=cases,
                                   resolved_by_id=resolved_by_id, route_by_id=route_by_id)
@@ -691,7 +857,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"AllGroupHit@10:     {agg.all_group_hit.get(10, 0.0):.1%}")
     print(f"MRR@10:             {agg.mrr10:.3f}")
     print(f"output: {result.output_dir}")
-    return 0
+
+    ti = result.metadata.get("trace_integrity")
+    if ti is not None:
+        print(f"trace_integrity.ok: {ti.get('ok')}")
+        if ti.get("errors"):
+            for err in ti["errors"]:
+                print(f"  - {err}", file=sys.stderr)
+    # fail-closed：完整性校验不通过 → 非零退出码，不产出 Phase 2 通过结论。
+    return 0 if result.status != "failed" else 1
 
 
 if __name__ == "__main__":
