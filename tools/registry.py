@@ -7,6 +7,8 @@ Harness 只能通过 `ToolRegistry.execute` 执行工具，不得直接 import �
 - `allowed_routes` 越权 → TOOL_NOT_ALLOWED；
 - 重试只针对明确 retryable 错误（retry_policy=retryable_only 且状态 RETRYABLE_ERROR）；
   参数错误、权限错误、契约错误、未注册一律不重试；
+- 超时软熔断：某 (run_id, tool_name) 超时后标记 circuit-open，后续同 run_id 同工具调用
+  直接 TOOL_CIRCUIT_OPEN（不启动新线程、不重试）；不同 run_id 互不影响；
 - 工具日志（audit）落盘失败 fail-closed：不产生无审计 ToolResult；
 - EMPTY 是合法结果，不得改写为「未发现风险」。
 
@@ -56,6 +58,9 @@ class ToolRegistry:
         self._specs: dict[str, C.ToolSpec] = {}
         self._executors: dict[str, ToolExecutor] = {}
         self._audit_dir = Path(audit_dir)
+        # 软超时熔断：某 (run_id, tool_name) 一旦超时，该 run_id 内该工具标记 circuit-open，
+        # 后续同 run_id 同工具调用直接返回 TOOL_CIRCUIT_OPEN，不再启动新线程。
+        self._poisoned: set[tuple[str, str]] = set()
 
     # -- 注册 ---------------------------------------------------------------
 
@@ -91,6 +96,8 @@ class ToolRegistry:
 
         - route 为当前 InformationNeed 的 RouteDecision.route（用于 allowed_routes 门控）；
         - max_retries 为重试上限（重试只发生在 retryable_only 且 RETRYABLE_ERROR）；
+        - 超时软熔断：超时后该 (run_id, tool_name) 被标记 circuit-open，后续同 run_id 同工具
+          调用直接 TOOL_CIRCUIT_OPEN，不启动新线程、不重试；
         - audit 落盘失败 fail-closed：返回 INTERNAL_ERROR，不产生无审计结果。
         """
         spec = self._specs.get(call.tool_name)
@@ -113,6 +120,13 @@ class ToolRegistry:
                 call, "FATAL_ERROR", "INVALID_ARGUMENTS", str(e))
             return self._audit_or_fail_closed(call, route, run_id, result, [])
 
+        # 软超时熔断：同一 run_id 内该工具已超时 → 直接拒绝，不启动新线程。
+        if (run_id, call.tool_name) in self._poisoned:
+            result = _synthetic_result(
+                call, "FATAL_ERROR", "TOOL_CIRCUIT_OPEN",
+                f"工具 {call.tool_name} 在 run_id={run_id} 内已超时熔断，拒绝再次执行")
+            return self._audit_or_fail_closed(call, route, run_id, result, [])
+
         attempts: list[C.ToolResult] = []
         attempt = 0
         final: C.ToolResult
@@ -121,6 +135,10 @@ class ToolRegistry:
             raw = self._run_attempt(spec, call)
             attempts.append(raw)
             final = raw
+            if raw.error_code == "TOOL_TIMEOUT":
+                # 软超时熔断：标记 circuit-open，且不重试（超时不触发新线程/重试）。
+                self._poisoned.add((run_id, call.tool_name))
+                break
             if not (raw.status == "RETRYABLE_ERROR"
                     and spec.retry_policy == "retryable_only"
                     and attempt <= max_retries):
@@ -164,7 +182,12 @@ class ToolRegistry:
     @staticmethod
     def _run_with_timeout(executor: ToolExecutor, arguments: dict,
                           timeout_s: float) -> C.ToolResult:
-        # 软超时：不阻塞等待孤儿线程（与 retriever_v2 软超时熔断语义一致）。
+        # 软超时：ThreadPoolExecutor.shutdown(wait=False) 无法取消正在运行的线程，
+        # 只能做到「不再等待孤儿线程」。语义边界：
+        #   - 超时后本方法抛 _ExecutorTimeout，由 execute 标记 (run_id, tool_name) circuit-open；
+        #   - 孤儿线程的迟到结果被 Future 丢弃，不会作为成功结果回传，也不会触发重试；
+        #   - 真正的运行时间上限依赖底层 HTTP connect/read timeout（external_v2.fetch/providers）
+        #     与 snapshot 幂等去重（Store 唯一约束 + SELECT-first 复用），本层不引入进程池/Celery。
         pool = ThreadPoolExecutor(max_workers=1)
         try:
             fut = pool.submit(executor, arguments)

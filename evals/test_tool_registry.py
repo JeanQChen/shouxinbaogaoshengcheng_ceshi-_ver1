@@ -98,7 +98,7 @@ def main() -> dict:
         calls["n"] += 1
         return C.ToolResult(
             call_id="", tool_name="flaky", tool_version="v1",
-            status="RETRYABLE_ERROR", data={}, error_code="TOOL_TIMEOUT",
+            status="RETRYABLE_ERROR", data={}, error_code="EXTERNAL_NETWORK_ERROR",
             trace_id=uuid.uuid4().hex)
     reg.register(_spec("flaky", retry_policy="retryable_only"), flaky)
     res = reg.execute(_call("flaky"), run_id="run1", max_retries=2)
@@ -174,6 +174,55 @@ def main() -> dict:
     res = reg_bad2.execute(_call("ok_tool", args={"q": "x", "evil": 1}), run_id="run_x")
     check(res.status == "FATAL_ERROR" and res.error_code == "INTERNAL_ERROR",
           "INVALID_ARGUMENTS 分支 audit 失败 → INTERNAL_ERROR")
+
+    # ---- 超时软熔断（circuit-open）----
+    def slow2(a):
+        time.sleep(0.2)
+        return C.ToolResult(call_id="", tool_name="slow2", tool_version="v1",
+                            status="SUCCESS", data={}, trace_id=uuid.uuid4().hex)
+    reg2 = R.ToolRegistry(audit_dir=Path(tempfile.mkdtemp(prefix="eval_registry_poison_")))
+    reg2.register(_spec("slow2", timeout_ms=10), slow2)
+
+    res = reg2.execute(_call("slow2"), run_id="run_poison")
+    check(res.status == "RETRYABLE_ERROR" and res.error_code == "TOOL_TIMEOUT",
+          "首次调用超时 → TOOL_TIMEOUT")
+
+    res = reg2.execute(_call("slow2"), run_id="run_poison")
+    check(res.status == "FATAL_ERROR" and res.error_code == "TOOL_CIRCUIT_OPEN",
+          "同 run_id+tool_name 二次调用 → TOOL_CIRCUIT_OPEN 熔断")
+
+    res = reg2.execute(_call("slow2"), run_id="run_other")
+    check(res.status == "RETRYABLE_ERROR" and res.error_code == "TOOL_TIMEOUT",
+          "不同 run_id 不受熔断污染（正常执行并超时）")
+
+    # ---- 超时不触发重试（熔断阻断 retry loop）----
+    calls_nr = {"n": 0}
+    def slow_nr(a):
+        calls_nr["n"] += 1
+        time.sleep(0.2)
+        return C.ToolResult(call_id="", tool_name="slow_nr", tool_version="v1",
+                            status="SUCCESS", data={}, trace_id=uuid.uuid4().hex)
+    reg_nr = R.ToolRegistry(audit_dir=Path(tempfile.mkdtemp(prefix="eval_registry_noretry_")))
+    reg_nr.register(_spec("slow_nr", retry_policy="retryable_only", timeout_ms=10), slow_nr)
+    res = reg_nr.execute(_call("slow_nr"), run_id="run_nr", max_retries=3)
+    check(res.error_code == "TOOL_TIMEOUT" and calls_nr["n"] == 1,
+          "超时不触发重试（熔断阻断 retry，仅执行 1 次）")
+
+    # ---- 迟到成功结果不覆盖超时结果 ----
+    late_log = {"done": False}
+    def slow_late(a):
+        time.sleep(0.15)
+        late_log["done"] = True
+        return C.ToolResult(call_id="", tool_name="slow_late", tool_version="v1",
+                            status="SUCCESS", data={"late": True}, trace_id=uuid.uuid4().hex)
+    reg_late = R.ToolRegistry(audit_dir=Path(tempfile.mkdtemp(prefix="eval_registry_late_")))
+    reg_late.register(_spec("slow_late", timeout_ms=10), slow_late)
+    res = reg_late.execute(_call("slow_late"), run_id="run_late")
+    check(res.status == "RETRYABLE_ERROR" and res.error_code == "TOOL_TIMEOUT",
+          "超时结果立即返回（不等待孤儿线程）")
+    time.sleep(0.3)  # 等孤儿线程跑完，观察其迟到结果是否回传
+    check(late_log["done"] is True and res.error_code == "TOOL_TIMEOUT",
+          "迟到 SUCCESS 不覆盖已返回的 TOOL_TIMEOUT（孤儿线程结果被丢弃）")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

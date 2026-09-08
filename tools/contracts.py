@@ -90,6 +90,7 @@ TOOL_EXTRA_ERROR_CODES = (
     "EXTERNAL_NETWORK_ERROR",
     "EXTERNAL_BAD_RESPONSE",
     "PDF_TEXT_UNAVAILABLE",
+    "TOOL_CIRCUIT_OPEN",
 )
 
 # ---------------------------------------------------------------------------
