@@ -1,8 +1,8 @@
 {
-  "name": "router_v2_track_b",
+  "name": "router_v2_track_b_synthetic",
   "rule_version": "v2-rule-1.0",
   "company_id": "300750",
-  "description": "Track B：规则优先 Router 的确定性路由评测集。gold_route 按 ROUTER_HYBRID 任务书 §5 冻结规则逐题手工标注（非 Router 输出回填）；gold 仅取五路由或 FALLBACK_UNAVAILABLE，INVALID_GOLD_MAPPING 不是路由。",
+  "description": "Track B：规则优先 Router 的确定性路由评测集（合成题）。gold_route 按 ROUTER_HYBRID 任务书 §5 冻结规则逐题手工标注（非 Router 输出回填）；gold 仅取五路由或 FALLBACK_UNAVAILABLE，INVALID_GOLD_MAPPING 不是路由。",
   "cases": [
     {"case_id": "r001", "question": "2024年总资产是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "确定性字段→REGISTERED_DB_FIELD"},
     {"case_id": "r002", "question": "资产负债率是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "确定性指标→REGISTERED_FINANCIAL_METRIC"},

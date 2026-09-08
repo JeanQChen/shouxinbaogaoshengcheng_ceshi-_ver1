@@ -1,14 +1,22 @@
 """Track B：Router 评测 runner（规则优先路由 vs 手写 gold route）。
 
-用法: python -m evals.run_router_eval [--dataset evaluation/datasets/router/cases.json]
+用法:
+  python -m evals.run_router_eval [--dataset evaluation/datasets/router/cases_synthetic.json]
+  python -m evals.run_router_eval --both
 
-- 加载手写 router 评测数据集（evaluation/datasets/router/cases.json）；
+- 加载手写 router 评测数据集（evaluation/datasets/router/cases_real.json 41 题 +
+  cases_synthetic.json 23 题）；
 - 逐题 materialize RouteContext：supported_db_fields / supported_metric_ids 取自
   db_targets 注册表（静态能力，与快照内容无关），available_* 置空，其余从 case 取；
 - 逐题 route()，与 gold_route 比对（gold ∈ 五路由 ∪ {FALLBACK_UNAVAILABLE}）；
-- 输出 accuracy、按 route 切片、错误明细、数据集内容哈希；
-- 分母 = case_id 集合（去重后）；内容哈希 sha256(canonical cases) 权威锁定数据集版本，
-  数据集一变哈希即变（评测口径不可静默漂移）。
+- 输出 accuracy、按 route 切片、错误明细、严重误路由（§9 三类）、数据集内容哈希；
+- 分母 = case_id 集合（去重后）；内容哈希 sha256(canonical cases) 权威锁定数据集版本。
+
+严重误路由（任务书 §9，三类，必须为 0）：
+  1. 应 DB 却走 RAG 猜数字   gold=DB_LOOKUP        & actual ∈ {DIRECT, STANDARD, DEEP}
+  2. 应 External 却声称本地  gold=EXTERNAL_RESEARCH & actual ∈ {DB, DIRECT, STANDARD, DEEP}
+  3. 本地可答却被强制 External gold ∈ 本地四路由     & actual=EXTERNAL_RESEARCH
+（另：gold≠FALLBACK 却 actual=FALLBACK_UNAVAILABLE 视为严重——真实题不允许拒绝作答。）
 
 注意：本模块是 runner，非 evals.test_* 测试模块，不被 run_evals.EVAL_MODULES 自动装载；
 assert 放在 evals/test_router_eval.py。
@@ -27,9 +35,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from routing import db_targets, router
 from routing import schema as S
 
-DEFAULT_DATASET = Path("evaluation/datasets/router/cases.json")
+DATASET_DIR = Path("evaluation/datasets/router")
+REAL_DATASET = DATASET_DIR / "cases_real.json"
+SYNTHETIC_DATASET = DATASET_DIR / "cases_synthetic.json"
+DEFAULT_DATASET = SYNTHETIC_DATASET
 
 _VALID_GOLD = set(S.ROUTES) | {"FALLBACK_UNAVAILABLE"}
+_RAG_FAMILY = {"DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL"}
+_LOCAL_ROUTES = {"DB_LOOKUP", "DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL"}
 
 
 def _canonical(cases: list[dict]) -> str:
@@ -64,6 +77,19 @@ def _actual(result: S.RouterResult) -> str:
     return result.status
 
 
+def _is_severe(gold: str, actual: str) -> bool:
+    """任务书 §9 三类严重误路由 + 真实题拒绝作答（gold≠FALLBACK 却 actual=FALLBACK）。"""
+    if actual == "FALLBACK_UNAVAILABLE" and gold != "FALLBACK_UNAVAILABLE":
+        return True
+    if gold == "DB_LOOKUP" and actual in _RAG_FAMILY:
+        return True
+    if gold == "EXTERNAL_RESEARCH" and actual in _LOCAL_ROUTES:
+        return True
+    if gold in _LOCAL_ROUTES and actual == "EXTERNAL_RESEARCH":
+        return True
+    return False
+
+
 def run_eval(path: Path = DEFAULT_DATASET) -> dict:
     data = load_cases(path)
     cases: list[dict] = data["cases"]
@@ -83,6 +109,7 @@ def run_eval(path: Path = DEFAULT_DATASET) -> dict:
     denominator = len(cases)
 
     correct = 0
+    severe = 0
     errors: list[dict] = []
     per_route: dict[str, dict[str, int]] = {
         r: {"total": 0, "correct": 0} for r in list(S.ROUTES) + ["FALLBACK_UNAVAILABLE"]
@@ -98,9 +125,12 @@ def run_eval(path: Path = DEFAULT_DATASET) -> dict:
             correct += 1
             per_route[gold]["correct"] += 1
         else:
+            is_severe = _is_severe(gold, actual)
+            if is_severe:
+                severe += 1
             errors.append({
                 "case_id": c["case_id"], "gold": gold, "actual": actual,
-                "question": c["question"],
+                "question": c["question"], "severe": is_severe,
             })
 
     return {
@@ -112,10 +142,18 @@ def run_eval(path: Path = DEFAULT_DATASET) -> dict:
         "invalid_gold": invalid_gold,
         "correct": correct,
         "accuracy": (correct / denominator) if denominator else 0.0,
+        "severe": severe,
         "content_hash": content_hash,
         "per_route": per_route,
         "errors": errors,
     }
+
+
+def run_both() -> dict:
+    """分别跑真实 + 合成数据集，返回合并摘要（供 test_router_eval 断言）。"""
+    real = run_eval(REAL_DATASET)
+    synthetic = run_eval(SYNTHETIC_DATASET)
+    return {"real": real, "synthetic": synthetic}
 
 
 def main(argv: list[str] | None = None) -> dict:
@@ -123,7 +161,15 @@ def main(argv: list[str] | None = None) -> dict:
         prog="python -m evals.run_router_eval",
         description="Track B：Router 规则路由评测")
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET))
+    parser.add_argument("--both", action="store_true",
+                        help="同时跑真实 + 合成两个数据集")
     args = parser.parse_args(argv)
+
+    if args.both:
+        summary = run_both()
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return summary
+
     summary = run_eval(Path(args.dataset))
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return summary
