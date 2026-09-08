@@ -77,8 +77,11 @@ def main() -> dict:
     reg = A.build_default_registry(audit_dir=Path(audit_dir))
     names = {s.name for s in reg.list()}
     check(names == {"search_evidence", "inspect_evidence", "lookup_company_field",
-                    "lookup_financial_metric", "compare_evidence", "search_tables"},
-          "build_default_registry 注册 6 个本地工具")
+                    "lookup_financial_metric", "compare_evidence",
+                    "compare_financial_periods", "search_tables",
+                    "search_external_sources", "fetch_external_content",
+                    "snapshot_external_source"},
+          "build_default_registry 注册 10 个工具（6 本地 + 1 财务比较 + 3 外部）")
 
     res = reg.execute(_call("lookup_company_field",
                             {"company_id": "x", "standard_item_code": "A", "evil": 1}),
@@ -179,6 +182,76 @@ def main() -> dict:
         A._search_local = orig_search
     check(res.status == "SUCCESS" and res.evidence_ids == ["t1"],
           "search_tables 只保留 table/table_row Evidence")
+
+    # ---- compare_financial_periods（纯比较既有 MetricResult，不新算）----
+    from decimal import Decimal
+
+    def _metric(period, value, version="v3"):
+        return SimpleNamespace(
+            snapshot_id="snap1", formula_id="SOLV_CURRENT_RATIO",
+            formula_version=version, period=period,
+            raw_value=Decimal(str(value)), display_value=Decimal(str(value)),
+            unit="倍", status="CALCULATED_EXACT", reason_code=None,
+            input_record_refs=["r1"], input_snapshot_item_refs=["k1"])
+
+    fake_snap = SimpleNamespace(snapshot_id="snap1", report_blocked=False)
+    orig_resolve = A._resolve_current_snapshot
+    orig_list_metrics = fstore.list_metric_results
+    A._resolve_current_snapshot = lambda args: (fake_snap, None)
+
+    fstore.list_metric_results = lambda sid: [
+        _metric("2024-12-31", "1.50"), _metric("2023-12-31", "1.20")]
+    try:
+        res = A._compare_financial_periods_executor(
+            {"company_id": "c", "formula_id": "SOLV_CURRENT_RATIO",
+             "period_a": "2023-12-31", "period_b": "2024-12-31"})
+    finally:
+        A._resolve_current_snapshot = orig_resolve
+        fstore.list_metric_results = orig_list_metrics
+    check(res.status == "SUCCESS" and res.data["relation"] == "increased",
+          "compare_financial_periods 两期间递增 → increased")
+    check(res.data["delta"] == "0.30" and res.data["b_display_value"] == "1.50",
+          "compare_financial_periods delta 用 Decimal 精确差")
+    check(len(res.structured_result_refs) == 2, "compare 返回双期间溯源 ref")
+
+    fstore.list_metric_results = lambda sid: [
+        _metric("2024-12-31", "1.10"), _metric("2023-12-31", "1.40")]
+    A._resolve_current_snapshot = lambda args: (fake_snap, None)
+    try:
+        res = A._compare_financial_periods_executor(
+            {"company_id": "c", "formula_id": "SOLV_CURRENT_RATIO",
+             "period_a": "2023-12-31", "period_b": "2024-12-31"})
+    finally:
+        A._resolve_current_snapshot = orig_resolve
+        fstore.list_metric_results = orig_list_metrics
+    check(res.data["relation"] == "decreased", "compare 递减 → decreased")
+
+    fstore.list_metric_results = lambda sid: [_metric("2024-12-31", "1.10")]
+    A._resolve_current_snapshot = lambda args: (fake_snap, None)
+    try:
+        res = A._compare_financial_periods_executor(
+            {"company_id": "c", "formula_id": "SOLV_CURRENT_RATIO",
+             "period_a": "2023-12-31", "period_b": "2024-12-31"})
+    finally:
+        A._resolve_current_snapshot = orig_resolve
+        fstore.list_metric_results = orig_list_metrics
+    check(res.status == "PARTIAL" and res.data["relation"] == "missing_period"
+          and res.data["missing_period"] == "2023-12-31",
+          "单边缺失 → PARTIAL + missing_period")
+
+    fstore.list_metric_results = lambda sid: [
+        _metric("2024-12-31", "1.10", version="v4"),
+        _metric("2023-12-31", "1.40", version="v3")]
+    A._resolve_current_snapshot = lambda args: (fake_snap, None)
+    try:
+        res = A._compare_financial_periods_executor(
+            {"company_id": "c", "formula_id": "SOLV_CURRENT_RATIO",
+             "period_a": "2023-12-31", "period_b": "2024-12-31"})
+    finally:
+        A._resolve_current_snapshot = orig_resolve
+        fstore.list_metric_results = orig_list_metrics
+    check(res.status == "FATAL_ERROR" and res.error_code == "TOOL_CONTRACT_ERROR",
+          "公式版本不一致 → fail-closed TOOL_CONTRACT_ERROR")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

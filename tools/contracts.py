@@ -37,6 +37,7 @@ TOOL_NAMES = (
     "lookup_company_field",
     "lookup_financial_metric",
     "compare_evidence",
+    "compare_financial_periods",   # 同公式跨期间 MetricResult 结构化比较（纯 Python，不算新指标）
     "search_external_sources",
     "fetch_external_content",
     "snapshot_external_source",
@@ -78,10 +79,17 @@ TOOL_ERROR_CODES = (
     "INTERNAL_ERROR",
 )
 
-# 工具结果附加错误码（超出最低集合，用于能力门控场景，保持枚举封闭可审计）。
+# 工具结果附加错误码（超出最低集合，用于能力门控/外部工具细分场景，保持枚举封闭可审计）。
 # 任务书 §6.3：search_tables 无结构时返回 EMPTY/UNSUPPORTED_FOR_DOCUMENT。
+# 外部工具（external_v2）细分错误码：鉴权/限流/服务端/网络/坏响应/PDF 无文本层。
 TOOL_EXTRA_ERROR_CODES = (
     "UNSUPPORTED_FOR_DOCUMENT",
+    "EXTERNAL_AUTH_FAILED",
+    "EXTERNAL_RATE_LIMITED",
+    "EXTERNAL_SERVER_ERROR",
+    "EXTERNAL_NETWORK_ERROR",
+    "EXTERNAL_BAD_RESPONSE",
+    "PDF_TEXT_UNAVAILABLE",
 )
 
 # ---------------------------------------------------------------------------

@@ -164,6 +164,29 @@ COMPARE_EVIDENCE_SPEC = C.ToolSpec(
     max_results=20, timeout_ms=3000, retry_policy="none", cost_class="local",
 )
 
+COMPARE_FINANCIAL_PERIODS_SPEC = C.ToolSpec(
+    name="compare_financial_periods", version="v1",
+    description="同公式跨期间 MetricResult 结构化比较（只比较既有结果，不新算指标，返回溯源）",
+    input_schema={
+        "type": "object", "additionalProperties": False,
+        "required": ["company_id", "formula_id", "period_a", "period_b"],
+        "properties": {
+            "company_id": {"type": "string", "minLength": 1},
+            "formula_id": {"type": "string", "minLength": 1},
+            "period_a": {"type": "string", "minLength": 1},
+            "period_b": {"type": "string", "minLength": 1},
+            "formula_version": {"type": "string"},
+            "snapshot_as_of_date": {"type": "string"},
+            "scope": {"type": "string"},
+            "currency": {"type": "string"},
+            "purpose": {"type": "string"},
+        },
+    },
+    output_schema={"type": "object"},
+    allowed_routes=("DB_LOOKUP",),
+    max_results=1, timeout_ms=3000, retry_policy="none", cost_class="db",
+)
+
 SEARCH_TABLES_SPEC = C.ToolSpec(
     name="search_tables", version="v1",
     description="本地检索后仅返回 table/table_row Evidence；无表格结构返回 EMPTY/UNSUPPORTED_FOR_DOCUMENT",
@@ -470,23 +493,149 @@ def _compare_evidence_executor(args: dict) -> C.ToolResult:
         retryable=False, trace_id=uuid.uuid4().hex)
 
 
+def _metric_ref(mr, formula_id: str) -> S.StructuredResultRef:
+    """把 MetricResult 翻译为可回查 StructuredResultRef（溯源快照/公式版本/期间/输入）。"""
+    return S.StructuredResultRef(
+        result_type="financial_metric", snapshot_id=mr.snapshot_id,
+        item_code=None, formula_id=formula_id, formula_version=mr.formula_version,
+        period=mr.period,
+        raw_value=str(mr.raw_value) if mr.raw_value is not None else None,
+        display_value=str(mr.display_value) if mr.display_value is not None else None,
+        unit=mr.unit, status=mr.status, reason_code=mr.reason_code,
+        input_record_refs=mr.input_record_refs,
+        input_snapshot_item_refs=mr.input_snapshot_item_refs)
+
+
+def _compare_financial_periods_executor(args: dict) -> C.ToolResult:
+    """同公式跨期间 MetricResult 结构化比较（修订：只比较既有结果，不新算指标）。"""
+    formula_id = args["formula_id"]
+    period_a = args["period_a"]
+    period_b = args["period_b"]
+    formula_version = args.get("formula_version")
+    snap, reason = _resolve_current_snapshot(args)
+    if snap is None:
+        return _db_unavailable("compare_financial_periods", reason)
+
+    def _find(period):
+        for mr in fstore.list_metric_results(snap.snapshot_id):
+            if mr.formula_id != formula_id or mr.status not in _AVAILABLE_METRIC_STATUSES:
+                continue
+            if mr.period != period:
+                continue
+            if formula_version and mr.formula_version != formula_version:
+                continue
+            return mr
+        return None
+
+    mra = _find(period_a)
+    mrb = _find(period_b)
+    if mra is None and mrb is None:
+        return _db_unavailable("compare_financial_periods",
+                               f"指标 {formula_id} 在两期间均不可用")
+
+    base = {
+        "result_type": "financial_metric_comparison",
+        "formula_id": formula_id,
+        "snapshot_id": snap.snapshot_id,
+        "period_a": period_a,
+        "period_b": period_b,
+    }
+
+    # 单边缺失 → PARTIAL（合法结果，非错误），显式标出缺失期间。
+    if mra is None or mrb is None:
+        present = mra if mra is not None else mrb
+        missing_period = period_a if mra is None else period_b
+        data = {
+            **base,
+            "formula_version": present.formula_version,
+            "a_display_value": _display_of(mra),
+            "b_display_value": _display_of(mrb),
+            "relation": "missing_period",
+            "missing_period": missing_period,
+        }
+        refs = [_metric_ref(present, formula_id)]
+        return C.ToolResult(
+            call_id="", tool_name="compare_financial_periods", tool_version="",
+            status="PARTIAL", data=data, structured_result_refs=refs,
+            error_code=None, message=f"期间 {missing_period} 无指标 {formula_id}",
+            retryable=False, trace_id=uuid.uuid4().hex)
+
+    # 公式版本不一致 → fail-closed，不跨版本比较。
+    if mra.formula_version != mrb.formula_version:
+        return C.ToolResult(
+            call_id="", tool_name="compare_financial_periods", tool_version="",
+            status="FATAL_ERROR", data=base,
+            error_code="TOOL_CONTRACT_ERROR",
+            message=(f"两期间公式版本不一致: {period_a}={mra.formula_version} "
+                     f"vs {period_b}={mrb.formula_version}"),
+            retryable=False, trace_id=uuid.uuid4().hex)
+
+    av = _decimal_value(mra)
+    bv = _decimal_value(mrb)
+    if av is None or bv is None:
+        return _db_unavailable("compare_financial_periods",
+                               f"指标 {formula_id} 两期间无值可比较")
+
+    delta = bv - av
+    if delta > 0:
+        relation = "increased"
+    elif delta < 0:
+        relation = "decreased"
+    else:
+        relation = "unchanged"
+
+    data = {
+        **base,
+        "formula_version": mra.formula_version,
+        "a_display_value": str(av),
+        "a_unit": mra.unit,
+        "b_display_value": str(bv),
+        "b_unit": mrb.unit,
+        "delta": str(delta),
+        "relation": relation,
+    }
+    return C.ToolResult(
+        call_id="", tool_name="compare_financial_periods", tool_version="",
+        status="SUCCESS", data=data,
+        structured_result_refs=[_metric_ref(mra, formula_id), _metric_ref(mrb, formula_id)],
+        error_code=None, message=None, retryable=False, trace_id=uuid.uuid4().hex)
+
+
+def _display_of(mr) -> str | None:
+    """MetricResult 展示值（display 优先，回退 raw；均无则 None）。"""
+    if mr is None:
+        return None
+    v = _decimal_value(mr)
+    return str(v) if v is not None else None
+
+
+def _decimal_value(mr) -> "object | None":
+    """MetricResult 数值（display 优先回退 raw，Decimal 或 None）。"""
+    v = mr.display_value if mr.display_value is not None else mr.raw_value
+    return v
+
+
 # ---------------------------------------------------------------------------
 # Registry 构建
 # ---------------------------------------------------------------------------
 
 def build_default_registry(audit_dir: Path | str = R.DEFAULT_AUDIT_DIR) -> R.ToolRegistry:
-    """构建默认 Registry（注册 6 个本地工具）。
+    """构建默认 Registry（6 个本地工具 + 1 个财务比较 + 3 个外部工具）。
 
     外部工具（search_external_sources / fetch_external_content / snapshot_external_source）
-    由 external_v2 层在 Batch A commit 4-6 追加注册，此处不注册占位工具。
+    由 tools.external_adapters 注册（provider 恒为 bocha，Tavily 不参与运行时）。
     """
+    from tools import external_adapters as ext
+
     reg = R.ToolRegistry(audit_dir=audit_dir)
     reg.register(SEARCH_EVIDENCE_SPEC, _search_evidence_executor)
     reg.register(INSPECT_EVIDENCE_SPEC, _inspect_evidence_executor)
     reg.register(LOOKUP_COMPANY_FIELD_SPEC, _lookup_company_field_executor)
     reg.register(LOOKUP_FINANCIAL_METRIC_SPEC, _lookup_financial_metric_executor)
     reg.register(COMPARE_EVIDENCE_SPEC, _compare_evidence_executor)
+    reg.register(COMPARE_FINANCIAL_PERIODS_SPEC, _compare_financial_periods_executor)
     reg.register(SEARCH_TABLES_SPEC, _search_tables_executor)
+    ext.register_external_tools(reg)
     return reg
 
 
@@ -558,6 +707,37 @@ def _main(argv: list[str]) -> int:
     p_ce.add_argument("--evidence-id", required=True, dest="evidence_ids",
                       nargs="+", metavar="EVIDENCE_ID")
 
+    p_cfp = sub.add_parser("compare-financial-periods", help="同公式跨期间指标比较")
+    p_cfp.add_argument("--company", required=True, dest="company_id")
+    p_cfp.add_argument("--formula", required=True, dest="formula_id")
+    p_cfp.add_argument("--period-a", required=True, dest="period_a")
+    p_cfp.add_argument("--period-b", required=True, dest="period_b")
+    p_cfp.add_argument("--version", dest="formula_version", default=None)
+    p_cfp.add_argument("--as-of", dest="snapshot_as_of_date", default=None)
+
+    p_xs = sub.add_parser("search-external", help="博查外部检索（经 Registry）")
+    p_xs.add_argument("--query", required=True)
+    p_xs.add_argument("--limit", type=int, default=5)
+    p_xs.add_argument("--freshness", default=None)
+
+    p_xf = sub.add_parser("fetch-external", help="安全抓取网页/电子 PDF 正文（经 Registry）")
+    p_xf.add_argument("--url", required=True)
+
+    p_snap = sub.add_parser("snapshot-external", help="固化外部来源不可变快照（经 Registry）")
+    p_snap.add_argument("--company", required=True, dest="company_id")
+    p_snap.add_argument("--url", required=True, dest="canonical_url")
+    p_snap.add_argument("--content-text", required=True, dest="content_text")
+    p_snap.add_argument("--title", default=None)
+    p_snap.add_argument("--snippet", default=None)
+    p_snap.add_argument("--query", default=None)
+    p_snap.add_argument("--provider", default=None)
+    p_snap.add_argument("--content-type", default=None)
+    p_snap.add_argument("--http-status", type=int, default=None)
+    p_snap.add_argument("--content-hash", default=None)
+    p_snap.add_argument("--source-grade", default=None)
+    p_snap.add_argument("--file-hash", default=None)
+    p_snap.add_argument("--page-count", type=int, default=None)
+
     args = parser.parse_args(argv)
 
     fstore.init_db(args.fin_db)
@@ -570,6 +750,10 @@ def _main(argv: list[str]) -> int:
         "compare-evidence": "DIRECT_EVIDENCE",
         "company-field": "DB_LOOKUP",
         "financial-metric": "DB_LOOKUP",
+        "compare-financial-periods": "DB_LOOKUP",
+        "search-external": "EXTERNAL_RESEARCH",
+        "fetch-external": "EXTERNAL_RESEARCH",
+        "snapshot-external": "EXTERNAL_RESEARCH",
     }
     tool_by_cmd = {
         "search-evidence": "search_evidence",
@@ -578,6 +762,10 @@ def _main(argv: list[str]) -> int:
         "compare-evidence": "compare_evidence",
         "company-field": "lookup_company_field",
         "financial-metric": "lookup_financial_metric",
+        "compare-financial-periods": "compare_financial_periods",
+        "search-external": "search_external_sources",
+        "fetch-external": "fetch_external_content",
+        "snapshot-external": "snapshot_external_source",
     }
 
     arguments: dict
@@ -604,6 +792,30 @@ def _main(argv: list[str]) -> int:
             arguments["snapshot_as_of_date"] = args.snapshot_as_of_date
     elif args.cmd == "compare-evidence":
         arguments = {"evidence_ids": args.evidence_ids}
+    elif args.cmd == "compare-financial-periods":
+        arguments = {"company_id": args.company_id, "formula_id": args.formula_id,
+                     "period_a": args.period_a, "period_b": args.period_b}
+        if args.formula_version:
+            arguments["formula_version"] = args.formula_version
+        if args.snapshot_as_of_date:
+            arguments["snapshot_as_of_date"] = args.snapshot_as_of_date
+    elif args.cmd == "search-external":
+        arguments = {"query": args.query, "limit": args.limit}
+        if args.freshness:
+            arguments["freshness"] = args.freshness
+    elif args.cmd == "fetch-external":
+        arguments = {"url": args.url}
+    elif args.cmd == "snapshot-external":
+        arguments = {"company_id": args.company_id, "canonical_url": args.canonical_url,
+                     "content_text": args.content_text}
+        for key in ("title", "snippet", "query", "provider", "content_type",
+                    "content_hash", "source_grade", "file_hash"):
+            if getattr(args, key) is not None:
+                arguments[key] = getattr(args, key)
+        if args.http_status is not None:
+            arguments["http_status"] = args.http_status
+        if args.page_count is not None:
+            arguments["page_count"] = args.page_count
     else:
         return 2
 
