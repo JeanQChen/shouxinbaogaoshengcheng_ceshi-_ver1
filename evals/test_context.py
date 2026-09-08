@@ -182,6 +182,9 @@ def main() -> dict:
         ctx = context.build_route_context("ACME")
         check(ctx.company_id == "ACME", "company_id 回填")
         check(ctx.report_as_of == "2024-12-31", "report_as_of = 快照 as_of_date")
+        check(ctx.scope == "consolidated" and ctx.currency == "CNY"
+              and ctx.purpose == "credit_analysis",
+              "RouteContext 回填 scope/currency/purpose 维度")
         check(set(ctx.available_db_fields) == {
             "CURRENT_ASSETS", "CURRENT_LIABILITIES", "TOTAL_ASSETS",
             "TOTAL_LIABILITIES", "TOTAL_EQUITY", "TOTAL_REVENUE", "NET_PROFIT"},
@@ -210,6 +213,21 @@ def main() -> dict:
               "无快照公司 available_* 为空")
         check(len(empty.supported_db_fields) > 0 and len(empty.supported_metric_ids) > 0,
               "无快照公司 supported_* 仍恒非空（路由能力不受数据影响）")
+
+        # ---- 健康门：report_blocked 快照不进 available_* ----
+        blocked_snap = SimpleNamespace(snapshot_id="snap-blocked",
+                                       as_of_date="2024-12-31", report_blocked=True)
+        orig_resolve = context._resolve_snapshot
+        context._resolve_snapshot = lambda *a, **k: blocked_snap
+        try:
+            blocked_ctx = context.build_route_context("ACME")
+            check(blocked_ctx.report_as_of == "2024-12-31",
+                  "report_blocked 快照仍回填 report_as_of")
+            check(blocked_ctx.available_db_fields == []
+                  and blocked_ctx.available_metric_ids == [],
+                  "report_blocked 快照不进 available_*（健康门）")
+        finally:
+            context._resolve_snapshot = orig_resolve
     finally:
         _cleanup_db(fin_db)
         _cleanup_db(ev_db)

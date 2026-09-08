@@ -69,6 +69,10 @@ REASON_CODES = (
     "SECTION_TOPIC_SYNTHESIS",
     "AMBIGUOUS_RULE_MATCH",
     "LLM_FALLBACK_DECISION",
+    # Track A 公平对照：不调 Router，对全部 ELIGIBLE_LOCAL 用同一固定本地 Hybrid 决策。
+    "TRACK_A_FIXED_LOCAL",
+    # time_scope 无法可靠解析为可比期间 → 交 fallback（禁止字符串字典序猜测）。
+    "TIME_SCOPE_UNPARSEABLE",
 )
 
 # 检索失败码。
@@ -83,6 +87,8 @@ FAILURE_CODES = (
     "TIMEOUT",
     "DB_SNAPSHOT_UNAVAILABLE",
     "UNSUPPORTED_ROUTE",
+    # trace 落盘失败（可观测性硬要求，fail-closed）。
+    "TRACE_WRITE_FAILED",
 )
 
 # 判定置信度。
@@ -164,6 +170,10 @@ class RouteContext:
     available_db_fields: list[str]
     available_metric_ids: list[str]
     external_research_enabled: bool
+    # DB 取数限定维度（决定 current snapshot 键；executor 从 decision.filters 精确透传）。
+    scope: str = "consolidated"
+    currency: str = "CNY"
+    purpose: str = "credit_analysis"
 
 
 @dataclass

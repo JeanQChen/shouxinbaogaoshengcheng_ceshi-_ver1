@@ -110,7 +110,10 @@ def build_route_context(company_id: str, *, scope: str = "consolidated",
 
     snap = _resolve_snapshot(company_id, scope, currency, as_of_date, purpose)
     report_as_of = snap.as_of_date if snap is not None else None
-    if snap is None:
+    # 健康门：report_blocked 快照不得贡献 available_*（DB executor 会返回
+    # DB_FIELD_UNAVAILABLE，而非把被阻断快照的值当作可计算值）。
+    healthy = snap is not None and not snap.report_blocked
+    if not healthy:
         avail_fields: list[str] = []
         avail_metrics: list[str] = []
     else:
@@ -131,6 +134,9 @@ def build_route_context(company_id: str, *, scope: str = "consolidated",
         external_research_enabled=(
             _DEFAULT_EXTERNAL_RESEARCH if external_research_enabled is None
             else external_research_enabled),
+        scope=scope,
+        currency=currency,
+        purpose=purpose,
     )
 
 

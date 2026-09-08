@@ -74,6 +74,9 @@ def validate_context(context: S.RouteContext) -> None:
         _require(all(isinstance(x, str) for x in v), f"{fname} 元素必须是 str")
     _require(isinstance(context.external_research_enabled, bool),
              "external_research_enabled 必须是 bool")
+    _require_str(context.scope, "context.scope")
+    _require_str(context.currency, "context.currency")
+    _require_str(context.purpose, "context.purpose")
 
 
 def validate_budget(budget: S.RetrievalBudget) -> None:
