@@ -1,13 +1,14 @@
 # 授信报告生成器 V2 TODO
 
-> 更新时间：2026-09-07
+> 更新时间：2026-09-08
 > 用途：记录 V2 已完成、正在进行和下一步工作。  
 > 上位依据：`DESIGN_V2.md`；阶段顺序：`V2_IMPLEMENTATION_PLAN.md`；具体实施以对应阶段开发任务书为准。
 
 ## 一、当前结论
 
 当前已经关闭 V1 基线、报告章节契约、Evidence Architecture 和 Phase 1F-A 财务基础。
-下一步进入 Phase 2 Router + Hybrid Retrieval；完整 1F 仍需在 Phase 5 完成 1F-B。
+Phase 2 Router + Hybrid Retrieval 代码已全部落地（含 Track A/B 评测），仅真实 BGE-M3
+Track A 对照评测因环境阻塞尚未跑通，故 Phase 2 未关闭；完整 1F 仍需在 Phase 5 完成 1F-B。
 
 完成 V2 第一阶段仍需依次完成：
 
@@ -82,8 +83,8 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - [x] 实现 BM25 + BGE-M3 Dense + RRF（indexer_v2 / sparse / fusion，reranker 首轮关闭）。
 - [x] 统一输出 EvidencePack + StructuredResultRef + trace，保留 Evidence ID、文档和页码追溯（retriever_v2）。
 - [x] 检索落盘 trace（logs/retrieval/）+ 延迟/索引版本/失败码记录。
-- [x] Track B：Router 评测 23 题手写 gold + 确定性 runner。
-- [x] Track A：V2 Hybrid Runner，复用冻结分母与 V1 命中口径。
+- [x] Track B：Router 评测双数据集（真实 41 题 + 合成 23 题）手写 gold + 确定性 runner + 严重误路由分类（真实 ≥90%、严重=0；合成 100%）。
+- [x] Track A：V2 Hybrid Runner（de-Router：固定本地决策 TRACK_A_FIXED_LOCAL，不调 Router）+ 冻结分母 fail-closed 校验（ELIGIBLE_LOCAL 37 / EXTERNAL_ONLY 3 / INVALID_GOLD_MAPPING 1）。
 - [ ] 在冻结的共同题集上与 V1 公平对照（真实 BGE-M3），重点检查 RequiredPageCoverage@10、P0、完整覆盖、MRR 和逐题退步——**环境阻塞，未跑通前 Phase 2 不关闭**。
 
 ### [ ] Phase 3：Tool Layer + Research Harness
@@ -141,9 +142,9 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的三个动作
 
-1. 已完成 `FINANCIAL_A6_A7_DEVELOPMENT_TASK.md`（A6 Formula Registry / FinancialSnapshot / 指标计算；A7 V1 只读适配 / CLI / 进度 / 集成评测），见 `A6_A7_DELIVERY_REPORT.md`。
-2. 真实 300750 主链在临时库通过：Record Set(432) → Reconciliation(0 冲突) → Snapshot → Metric(112，81 exact/4 proxy/19 missing/8 not_applicable) → Adapter；V1 未受影响。
-3. Phase 1F-A 关闭后同步 `V2_IMPLEMENTATION_PLAN.md`，再编写 Phase 2 Router + Hybrid Retrieval 开发任务书。
+1. Phase 2 Router + Hybrid Retrieval 代码全部落地：契约层 / 规则优先五路由 Router / RouteContext / indexer_v2 / sparse / fusion / retriever_v2+trace / Track B 评测（真实 41 题 + 合成 23 题）/ Track A Runner（de-Router 固定本地决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）。
+2. 专项与完整 eval 全绿（2336 项通过、0 失败）。
+3. Phase 2 未关闭：真实 BGE-M3 Track A 对照评测尚未跑通（环境阻塞），mock 全绿不能替代真实验收。
 
 ## 七、完成定义
 

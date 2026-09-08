@@ -196,8 +196,9 @@ Cross-Encoder。Phase 2 必须分别报告固定原问题的本地检索公平�
   `evidence`；DB → `structured_results`；`DB_FIELD_UNAVAILABLE` → 两者皆空 +
   `missing_requirements`。
 
-**实现状态：** 代码 9 commit 已落地（契约层 / Router / RouteContext / indexer_v2 / sparse /
-fusion / retriever_v2+trace / Track B 评测 / Track A Runner）；专项与完整 eval 全绿。
+**实现状态：** 代码已全部落地（契约层 / Router / RouteContext / indexer_v2 / sparse /
+fusion / retriever_v2+trace / Track B 评测 41+23 题 / Track A Runner de-Router 固定本地
+决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）；专项与完整 eval 全绿（2336 项）。
 **Phase 2 未关闭**：真实 BGE-M3 Track A 对照评测尚未跑通（环境阻塞），mock 全绿不能替代
 真实验收。
 
