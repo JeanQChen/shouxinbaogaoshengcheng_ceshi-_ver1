@@ -5,13 +5,13 @@
 
 有效判定顺序（对应任务书 §5 规则 1-5）：
 1. DB 目标 + 明确外部时效 → 冲突，交 fallback；
-2. EXTERNAL_RESEARCH —— 外部来源/时效/时间窗口晚于本地截止（数据不在上传文档内）；
+2. EXTERNAL_RESEARCH —— 外部来源词（新闻/处罚/政策/行情/市值…）或时间窗口晚于本地截止；
 3. DEEP_RETRIEVAL  —— 跨期/变化/冲突（趋势非单值字段查询，优先于 DB）；
 4. DB_LOOKUP       —— 确定性解析到 supported 字段/指标，且无外部/深信号；
 5. DIRECT_EVIDENCE —— 单个明确字段/日期/人数/名称/表格项目；
 6. STANDARD_RAG    —— 其余专题归纳（兜底）。
 
-fallback：仅当「DB 目标已解析 + 明确外部时效信号」冲突，或规则低置信度时调用；
+fallback：仅当「DB 目标已解析 + 外部来源/时效信号」冲突，或规则低置信度时调用；
 provider 未注入返回 FALLBACK_UNAVAILABLE，非法输出返回 FAILED，禁止猜测五路由。
 
 CLI: python -m routing.router --case evaluation/datasets/router/sample.json
@@ -69,7 +69,7 @@ def _budget_for_route(route: str) -> S.RetrievalBudget:
 _EXTERNAL_SOURCE_TERMS = (
     "市值", "股价", "行情", "涨跌", "市盈率", "市净率", "新闻", "处罚", "监管",
     "政策", "评级", "研报", "融资余额", "北向资金", "最新公告", "股价表现",
-    "股价走势", "收购", "并购", "重组",
+    "股价走势", "收购", "并购", "重组", "排名",
 )
 
 # 时效词：明确要求「最新/当前」。
@@ -88,7 +88,7 @@ _DEEP_TERMS = (
 # 单事实提问词。
 _DIRECT_WH_TERMS = (
     "是多少", "是谁", "何时", "几位", "哪家", "什么时间", "哪一年", "哪年",
-    "多少", "股票代码", "代码", "几家", "哪些子公司", "哪一家",
+    "多少", "股票代码", "代码", "几家", "哪些子公司", "哪一家", "什么时候",
 )
 
 # 专题归纳词（STANDARD）。
@@ -123,12 +123,21 @@ def _time_scope_unparseable(need: S.InformationNeed) -> bool:
     return bool(need.time_scope) and periods.parse_period(need.time_scope) is None
 
 
-def _has_external_signal(need: S.InformationNeed, context: S.RouteContext) -> bool:
-    """EXTERNAL 三条需求特征（契约修正 2）：外部来源词 / 时效词 / 时间窗口晚于本地。"""
+def _has_external_subject(need: S.InformationNeed, context: S.RouteContext) -> bool:
+    """EXTERNAL 来源信号：外部来源词（新闻/处罚/政策/行情/市值…）或时间窗口晚于本地。
+
+    任务书 §5 规则 3：外部检索针对「最新、近期、截至当前的新闻、处罚、政策或行情」；
+    时效词（最新/目前/当前…）单独出现不构成外部信号——本地年报即可答的「最新质押率」
+    「目前研发项目」不得被机械联网（§5.1 COMP-S3）。
+    """
     q = need.question
     return (_contains_any(q, _EXTERNAL_SOURCE_TERMS)
-            or _contains_any(q, _EXTERNAL_RECENCY_TERMS)
             or _time_scope_late(need, context))
+
+
+def _has_recency(need: S.InformationNeed) -> bool:
+    """时效词信号：仅用于 DB 目标冲突判定（「最新数据」vs 快照可能过期）。"""
+    return _contains_any(need.question, _EXTERNAL_RECENCY_TERMS)
 
 
 def _has_deep_signal(need: S.InformationNeed) -> bool:
@@ -275,14 +284,15 @@ def _route(need: S.InformationNeed, context: S.RouteContext,
         return _resolve_fallback(need, context, fallback, trace_id,
                                  reason="TIME_SCOPE_UNPARSEABLE")
 
-    external_signal = _has_external_signal(need, context)
+    external_subject = _has_external_subject(need, context)
+    recency = _has_recency(need)
 
-    # 1. DB 目标 + 明确外部时效 → 冲突，交 fallback。
-    if db_supported and external_signal:
+    # 1. DB 目标 + 外部来源/时效 → 冲突，交 fallback。
+    if db_supported and (external_subject or recency):
         return _resolve_fallback(need, context, fallback, trace_id)
 
-    # 2. EXTERNAL：外部来源/时效/时间窗口晚于本地（数据不在上传文档内）。
-    if external_signal:
+    # 2. EXTERNAL：外部来源或时间窗口晚于本地（数据不在上传文档内）。
+    if external_subject:
         return _decided(_decision(
             need, "EXTERNAL_RESEARCH", "EXPLICIT_EXTERNAL_RECENCY", {}), trace_id)
 
