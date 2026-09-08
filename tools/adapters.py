@@ -87,7 +87,7 @@ SEARCH_EVIDENCE_SPEC = C.ToolSpec(
     },
     output_schema={"type": "object"},
     allowed_routes=("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL"),
-    max_results=20, timeout_ms=5000, retry_policy="none", cost_class="local",
+    max_results=20, timeout_ms=30000, retry_policy="none", cost_class="local",
 )
 
 INSPECT_EVIDENCE_SPEC = C.ToolSpec(
@@ -178,7 +178,7 @@ SEARCH_TABLES_SPEC = C.ToolSpec(
     },
     output_schema={"type": "object"},
     allowed_routes=("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL"),
-    max_results=20, timeout_ms=5000, retry_policy="none", cost_class="local",
+    max_results=20, timeout_ms=30000, retry_policy="none", cost_class="local",
 )
 
 
@@ -195,7 +195,7 @@ def _search_local(company_id: str, query: str, k: int) -> S.EvidencePack:
 
     context = routing_context.build_route_context(company_id)
     need = S.InformationNeed(
-        need_id="tool-" + uuid.uuid4().hex[:12], section_id="",
+        need_id="tool-" + uuid.uuid4().hex[:12], section_id="tool_harness",
         question=query, required_evidence_types=[], required_source_types=[],
         time_scope=None, priority="normal", depends_on=[])
     budget = S.RetrievalBudget(
