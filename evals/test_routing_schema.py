@@ -90,6 +90,28 @@ def _structured_ref(**over) -> S.StructuredResultRef:
     return S.StructuredResultRef(**base)
 
 
+def _db_field_filters(**over) -> dict:
+    """合法 DB_LOOKUP field target 五元组 filter（契约修正 2）。"""
+    base = dict(
+        db_target_type="field", standard_item_code="TOTAL_ASSETS",
+        snapshot_as_of_date="2024-12-31", target_period="2024-12-31",
+        scope="consolidated", currency="CNY", purpose="credit_analysis",
+    )
+    base.update(over)
+    return base
+
+
+def _db_metric_filters(**over) -> dict:
+    """合法 DB_LOOKUP metric target 五元组 filter（含 formula_version）。"""
+    base = dict(
+        db_target_type="metric", formula_id="PROF_ROE", formula_version="1.0",
+        snapshot_as_of_date="2024-12-31", target_period="2024-12-31",
+        scope="consolidated", currency="CNY", purpose="credit_analysis",
+    )
+    base.update(over)
+    return base
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -181,10 +203,12 @@ def main() -> dict:
 
     # DB_LOOKUP 必须带合法 DB target
     V.validate_decision(_decision(route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
-                                  filters={"db_target_type": "field",
-                                           "standard_item_code": "TOTAL_ASSETS",
-                                           "period": "2024-12-31"}))
+                                  filters=_db_field_filters()))
     check(True, "DB_LOOKUP field target 被接受")
+    V.validate_decision(_decision(route="DB_LOOKUP",
+                                  reason_code="REGISTERED_FINANCIAL_METRIC",
+                                  filters=_db_metric_filters()))
+    check(True, "DB_LOOKUP metric target（含 formula_version）被接受")
     expect_err(lambda: V.validate_decision(_decision(
         route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD", filters={})),
         "DB_LOOKUP 缺 db_target_type 被拒绝", "db_target_type")
@@ -192,6 +216,17 @@ def main() -> dict:
         route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
         filters={"db_target_type": "field"})),
         "DB_LOOKUP field 缺 standard_item_code 被拒绝", "standard_item_code")
+    expect_err(lambda: V.validate_decision(_decision(
+        route="DB_LOOKUP", reason_code="REGISTERED_FINANCIAL_METRIC",
+        filters={"db_target_type": "metric", "formula_id": "PROF_ROE",
+                 "snapshot_as_of_date": "2024-12-31", "target_period": "2024-12-31",
+                 "scope": "consolidated", "currency": "CNY",
+                 "purpose": "credit_analysis"})),
+        "DB_LOOKUP metric 缺 formula_version 被拒绝", "formula_version")
+    expect_err(lambda: V.validate_decision(_decision(
+        route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
+        filters=_db_field_filters(snapshot_as_of_date=""))),
+        "DB_LOOKUP field 缺 snapshot_as_of_date 被拒绝", "snapshot_as_of_date")
 
     # ------------------------------------------------------------------
     # EvidencePack 组合校验（契约修正 B）
@@ -233,22 +268,21 @@ def main() -> dict:
     V.validate_pack(S.EvidencePack(
         need_id="N1", status="DB_RESULT_AVAILABLE", route_decision=_decision(
             route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
-            filters={"db_target_type": "field", "standard_item_code": "TOTAL_ASSETS",
-                     "period": "2024-12-31"}),
+            filters=_db_field_filters()),
         evidence=[], structured_results=[_structured_ref()]))
     check(True, "DB_RESULT_AVAILABLE 仅 structured_results 被接受")
 
     expect_err(lambda: V.validate_pack(S.EvidencePack(
         need_id="N1", status="DB_RESULT_AVAILABLE", route_decision=_decision(
             route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
-            filters={"db_target_type": "field", "standard_item_code": "TOTAL_ASSETS"}),
+            filters=_db_field_filters()),
         evidence=[_evidence_ref()], structured_results=[])),
         "DB_RESULT_AVAILABLE 携带本地 evidence 被拒绝", "evidence")
 
     expect_err(lambda: V.validate_pack(S.EvidencePack(
         need_id="N1", status="DB_FIELD_UNAVAILABLE", route_decision=_decision(
             route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
-            filters={"db_target_type": "field", "standard_item_code": "TOTAL_ASSETS"}),
+            filters=_db_field_filters()),
         evidence=[], structured_results=[], missing_requirements=[])),
         "DB_FIELD_UNAVAILABLE 缺 missing_requirements 被拒绝", "缺失")
 
@@ -256,8 +290,7 @@ def main() -> dict:
     V.validate_pack(S.EvidencePack(
         need_id="N1", status="DB_RESULT_AVAILABLE", route_decision=_decision(
             route="DB_LOOKUP", reason_code="REGISTERED_FINANCIAL_METRIC",
-            filters={"db_target_type": "metric", "formula_id": "PROF_ROE",
-                     "period": "2024-12-31"}),
+            filters=_db_metric_filters()),
         evidence=[], structured_results=[_structured_ref(
             result_type="financial_metric", item_code=None, formula_id="PROF_ROE",
             formula_version="1.0")]))
@@ -266,7 +299,7 @@ def main() -> dict:
     expect_err(lambda: V.validate_pack(S.EvidencePack(
         need_id="N1", status="DB_RESULT_AVAILABLE", route_decision=_decision(
             route="DB_LOOKUP", reason_code="REGISTERED_FINANCIAL_METRIC",
-            filters={"db_target_type": "metric", "formula_id": "PROF_ROE"}),
+            filters=_db_metric_filters()),
         evidence=[], structured_results=[_structured_ref(
             result_type="financial_metric", item_code=None, formula_id="PROF_ROE",
             formula_version=None)])),

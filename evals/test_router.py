@@ -82,6 +82,12 @@ def main() -> dict:
           and r.decision.reason_code == "REGISTERED_DB_FIELD"
           and r.decision.filters.get("standard_item_code") == "TOTAL_ASSETS",
           "总资产 → DB_LOOKUP(field, TOTAL_ASSETS)")
+    f = r.decision.filters
+    check(f.get("snapshot_as_of_date") == "2025-06-30"
+          and f.get("target_period") == "2024-12-31"
+          and f.get("scope") == "consolidated" and f.get("currency") == "CNY"
+          and f.get("purpose") == "credit_analysis",
+          "DB field filter 五元组：snapshot_as_of_date 与 target_period 分离")
 
     # ---- DB 指标 ----
     r = route_of("净资产收益率是多少？")
@@ -89,6 +95,15 @@ def main() -> dict:
           and r.decision.reason_code == "REGISTERED_FINANCIAL_METRIC"
           and r.decision.filters.get("formula_id") == "PROF_ROE",
           "净资产收益率 → DB_LOOKUP(metric, PROF_ROE)")
+    check(bool(r.decision.filters.get("formula_version")),
+          "DB metric filter 携带 formula_version（来自 Formula Registry，非硬编码）")
+
+    # ---- 目标报告期提取：问题年份 ≠ 快照 as_of_date ----
+    r = route_of("2025 年归母净利润是多少？")
+    check(r.status == "DECIDED" and r.decision.route == "DB_LOOKUP"
+          and r.decision.filters.get("target_period") == "2025-12-31"
+          and r.decision.filters.get("snapshot_as_of_date") == "2025-06-30",
+          "目标报告期 2025 提取为 target_period=2025-12-31，与 snapshot_as_of_date 分离")
 
     # ---- 修正 A：supported 但 available 缺失仍路由 DB（不看当前值）----
     ctx = _context(supported_db_fields=["NET_PROFIT"], available_db_fields=[],
@@ -124,6 +139,24 @@ def main() -> dict:
           and r.decision.reason_code == "SECTION_TOPIC_SYNTHESIS",
           "核心竞争优势 → STANDARD_RAG")
 
+    # ---- time_scope 规范化（契约修正 3：禁止字符串字典序比较）----
+    # 半年期 "2025-H1" == 报告截止 "2025-06-30"，不得按字符串误判为「晚于」→ EXTERNAL。
+    r = R.route(_need("公司的经营模式是怎样的？", time_scope="2025-H1"), _context())
+    check(r.status == "DECIDED" and r.decision.route == "STANDARD_RAG",
+          "time_scope=2025-H1 与 report_as_of=2025-06-30 相等，不误判为 EXTERNAL")
+
+    # 季度期 "2026Q1" > "2025-06-30" → 确实晚于本地截止 → EXTERNAL（规范化后比较）。
+    r = R.route(_need("公司的市占率情况？", time_scope="2026Q1"), _context())
+    check(r.status == "DECIDED" and r.decision.route == "EXTERNAL_RESEARCH",
+          "time_scope=2026Q1 晚于本地截止（规范化后）→ EXTERNAL")
+
+    # time_scope 无法可靠解析 → fallback，且给出 TIME_SCOPE_UNPARSEABLE。
+    r = R.route(_need("总资产是多少？", time_scope="过去三年"), _context())
+    check(r.status == "FALLBACK_UNAVAILABLE"
+          and r.error_code == "ROUTER_FALLBACK_UNAVAILABLE"
+          and r.reason_code == "TIME_SCOPE_UNPARSEABLE",
+          "time_scope 无法解析 → FALLBACK_UNAVAILABLE(TIME_SCOPE_UNPARSEABLE)")
+
     # ---- 冲突（DB 目标 + 外部时效）→ fallback ----
     # 无 provider → FALLBACK_UNAVAILABLE
     r = route_of("公司最新总资产是多少？")
@@ -134,7 +167,10 @@ def main() -> dict:
     # 有 provider → DECIDED（llm_fallback）
     fb = _mock_fallback(S.RouteDecision(
         need_id="N1", route="DB_LOOKUP", reason_code="REGISTERED_DB_FIELD",
-        filters={"db_target_type": "field", "standard_item_code": "TOTAL_ASSETS"},
+        filters={"db_target_type": "field", "standard_item_code": "TOTAL_ASSETS",
+                 "snapshot_as_of_date": "2025-06-30", "target_period": "2025-06-30",
+                 "scope": "consolidated", "currency": "CNY",
+                 "purpose": "credit_analysis"},
         budget=R._BUDGET_NOOP, fallback_routes=[], decided_by="llm_fallback",
         rule_version=S.RULE_VERSION, confidence="high"))
     r = route_of("公司最新总资产是多少？", fb=fb)

@@ -26,7 +26,9 @@ from dataclasses import replace
 from typing import Callable
 
 from llm import client as llm_client
+from routing import audit_v2
 from routing import db_targets
+from routing import periods
 from routing import schema as S
 from routing.validator import validate_context, validate_decision, validate_need
 
@@ -102,10 +104,23 @@ def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
 
 
 def _time_scope_late(need: S.InformationNeed, context: S.RouteContext) -> bool:
-    """time_scope 晚于本地材料截止时间（ISO 字符串字典序比较）。"""
+    """time_scope 是否晚于本地材料截止时间（契约修正 2：禁止字符串字典序比较）。
+
+    两者先规范化为可比 (year, month, day) 再比较；任一无法解析则视为「无法判定为晚」
+    （不触发 EXTERNAL 时效信号，由 route() 的 TIME_SCOPE_UNPARSEABLE 分支单独处理）。
+    """
     if not need.time_scope or not context.report_as_of:
         return False
-    return need.time_scope > context.report_as_of
+    ts = periods.parse_period(need.time_scope)
+    ra = periods.parse_period(context.report_as_of)
+    if ts is None or ra is None:
+        return False
+    return ts > ra
+
+
+def _time_scope_unparseable(need: S.InformationNeed) -> bool:
+    """time_scope 存在但无法可靠解析为可比期间（交 fallback，禁止猜测）。"""
+    return bool(need.time_scope) and periods.parse_period(need.time_scope) is None
 
 
 def _has_external_signal(need: S.InformationNeed, context: S.RouteContext) -> bool:
@@ -138,15 +153,29 @@ def _decision(need: S.InformationNeed, route: str, reason_code: str,
     )
 
 
-def _db_filters(target: db_targets.DbTarget, context: S.RouteContext) -> dict:
-    """由 DbTarget + context 组装可执行 DB target（契约修正 C）。"""
+def _db_filters(target: db_targets.DbTarget, context: S.RouteContext,
+                question: str) -> dict:
+    """由 DbTarget + context 组装可执行 DB target（契约修正 C + 修正 2）。
+
+    区分两类期间：
+    - snapshot_as_of_date = context.report_as_of（选择 current snapshot）；
+    - target_period = 问题中的目标报告期，缺省回退为 snapshot_as_of_date；
+    scope/currency/purpose 从 context 透传（限定快照键）；formula_version 来自
+    DbTarget（db_targets 从 Formula Registry 读取，禁止猜测/硬编码）。
+    """
     filters: dict = {"db_target_type": target.target_type}
     if target.target_type == "field":
         filters["standard_item_code"] = target.standard_item_code
     else:
         filters["formula_id"] = target.formula_id
-    if context.report_as_of:
-        filters["period"] = context.report_as_of
+        filters["formula_version"] = target.formula_version
+    snapshot_as_of = context.report_as_of or ""
+    filters["snapshot_as_of_date"] = snapshot_as_of
+    filters["target_period"] = (
+        db_targets.resolve_target_period(question) or snapshot_as_of)
+    filters["scope"] = context.scope
+    filters["currency"] = context.currency
+    filters["purpose"] = context.purpose
     return filters
 
 
@@ -196,20 +225,23 @@ def make_llm_fallback(model: str | None = None) -> Callable:
 
 
 def _resolve_fallback(need: S.InformationNeed, context: S.RouteContext,
-                      fallback: Callable | None, trace_id: str) -> S.RouterResult:
+                      fallback: Callable | None, trace_id: str,
+                      reason: str | None = None) -> S.RouterResult:
     if fallback is None:
         return S.RouterResult(status="FALLBACK_UNAVAILABLE", decision=None,
-                              error_code="ROUTER_FALLBACK_UNAVAILABLE", trace_id=trace_id)
+                              error_code="ROUTER_FALLBACK_UNAVAILABLE", trace_id=trace_id,
+                              reason_code=reason)
     try:
         decision = fallback(need, context)
         decision = replace(decision, decided_by="llm_fallback", rule_version=S.RULE_VERSION)
         validate_decision(decision)
         return S.RouterResult(status="DECIDED", decision=decision, error_code=None,
-                              trace_id=trace_id)
+                              trace_id=trace_id, reason_code=reason)
     except Exception as e:  # 非法 JSON / 非法 route / 网络异常
         logger.warning("router fallback 失败: %s", e)
         return S.RouterResult(status="FAILED", decision=None,
-                              error_code="ROUTER_FALLBACK_SCHEMA_FAILURE", trace_id=trace_id)
+                              error_code="ROUTER_FALLBACK_SCHEMA_FAILURE", trace_id=trace_id,
+                              reason_code=reason)
 
 
 # ---------------------------------------------------------------------------
@@ -218,13 +250,31 @@ def _resolve_fallback(need: S.InformationNeed, context: S.RouteContext,
 
 def route(need: S.InformationNeed, context: S.RouteContext,
           fallback: Callable | None = None) -> S.RouterResult:
-    """规则优先路由；冲突 → fallback（未注入则 FALLBACK_UNAVAILABLE）。"""
+    """规则优先路由；冲突 → fallback（未注入则 FALLBACK_UNAVAILABLE）。
+
+    每次调用末尾落盘一条 Router 审计（logs/router_v2/，与 Retrieval trace 分离）；
+    落盘失败 fail-closed 抛 RouterAuditError。
+    """
+    result = _route(need, context, fallback)
+    audit_v2.write_router_audit(result, need, context)
+    return result
+
+
+def _route(need: S.InformationNeed, context: S.RouteContext,
+           fallback: Callable | None = None) -> S.RouterResult:
+    """路由判定核心（不落盘，由 route() 包装审计）。"""
     validate_need(need)
     validate_context(context)
     trace_id = uuid.uuid4().hex
 
     db_target = db_targets.resolve_db_target(need.question)
     db_supported = db_target is not None and _target_supported(db_target, context)
+
+    # 0. time_scope 无法可靠解析 → 交 fallback（禁止猜测，契约修正 2）。
+    if _time_scope_unparseable(need):
+        return _resolve_fallback(need, context, fallback, trace_id,
+                                 reason="TIME_SCOPE_UNPARSEABLE")
+
     external_signal = _has_external_signal(need, context)
 
     # 1. DB 目标 + 明确外部时效 → 冲突，交 fallback。
@@ -247,7 +297,7 @@ def route(need: S.InformationNeed, context: S.RouteContext,
             need, "DB_LOOKUP",
             "REGISTERED_DB_FIELD" if db_target.target_type == "field"
             else "REGISTERED_FINANCIAL_METRIC",
-            _db_filters(db_target, context)), trace_id)
+            _db_filters(db_target, context, need.question)), trace_id)
 
     # 5. DIRECT：单个明确字段/日期/人数/名称/表格项目。
     if _has_direct_signal(need):

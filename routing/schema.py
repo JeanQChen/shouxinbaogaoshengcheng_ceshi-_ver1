@@ -116,11 +116,19 @@ LOCAL_FILTER_KEYS = (
 )
 
 # DB target 结构化字段（RouteDecision.filters 携带的可执行目标，见契约修正 C）。
+#
+# 契约修正 2：DB 查询区分两类期间——
+#   - snapshot_as_of_date：用于选择 current snapshot（限定快照的 as_of_date）；
+#   - target_period：用于在快照内选择 SnapshotItem / MetricResult 的 report_period；
+# scope/currency/purpose 限定快照键；formula_version 来自 Formula Registry（禁止猜测）。
+# 「period」自 Phase 2 Commit 2 起废弃，不再作为 DB target key。
 DB_TARGET_KEYS = (
     "db_target_type",
     "standard_item_code",
     "formula_id",
-    "period",
+    "formula_version",
+    "snapshot_as_of_date",
+    "target_period",
     "scope",
     "currency",
     "purpose",
@@ -213,6 +221,7 @@ class RouterResult:
     decision: RouteDecision | None
     error_code: str | None
     trace_id: str
+    reason_code: str | None = None  # 触发 fallback 的原因（如 TIME_SCOPE_UNPARSEABLE）
 
 
 @dataclass

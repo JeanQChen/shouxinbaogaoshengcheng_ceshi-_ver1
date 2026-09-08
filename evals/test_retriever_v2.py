@@ -334,7 +334,10 @@ def main() -> dict:
             manifest_dir=Path(_tmp_dir("eval_rv2_manifest3_")), model=model)
 
         d_ok = _decision("db1", "DB_LOOKUP",
-                         {"db_target_type": "field", "standard_item_code": "CURRENT_ASSETS"})
+                         {"db_target_type": "field", "standard_item_code": "CURRENT_ASSETS",
+                          "snapshot_as_of_date": "2024-12-31",
+                          "target_period": "2024-12-31", "scope": "consolidated",
+                          "currency": "CNY", "purpose": "credit_analysis"})
         p_ok = session_db.retrieve(_need("db1", "流动资产是多少"), d_ok, ctx_db)
         check(p_ok.status == "DB_RESULT_AVAILABLE",
               f"可用字段 → DB_RESULT_AVAILABLE（{p_ok.status}）")
@@ -345,7 +348,11 @@ def main() -> dict:
               "字段结构化结果 item_code + raw_value 正确")
 
         d_miss = _decision("db2", "DB_LOOKUP",
-                           {"db_target_type": "field", "standard_item_code": "OPERATING_CASH_FLOW"})
+                           {"db_target_type": "field",
+                            "standard_item_code": "OPERATING_CASH_FLOW",
+                            "snapshot_as_of_date": "2024-12-31",
+                            "target_period": "2024-12-31", "scope": "consolidated",
+                            "currency": "CNY", "purpose": "credit_analysis"})
         p_miss = session_db.retrieve(_need("db2", "经营现金流是多少"), d_miss, ctx_db)
         check(p_miss.status == "DB_FIELD_UNAVAILABLE",
               f"不可用字段 → DB_FIELD_UNAVAILABLE（{p_miss.status}）")

@@ -104,6 +104,12 @@ def _validate_filters(route: str, filters: dict) -> None:
             _require_str(filters.get("standard_item_code") or "", "standard_item_code")
         else:
             _require_str(filters.get("formula_id") or "", "formula_id")
+            # 契约修正 2：formula_version 必须来自 Formula Registry，禁止 Router 猜测/硬编码。
+            _require_str(filters.get("formula_version") or "", "formula_version")
+        # 契约修正 2：快照选择期（snapshot_as_of_date）与快照内期间（target_period）
+        # 必须分离；scope/currency/purpose 限定快照键。缺一不可（fail-closed）。
+        for key in ("snapshot_as_of_date", "target_period", "scope", "currency", "purpose"):
+            _require_str(filters.get(key) or "", key)
     elif route == "EXTERNAL_RESEARCH":
         _require(not filters, "EXTERNAL_RESEARCH 不得携带检索 filter")
 
@@ -139,6 +145,9 @@ def validate_result(result: S.RouterResult) -> None:
         validate_decision(result.decision)
     if not decided:
         _require(result.error_code is not None, "非 DECIDED 必须携带 error_code")
+    if result.reason_code is not None:
+        _require(result.reason_code in S.REASON_CODES,
+                 f"非法 RouterResult.reason_code: {result.reason_code!r}")
 
 
 def _validate_evidence_ref(ref: S.EvidenceRef) -> None:

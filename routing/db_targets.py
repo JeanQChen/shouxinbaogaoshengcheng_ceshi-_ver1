@@ -21,6 +21,7 @@ Financial_v2 注册表的权威性。
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass
 
@@ -197,6 +198,32 @@ def resolve_db_target(question: str) -> DbTarget | None:
             target_type="field", standard_item_code=field_code, formula_id=None,
             formula_version=None,
         )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# target_period 提取（快照内期间；与 snapshot_as_of_date 分离）
+# ---------------------------------------------------------------------------
+
+_YEAR_RE = re.compile(r"(?:19|20)\d{2}")
+
+
+def resolve_target_period(question: str) -> str | None:
+    """从问题提取目标报告期（快照内 report_period）。
+
+    契约修正 2：target_period 用于在快照内选择 SnapshotItem / MetricResult 的
+    report_period，与用于选择 current snapshot 的 snapshot_as_of_date 分离。
+
+    规则（确定性、fail-closed）：
+    - 问题中恰好出现一个 4 位年份 → 返回该年度报告期 "YYYY-12-31"；
+    - 0 个年份 → None（executor 回退为 snapshot_as_of_date，即「当前快照期」）；
+    - ≥2 个年份 → None（跨期比较应走 DEEP_RETRIEVAL，不落到单值 DB target）。
+    """
+    if not question:
+        return None
+    years = sorted({m.group() for m in _YEAR_RE.finditer(question)})
+    if len(years) == 1:
+        return f"{years[0]}-12-31"
     return None
 
 
