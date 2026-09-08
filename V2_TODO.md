@@ -6,15 +6,14 @@
 
 ## 一、当前结论
 
-当前已经关闭 V1 基线、报告章节契约、Evidence Architecture 和 Phase 1F-A 财务基础。
-Phase 2 Router + Hybrid Retrieval 代码已全部落地（含 Track A/B 评测），仅真实 BGE-M3
-Track A 对照评测因环境阻塞尚未跑通，故 Phase 2 未关闭；完整 1F 仍需在 Phase 5 完成 1F-B。
+当前已经关闭 V1 基线、报告章节契约、Evidence Architecture、Phase 1F-A 财务基础和
+Phase 2 Router + Hybrid Retrieval（真实 BGE-M3 Track A 对照评测已跑通，净收益显著）。
+完整 1F 仍需在 Phase 5 完成 1F-B。
 
 完成 V2 第一阶段仍需依次完成：
 
 ```text
-Phase 2 Router + Hybrid Retrieval
-  → Phase 3 Tool Layer + Research Harness
+Phase 3 Tool Layer + Research Harness
   → Phase 4 章节 Worker + Claim + Section Evaluator
   → Phase 5 综合生成 + Assurance + 正式导出门禁 + 1F-B
   → Phase 6 全流程 UI、演示与交付验收
@@ -51,6 +50,18 @@ Phase 2 Router + Hybrid Retrieval
 
 ## 三、最近关闭
 
+### [x] Phase 2：Router + Hybrid Retrieval
+
+开发任务书：`ROUTER_HYBRID_RETRIEVAL_DEVELOPMENT_TASK.md`。
+
+- 契约层（InformationNeed / RouteDecision / RouteContext）+ 规则优先五路由 Router。
+- BM25 + BGE-M3 Dense + RRF（indexer_v2 / sparse / fusion），检索落盘 trace（logs/retrieval/）。
+- Track B：Router 评测双数据集（真实 41 题 + 合成 23 题），真实 ≥90%、严重误路由 0，合成 100%。
+- Track A：de-Router 固定本地决策 + 冻结分母 fail-closed 校验（37/3/1）。
+- 真实 BGE-M3 Track A 对照（37 题）：RequiredPageCoverage@10 25.3%→35.3%、MRR 0.186→0.254、
+  PageHit@10 37.8%→64.9%、P0 覆盖 24.4%→43.7%；ZERO_RECALL@10 23→13。3 题轻微退步
+  （COMP-D1 / IND-R4 / IND-R7，均为募集说明书 dense 排名临界，非代码 bug），净收益显著。
+
 ### [x] Phase 1F-A：财务来源、对账与核准计算基础
 
 开发任务书：`FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md`（A1～A5）与
@@ -85,7 +96,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - [x] 检索落盘 trace（logs/retrieval/）+ 延迟/索引版本/失败码记录。
 - [x] Track B：Router 评测双数据集（真实 41 题 + 合成 23 题）手写 gold + 确定性 runner + 严重误路由分类（真实 ≥90%、严重=0；合成 100%）。
 - [x] Track A：V2 Hybrid Runner（de-Router：固定本地决策 TRACK_A_FIXED_LOCAL，不调 Router）+ 冻结分母 fail-closed 校验（ELIGIBLE_LOCAL 37 / EXTERNAL_ONLY 3 / INVALID_GOLD_MAPPING 1）。
-- [ ] 在冻结的共同题集上与 V1 公平对照（真实 BGE-M3），重点检查 RequiredPageCoverage@10、P0、完整覆盖、MRR 和逐题退步——**环境阻塞，未跑通前 Phase 2 不关闭**。
+- [x] 在冻结的共同题集上与 V1 公平对照（真实 BGE-M3）：RequiredPageCoverage@10 25.3%→35.3%、MRR 0.186→0.254、PageHit@10 37.8%→64.9%、P0 覆盖 24.4%→43.7%、ZERO_RECALL@10 23→13。3 题轻微退步（COMP-D1/IND-R4/IND-R7，均为募集说明书 dense 排名临界），净收益显著。
 
 ### [ ] Phase 3：Tool Layer + Research Harness
 
@@ -144,7 +155,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 1. Phase 2 Router + Hybrid Retrieval 代码全部落地：契约层 / 规则优先五路由 Router / RouteContext / indexer_v2 / sparse / fusion / retriever_v2+trace / Track B 评测（真实 41 题 + 合成 23 题）/ Track A Runner（de-Router 固定本地决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）。
 2. 专项与完整 eval 全绿（2336 项通过、0 失败）。
-3. Phase 2 未关闭：真实 BGE-M3 Track A 对照评测尚未跑通（环境阻塞），mock 全绿不能替代真实验收。
+3. Phase 2 已关闭：真实 BGE-M3 Track A 对照评测跑通（RequiredPageCoverage@10 25.3%→35.3%，净收益显著，3 题轻微退步已记录）。
 
 ## 七、完成定义
 

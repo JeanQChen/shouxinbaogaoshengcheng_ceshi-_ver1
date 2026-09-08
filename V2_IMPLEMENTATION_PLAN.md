@@ -1,7 +1,7 @@
 # 授信报告生成器 V2 总实施路线图
 
 > 版本：v0.2 · 2026-09-06  
-> 状态：Phase 0A、0B、1、1F-A 已关闭；正在进入 Phase 2 Router + Hybrid Retrieval
+> 状态：Phase 0A、0B、1、1F-A、2 已关闭；正在进入 Phase 3 Tool Layer + Research Harness
 > 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.4  
 > 工程规则：[AGENTS.md](./AGENTS.md)  
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -76,7 +76,7 @@
 | 0B | 将报告主题固化为首版 Section Contracts | 0A、设计 §4 | 已关闭 |
 | 1 | Evidence 与最小可追溯运行基础 | 0B | 已关闭 |
 | 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
-| 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 任务书就绪 |
+| 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 未进入 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 未进入 |
 | 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 4、1F-A | 未进入 |
@@ -199,8 +199,10 @@ Cross-Encoder。Phase 2 必须分别报告固定原问题的本地检索公平�
 **实现状态：** 代码已全部落地（契约层 / Router / RouteContext / indexer_v2 / sparse /
 fusion / retriever_v2+trace / Track B 评测 41+23 题 / Track A Runner de-Router 固定本地
 决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）；专项与完整 eval 全绿（2336 项）。
-**Phase 2 未关闭**：真实 BGE-M3 Track A 对照评测尚未跑通（环境阻塞），mock 全绿不能替代
-真实验收。
+**Phase 2 已关闭**：真实 BGE-M3 Track A 对照评测跑通（37 题冻结分母），Macro
+`RequiredPageCoverage@10` 25.3%→35.3%、MRR 0.186→0.254、PageHit@10 37.8%→64.9%、
+P0 覆盖 24.4%→43.7%、ZERO_RECALL@10 23→13，优于 V1；3 题轻微退步
+（COMP-D1 / IND-R4 / IND-R7，均为募集说明书 dense 排名临界，非代码 bug），已记录。
 
 ### 3：工具、外部来源与 Research Harness
 
