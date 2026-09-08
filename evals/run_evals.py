@@ -73,6 +73,7 @@ EVAL_MODULES = [
     "evals.test_perf_compare",
     "evals.test_tool_contracts",
     "evals.test_tool_registry",
+    "evals.test_tool_adapters",
 ]
 
 
