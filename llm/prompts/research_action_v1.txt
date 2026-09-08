@@ -27,9 +27,18 @@
 ## 输出格式（严格 JSON，一个 object，不要任何额外文字）
 {"action": "<动作名>", "arguments": {...}}
 
+## 各动作的参数（arguments 只能出现下列键，不要加公司代码等其它键）
+- SEARCH_LOCAL: {"query": "检索词", "k": 可选整数, "evidence_type": 可选}
+- INSPECT_EVIDENCE: {"evidence_id": "evidence_summary 里已有的 id"}
+- SEARCH_EXTERNAL: {"query": "检索词", "limit": 可选整数, "freshness": 可选}
+- FETCH_EXTERNAL: {"url": "search_candidates 里给出的 url"}
+- ANSWER: {}（空对象，不加任何键）
+- STOP_WITH_GAP: {"reason": "缺口说明"}
+- REQUEST_HUMAN: {"reason": "需确认原因"}
+
 ## 规则
 1. action 必须是「本轮允许的动作」之一，且只能有一个动作。
-2. arguments 只填该动作需要的变量参数；公司代码、标准科目/公式 ID、报告期间等由系统注入，你不要编造。
+2. arguments 严格按上面的键填写，缺 query 会导致动作非法；公司代码、标准科目/公式 ID、报告期间由系统注入，你不得写进 arguments。
 3. INSPECT_EVIDENCE 只能用 evidence_summary 里已出现的 evidence_id；SEARCH_EXTERNAL 的 query 要针对缺口改写；FETCH_EXTERNAL 的 url 只能来自 search_candidates 里给出的 URL。
-4. 若已有足够材料回答核心问题，选 ANSWER；若缺关键材料且预算允许，选相应检索/取数动作；若关键材料缺失且无法在剩余预算内补齐，选 STOP_WITH_GAP 并说明缺口；若需要客户经理确认才能继续，选 REQUEST_HUMAN 并说明原因。
+4. 若已有足够材料回答核心问题，选 ANSWER（arguments 为空对象 {}）；若缺关键材料且预算允许，选相应检索/取数动作；若关键材料缺失且无法在剩余预算内补齐，选 STOP_WITH_GAP 并说明缺口；若需要客户经理确认才能继续，选 REQUEST_HUMAN 并说明原因。
 5. 不要输出 SNAPSHOT_EXTERNAL（由系统自动处理）；不要把搜索摘要直接当作结论来源。
