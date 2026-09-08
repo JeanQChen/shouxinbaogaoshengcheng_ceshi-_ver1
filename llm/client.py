@@ -64,8 +64,15 @@ def chat_with_usage(
     model: str | None = None,
     max_tokens: int = 4096,
     prompt_version: str | None = None,
+    thinking: dict | None = None,
 ) -> LLMResponse:
-    """单轮对话，返回结构化 LLMResponse（含 usage/latency/call_id）。自动落盘日志。"""
+    """单轮对话，返回结构化 LLMResponse（含 usage/latency/call_id）。自动落盘日志。
+
+    thinking: 传给 provider 的推理开关（Anthropic 风格 {"type": "disabled"} 或
+    {"type": "enabled", "budget_tokens": N}）。None = 不传、由 provider 默认。
+    DeepSeek-V4-Pro 为推理模型，推理内容计入 output_tokens；结构化 JSON 任务应显式
+    `{"type": "disabled"}` 以免推理耗尽额度导致正文为空。
+    """
     client = get_client()
     model_name = model or LLM_MODEL
     call_id = _new_call_id()
@@ -73,12 +80,16 @@ def chat_with_usage(
 
     system_params = [{"type": "text", "text": system}] if system else None
 
-    resp = client.messages.create(
-        model=model_name,
-        max_tokens=max_tokens,
-        system=system_params,
-        messages=messages,
-    )
+    create_kwargs: dict = {
+        "model": model_name,
+        "max_tokens": max_tokens,
+        "system": system_params,
+        "messages": messages,
+    }
+    if thinking is not None:
+        create_kwargs["thinking"] = thinking
+
+    resp = client.messages.create(**create_kwargs)
 
     elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
@@ -105,7 +116,7 @@ def chat_with_usage(
         finish_reason=finish_reason,
     )
 
-    _log_llm_call(result, messages, system, prompt_version)
+    _log_llm_call(result, messages, system, prompt_version, thinking)
 
     logger.info("LLM call: model=%s input=%s output=%s latency=%dms call_id=%s",
                 model_name, input_tokens, output_tokens, elapsed_ms, call_id)
@@ -159,6 +170,7 @@ def _log_llm_call(
     messages: list[dict],
     system: str | None,
     prompt_version: str | None,
+    thinking: dict | None = None,
 ) -> None:
     """落盘 LLM 调用日志到 logs/llm/（微秒时间戳 + call_id 唯一文件名，防同秒覆盖）。"""
     try:
@@ -169,6 +181,7 @@ def _log_llm_call(
             "call_id": result.call_id,
             "model": result.model,
             "prompt_version": prompt_version,
+            "thinking": thinking,
             "finish_reason": result.finish_reason,
             "system": system,
             "messages": messages,

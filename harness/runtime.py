@@ -43,7 +43,12 @@ class ResearchLLM(Protocol):
 
 
 class RealResearchLLM:
-    """生产 LLM：渲染 prompt 模板 → chat_with_usage，返回 LLMResponse。"""
+    """生产 LLM：渲染 prompt 模板 → chat_with_usage，返回 LLMResponse。
+
+    DeepSeek-V4-Pro 为推理模型，推理内容计入 output_tokens：若开启推理，会
+    `finish_reason=max_tokens` 且正文为空（推理耗尽额度）→ ACTION_SCHEMA_INVALID。
+    故结构化动作/答案调用显式 `thinking={"type": "disabled"}`，并给足 max_tokens 头部。
+    """
 
     def __init__(self, model: str | None = None):
         self.model = model
@@ -51,14 +56,14 @@ class RealResearchLLM:
     def select_action(self, prompt_vars: dict) -> "llm_client.LLMResponse":
         prompt = _render_template(llm_client.load_prompt("research_action_v1"), prompt_vars)
         return llm_client.chat_with_usage(
-            [{"role": "user", "content": prompt}], model=self.model, max_tokens=512,
-            prompt_version="research_action_v1")
+            [{"role": "user", "content": prompt}], model=self.model, max_tokens=2048,
+            prompt_version="research_action_v1", thinking={"type": "disabled"})
 
     def generate_answer(self, prompt_vars: dict) -> "llm_client.LLMResponse":
         prompt = _render_template(llm_client.load_prompt("research_answer_v1"), prompt_vars)
         return llm_client.chat_with_usage(
-            [{"role": "user", "content": prompt}], model=self.model, max_tokens=2048,
-            prompt_version="research_answer_v1")
+            [{"role": "user", "content": prompt}], model=self.model, max_tokens=4096,
+            prompt_version="research_answer_v1", thinking={"type": "disabled"})
 
 
 def _render_template(template: str, vars: dict) -> str:

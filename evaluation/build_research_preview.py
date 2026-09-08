@@ -277,12 +277,17 @@ def _collect_limitations(records: list[dict]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _llm_generate(prompt: str, model: str | None) -> str:
-    """调用真实 LLM 生成正文（真实运行路径）。"""
+    """调用真实 LLM 生成正文（真实运行路径）。
+
+    关闭推理：预览是受控的「只复述已取得材料、不新增事实」任务，推理内容会占
+    output_tokens 导致截断/空正文。
+    """
     resp = llm_client.chat_with_usage(
         messages=[{"role": "user", "content": prompt}],
         model=model,
         max_tokens=4096,
         prompt_version=PREVIEW_PROMPT_VERSION,
+        thinking={"type": "disabled"},
     )
     return resp.text
 

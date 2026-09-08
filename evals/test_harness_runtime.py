@@ -256,6 +256,45 @@ def main() -> dict:
     check(o.completion_status == "NOT_IMPLEMENTED" and o.stop_reason == "PATH_NOT_IMPLEMENTED",
           "路由未 DECIDED → NOT_IMPLEMENTED")
 
+    # ---- 回归：动作/答案 LLM 调用关闭推理 + 头部空间 ----
+    # 真实冒烟发现：DeepSeek-V4-Pro 为推理模型，推理内容计入 output_tokens，开启推理会
+    # finish_reason=max_tokens 且正文为空 → ACTION_SCHEMA_INVALID。此处固定动作/答案均
+    # thinking={"type": "disabled"} 且 max_tokens 动作≥2048、答案≥4096，防回退。
+    captured: dict[str, dict] = {}
+    def _fake_chat(messages, system=None, model=None, max_tokens=4096,
+                   prompt_version=None, thinking=None):
+        captured[prompt_version] = {"max_tokens": max_tokens, "thinking": thinking}
+        return llm_client.LLMResponse(text='{"action":"ANSWER","arguments":{}}',
+                                      input_tokens=10, output_tokens=20, latency_ms=1,
+                                      model=model or "mock", call_id="m",
+                                      finish_reason="stop")
+
+    orig_chat = llm_client.chat_with_usage
+    llm_client.chat_with_usage = _fake_chat
+    try:
+        rllm = RT.RealResearchLLM(model="deepseek-v4-pro")
+        rllm.select_action({"company_id": "300750", "section_id": "company",
+                            "question": "q", "route": "STANDARD_RAG",
+                            "route_reason": "r", "current_goal": "g", "round": 1,
+                            "allowed_actions": "- SEARCH_LOCAL\n- ANSWER",
+                            "evidence_summary": "（无）", "unresolved": "（无）",
+                            "budget_left": "rounds 1/3", "search_candidates": ""})
+        rllm.generate_answer({"company_id": "300750", "section_id": "company",
+                              "question": "q", "route": "STANDARD_RAG",
+                              "available_material": "（无）", "unresolved": "（无）"})
+    finally:
+        llm_client.chat_with_usage = orig_chat
+    act = captured.get("research_action_v1", {})
+    ans = captured.get("research_answer_v1", {})
+    check(act.get("thinking") == {"type": "disabled"},
+          "动作选择关闭推理 thinking=disabled")
+    check(ans.get("thinking") == {"type": "disabled"},
+          "答案解析关闭推理 thinking=disabled")
+    check(act.get("max_tokens", 0) >= 2048,
+          "动作选择 max_tokens ≥ 2048（推理关闭后仍留头部）")
+    check(ans.get("max_tokens", 0) >= 4096,
+          "答案解析 max_tokens ≥ 4096（推理关闭后仍留头部）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 
