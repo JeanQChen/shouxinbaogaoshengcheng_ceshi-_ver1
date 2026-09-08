@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SPARSE_DIR = Path("data/sparse_v2")
 DEFAULT_K1 = 1.5
 DEFAULT_B = 0.75
+# Sparse 索引格式版本（参与 index_version；分词/打分实现变更需递增）。
+SPARSE_VERSION = "1"
 
 # 词元：CJK 连续段 | 字母数字连续段（可含小数/百分比后缀）。
 _TOKEN_RE = re.compile(r"[一-鿿]+|[A-Za-z0-9]+(?:\.[0-9]+)?%?")
@@ -164,12 +166,33 @@ def _path(data_dir: Path, company_id: str) -> Path:
     return Path(data_dir) / f"{company_id}.json"
 
 
-def current_index_version(company_id: str) -> str:
-    """由当前 evidence 重新派生 index_version（与 Dense 同源同规则）。"""
-    blocks, metas = indexer_v2._collect_current(company_id)
+def _sparse_versions(k1: float, b: float) -> dict:
+    """在组件版本基础上叠加 Sparse 专属身份：格式版本 + BM25 参数（k1/b）。
+
+    契约修正 4：BM25 k1/b/tokenizer/版本必须进入 index identity——改变 k1 或 b 会
+    产出不同 index_version，防止「同一版本不同打分参数」的静默不一致。tokenizer 已
+    由 indexer_v2._component_versions() 提供（TOKENIZER_VERSION）。
+    """
     versions = indexer_v2._component_versions()
+    versions["sparse"] = SPARSE_VERSION
+    versions["bm25_k1"] = repr(float(k1))
+    versions["bm25_b"] = repr(float(b))
+    return versions
+
+
+def derive_sparse_version(company_id: str, metas: list[dict], record_count: int,
+                          fingerprint: str, versions: dict) -> str:
+    """Sparse 专属 index_version（含 k1/b/format/tokenizer）。"""
+    return indexer_v2.derive_index_version(
+        company_id, metas, record_count, fingerprint, versions)
+
+
+def current_index_version(company_id: str, *, k1: float = DEFAULT_K1,
+                          b: float = DEFAULT_B) -> str:
+    """由当前 evidence 重新派生 Sparse index_version（含 BM25 参数身份）。"""
+    blocks, metas = indexer_v2._collect_current(company_id)
     fp = indexer_v2._inventory_fingerprint(blocks)
-    return indexer_v2.derive_index_version(company_id, metas, len(blocks), fp, versions)
+    return derive_sparse_version(company_id, metas, len(blocks), fp, _sparse_versions(k1, b))
 
 
 def build_index(company_id: str, *, data_dir: Path = DEFAULT_SPARSE_DIR,
@@ -177,9 +200,9 @@ def build_index(company_id: str, *, data_dir: Path = DEFAULT_SPARSE_DIR,
                 force: bool = False) -> SparseIndex:
     """构建并持久化 BM25 索引；同 index_version 已存在时幂等跳过（force 重建）。"""
     blocks, metas = indexer_v2._collect_current(company_id)
-    versions = indexer_v2._component_versions()
+    versions = _sparse_versions(k1, b)
     fingerprint = indexer_v2._inventory_fingerprint(blocks)
-    index_version = indexer_v2.derive_index_version(
+    index_version = derive_sparse_version(
         company_id, metas, len(blocks), fingerprint, versions)
 
     existing = _try_load(company_id, data_dir)

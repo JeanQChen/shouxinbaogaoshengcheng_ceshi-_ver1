@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from evidence import builder, ids, store
 from evidence import schema as ES
 from parsers.pdf_parser import PdfParseResult, TextChunk
+from retrieval import indexer_v2
 from retrieval import sparse
 
 
@@ -108,6 +109,18 @@ def main() -> dict:
     idx2 = sparse.build_index("ACME", data_dir=Path(data_dir))
     check(idx.index_version == idx2.index_version, "同输入重建 index_version 不变（幂等）")
     check(idx.built_at == idx2.built_at, "幂等跳过重建保留首次 built_at")
+
+    # 契约修正 4：BM25 k1/b/tokenizer/version 进入 index identity
+    blocks, metas = indexer_v2._collect_current("ACME")
+    fp = indexer_v2._inventory_fingerprint(blocks)
+    v_default = sparse.derive_sparse_version("ACME", metas, len(blocks), fp,
+                                             sparse._sparse_versions(1.5, 0.75))
+    v_k1b = sparse.derive_sparse_version("ACME", metas, len(blocks), fp,
+                                         sparse._sparse_versions(2.0, 0.5))
+    check(v_default != v_k1b, "改变 BM25 k1/b → index_version 变化（参数进入身份）")
+    sv = sparse._sparse_versions(1.5, 0.75)
+    check("sparse" in sv and "bm25_k1" in sv and "bm25_b" in sv and "tokenizer" in sv,
+          "版本身份含 sparse 格式版本 + bm25_k1/bm25_b + tokenizer")
 
     # 检索：命中"实际控制人"
     hits = sparse.search("ACME", "实际控制人", k=5, data_dir=Path(data_dir))

@@ -79,6 +79,11 @@ class RetrievalSession:
         self.manifest: indexer_v2.IndexManifest | None = None
         self.sparse_index: sparse.SparseIndex | None = None
 
+        # 版本派生原料（_load_current 填充，供 sparse 期望版本重算）。
+        self._metas: list[dict] = []
+        self._record_count: int = 0
+        self._inventory_fp: str = ""
+
         self._load_current()
 
     # -- 装载 + 新鲜度 -------------------------------------------------------
@@ -97,11 +102,18 @@ class RetrievalSession:
         }
         versions = indexer_v2._component_versions()
         fp = indexer_v2._inventory_fingerprint(blocks)
+        self._metas = metas
+        self._record_count = len(blocks)
+        self._inventory_fp = fp
         self.current_version = indexer_v2.derive_index_version(
             self.company_id, metas, len(blocks), fp, versions)
 
     def _ensure_indexes(self) -> None:
-        """懒加载 dense manifest + sparse 索引并校验新鲜度（仅 Hybrid 路径需要）。"""
+        """懒加载 dense manifest + sparse 索引并校验新鲜度（仅 Hybrid 路径需要）。
+
+        dense 与 sparse 的 index_version 各自独立：dense 用组件版本派生，sparse 额外
+        叠加 BM25 参数身份（k1/b/format，契约修正 4），故分别对各自期望版本校验。
+        """
         if self.manifest is None or self.sparse_index is None:
             self.manifest = indexer_v2.load_manifest(self.company_id, self.manifest_dir)
             if self.manifest is None:
@@ -109,12 +121,19 @@ class RetrievalSession:
             self.sparse_index = sparse.load_index(self.company_id, self.sparse_dir)
             if self.sparse_index is None:
                 raise IndexNotReady("INDEX_NOT_FOUND", f"sparse 索引缺失: {self.company_id}")
+            sparse_expected = sparse.derive_sparse_version(
+                self.company_id, self._metas, self._record_count, self._inventory_fp,
+                sparse._sparse_versions(
+                    float(self.sparse_index.params.get("k1", sparse.DEFAULT_K1)),
+                    float(self.sparse_index.params.get("b", sparse.DEFAULT_B))))
             if (self.manifest.index_version != self.current_version
-                    or self.sparse_index.index_version != self.current_version):
+                    or self.sparse_index.index_version != sparse_expected):
                 raise IndexNotReady(
                     "INDEX_VERSION_MISMATCH",
                     f"索引版本不匹配: dense={self.manifest.index_version}, "
-                    f"sparse={self.sparse_index.index_version}, current={self.current_version}")
+                    f"sparse={self.sparse_index.index_version}, "
+                    f"dense_current={self.current_version}, "
+                    f"sparse_current={sparse_expected}")
 
     # -- 主入口 --------------------------------------------------------------
 
