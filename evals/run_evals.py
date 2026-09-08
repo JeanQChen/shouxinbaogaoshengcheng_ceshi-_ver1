@@ -81,6 +81,7 @@ EVAL_MODULES = [
     "evals.test_harness_budget",
     "evals.test_harness_state",
     "evals.test_harness_checkpoint",
+    "evals.test_harness_runtime",
 ]
 
 
