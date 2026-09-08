@@ -83,6 +83,7 @@ EVAL_MODULES = [
     "evals.test_harness_checkpoint",
     "evals.test_harness_runtime",
     "evals.test_actual_path_41",
+    "evals.test_research_preview",
 ]
 
 
