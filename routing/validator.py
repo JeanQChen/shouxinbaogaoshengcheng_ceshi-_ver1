@@ -14,7 +14,8 @@ from routing import schema as S
 
 
 # 单通道失败码（PARTIAL 状态必须携带其中之一）。
-_SINGLE_CHANNEL_FAILURES = {"SPARSE_FAILED", "DENSE_FAILED"}
+# 契约修正 5/6：TIMEOUT 作为单通道失败码——单通道超时且另一通道已返回结果 → PARTIAL。
+_SINGLE_CHANNEL_FAILURES = {"SPARSE_FAILED", "DENSE_FAILED", "TIMEOUT"}
 
 # 路由层失败码（RouterResult 的 error_code 会透传到 EvidencePack.failure_code）。
 _ROUTER_ERROR_CODES = ("ROUTER_FALLBACK_UNAVAILABLE", "ROUTER_FALLBACK_SCHEMA_FAILURE")

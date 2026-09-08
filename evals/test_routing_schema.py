@@ -259,7 +259,9 @@ def main() -> dict:
     # PARTIAL 必须带单通道失败码
     V.validate_pack(_pack(status="PARTIAL", failure_code="SPARSE_FAILED"))
     check(True, "PARTIAL + SPARSE_FAILED 被接受")
-    expect_err(lambda: V.validate_pack(_pack(status="PARTIAL", failure_code="TIMEOUT")),
+    V.validate_pack(_pack(status="PARTIAL", failure_code="TIMEOUT"))
+    check(True, "PARTIAL + TIMEOUT（单通道超时）被接受")
+    expect_err(lambda: V.validate_pack(_pack(status="PARTIAL", failure_code="EMPTY_AFTER_FILTER")),
                "PARTIAL 带非单通道失败码被拒绝", "单通道")
 
     # ------------------------------------------------------------------

@@ -20,6 +20,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -94,6 +95,17 @@ class _BagEmbedding:
 
     def encode(self, texts: list[str]) -> list[list[float]]:
         return [self._vec(t) for t in texts]
+
+
+class _BlockingEmbedding:
+    """encode 永久阻塞（模拟 Dense 通道孤儿任务），验证软超时熔断不等待孤儿。"""
+
+    def __init__(self, delay: float = 1.5):
+        self.delay = delay
+
+    def encode(self, texts: list[str]) -> list[list[float]]:
+        time.sleep(self.delay)
+        return [[0.0] * 8 for _ in texts]
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +330,26 @@ def main() -> dict:
                            _decision("n2", "EXTERNAL_RESEARCH"), _ctx_empty())
     check(ext.status == "EXTERNAL_RESEARCH_NOT_IMPLEMENTED",
           "EXTERNAL_RESEARCH 未实现状态")
+
+    # ---- 软超时熔断（契约修正 5/6 + 额外点 2） ----
+    blocking = _BlockingEmbedding()
+    session_tmo = rv2.RetrievalSession(
+        "ACME", chroma_dir=Path(chroma_dir), sparse_dir=Path(sparse_dir),
+        manifest_dir=Path(manifest_dir), model=blocking, timeout_ms=50)
+    t0 = time.perf_counter()
+    tmo = session_tmo.retrieve(_need("n-timeout", "实际控制人是谁"),
+                               _decision("n-timeout", "STANDARD_RAG"), _ctx_empty())
+    elapsed = time.perf_counter() - t0
+    check(tmo.failure_code == "TIMEOUT",
+          f"超时检索 failure_code=TIMEOUT（{tmo.failure_code}）")
+    check(tmo.status in ("PARTIAL", "FAILED"), f"超时检索降级状态（{tmo.status}）")
+    check(elapsed < 1.0,
+          f"检索不等待孤儿任务（elapsed={elapsed:.3f}s < 1.0s）")
+    check(session_tmo._poisoned is True, "软超时后 Session 熔断（poisoned）")
+    tmo2 = session_tmo.retrieve(_need("n-timeout2", "主营业务是什么"),
+                                _decision("n-timeout2", "STANDARD_RAG"), _ctx_empty())
+    check(tmo2.status == "FAILED" and tmo2.failure_code == "TIMEOUT",
+          "poisoned Session 拒绝后续检索（FAILED/TIMEOUT）")
 
     # 版本不匹配：新版本替换后旧索引失效
     _seed_doc(ev_db, "ACME", "doc-1", b"v2", [_chunk("新版内容完全替换", 1, 0)])
