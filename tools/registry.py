@@ -264,7 +264,7 @@ def _main(argv: list[str]) -> int:
             return 0
         for s in specs:
             routes = ",".join(s.allowed_routes) or "*"
-            print(f"{s.name} v{s.version}  routes=[{routes}]  "
+            print(f"{s.name} {s.version}  routes=[{routes}]  "
                   f"retry={s.retry_policy}  cost={s.cost_class}  "
                   f"max={s.max_results}  timeout={s.timeout_ms}ms")
         return 0
