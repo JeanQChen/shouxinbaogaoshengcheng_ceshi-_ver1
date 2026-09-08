@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from external_v2 import schema as S
 from external_v2 import providers as P
 from external_v2 import search as SRCH
+from external_v2 import fetch as F
 
 
 class FakeProvider:
@@ -144,6 +145,111 @@ def main() -> dict:
     out = SRCH.search_external("   ")
     check(out.status == "FATAL_ERROR" and out.error_code == "INTERNAL_ERROR",
           "空 query → INTERNAL_ERROR")
+
+    # ---- fetch SSRF 安全边界（纯函数，不触网）----
+    check(F._ip_is_public("8.8.8.8") and F._ip_is_public("2001:4860:4860::8888"),
+          "公网 IPv4/IPv6 → public")
+    for bad in ("127.0.0.1", "10.0.0.1", "172.16.0.1", "192.168.1.1",
+                "169.254.169.254", "::1", "fc00::1", "::ffff:127.0.0.1"):
+        check(not F._ip_is_public(bad), f"私网/环回/link-local/mapped → 拒绝: {bad}")
+
+    for bad_url in ("file:///etc/passwd", "ftp://x.com", "http://localhost/",
+                    "http://127.0.0.1/", "http://10.0.0.1/x", "http://[::1]/",
+                    "http://192.168.1.1/", "http://169.254.169.254/latest"):
+        try:
+            F._validate_url(bad_url)
+            check(False, f"SSRF 应拒绝: {bad_url}")
+        except F._UntrustedSource:
+            check(True, f"SSRF 拒绝私网/file/环回: {bad_url}")
+
+    # DNS 解析分支（monkeypatch _resolve_ips，避免真实 DNS）
+    orig_resolve = F._resolve_ips
+    F._resolve_ips = lambda h: ["10.1.2.3"]
+    try:
+        try:
+            F._validate_url("http://internal.example.com/")
+            check(False, "DNS 解析到私网应拒绝")
+        except F._UntrustedSource:
+            check(True, "DNS 解析到私网 → SOURCE_UNTRUSTED")
+    finally:
+        F._resolve_ips = orig_resolve
+    F._resolve_ips = lambda h: ["8.8.8.8"]
+    try:
+        F._validate_url("http://public.example.com/")
+        check(True, "DNS 解析到公网 → 放行")
+    finally:
+        F._resolve_ips = orig_resolve
+
+    # ---- _extract_text（text/plain，不依赖 trafilatura）----
+    check(F._extract_text("text/plain; charset=utf-8", "你好".encode("utf-8")) == "你好",
+          "text/plain 直接解码")
+
+    # ---- fetch_external 全流程（monkeypatch httpx.Client，不触网）----
+    class _FakeResp:
+        def __init__(self, status_code=200, headers=None, url="", body=b""):
+            self.status_code = status_code
+            self.headers = headers or {}
+            self.url = url
+            self._body = body
+
+        def read(self):
+            return self._body
+
+    import httpx as _httpx
+
+    def _fake_client(handler):
+        class _C:
+            def __init__(self, *a, **k):
+                pass
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def get(self, url):
+                return handler(url)
+        return _C
+
+    orig_client = _httpx.Client
+    # 内容类型拒绝
+    _httpx.Client = _fake_client(
+        lambda u: _FakeResp(200, {"content-type": "application/pdf"}, u, b"%PDF"))
+    try:
+        out = F.fetch_external("https://example.com/doc.pdf")
+    finally:
+        _httpx.Client = orig_client
+    check(out.status == "FATAL_ERROR" and out.error_code == "EXTERNAL_FETCH_BLOCKED",
+          "内容类型不允许 → EXTERNAL_FETCH_BLOCKED")
+
+    # HTTP 404
+    _httpx.Client = _fake_client(
+        lambda u: _FakeResp(404, {"content-type": "text/html"}, u, b"nope"))
+    try:
+        out = F.fetch_external("https://example.com/x")
+    finally:
+        _httpx.Client = orig_client
+    check(out.status == "FATAL_ERROR" and out.error_code == "EXTERNAL_FETCH_BLOCKED"
+          and out.http_status == 404, "HTTP 4xx → EXTERNAL_FETCH_BLOCKED")
+
+    # 成功（text/plain）
+    _httpx.Client = _fake_client(
+        lambda u: _FakeResp(200, {"content-type": "text/plain"}, u, "正文内容".encode("utf-8")))
+    try:
+        out = F.fetch_external("https://example.com/txt")
+    finally:
+        _httpx.Client = orig_client
+    check(out.status == "SUCCESS" and out.content_text == "正文内容"
+          and out.content_hash == S.content_hash("正文内容"),
+          "text/plain 抓取成功 + content_hash")
+
+    # 空正文
+    _httpx.Client = _fake_client(
+        lambda u: _FakeResp(200, {"content-type": "text/plain"}, u, b""))
+    try:
+        out = F.fetch_external("https://example.com/empty")
+    finally:
+        _httpx.Client = orig_client
+    check(out.status == "EMPTY" and out.error_code == "EXTERNAL_CONTENT_EMPTY",
+          "正文为空 → EMPTY/EXTERNAL_CONTENT_EMPTY")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

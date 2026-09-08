@@ -172,6 +172,28 @@ class SearchOutcome:
 
 
 @dataclass(frozen=True)
+class FetchOutcome:
+    """一次安全正文抓取 + 抽取的完整结果。
+
+    SSRF 拒绝（私网/环回/file/重定向到私网）→ SOURCE_UNTRUSTED；
+    robots/登录墙/内容类型/大小/重定向上限 → EXTERNAL_FETCH_BLOCKED；
+    正文为空 → EXTERNAL_CONTENT_EMPTY（EMPTY，合法结果）；超时/网络 → TOOL_TIMEOUT（可重试）。
+    """
+
+    original_url: str
+    canonical_url: str              # 重定向后的最终 URL
+    status: str                     # SUCCESS | EMPTY | RETRYABLE_ERROR | FATAL_ERROR
+    content_text: str
+    content_hash: str
+    content_type: str | None
+    http_status: int | None
+    error_code: str | None
+    message: str | None
+    fetched_at: str
+    latency_ms: int
+
+
+@dataclass(frozen=True)
 class ExternalSourceSnapshot:
     """一条不可变外部来源快照（任务书 §6.5 最低字段）。
 
