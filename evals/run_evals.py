@@ -76,6 +76,7 @@ EVAL_MODULES = [
     "evals.test_tool_adapters",
     "evals.test_external_v2",
     "evals.test_external_v2_store",
+    "evals.test_llm_client",
 ]
 
 
