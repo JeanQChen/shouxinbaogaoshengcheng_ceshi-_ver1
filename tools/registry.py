@@ -98,23 +98,20 @@ class ToolRegistry:
             result = _synthetic_result(
                 call, "FATAL_ERROR", "TOOL_NOT_FOUND",
                 f"未注册工具: {call.tool_name}")
-            self._audit(call, route, run_id, result, [])
-            return result
+            return self._audit_or_fail_closed(call, route, run_id, result, [])
 
         if route is not None and spec.allowed_routes and route not in spec.allowed_routes:
             result = _synthetic_result(
                 call, "FATAL_ERROR", "TOOL_NOT_ALLOWED",
                 f"工具 {call.tool_name} 不允许在路由 {route} 下调用")
-            self._audit(call, route, run_id, result, [])
-            return result
+            return self._audit_or_fail_closed(call, route, run_id, result, [])
 
         try:
             C.enforce_arguments(spec, call.arguments)
         except C.ToolValidationError as e:
             result = _synthetic_result(
                 call, "FATAL_ERROR", "INVALID_ARGUMENTS", str(e))
-            self._audit(call, route, run_id, result, [])
-            return result
+            return self._audit_or_fail_closed(call, route, run_id, result, [])
 
         attempts: list[C.ToolResult] = []
         attempt = 0
@@ -130,11 +127,7 @@ class ToolRegistry:
                 break
 
         result = dataclasses.replace(final, retries=attempt - 1)
-        if not self._audit(call, route, run_id, result, attempts):
-            return _synthetic_result(
-                call, "FATAL_ERROR", "INTERNAL_ERROR",
-                "工具 audit 落盘失败（fail-closed，丢弃本次结果）")
-        return result
+        return self._audit_or_fail_closed(call, route, run_id, result, attempts)
 
     def _run_attempt(self, spec: C.ToolSpec, call: C.ToolCall) -> C.ToolResult:
         executor = self._executors[spec.name]
@@ -183,6 +176,20 @@ class ToolRegistry:
             pool.shutdown(wait=False)
 
     # -- audit --------------------------------------------------------------
+
+    def _audit_or_fail_closed(self, call: C.ToolCall, route: str | None,
+                              run_id: str, result: C.ToolResult,
+                              attempts: list[C.ToolResult]) -> C.ToolResult:
+        """统一 audit fail-closed 语义：audit 成功返回原结果，失败返回 INTERNAL_ERROR。
+
+        所有 execute 返回路径（含未注册/越权/参数错等提前返回）都必须经过本方法，
+        保证「未审计的结果不得被报告为正常结果」。
+        """
+        if self._audit(call, route, run_id, result, attempts):
+            return result
+        return _synthetic_result(
+            call, "FATAL_ERROR", "INTERNAL_ERROR",
+            "工具 audit 落盘失败（fail-closed，丢弃本次结果）")
 
     def _audit(self, call: C.ToolCall, route: str | None, run_id: str,
                result: C.ToolResult, attempts: list[C.ToolResult]) -> bool:

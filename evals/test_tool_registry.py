@@ -157,6 +157,24 @@ def main() -> dict:
     check(res.status == "FATAL_ERROR" and res.error_code == "INTERNAL_ERROR",
           "audit 落盘失败 → fail-closed INTERNAL_ERROR")
 
+    # ---- 提前返回分支 audit fail-closed（TOOL_NOT_FOUND / TOOL_NOT_ALLOWED / INVALID_ARGUMENTS）----
+    reg_bad2 = R.ToolRegistry(audit_dir=blocked)
+    reg_bad2.register(_spec("ok_tool"), lambda a: C.ToolResult(
+        call_id="", tool_name="ok_tool", tool_version="v1", status="SUCCESS",
+        data={}, trace_id=uuid.uuid4().hex))
+
+    res = reg_bad2.execute(_call("nope"), run_id="run_x")
+    check(res.status == "FATAL_ERROR" and res.error_code == "INTERNAL_ERROR",
+          "TOOL_NOT_FOUND 分支 audit 失败 → INTERNAL_ERROR")
+
+    res = reg_bad2.execute(_call("ok_tool"), route="DB_LOOKUP", run_id="run_x")
+    check(res.status == "FATAL_ERROR" and res.error_code == "INTERNAL_ERROR",
+          "TOOL_NOT_ALLOWED 分支 audit 失败 → INTERNAL_ERROR")
+
+    res = reg_bad2.execute(_call("ok_tool", args={"q": "x", "evil": 1}), run_id="run_x")
+    check(res.status == "FATAL_ERROR" and res.error_code == "INTERNAL_ERROR",
+          "INVALID_ARGUMENTS 分支 audit 失败 → INTERNAL_ERROR")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 
