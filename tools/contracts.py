@@ -247,6 +247,7 @@ class ToolResult:
     latency_ms: int = 0
     cost: str = "0"
     retryable: bool = False
+    retries: int = 0
     source_fingerprint: str | None = None
     trace_id: str = ""
 
