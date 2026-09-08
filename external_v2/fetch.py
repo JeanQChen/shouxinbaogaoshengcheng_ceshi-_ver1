@@ -26,8 +26,8 @@ from external_v2 import schema as S
 
 logger = logging.getLogger(__name__)
 
-# 允许抽取正文的内容类型（media type 前缀）。
-_ALLOWED_CONTENT_TYPES = ("text/html", "application/xhtml+xml", "text/plain")
+# 允许抽取正文的内容类型（media type 前缀）。application/pdf 仅支持含文本层的电子 PDF。
+_ALLOWED_CONTENT_TYPES = ("text/html", "application/xhtml+xml", "text/plain", "application/pdf")
 
 
 class _UntrustedSource(Exception):
@@ -117,6 +117,31 @@ def _extract_text(content_type: str, body: bytes) -> str:
     return (text or "").strip()
 
 
+def _extract_pdf_text(body: bytes) -> tuple[str, int]:
+    """从电子 PDF 原始字节提取文本层（无 OCR），返回 (text, page_count)。
+
+    仅支持含文本层的电子 PDF；扫描件（无文本层）/ 损坏 / 加密 → ("", 0)，由调用方
+    映射为 PDF_TEXT_UNAVAILABLE。不做 OCR，不绕过加密/密码。
+    """
+    try:
+        from io import BytesIO
+        from pypdf import PdfReader  # type: ignore
+    except ImportError as e:
+        raise _Blocked("pypdf 未安装（pip install pypdf）") from e
+
+    try:
+        reader = PdfReader(BytesIO(body))
+        texts: list[str] = []
+        for page in reader.pages:
+            t = (page.extract_text() or "").strip()
+            if t:
+                texts.append(t)
+        return "\n\n".join(texts).strip(), len(reader.pages)
+    except Exception as e:  # noqa: BLE001 — 损坏/加密 PDF 明确降级为「文本不可用」
+        logger.warning("PDF 文本层提取失败: %s", e)
+        return "", 0
+
+
 def fetch_external(
     url: str,
     *,
@@ -185,6 +210,26 @@ def fetch_external(
                                  f"响应超过大小上限 {max_bytes} 字节（实际 {len(body)}）",
                                  canonical=str(resp.url), content_type=content_type,
                                  http_status=resp.status_code)
+                file_hash = S.bytes_hash(body)
+                if media.startswith("application/pdf"):
+                    text, page_count = _extract_pdf_text(body)
+                    if not text:
+                        return S.FetchOutcome(
+                            original_url=url, canonical_url=str(resp.url),
+                            status="FATAL_ERROR", content_text="", content_hash="",
+                            content_type=content_type, http_status=resp.status_code,
+                            error_code="PDF_TEXT_UNAVAILABLE",
+                            message="PDF 无文本层或解析失败（不 OCR、不绕过加密）",
+                            fetched_at=S.utcnow_iso(),
+                            latency_ms=int((time.perf_counter() - t0) * 1000),
+                            file_hash=file_hash, page_count=page_count)
+                    return S.FetchOutcome(
+                        original_url=url, canonical_url=str(resp.url), status="SUCCESS",
+                        content_text=text, content_hash=S.content_hash(text),
+                        content_type=content_type, http_status=resp.status_code,
+                        error_code=None, message=None, fetched_at=S.utcnow_iso(),
+                        latency_ms=int((time.perf_counter() - t0) * 1000),
+                        file_hash=file_hash, page_count=page_count)
                 text = _extract_text(content_type, body)
                 if not text:
                     return _fail("EMPTY", "EXTERNAL_CONTENT_EMPTY", "正文抽取为空",
@@ -195,7 +240,8 @@ def fetch_external(
                     content_text=text, content_hash=S.content_hash(text),
                     content_type=content_type, http_status=resp.status_code,
                     error_code=None, message=None, fetched_at=S.utcnow_iso(),
-                    latency_ms=int((time.perf_counter() - t0) * 1000))
+                    latency_ms=int((time.perf_counter() - t0) * 1000),
+                    file_hash=file_hash, page_count=0)
             raise _TooManyRedirects()
     except _UntrustedSource as e:
         return _fail("FATAL_ERROR", "SOURCE_UNTRUSTED", str(e))
@@ -223,6 +269,8 @@ def _outcome_to_dict(o: S.FetchOutcome) -> dict:
         "content_type": o.content_type,
         "http_status": o.http_status,
         "content_hash": o.content_hash,
+        "file_hash": o.file_hash,
+        "page_count": o.page_count,
         "fetched_at": o.fetched_at,
         "latency_ms": o.latency_ms,
         "content_text_preview": o.content_text[:500],

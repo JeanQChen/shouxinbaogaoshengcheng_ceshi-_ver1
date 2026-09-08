@@ -433,6 +433,41 @@ def main() -> dict:
     check(out.status == "EMPTY" and out.error_code == "EXTERNAL_CONTENT_EMPTY",
           "正文为空 → EMPTY/EXTERNAL_CONTENT_EMPTY")
 
+    # ---- PDF 文本层提取（纯函数）----
+    text, pages = F._extract_pdf_text(b"not a pdf")
+    check(text == "" and pages == 0, "非 PDF 字节 → (\"\", 0) 降级（不崩溃）")
+
+    # ---- PDF 抓取（monkeypatch _extract_pdf_text，避免真实 PDF fixture）----
+    orig_extract_pdf = F._extract_pdf_text
+    F._extract_pdf_text = lambda body: ("PDF 正文", 3)
+    httpx.Client = _fake_client(
+        lambda u: _FakeResp(200, {"content-type": "application/pdf"}, u, b"%PDF-1.4 fake"))
+    try:
+        out = F.fetch_external("https://example.com/doc.pdf")
+    finally:
+        httpx.Client = orig_client
+        F._extract_pdf_text = orig_extract_pdf
+    check(out.status == "SUCCESS" and out.content_text == "PDF 正文"
+          and out.page_count == 3, "电子 PDF 抓取成功 + page_count")
+    check(out.file_hash == S.bytes_hash(b"%PDF-1.4 fake"),
+          "PDF file_hash = 原始字节 sha256")
+    check(out.content_hash == S.content_hash("PDF 正文"),
+          "PDF content_hash = 抽取文本 sha256")
+
+    # PDF 无文本层 → PDF_TEXT_UNAVAILABLE（file_hash 仍记录原始字节）
+    F._extract_pdf_text = lambda body: ("", 0)
+    httpx.Client = _fake_client(
+        lambda u: _FakeResp(200, {"content-type": "application/pdf"}, u, b"%PDF-1.4 scan"))
+    try:
+        out = F.fetch_external("https://example.com/scan.pdf")
+    finally:
+        httpx.Client = orig_client
+        F._extract_pdf_text = orig_extract_pdf
+    check(out.status == "FATAL_ERROR" and out.error_code == "PDF_TEXT_UNAVAILABLE",
+          "PDF 无文本层 → PDF_TEXT_UNAVAILABLE")
+    check(out.file_hash == S.bytes_hash(b"%PDF-1.4 scan"),
+          "无文本层 PDF 仍记录 file_hash")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 
