@@ -4,7 +4,8 @@
 providers / search / fetch / store 共同引用同一份字段语义。
 
 对齐（PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md §6.4～§6.5）：
-- 搜索 provider 可配置，`EXTERNAL_SEARCH_PROVIDER=tavily` + `TAVILY_API_KEY`，不硬编码 key；
+- 搜索 provider 可配置，`EXTERNAL_SEARCH_PROVIDER=bocha` + `BOCHA_API_KEY`，不硬编码 key；
+  Tavily 不参与运行时、fallback 或验收，也不要求 `TAVILY_API_KEY`；
 - 无 key / provider 不可用 → 明确 `EXTERNAL_SEARCH_UNAVAILABLE`，不得静默换假数据；
 - 来源分级复用 `contracts.schema.SOURCE_GRADES`（A/B/C/D），本层仅依据域名规则形成
   「候选级别」（candidate grade），最终章节语义留给 Phase 4；

@@ -315,6 +315,12 @@ def _result_to_dict(r: PipelineResult) -> dict:
 
 def _main(argv: list[str]) -> int:
     import argparse
+    import sys
+
+    # 中文 Windows 下 stdout 默认 GBK，ensure_ascii=False 的 JSON 输出会乱码；
+    # 显式切换为 UTF-8，保证被 subprocess(encoding="utf-8") 捕获时编码一致。
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(
         prog="python -m financial_v2.progress", description="A7-2 进度门面")

@@ -10,6 +10,11 @@
 
 **Phase 3 当前唯一启用的搜索提供方为博查。Tavily 不参与运行时、fallback 或验收，也不需要 TAVILY_API_KEY。**
 
+**Batch A = STRICTLY_CLOSED**（2026-09-08 收口）：全部专项测试与完整 eval 均为 0 failed / 0 skipped。
+严格关闭前三项残余问题已修复并提交——(1) Registry 提前返回分支（TOOL_NOT_FOUND / TOOL_NOT_ALLOWED /
+INVALID_ARGUMENTS）audit fail-closed；(2) 软超时熔断语义（circuit-open + 迟到结果不覆盖）；
+(3) Windows 编码稳定性（`financial_v2.progress` CLI 显式 UTF-8）+ `schema.py` 头部 provider 描述残留。
+
 | 项 | 状态 |
 |---|---|
 | Tool Contract / Registry / 本地 + 外部工具适配 | ✅ 完成，10 个工具经 Registry 注册 |
@@ -17,7 +22,8 @@
 | 财务字段/指标/跨期比较工具真实取值 | ✅ 完成，临时库 300750 快照 + 经 Registry 真实调用 |
 | 安全（SSRF / 重定向 / 类型 / 大小 / 脱敏） | ✅ 完成，授权头脱敏 + `.env` 不入库 |
 
-**未通过 Batch A 不得开始依赖外部工具的 Harness 路径**：真实博查闭环与财务工具真实取值均已通过，Batch A 验收关闭。
+**未通过 Batch A 不得开始依赖外部工具的 Harness 路径**：真实博查闭环、财务工具真实取值、专项 + 完整 eval
+均已通过，Batch A 严格关闭（STRICTLY_CLOSED）。
 
 ---
 
@@ -145,7 +151,12 @@ python -m scripts.run_batch_a_acceptance --excel <bs> --excel <income> --excel <
 | 6 | 至少一个 PDF 来源取得正文并完成不可变快照 | ✅ | `ext-97ed9bbdfbbf46019fb9`（`application/pdf`、7 页、字节 SHA256、文本层） |
 | 7 | Audit 完整且不泄露 Key | ✅ | 每调用落盘 `logs/tools/<run_id>/<call_id>.jsonl`；Authorization 头脱敏；真实 Key 不入日志/文档/commit |
 | 8 | 财务工具基于真实 300750 Snapshot 完成验收 | ✅ | 临时库 `snap-490c67ac…`（112 指标）+ 经 Registry 真实调用，用后清理 |
-| 9 | 专项测试和完整 eval 全绿 | ⚠️ | 专项全绿（`test_tool_adapters` 22 + `test_external_adapters` 12 + `test_external_v2` 81 + `test_external_v2_store` 9 = **124 断言 0 失败**）；完整 eval **2476 passed / 1 failed**，1 失败为**既有、越界**的 `test_financial_v2_a7_integration`（Windows GBK 编码，见下） |
+| 9 | 专项测试和完整 eval 全绿 | ✅ | 专项全绿（`test_tool_registry` 25 + `test_tool_adapters` 22 + `test_external_adapters` 12 + `test_external_v2` 81 + `test_external_v2_store` 9 + `test_financial_v2_a7_integration` 33 = **182 断言 0 失败**）；完整 eval **2518 passed / 0 failed / 0 skipped** |
 | 10 | 文档完成同步 | ✅ | 本文件 + `PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md` + `.env.example` |
 
-**关于 #9 的说明**：完整 eval 唯一失败项 `evals.test_financial_v2_a7_integration` 为 `financial_v2.progress` CLI 在中文 Windows 上 `print(ensure_ascii=False)` 输出 GBK、测试硬编码 `encoding="utf-8"` 导致的 `UnicodeDecodeError`。该文件与 `financial_v2/progress.py` 均**未在本 Phase 3 任何 commit 触及**（`git log 73fa805~1..06c81d9 -- <files>` 为空），最后一次修改为 `03912df`（早于 Batch A）；属既有、环境相关（中文 Windows 代码页）、且落在 Batch A 范围外（financial_v2 冻结域）。故不视为 Batch A 引入的 regression，也未改动冻结模块。
+**关于 #9 的说明（严格关闭前已修复）**：此前完整 eval 唯一失败项 `evals.test_financial_v2_a7_integration` 为
+`financial_v2.progress` CLI 在中文 Windows 上 `print(ensure_ascii=False)` 输出 GBK、测试
+`subprocess(encoding="utf-8")` 读取导致的 `UnicodeDecodeError`。修复方式为跨平台稳定性修正：
+CLI `_main` 开头显式 `sys.stdout.reconfigure(encoding="utf-8")`，使 CLI 输出与测试的显式 UTF-8 编码一致。
+不触碰 financial_v2 业务口径 / 公式 / 快照准入 / 数值结果，不使用 `errors="ignore"/"replace"`。
+修复后完整 eval **2518 passed / 0 failed / 0 skipped**。
