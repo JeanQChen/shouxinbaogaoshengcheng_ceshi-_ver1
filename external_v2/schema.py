@@ -217,3 +217,6 @@ class ExternalSourceSnapshot:
     status: str                     # SNAPSHOT_STATUSES 之一
     error_code: str | None
     retrieval_metadata: dict = field(default_factory=dict)
+    # 存储附加字段（store 层写入；§6.5 最低字段之外的可选扩展）。
+    company_id: str = ""
+    content_version: int = 1
