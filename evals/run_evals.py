@@ -78,6 +78,9 @@ EVAL_MODULES = [
     "evals.test_external_v2_store",
     "evals.test_llm_client",
     "evals.test_harness_schema",
+    "evals.test_harness_budget",
+    "evals.test_harness_state",
+    "evals.test_harness_checkpoint",
 ]
 
 
