@@ -32,12 +32,19 @@ EXTERNAL_STATUSES = (
     "FATAL_ERROR",
 )
 
-# 本层可产生的错误码（与 tools.contracts.TOOL_ERROR_CODES 同名子集对齐）。
+# 本层可产生的错误码（与 tools.contracts.TOOL_ERROR_CODES 同名子集对齐；
+# 博查 provider 鉴权/限流/服务端/网络/坏响应等做明确分类，见 providers.BochaProvider）。
 EXTERNAL_ERROR_CODES = (
-    "EXTERNAL_SEARCH_UNAVAILABLE",
+    "EXTERNAL_SEARCH_UNAVAILABLE",   # 缺 key / 未知 provider / provider 未启用
+    "EXTERNAL_AUTH_FAILED",          # 401/403 鉴权失败（key 存在但无效）
+    "EXTERNAL_RATE_LIMITED",         # 429 限流
+    "EXTERNAL_SERVER_ERROR",         # 5xx 服务端异常
+    "EXTERNAL_NETWORK_ERROR",        # 连接/网络失败（非超时）
+    "EXTERNAL_BAD_RESPONSE",         # 非法 JSON / 响应字段缺失
     "EXTERNAL_FETCH_BLOCKED",
     "EXTERNAL_CONTENT_EMPTY",
     "EXTERNAL_SNAPSHOT_ERROR",
+    "PDF_TEXT_UNAVAILABLE",          # 电子 PDF 无文本层/文本质量不合格
     "SOURCE_UNTRUSTED",
     "TOOL_TIMEOUT",
     "INTERNAL_ERROR",
@@ -68,6 +75,11 @@ def utcnow_iso() -> str:
 def content_hash(text: str) -> str:
     """正文内容哈希（sha256），用于不可变快照去重与幂等复用。"""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def bytes_hash(data: bytes) -> str:
+    """原始字节哈希（sha256），用于 PDF 等按文件字节审计。"""
+    return hashlib.sha256(data).hexdigest()
 
 
 # 候选来源分级：仅依据域名规则，A/B/C 白名单之外一律 D（来源不明）。
@@ -159,7 +171,11 @@ class SearchResult:
 
 @dataclass(frozen=True)
 class SearchOutcome:
-    """一次外部搜索的完整结果（状态 + 结果列表 + 错误码）。"""
+    """一次外部搜索的完整结果（状态 + 结果列表 + 错误码）。
+
+    provider_request_id 为搜索提供方返回的请求 ID（博查 log_id），用于审计关联；
+    提供方未返回时为 None。
+    """
 
     query: str
     provider: str
@@ -169,6 +185,7 @@ class SearchOutcome:
     message: str | None
     fetched_at: str
     latency_ms: int
+    provider_request_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -177,7 +194,11 @@ class FetchOutcome:
 
     SSRF 拒绝（私网/环回/file/重定向到私网）→ SOURCE_UNTRUSTED；
     robots/登录墙/内容类型/大小/重定向上限 → EXTERNAL_FETCH_BLOCKED；
-    正文为空 → EXTERNAL_CONTENT_EMPTY（EMPTY，合法结果）；超时/网络 → TOOL_TIMEOUT（可重试）。
+    正文为空 → EXTERNAL_CONTENT_EMPTY（EMPTY，合法结果）；超时/网络 → TOOL_TIMEOUT（可重试）；
+    PDF 无文本层/文本质量不合格 → PDF_TEXT_UNAVAILABLE。
+
+    content_hash 为抽取正文的 sha256；file_hash 为原始响应字节的 sha256（HTML/PDF 均记录，
+    PDF 用于按文件字节审计，HTML 亦保留原始字节指纹）。
     """
 
     original_url: str
@@ -191,6 +212,8 @@ class FetchOutcome:
     message: str | None
     fetched_at: str
     latency_ms: int
+    file_hash: str = ""             # 原始响应字节 sha256（PDF 尤其重要）
+    page_count: int = 0             # PDF 提取的页数（HTML 为 0）
 
 
 @dataclass(frozen=True)
