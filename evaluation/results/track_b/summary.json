@@ -1,0 +1,134 @@
+{
+  "generated_at": "2026-09-08T05:50:12Z",
+  "real": {
+    "name": "router_v2_track_b_real",
+    "rule_version": "v2-rule-1.0",
+    "denominator": 41,
+    "n_cases": 41,
+    "content_hash": "bf6a65af460e4f474016c2c05eb723ec6cdb063919fe4ae70c2b184f3d2465c3",
+    "file_sha256": "035b9d693c2b269df793cc37083057b89edea03bc637d387209186fe25450d48",
+    "accuracy": 0.9512195121951219,
+    "correct": 39,
+    "severe": 0,
+    "n_invalid_gold": 0,
+    "per_route": {
+      "DB_LOOKUP": {
+        "total": 0,
+        "correct": 0
+      },
+      "DIRECT_EVIDENCE": {
+        "total": 9,
+        "correct": 8
+      },
+      "STANDARD_RAG": {
+        "total": 16,
+        "correct": 16
+      },
+      "DEEP_RETRIEVAL": {
+        "total": 11,
+        "correct": 10
+      },
+      "EXTERNAL_RESEARCH": {
+        "total": 5,
+        "correct": 5
+      },
+      "FALLBACK_UNAVAILABLE": {
+        "total": 0,
+        "correct": 0
+      }
+    },
+    "confusion": {
+      "DIRECT_EVIDENCE": {
+        "DIRECT_EVIDENCE": 8,
+        "DB_LOOKUP": 1
+      },
+      "DEEP_RETRIEVAL": {
+        "DEEP_RETRIEVAL": 10,
+        "DB_LOOKUP": 1
+      },
+      "STANDARD_RAG": {
+        "STANDARD_RAG": 16
+      },
+      "EXTERNAL_RESEARCH": {
+        "EXTERNAL_RESEARCH": 5
+      }
+    },
+    "severe_errors": [],
+    "non_severe_errors": [
+      {
+        "case_id": "FIN-RST1",
+        "gold": "DEEP_RETRIEVAL",
+        "actual": "DB_LOOKUP",
+        "question": "2025年合并口径下，货币资金中受限资金占比多少？",
+        "severe": false
+      },
+      {
+        "case_id": "FIN-FIX1",
+        "gold": "DIRECT_EVIDENCE",
+        "actual": "DB_LOOKUP",
+        "question": "2025年合并口径下，固定资产中机器设备的年末净值是多少？",
+        "severe": false
+      }
+    ]
+  },
+  "synthetic": {
+    "name": "router_v2_track_b_synthetic",
+    "rule_version": "v2-rule-1.0",
+    "denominator": 23,
+    "n_cases": 23,
+    "content_hash": "15de8b1f5b9389d2e0b5f8a0374523ef0749466ed3a9341900b28ada972abdab",
+    "file_sha256": "673e98ba089dd0d604b4e6e566a8cab2d0746a05b3b6b3c026a2cf7b501d6cc7",
+    "accuracy": 1.0,
+    "correct": 23,
+    "severe": 0,
+    "n_invalid_gold": 0,
+    "per_route": {
+      "DB_LOOKUP": {
+        "total": 7,
+        "correct": 7
+      },
+      "DIRECT_EVIDENCE": {
+        "total": 3,
+        "correct": 3
+      },
+      "STANDARD_RAG": {
+        "total": 4,
+        "correct": 4
+      },
+      "DEEP_RETRIEVAL": {
+        "total": 4,
+        "correct": 4
+      },
+      "EXTERNAL_RESEARCH": {
+        "total": 4,
+        "correct": 4
+      },
+      "FALLBACK_UNAVAILABLE": {
+        "total": 1,
+        "correct": 1
+      }
+    },
+    "confusion": {
+      "DB_LOOKUP": {
+        "DB_LOOKUP": 7
+      },
+      "DIRECT_EVIDENCE": {
+        "DIRECT_EVIDENCE": 3
+      },
+      "DEEP_RETRIEVAL": {
+        "DEEP_RETRIEVAL": 4
+      },
+      "EXTERNAL_RESEARCH": {
+        "EXTERNAL_RESEARCH": 4
+      },
+      "STANDARD_RAG": {
+        "STANDARD_RAG": 4
+      },
+      "FALLBACK_UNAVAILABLE": {
+        "FALLBACK_UNAVAILABLE": 1
+      }
+    },
+    "severe_errors": [],
+    "non_severe_errors": []
+  }
+}

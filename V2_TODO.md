@@ -7,8 +7,8 @@
 ## 一、当前结论
 
 当前已经关闭 V1 基线、报告章节契约、Evidence Architecture、Phase 1F-A 财务基础和
-Phase 2 Router + Hybrid Retrieval（真实 BGE-M3 Track A 对照评测已跑通，净收益显著）。
-完整 1F 仍需在 Phase 5 完成 1F-B。
+Phase 2 Router + Hybrid Retrieval（真实 BGE-M3 Track A 对照评测已跑通并严格关闭，
+净收益显著）。完整 1F 仍需在 Phase 5 完成 1F-B。
 
 完成 V2 第一阶段仍需依次完成：
 
@@ -61,6 +61,15 @@ Phase 3 Tool Layer + Research Harness
 - 真实 BGE-M3 Track A 对照（37 题）：RequiredPageCoverage@10 25.3%→35.3%、MRR 0.186→0.254、
   PageHit@10 37.8%→64.9%、P0 覆盖 24.4%→43.7%；ZERO_RECALL@10 23→13。3 题轻微退步
   （COMP-D1 / IND-R4 / IND-R7，均为募集说明书 dense 排名临界，非代码 bug），净收益显著。
+- 验收接线（严格关闭前补）：每条 Retrieval Trace 记录 run_id/case_id/dataset/corpus
+  SHA256/Evidence inventory/code-config 指纹，embedding_model=BAAI/bge-m3、device 记录
+  真实设备（Runner 注入模型不落 null）；`verify_trace_integrity` fail-closed 校验 37
+  eligible 题每题恰好 1 条 trace、case_id 集合与冻结 eligible 一致、status 非空、SHA256
+  与冻结值一致、本 run Router audit=0，任一不满足 run 标记 failed。
+- 性能门（同机同进程、模型 warmup 后、37 题交错）：V1 Dense P95=504.0ms、V2 Hybrid
+  P95=558.4ms，V2 P95 ≤ 2× V1 P95（ratio 1.11）通过。
+- Track B 正式产物：真实 41（accuracy 95.1%、severe 0）、合成 23（accuracy 100%），
+  含 confusion matrix + 两个数据集 hash，落盘 `evaluation/results/track_b/`。
 
 ### [x] Phase 1F-A：财务来源、对账与核准计算基础
 
@@ -155,7 +164,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 1. Phase 2 Router + Hybrid Retrieval 代码全部落地：契约层 / 规则优先五路由 Router / RouteContext / indexer_v2 / sparse / fusion / retriever_v2+trace / Track B 评测（真实 41 题 + 合成 23 题）/ Track A Runner（de-Router 固定本地决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）。
 2. 专项与完整 eval 全绿（2336 项通过、0 失败）。
-3. Phase 2 已关闭：真实 BGE-M3 Track A 对照评测跑通（RequiredPageCoverage@10 25.3%→35.3%，净收益显著，3 题轻微退步已记录）。
+3. Phase 2 已严格关闭：真实 BGE-M3 Track A 对照评测跑通（RequiredPageCoverage@10 25.3%→35.3%，净收益显著，3 题轻微退步已记录）；验收接线补齐（trace 完整性 fail-closed、同机同进程 V1/V2 性能门、Track B 正式产物），完整 eval 2360 项全绿。
 
 ## 七、完成定义
 

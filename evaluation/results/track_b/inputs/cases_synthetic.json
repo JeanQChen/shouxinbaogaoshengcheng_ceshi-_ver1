@@ -1,0 +1,31 @@
+{
+  "name": "router_v2_track_b_synthetic",
+  "rule_version": "v2-rule-1.0",
+  "company_id": "300750",
+  "description": "Track B：规则优先 Router 的确定性路由评测集（合成题）。gold_route 按 ROUTER_HYBRID 任务书 §5 冻结规则逐题手工标注（非 Router 输出回填）；gold 仅取五路由或 FALLBACK_UNAVAILABLE，INVALID_GOLD_MAPPING 不是路由。",
+  "cases": [
+    {"case_id": "r001", "question": "2024年总资产是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "确定性字段→REGISTERED_DB_FIELD"},
+    {"case_id": "r002", "question": "资产负债率是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "确定性指标→REGISTERED_FINANCIAL_METRIC"},
+    {"case_id": "r003", "question": "公司实际控制人是谁？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DIRECT_EVIDENCE", "note": "「是谁」单事实提问"},
+    {"case_id": "r004", "question": "公司有几家子公司？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DIRECT_EVIDENCE", "note": "「几家」单事实提问"},
+    {"case_id": "r005", "question": "近三年营收同比变化趋势如何？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DEEP_RETRIEVAL", "note": "趋势/同比/近三年，Deep 优先于 DB"},
+    {"case_id": "r006", "question": "公司最新股价是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "EXTERNAL_RESEARCH", "note": "时效词+外部来源词"},
+    {"case_id": "r007", "question": "公司主营业务是什么？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "STANDARD_RAG", "note": "专题归纳兜底"},
+    {"case_id": "r008", "question": "2025年归母净利润是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "嵌套别名归母净利润→NET_PROFIT_PARENT"},
+    {"case_id": "r009", "question": "公司收购了哪家公司？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "EXTERNAL_RESEARCH", "note": "「收购」外部事件"},
+    {"case_id": "r010", "question": "公司发展历程是怎样的？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "STANDARD_RAG", "note": "发展历程专题"},
+    {"case_id": "r011", "question": "公司面临哪些风险？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "STANDARD_RAG", "note": "风险专题（哪些被 synthesis 抑制）"},
+    {"case_id": "r012", "question": "2024年资产负债率与2023年相比如何变化？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DEEP_RETRIEVAL", "note": "相比/变化，Deep 优先于 DB"},
+    {"case_id": "r013", "question": "经营活动现金流量净额是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "长名含经营活动现金流子串"},
+    {"case_id": "r014", "question": "公司净资产收益率是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "指标优先于「净资产」字段"},
+    {"case_id": "r015", "question": "2024年总资产的最新数据是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "FALLBACK_UNAVAILABLE", "note": "DB+时效冲突→fallback 未注入"},
+    {"case_id": "r016", "question": "公司市盈率处于什么水平？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "EXTERNAL_RESEARCH", "note": "市盈率外部行情"},
+    {"case_id": "r017", "question": "公司2024年营收与2023年营收对比如何？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DEEP_RETRIEVAL", "note": "对比，Deep 优先于 DB"},
+    {"case_id": "r018", "question": "公司股票代码是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DIRECT_EVIDENCE", "note": "股票代码单事实"},
+    {"case_id": "r019", "question": "公司主营产品有哪些？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "STANDARD_RAG", "note": "无 wh/synthesis 命中→兜底"},
+    {"case_id": "r020", "question": "公司近五年净利润趋势？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DEEP_RETRIEVAL", "note": "近五年/趋势"},
+    {"case_id": "r021", "question": "公司2025年的发展战略是什么？", "time_scope": "2025-06-30", "report_as_of": "2024-12-31", "gold_route": "EXTERNAL_RESEARCH", "note": "time_scope 晚于本地截止→外部"},
+    {"case_id": "r022", "question": "毛利率是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "指标毛利率"},
+    {"case_id": "r023", "question": "净资产是多少？", "time_scope": null, "report_as_of": "2024-12-31", "gold_route": "DB_LOOKUP", "note": "净资产字段→TOTAL_EQUITY"}
+  ]
+}

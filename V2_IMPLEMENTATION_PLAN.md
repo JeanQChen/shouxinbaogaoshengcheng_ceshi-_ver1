@@ -198,11 +198,26 @@ Cross-Encoder。Phase 2 必须分别报告固定原问题的本地检索公平�
 
 **实现状态：** 代码已全部落地（契约层 / Router / RouteContext / indexer_v2 / sparse /
 fusion / retriever_v2+trace / Track B 评测 41+23 题 / Track A Runner de-Router 固定本地
-决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）；专项与完整 eval 全绿（2336 项）。
-**Phase 2 已关闭**：真实 BGE-M3 Track A 对照评测跑通（37 题冻结分母），Macro
+决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验 + trace 完整性 fail-closed 校验 +
+同机同进程 V1/V2 性能对照）；专项与完整 eval 全绿（2360 项）。
+**Phase 2 已严格关闭**：真实 BGE-M3 Track A 对照评测跑通（37 题冻结分母），Macro
 `RequiredPageCoverage@10` 25.3%→35.3%、MRR 0.186→0.254、PageHit@10 37.8%→64.9%、
 P0 覆盖 24.4%→43.7%、ZERO_RECALL@10 23→13，优于 V1；3 题轻微退步
 （COMP-D1 / IND-R4 / IND-R7，均为募集说明书 dense 排名临界，非代码 bug），已记录。
+
+验收接线（最终关闭前补）：
+- 每条 Retrieval Trace 记录 `run_id/case_id/dataset_sha256/corpus_manifest_sha256/
+  evidence_inventory_fingerprint/code_config_fingerprint`；`embedding_model=BAAI/bge-m3`、
+  `embedding_device` 记录真实设备（Runner 注入模型不再落 null）。
+- 正式 run 结束前 `verify_trace_integrity` fail-closed：37 eligible 题每题恰好 1 条
+  trace、case_id 集合与冻结 eligible 集合一致、status 非空、dataset/corpus SHA256 与
+  冻结值一致、本 run Router audit=0；任一不满足 → run 标记 failed，CLI 非零退出。
+- 性能门（同机同进程、模型 warmup 后、37 题交错）：V1 Dense P95=504.0ms、V2 Hybrid
+  P95=558.4ms，V2 P95 ≤ 2× V1 P95（ratio 1.11）通过；结果单独落盘
+  `evaluation/results/perf_compare_*/`，未用旧 recalc latency 顶替。
+- Track B 正式产物落盘 `evaluation/results/track_b/`：真实 41（accuracy 95.1%、severe 0）、
+  合成 23（accuracy 100%），含两个数据集 hash、confusion matrix、per-route、severe/非
+  severe 明细。
 
 ### 3：工具、外部来源与 Research Harness
 
