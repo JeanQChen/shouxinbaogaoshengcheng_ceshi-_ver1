@@ -350,6 +350,9 @@ def run_retrieval_v2(
     if validation.errors:
         raise ValueError("数据集校验失败: " + "; ".join(validation.errors))
 
+    from evidence import store as estore
+    estore.init_db(ev_db_path)
+
     corpus_state = inspect_evidence_corpus(manifest, company_id)
     sf_by_id = {d.document_id: d.source_file for d in manifest.documents}
 
@@ -391,11 +394,9 @@ def run_retrieval_v2(
         return result
 
     # ── 正式运行 ──
-    from evidence import store as estore
     from financial_v2 import store as fstore
     from retrieval import indexer_v2, retriever_v2
 
-    estore.init_db(ev_db_path)
     fstore.init_db(fin_db_path)
 
     context = _build_context(company_id, report_as_of)

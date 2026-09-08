@@ -31,6 +31,9 @@ data/financial_v2.db-wal
 data/financial_v2.db-shm
 data/cache/
 data/chroma/
+data/chroma_v2/
+data/index_v2/
+data/sparse_v2/
 
 # --- Logs ---
 logs/

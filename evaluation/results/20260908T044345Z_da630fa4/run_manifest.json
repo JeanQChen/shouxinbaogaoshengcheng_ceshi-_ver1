@@ -1,0 +1,157 @@
+{
+  "runner": "run_retrieval_v2",
+  "runner_label": "V2 Hybrid Retrieval",
+  "dataset_path": "evaluation/datasets/v1_baseline.jsonl",
+  "dataset_sha256": "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8",
+  "corpus_manifest_path": "evaluation/datasets/corpus_manifest.json",
+  "corpus_manifest_sha256": "9606de19a0fedfb16a527e9b6e8b378ccc8e1bb189e55f6abbfad24098087d24",
+  "company_id": "300750",
+  "collection": "v2_hybrid",
+  "index_version": "e9b10f7fdb7e870f30e294b484f51bb5",
+  "ks": [
+    1,
+    5,
+    10
+  ],
+  "ev_db_path": "data/evidence.db",
+  "fin_db_path": "data/financial_v2.db",
+  "chroma_dir": "data/chroma_v2",
+  "sparse_dir": "data/sparse_v2",
+  "manifest_dir": "data/index_v2",
+  "report_as_of": "2024-12-31",
+  "corpus_fingerprint": "4cc0310f69136244eba1cac318078402ec5f3dd8d02af70514c24f2197ff53ce",
+  "model_load_ms": 14848.237500002142,
+  "embedding_model": {
+    "model_name": "BAAI/bge-m3",
+    "use_fp16": true,
+    "device": "cpu"
+  },
+  "git": {
+    "commit": "efeb0e38c2ee1a28b73329f0172bd4b20a775934",
+    "dirty": true,
+    "porcelain": "M .claude/settings.json\n M evaluation/run_retrieval_v2.py\n?? data/chroma_v2/\n?? data/index_v2/\n?? data/sparse_v2/"
+  },
+  "dependencies": {
+    "chromadb": "1.5.9",
+    "pypdf": "6.11.0",
+    "pandas": "3.0.3",
+    "openpyxl": "3.1.5",
+    "FlagEmbedding": "unknown",
+    "anthropic": "0.101.0"
+  },
+  "generated_at": "2026-09-08T04:44:16Z",
+  "run_id": "20260908T044345Z_da630fa4",
+  "status": "completed",
+  "completed": true,
+  "manifest_snapshot": {
+    "company_id": "300750",
+    "page_system": "pdf_1based",
+    "documents": [
+      {
+        "document_id": "NDSD_2025_year",
+        "aliases": [
+          "年报",
+          "年度报告",
+          "2025年报",
+          "年报2025",
+          "2025年年度报告"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_2025_year.pdf",
+        "source_type": "annual_report",
+        "sha256": "c15272977147dee7e6935a38ea0e4fd6855370aabb106f54cfe20f7cf6048ec9",
+        "page_count": 232,
+        "page_system": "pdf_1based",
+        "page_offset": 0,
+        "mapping_status": "verified",
+        "verification_cases": [
+          {
+            "case_id": "FIN-TR1",
+            "gold_reference": 11,
+            "verified_pdf_page": 11,
+            "marker": "营收 423,701,834 千元（主要会计数据）",
+            "printed_footer": 11,
+            "note": "打印页脚=物理页（恒等）；前部页验证通过"
+          },
+          {
+            "case_id": "COMP-RP1",
+            "gold_reference": 217,
+            "verified_pdf_page": 217,
+            "marker": "关联采购 13,899,432 千元（向联营企业采购商品）",
+            "printed_footer": 217,
+            "note": "打印页脚=物理页（恒等）；后部页验证通过"
+          }
+        ]
+      },
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "aliases": [
+          "募书",
+          "募集说明书",
+          "绿色科创债",
+          "科创债",
+          "募集说明书(绿色科创债2026)",
+          "募集说明书(2026绿色科创债)",
+          "2026绿色科创债"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_KCZ_2026.pdf",
+        "source_type": "debt_circular",
+        "sha256": "2b3a1fb3de97f23c9e6fc8c0d54adf0633265bb1b452a881d15bd3a0ba286dae",
+        "page_count": 141,
+        "page_system": "pdf_1based",
+        "page_offset": 0,
+        "mapping_status": "verified",
+        "verification_cases": [
+          {
+            "case_id": "COMP-S1",
+            "gold_reference": 36,
+            "verified_pdf_page": 36,
+            "marker": "设立（工商注册）日期 2011年12月16日（第五章 发行人基本情况）",
+            "printed_footer": 35,
+            "note": "打印页脚=物理页-1；gold 引用为物理页 36，无需偏移"
+          },
+          {
+            "case_id": "IND-R4",
+            "gold_reference": 57,
+            "verified_pdf_page": 57,
+            "marker": "GB/T4754-2017 → C3841 锂离子电池制造（十一、所在行业状况）",
+            "printed_footer": 56,
+            "note": "打印页脚=物理页-1；gold 引用为物理页 57，无需偏移"
+          },
+          {
+            "case_id": "FIN-SLV1",
+            "gold_reference": 93,
+            "verified_pdf_page": 93,
+            "marker": "表6-45 流动比率/速动比率/EBITDA利息保障倍数（偿债能力分析）",
+            "printed_footer": 92,
+            "note": "打印页脚=物理页-1；gold 引用为物理页 93，无需偏移"
+          }
+        ]
+      },
+      {
+        "document_id": "NDSD_2024_year",
+        "aliases": [
+          "2024年报",
+          "年报2024",
+          "2024年年度报告"
+        ],
+        "file_path": "data/samples/300750/announcements/NDSD_2024_year.pdf",
+        "source_type": "annual_report",
+        "sha256": "b4f1713d7b821eb076c102711d177fe942ccc2bc8dd171ae5d7a95799a65b0ad",
+        "page_count": 229,
+        "page_system": "pdf_1based",
+        "page_offset": 0,
+        "mapping_status": "verified",
+        "verification_cases": [
+          {
+            "case_id": null,
+            "gold_reference": null,
+            "verified_pdf_page": 10,
+            "marker": "打印页脚抽样（无 gold 引用）",
+            "printed_footer": 10,
+            "note": "41 问无引用；打印页脚=物理页（恒等），抽验物理页 10/200 通过"
+          }
+        ]
+      }
+    ]
+  }
+}
