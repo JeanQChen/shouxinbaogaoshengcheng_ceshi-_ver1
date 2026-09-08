@@ -61,6 +61,8 @@
 | snapshot_total / html_snapshot / pdf_snapshot | 4 / 4 / 0 |
 | blocked / failure | 1 / 0 |
 
+> 上表为 6 类查询闭环计数。**PDF 快照**（关闭条件 #6）另经独立定向查询补齐：真实电子 PDF 抓取 + 不可变快照 `ext-97ed9bbdfbbf46019fb9`（见 §3.3）。
+
 ### 3.2 逐查询记录
 
 | 类别 | 查询 | 搜索 | n | 提供方请求 ID | 首位结果（标题 / 发布时间 / 级别） | 抓取 | 正文长度 | content_hash | 快照 ID / 版本 |
@@ -77,7 +79,7 @@
 - **fetch SUCCESS × 4** → 固化不可变快照（`data/external_sources.db`，gitignore），`content_version=1`，正文按 `content_hash` 去重。
 - **fetch EMPTY × 1**（`financial_results`，news.qq.com）→ `EXTERNAL_CONTENT_EMPTY`：页面为 JS 渲染，trafilatura 抽不到正文，诚实返回空而非伪造。
 - **fetch FATAL_ERROR × 1**（`risk_compliance`，stockstar.com）→ `EXTERNAL_FETCH_BLOCKED`：HTTP 567 访问受限，不绕过。
-- **PDF 快照 0**：本次 6 类查询的首位结果均非 PDF URL；PDF 文本层抓取路径（`application/pdf` + 无 OCR + 字节 SHA256 + `file_hash`/`page_count`）已由 `test_external_v2` 单测覆盖，并对真实样本 PDF（229 页年报）完成离线抽取验证。
+- **PDF 快照（补证，关闭条件 #6）**：6 类查询首位结果均非 PDF URL，故以独立定向查询补齐真实 PDF 闭环——经 Registry 真实抓取电子 PDF「宁德时代 2024 年年度报告摘要」（`application/pdf`、7 页、文本层、字节 SHA256 `5084992…f7c2f23`、正文哈希 `496201f…09f`）并固化不可变快照 `ext-97ed9bbdfbbf46019fb9` v1。PDF 文本层抓取路径（无 OCR + `file_hash`/`page_count`）另由 `test_external_v2` 单测覆盖，并对 229 页年报离线验证。
 
 ### 3.4 安全与合规
 
@@ -124,7 +126,26 @@ python -m scripts.run_batch_a_acceptance --excel <bs> --excel <income> --excel <
 
 ## 6. 遗留与后移
 
-1. **PDF 实时快照**：6 类查询首位结果均非 PDF；PDF 抓取路径已单测 + 离线真实样本验证，待真实 PDF URL 冒烟（非阻塞）。
+1. **PDF 实时快照**：已通过独立定向查询完成真实 PDF 抓取 + 不可变快照（`ext-97ed9bbdfbbf46019fb9`，关闭条件 #6 已满足）。6 类查询首位结果均非 PDF，属查询面覆盖问题，非抓取能力缺口。
 2. **正文抽取质量**：`trafilatura favor_precision=True` 对 JS 渲染页（news.qq.com）抽空；抽取调优属后续优化，不在 Batch A 范围。
 3. **BGE-M3 冷启动**：本地 Evidence 首召 dense 通道超时 → `PARTIAL`；工具超时已放宽 30s，模型预热后恢复双通道。
 4. Batch B（Research Loop / 41 问实际路径评测 / 章节预览）不在本阶段，交付后不自动进入。
+
+---
+
+## 7. 关闭条件逐项核验（任务书 §十二）
+
+| # | 关闭条件 | 结论 | 证据 |
+|---|---|---|:---|
+| 1 | 博查是唯一启用的搜索 Provider | ✅ | `EXTERNAL_SEARCH_PROVIDER=bocha`；`TavilyProvider` 已从运行时 Registry 移除，请求 `tavily` 显式「Provider 未启用」 |
+| 2 | 完全不需要 `TAVILY_API_KEY` | ✅ | config 仅读 `BOCHA_API_KEY`；无 Tavily 读取/要求/检查/fallback；无 Key 可正常启动测试 |
+| 3 | 三个 external 工具通过 Registry 真实调用 | ✅ | `search_external_sources` / `fetch_external_content` / `snapshot_external_source` 仅经 `ToolRegistry.execute` |
+| 4 | 至少一次真实博查搜索成功 | ✅ | 6/6 SUCCESS，provider 恒 `bocha`，含 `log_id` |
+| 5 | 至少一个 HTML 来源取得正文并完成不可变快照 | ✅ | 4 个 HTML 快照（`ext-42fa…`/`ext-e9dc…`/`ext-2d54…`/`ext-bbf7…`） |
+| 6 | 至少一个 PDF 来源取得正文并完成不可变快照 | ✅ | `ext-97ed9bbdfbbf46019fb9`（`application/pdf`、7 页、字节 SHA256、文本层） |
+| 7 | Audit 完整且不泄露 Key | ✅ | 每调用落盘 `logs/tools/<run_id>/<call_id>.jsonl`；Authorization 头脱敏；真实 Key 不入日志/文档/commit |
+| 8 | 财务工具基于真实 300750 Snapshot 完成验收 | ✅ | 临时库 `snap-490c67ac…`（112 指标）+ 经 Registry 真实调用，用后清理 |
+| 9 | 专项测试和完整 eval 全绿 | ⚠️ | 专项全绿（`test_tool_adapters` 22 + `test_external_adapters` 12 + `test_external_v2` 81 + `test_external_v2_store` 9 = **124 断言 0 失败**）；完整 eval **2476 passed / 1 failed**，1 失败为**既有、越界**的 `test_financial_v2_a7_integration`（Windows GBK 编码，见下） |
+| 10 | 文档完成同步 | ✅ | 本文件 + `PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md` + `.env.example` |
+
+**关于 #9 的说明**：完整 eval 唯一失败项 `evals.test_financial_v2_a7_integration` 为 `financial_v2.progress` CLI 在中文 Windows 上 `print(ensure_ascii=False)` 输出 GBK、测试硬编码 `encoding="utf-8"` 导致的 `UnicodeDecodeError`。该文件与 `financial_v2/progress.py` 均**未在本 Phase 3 任何 commit 触及**（`git log 73fa805~1..06c81d9 -- <files>` 为空），最后一次修改为 `03912df`（早于 Batch A）；属既有、环境相关（中文 Windows 代码页）、且落在 Batch A 范围外（financial_v2 冻结域）。故不视为 Batch A 引入的 regression，也未改动冻结模块。
