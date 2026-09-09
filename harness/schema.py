@@ -76,6 +76,7 @@ STOP_REASONS = (
     "ACTION_SCHEMA_INVALID",         # 动作输出非法（超 1 次修复）→ FAILED
     "MODEL_OUTPUT_INVALID",          # 答案输出非法 → FAILED
     "FATAL_TOOL_ERROR",              # 工具致命错误
+    "MODEL_DID_NOT_CONVERGE",        # 预算耗尽后模型仍提工具动作，最终收敛失败
     "WAITING_USER",                  # REQUEST_HUMAN
     "VERSION_INCOMPATIBLE",          # 输入版本不兼容
     "SESSION_POISONED",              # 会话被污染

@@ -63,20 +63,24 @@ def _spec(name, required, props, routes):
         max_results=10, timeout_ms=1000, retry_policy="none", cost_class="local")
 
 
-def _fake_registry() -> R.ToolRegistry:
+def _fake_registry(empty: bool = False) -> R.ToolRegistry:
+    """empty=True：search/inspect 返回空结果（无 evidence），用于预算耗尽无材料路径。"""
     audit = Path(tempfile.mkdtemp())
     reg = R.ToolRegistry(audit_dir=audit)
+    ev_ids = [] if empty else ["e1"]
+    ev_items = [] if empty else [
+        {"evidence_id": "e1", "source_name": "s", "page_number": 3,
+         "evidence_type": "paragraph", "snippet": "实际控制人为曾毓群",
+         "score": 0.9, "rank": 1}]
     reg.register(_spec("search_evidence", ["company_id", "query"],
                        {"company_id": {"type": "string"}, "query": {"type": "string"},
                         "k": {"type": "integer"}},
                        ("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL")),
                  lambda a: TC.ToolResult(
                      call_id="", tool_name="search_evidence", tool_version="v1",
-                     status="SUCCESS", data={"evidence_count": 1, "items": [
-                         {"evidence_id": "e1", "source_name": "s", "page_number": 3,
-                          "evidence_type": "paragraph", "snippet": "实际控制人为曾毓群",
-                          "score": 0.9, "rank": 1}]},
-                     evidence_ids=["e1"], error_code=None, message=None,
+                     status="EMPTY" if empty else "SUCCESS",
+                     data={"evidence_count": len(ev_items), "items": ev_items},
+                     evidence_ids=ev_ids, error_code=None, message=None,
                      retryable=False, trace_id="t"))
     reg.register(_spec("inspect_evidence", ["evidence_id"],
                        {"evidence_id": {"type": "string"}},
@@ -90,7 +94,7 @@ def _fake_registry() -> R.ToolRegistry:
                            "evidence_type": "paragraph",
                            "report_period": "2024-12-31",
                            "text": "实际控制人为曾毓群", "structured_payload": None},
-                     evidence_ids=["e1"], error_code=None, message=None,
+                     evidence_ids=ev_ids, error_code=None, message=None,
                      retryable=False, trace_id="t"))
     reg.register(_spec("fetch_external_content", ["url"],
                        {"url": {"type": "string"}}, ("EXTERNAL_RESEARCH",)),
@@ -206,6 +210,16 @@ _ANSWER_GHOST = ('{"answer_text": "x", "claims": [{"claim_id": "c1", "text": "x"
                  '"kind": "fact", "citation_refs": [0]}], '
                  '"citations": [{"ref_type": "evidence", "evidence_id": "ghost"}], '
                  '"unresolved_items": [], "confidence": "high"}')
+
+# 有外部快照引用、但未自报 aspects（故意留缺口）→ 用于验证预算耗尽后仍给一次收敛机会，
+# 且最终带缺口答案是 COMPLETED_WITH_GAPS（而非 answer=null）。
+_ANSWER_EXTERNAL_NO_ASPECT = ('{"answer_text": "近期无重大处罚", '
+                              '"claims": [{"claim_id": "c1", "text": "近期无重大处罚", '
+                              '"kind": "fact", "citation_refs": [0]}], '
+                              '"citations": [{"ref_type": "external", '
+                              '"source_snapshot_id": "snap1"}], '
+                              '"aspects": [], "unresolved_items": [], '
+                              '"confidence": "high"}')
 
 # 未自报 aspects 的答案 → 触发 G2 未覆盖方面缺口（用于补检到预算耗尽测试）。
 _ANSWER_NO_ASPECT = ('{"answer_text": "实控人为曾毓群", '
@@ -359,8 +373,8 @@ def main() -> dict:
         '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}',
         '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}'])
     o = RT.run_question(need=_need(), route_result=_router_result("DIRECT_EVIDENCE"),
-                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
-                        company_id="300750", section_id="company",
+                        registry=_fake_registry(empty=True), llm=llm, run_id="r",
+                        case_id="c", company_id="300750", section_id="company",
                         budget=small, trace_enabled=False)
     check(o.state.status == "BLOCKED" and o.stop_reason == "BUDGET_ITERATIONS",
           "预算耗尽（回合）→ BLOCKED BUDGET_ITERATIONS")
@@ -376,14 +390,158 @@ def main() -> dict:
           and o.state.usage.rounds == 3,
           "默认预算内 search→inspect→ANSWER 三回合收敛 COMPLETED（rounds=3 ≤ max_rounds=5）")
 
-    # ---- 本地搜索分项预算超限 ----
+    # ---- 本地搜索分项预算（执行前拒绝，不超 max_local_searches=2）----
     llm = MockLLM([
         '{"action": "SEARCH_LOCAL", "arguments": {"query": "a"}}',
         '{"action": "SEARCH_LOCAL", "arguments": {"query": "b"}}',
-        '{"action": "SEARCH_LOCAL", "arguments": {"query": "c"}}'])
+        '{"action": "SEARCH_LOCAL", "arguments": {"query": "c"}}',
+        '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE])
     o = _run("DIRECT_EVIDENCE", llm)
-    check(o.state.status == "BLOCKED" and o.stop_reason == "BUDGET_TOOL_CALLS",
-          "本地搜索分项超限 → BLOCKED BUDGET_TOOL_CALLS")
+    check(o.state.usage.local_searches == 2
+          and o.state.usage.local_searches <= P.DEFAULT_BUDGET.max_local_searches,
+          f"本地搜索分项不超上限：local_searches={o.state.usage.local_searches} == 2（第 3 次被执行前拒绝）")
+    check(len([r for r in o.state.rejected_duplicate_actions
+               if r.get("source") == "budget_exhausted"]) == 1
+          and o.state.rejected_duplicate_actions[0].get("reason") == "BUDGET_TOOL_CALLS",
+          "第 3 次 SEARCH_LOCAL 被执行前拒绝（budget_exhausted / BUDGET_TOOL_CALLS）")
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "本地搜索分项拒绝后仍以 ANSWER 收敛 COMPLETED")
+
+    # ---- 外部搜索分项预算（执行前拒绝，不超 max_external_searches=2）----
+    bext = P.ResearchBudget(
+        max_rounds=12, max_tool_calls=12, max_local_searches=2,
+        max_external_searches=2, max_fetches=5, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=8,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
+    llm = MockLLM([
+        '{"action": "SEARCH_EXTERNAL", "arguments": {"query": "q1"}}',
+        '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+        '{"action": "SEARCH_EXTERNAL", "arguments": {"query": "q2"}}',
+        '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://b.com/y"}}',
+        '{"action": "SEARCH_EXTERNAL", "arguments": {"query": "q3"}}',
+        '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=bext,
+                        trace_enabled=False)
+    check(o.state.usage.external_searches == 2
+          and o.state.usage.external_searches <= bext.max_external_searches,
+          f"外部搜索分项不超上限：external_searches={o.state.usage.external_searches} == 2（第 3 次被执行前拒绝）")
+    check(len([r for r in o.state.rejected_duplicate_actions
+               if r.get("source") == "budget_exhausted"]) == 1
+          and o.state.rejected_duplicate_actions[0].get("reason") == "BUDGET_EXTERNAL",
+          "第 3 次 SEARCH_EXTERNAL 被执行前拒绝（budget_exhausted / BUDGET_EXTERNAL）")
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "外部搜索分项拒绝后仍以 ANSWER 收敛 COMPLETED")
+
+    # ---- fetch 分项预算（执行前拒绝，不超 max_fetches=2；含自动 snapshot 预留）----
+    bfetch = P.ResearchBudget(
+        max_rounds=12, max_tool_calls=12, max_local_searches=2,
+        max_external_searches=5, max_fetches=2, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=8,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
+    llm = MockLLM([
+        '{"action": "SEARCH_EXTERNAL", "arguments": {"query": "q1"}}',
+        '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+        '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://b.com/y"}}',
+        '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://c.com/z"}}',
+        '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=bfetch,
+                        trace_enabled=False)
+    check(o.state.usage.fetches == 2 and o.state.usage.fetches <= bfetch.max_fetches,
+          f"fetch 分项不超上限：fetches={o.state.usage.fetches} == 2（第 3 次被执行前拒绝）")
+    check(len([r for r in o.state.rejected_duplicate_actions
+               if r.get("source") == "budget_exhausted"]) == 1
+          and o.state.rejected_duplicate_actions[0].get("reason") == "BUDGET_EXTERNAL",
+          "第 3 次 FETCH_EXTERNAL 被执行前拒绝（budget_exhausted / BUDGET_EXTERNAL）")
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "fetch 分项拒绝后仍以 ANSWER 收敛 COMPLETED")
+
+    # ---- 工具预算硬上限 + fetch→自动 snapshot 预留与计数 ----
+    # max_tool_calls=4：search(1) + fetch(2) + snapshot(3) = 3；后续 fetch 每次需 +2，
+    # 3+2>4 → 被 can_afford 拒绝（budget_exhausted），绝不超过上限。最终 ANSWER 收敛。
+    b4 = P.ResearchBudget(
+        max_rounds=8, max_tool_calls=4, max_local_searches=2,
+        max_external_searches=2, max_fetches=5, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=5,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "处罚"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://b.com/y"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://c.com/z"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=b4,
+                        trace_enabled=False)
+    check(o.state.usage.tool_calls <= b4.max_tool_calls,
+          f"工具预算硬上限：tool_calls={o.state.usage.tool_calls} ≤ {b4.max_tool_calls}")
+    check(o.state.usage.tool_calls == 3,
+          f"search+fetch+snapshot=3 次（两次额外 fetch 被预留拒绝），实际 {o.state.usage.tool_calls}")
+    check(o.completion_status == "COMPLETED" and o.answer is not None,
+          "预留拦截后仍以带引用答案收敛 COMPLETED")
+    check(len([r for r in o.state.rejected_duplicate_actions
+               if r.get("source") == "budget_exhausted"]) == 2,
+          "两次超预算 fetch 记为 budget_exhausted 拒绝")
+
+    # ---- 预算耗尽后仍允许一次最终 ANSWER（带引用答案，非 answer=null） ----
+    # max_tool_calls=3：search(1)+fetch(2)+snapshot(3) 刚好耗尽；下一轮 check_budget 触发
+    # force_converge，ANSWER 是终态动作仍正常执行 → COMPLETED。
+    b3 = P.ResearchBudget(
+        max_rounds=8, max_tool_calls=3, max_local_searches=2,
+        max_external_searches=2, max_fetches=5, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=5,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "处罚"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=b3,
+                        trace_enabled=False)
+    check(o.state.usage.tool_calls == b3.max_tool_calls,
+          f"实际 tool_calls={o.state.usage.tool_calls} == 上限 {b3.max_tool_calls}")
+    check(o.answer is not None and o.state.status == "COMPLETED",
+          "预算耗尽后仍给最终 ANSWER 机会，产出带引用答案（非 answer=null）")
+
+    # ---- 已有外部快照 → 带缺口答案 COMPLETED_WITH_GAPS（非 answer=null） ----
+    # 同上耗尽，但 ANSWER 未自报 aspects（留缺口）→ 最终是 COMPLETED_WITH_GAPS。
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "处罚"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL_NO_ASPECT])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=b3,
+                        trace_enabled=False)
+    check(o.answer is not None and o.completion_status == "COMPLETED_WITH_GAPS",
+          "已有外部快照 → 最终为 COMPLETED_WITH_GAPS（可引用，非 answer=null）")
+
+    # ---- force_converge 后模型仍提工具 → MODEL_DID_NOT_CONVERGE（确定性停止，非拼造答案） ----
+    # 耗尽后（有材料）给一次最终收敛，但模型仍提出 FETCH（工具动作）→ 禁止执行、BLOCKED。
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "处罚"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}'])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=b3,
+                        trace_enabled=False)
+    check(o.answer is None and o.stop_reason == "MODEL_DID_NOT_CONVERGE"
+          and o.state.status == "BLOCKED",
+          "耗尽后模型仍提工具 → MODEL_DID_NOT_CONVERGE / BLOCKED（answer=null 且非拼造）")
+    check(o.state.usage.tool_calls == b3.max_tool_calls,
+          f"确定性停止时 tool_calls={o.state.usage.tool_calls} == 上限（未超）")
 
     # ---- 路由未 DECIDED ----
     bad = RS.RouterResult(status="FALLBACK_UNAVAILABLE", decision=None,

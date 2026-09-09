@@ -265,6 +265,14 @@ def _auto_snapshot(state: H.ResearchState, fetch_action: H.ActionCall,
     content_text = data.get("content_text")
     if not content_text:
         return
+    # 工具预算硬上限兜底：fetch 前已按 +2 预留，这里再拦一次，避免越过 max_tool_calls
+    # 形成「fetch 成功却无法持久化引用」的半链路（正常情况下不会走到）。
+    if state.usage.tool_calls >= budget.max_tool_calls:
+        T.emit(state.run_id, state.question_id, "SNAPSHOT_SKIPPED_BUDGET",
+               {"reason": "BUDGET_TOOL_CALLS",
+                "tool_calls": state.usage.tool_calls,
+                "max_tool_calls": budget.max_tool_calls})
+        return
     snap_args = {
         "company_id": state.company_id,
         "canonical_url": data.get("canonical_url") or fetch_action.arguments.get("url", ""),
@@ -352,7 +360,8 @@ def _budget_left(state: H.ResearchState, budget: P.ResearchBudget) -> str:
 
 
 def _action_prompt_vars(state: H.ResearchState, route: str, reason: str,
-                        budget: P.ResearchBudget) -> dict:
+                        budget: P.ResearchBudget, *,
+                        force_converge: bool = False) -> dict:
     return {
         "company_id": state.company_id,
         "section_id": state.section_id or "",
@@ -371,7 +380,7 @@ def _action_prompt_vars(state: H.ResearchState, route: str, reason: str,
         "rejected_duplicates": _rejected_duplicates_text(state),
         "already_inspected": _already_inspected_text(state),
         "must_converge": "是（本回合是最后一个可用回合，必须选 ANSWER/STOP_WITH_GAP/REQUEST_HUMAN）"
-                         if _must_converge(state, budget) else "否",
+                         if (force_converge or _must_converge(state, budget)) else "否",
     }
 
 
@@ -722,21 +731,32 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
 
     answer: H.ResearchAnswer | None = None
     stop_reason: str | None = None
+    # 工具预算耗尽后有可引用材料 → 至多一次最终收敛机会（只允许终态动作）。
+    force_converge = False
 
     while True:
         state.usage.elapsed_ms = int((time.perf_counter() - t0) * 1000)
         over = P.check_budget(state, budget)
         if over is not None:
-            stop_reason = over
-            break
-        if state.usage.rounds >= budget.max_rounds:
-            stop_reason = "BUDGET_ITERATIONS"
-            break
+            # 工具预算耗尽：只禁止新工具动作，不立即终止；有可引用材料则给一次最终收敛机会。
+            if (over in P.FORCE_CONVERGE_REASONS and S.has_citable_material(state)
+                    and not force_converge):
+                force_converge = True
+            else:
+                stop_reason = over
+                break
+        elif state.usage.rounds >= budget.max_rounds:
+            if S.has_citable_material(state) and not force_converge:
+                force_converge = True
+            else:
+                stop_reason = "BUDGET_ITERATIONS"
+                break
 
         state.usage.rounds += 1
 
         # 1. 动作选择（一次修复）
-        raw = llm.select_action(_action_prompt_vars(state, route, reason, budget))
+        raw = llm.select_action(_action_prompt_vars(
+            state, route, reason, budget, force_converge=force_converge))
         _add_llm_usage(state, raw, LLM_CATEGORY_ACTION)
         action: H.ActionCall | None
         try:
@@ -865,12 +885,32 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
             break
 
         # 3. 执行工具动作
-        S.set_status(state, "RESEARCHING")
         tool_name = A.ACTION_TOOL[action.action]
         if tool_name is None:
             stop_reason = "ACTION_SCHEMA_INVALID"
             S.set_status(state, "FAILED", stop_reason)
             break
+
+        # 3a. force_converge：工具预算耗尽后仍提出工具动作 → 禁止执行、确定性停止
+        # （一次最终收敛机会已用尽，不再循环，也不由程序拼造 ResearchAnswer）。
+        if force_converge:
+            state.usage.consecutive_no_new_evidence += 1
+            state.rejected_duplicate_actions.append({
+                "round": state.usage.rounds, "action": action.action,
+                "tool": tool_name, "source": "budget_exhausted",
+                "reason": "MODEL_DID_NOT_CONVERGE"})
+            if trace_enabled:
+                T.emit(run_id, need.need_id, "TOOL_BLOCKED_BUDGET",
+                       {"round": state.usage.rounds, "action": action.action,
+                        "reason": "MODEL_DID_NOT_CONVERGE"})
+            stop_reason = "MODEL_DID_NOT_CONVERGE"
+            if answer is not None:
+                S.set_status(state, "COMPLETED_WITH_GAPS", "MODEL_DID_NOT_CONVERGE")
+            else:
+                S.set_status(state, "BLOCKED", "MODEL_DID_NOT_CONVERGE")
+            break
+
+        S.set_status(state, "RESEARCHING")
         args = _inject_args(action.action, action.arguments, state, route_result)
         call = _make_call(tool_name, args, state)
         key = call.idempotency_key
@@ -899,6 +939,21 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                     T.emit(run_id, need.need_id, "EXTERNAL_SEARCH_BLOCKED",
                            {"round": state.usage.rounds, "reason": blocked})
                 continue
+        # 3b. 工具/分项预算硬上限（执行前拒绝）：fetch 须按 +2 预留（含 Rules 自动 snapshot），
+        # 避免「fetch 成功却无法持久化引用」半链路；本地/外部搜索、fetch 各自不超过分项上限，
+        # 绝不先达 max+1 再由下一轮 check_budget 发现。
+        budget_block = P.can_afford_tool_call(state, budget, tool_name=tool_name)
+        if budget_block is not None:
+            state.usage.consecutive_no_new_evidence += 1
+            state.rejected_duplicate_actions.append({
+                "round": state.usage.rounds, "action": action.action,
+                "tool": tool_name, "key": key, "source": "budget_exhausted",
+                "reason": budget_block})
+            if trace_enabled:
+                T.emit(run_id, need.need_id, "TOOL_BLOCKED_BUDGET",
+                       {"round": state.usage.rounds, "action": action.action,
+                        "reason": budget_block})
+            continue
         result = registry.execute(call, route=route, run_id=state.run_id,
                                   max_retries=budget.max_retries_per_call)
         state.executed_action_keys.append(key)

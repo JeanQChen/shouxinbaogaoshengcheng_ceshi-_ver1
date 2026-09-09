@@ -229,7 +229,7 @@ def check_budget(state: H.ResearchState, budget: ResearchBudget) -> str | None:
     u = state.usage
     if u.rounds > budget.max_rounds:
         return "BUDGET_ITERATIONS"
-    if u.tool_calls > budget.max_tool_calls:
+    if u.tool_calls >= budget.max_tool_calls:
         return "BUDGET_TOOL_CALLS"
     if u.local_searches > budget.max_local_searches:
         return "BUDGET_TOOL_CALLS"
@@ -241,6 +241,37 @@ def check_budget(state: H.ResearchState, budget: ResearchBudget) -> str | None:
         return "BUDGET_ELAPSED"
     if u.consecutive_no_new_evidence > budget.max_consecutive_no_new_evidence:
         return "CONSECUTIVE_NO_NEW_EVIDENCE"
+    return None
+
+
+# 强制收敛停止原因：工具/回合预算耗尽后，若已有可引用材料，仍给（且只给）一次最终收敛
+# 机会（ANSWER/STOP_WITH_GAP/REQUEST_HUMAN），不立即终止研究循环。tokens/elapsed/
+# consecutive 属资源/停滞类，不在此列（耗尽即停，不强制收敛）。
+FORCE_CONVERGE_REASONS = ("BUDGET_TOOL_CALLS", "BUDGET_ITERATIONS", "BUDGET_EXTERNAL")
+
+
+def can_afford_tool_call(state: H.ResearchState, budget: ResearchBudget, *,
+                         tool_name: str) -> str | None:
+    """工具执行前的硬上限检查（action/tool-aware，执行前拒绝，不做超预算再停）。
+
+    - max_tool_calls 硬上限：fetch 成功后 Rules 会自动 SNAPSHOT_EXTERNAL（+1 次工具调用），
+      故 fetch 前按 +2 预留，避免「fetch 成功却无法持久化引用」的半链路。
+    - 分项预算硬上限（执行前拒绝，绝不先达 max+1 再由下一轮 check_budget 发现）：
+      search_evidence → max_local_searches；search_external_sources → max_external_searches；
+      fetch_external_content → max_fetches。
+
+    返回 None 表示可执行；否则返回对应 stop_reason（供调用方记 budget_exhausted）。
+    """
+    u = state.usage
+    need = 2 if tool_name == "fetch_external_content" else 1
+    if (u.tool_calls + need) > budget.max_tool_calls:
+        return "BUDGET_TOOL_CALLS"
+    if tool_name == "search_evidence" and u.local_searches >= budget.max_local_searches:
+        return "BUDGET_TOOL_CALLS"
+    if tool_name == "search_external_sources" and u.external_searches >= budget.max_external_searches:
+        return "BUDGET_EXTERNAL"
+    if tool_name == "fetch_external_content" and u.fetches >= budget.max_fetches:
+        return "BUDGET_EXTERNAL"
     return None
 
 
