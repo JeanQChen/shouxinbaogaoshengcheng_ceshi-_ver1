@@ -254,6 +254,10 @@ class BaselineContractMapping:
     question_ids: list[str]
     coverage_role: str   # full | partial | supporting | out_of_scope
     note: str
+    # 字段级覆盖范围（契约 question_ids 的 required_aspects 子集）。非空时只派生这些
+    # 声明的方面，不再展开 question_ids 的全部 required_aspects。full 语义即「完整覆盖
+    # 本字段声明的方面」，而非「完整覆盖契约问题的全部方面」。
+    covered_aspects: list[str] = dc_field(default_factory=list)
 
 
 @dataclass

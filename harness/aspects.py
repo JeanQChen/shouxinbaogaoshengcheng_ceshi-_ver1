@@ -126,18 +126,26 @@ def derive_required_aspects(
                     return _make_aspects(_aspects_from_question(q), SOURCE_CONTRACT)
 
     # 2. DATASET_MAPPING：case_id 命中映射 → 契约 question_ids 的 required_aspects。
+    #    字段级范围优先：covered_aspects 非空 → 只派生声明的字段（full 的语义是「完整
+    #    覆盖声明字段」，不是「完整覆盖契约问题全部方面」）。covered_aspects 为空时，
+    #    仅当 coverage_role=full（契约问题粒度完全匹配）才展开全部方面；partial/supporting
+    #    且无字段级声明 → 歧义，fail-closed 走 TEXT_FALLBACK，不展开、不猜。
     if case_id:
         if mappings is None:
             mappings = load_mapping(DEFAULT_MAPPING_PATH)
         for m in mappings:
             if m.case_id == case_id:
-                texts: list[str] = []
-                for qid in m.question_ids:
-                    q = idx.get(qid)
-                    if q is not None:
-                        texts.extend(_aspects_from_question(q))
-                if texts:
-                    return _make_aspects(texts, SOURCE_MAPPING)
+                if m.covered_aspects:
+                    return _make_aspects(list(m.covered_aspects), SOURCE_MAPPING)
+                if m.coverage_role == "full":
+                    texts: list[str] = []
+                    for qid in m.question_ids:
+                        q = idx.get(qid)
+                        if q is not None:
+                            texts.extend(_aspects_from_question(q))
+                    if texts:
+                        return _make_aspects(texts, SOURCE_MAPPING)
+                # partial / supporting / out_of_scope 且无字段级声明 → 不展开，走 TEXT_FALLBACK。
                 break
 
     # 3. TEXT_FALLBACK。

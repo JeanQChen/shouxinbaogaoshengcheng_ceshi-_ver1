@@ -163,6 +163,7 @@ def load_mapping(path: str) -> list[S.BaselineContractMapping]:
                 question_ids=list(obj.get("question_ids", [])),
                 coverage_role=obj.get("coverage_role", "partial"),
                 note=obj.get("note", ""),
+                covered_aspects=list(obj.get("covered_aspects", [])),
             )
         )
     return mappings

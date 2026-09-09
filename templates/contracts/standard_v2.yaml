@@ -148,6 +148,8 @@ sections:
             required_aspects:
               - 主营业务构成
               - 各业务收入及收入占比
+              - 各业务成本与毛利构成
+              - 产业链位置
               - 对应报告期与口径
             priority: P0
             blocking_policy: [SECTION_BLOCKED]
@@ -311,6 +313,8 @@ sections:
           - question_id: company_debt_guarantee
             question: 发债、金融机构借款和对外担保（结构化表格呈现）；材料明显缺失无法核实时不生成对应偿债结论
             required_aspects:
+              - 发债情况
+              - 金融机构借款
               - 公司整体对外担保余额
               - 担保范围口径与报告期
             priority: P0

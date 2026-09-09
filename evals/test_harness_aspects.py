@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness import aspects as A
+from contracts import schema as S
 
 
 def _texts(aspects: list[A.Aspect]) -> list[str]:
@@ -53,17 +54,47 @@ def main() -> dict:
                           "担保范围口径与报告期"],
           "COMP-CR1：授信额度/对外担保/口径 三方面（不把「授信与担保」误拆）")
 
+    # ---- DATASET_MAPPING：字段级范围（covered_aspects 非空只派生声明字段）----
+    s1 = A.derive_required_aspects("占位", case_id="COMP-S1")
+    check([a.source for a in s1] == ["DATASET_MAPPING"]
+          and _texts(s1) == ["成立日期"],
+          "COMP-S1：字段级 covered_aspects 只派生「成立日期」，不展开 6 方面")
+
+    gm1 = A.derive_required_aspects("占位", case_id="FIN-GM1")
+    check(_texts(gm1) == ["毛利率"],
+          "FIN-GM1：partial + covered_aspects 只派生「毛利率」")
+
+    # ---- DATASET_MAPPING：partial 且无 covered_aspects → fail-closed 走 TEXT_FALLBACK ----
+    synth_partial = [S.BaselineContractMapping(
+        case_id="X-P1", question_ids=["company_identity_basic"],
+        coverage_role="partial", note="")]
+    xp = A.derive_required_aspects(
+        "成立时间", case_id="X-P1", mappings=synth_partial)
+    check([a.source for a in xp] == ["TEXT_FALLBACK"] and len(xp) == 1,
+          "partial 无 covered_aspects → 不展开，fail-closed 走 TEXT_FALLBACK")
+
+    # ---- DATASET_MAPPING：full 且无 covered_aspects → 展开全部（契约粒度完全匹配）----
+    synth_full = [S.BaselineContractMapping(
+        case_id="X-F1", question_ids=["company_identity_basic"],
+        coverage_role="full", note="")]
+    xf = A.derive_required_aspects(
+        "占位", case_id="X-F1", mappings=synth_full)
+    check(_texts(xf) == ["成立日期", "办公地址", "法定代表人", "注册资本", "实缴资本", "经营范围"],
+          "full 无 covered_aspects → 展开契约全部 6 方面")
+
     # ---- SECTION_CONTRACT：question_id 直接命中 ----
     sc = A.derive_required_aspects("占位", question_id="company_business_main")
-    check([a.source for a in sc] == ["SECTION_CONTRACT"] * 3
-          and _texts(sc) == ["主营业务构成", "各业务收入及收入占比", "对应报告期与口径"],
-          "SECTION_CONTRACT：question_id 命中契约 required_aspects")
+    check([a.source for a in sc] == ["SECTION_CONTRACT"] * 5
+          and _texts(sc) == ["主营业务构成", "各业务收入及收入占比",
+                             "各业务成本与毛利构成", "产业链位置", "对应报告期与口径"],
+          "SECTION_CONTRACT：question_id 命中契约 required_aspects（5 方面，含成本/毛利与产业链位置）")
 
     # ---- 优先级：question_id 命中优先于 DATASET_MAPPING ----
     both = A.derive_required_aspects("占位", question_id="company_business_main",
                                      case_id="COMP-CR1")
     check(both[0].source == "SECTION_CONTRACT"
-          and _texts(both) == ["主营业务构成", "各业务收入及收入占比", "对应报告期与口径"],
+          and _texts(both) == ["主营业务构成", "各业务收入及收入占比",
+                               "各业务成本与毛利构成", "产业链位置", "对应报告期与口径"],
           "优先级：question_id 命中优先于 case_id 映射")
 
     # ---- TEXT_FALLBACK：多句按句末标点切 ----
