@@ -220,6 +220,25 @@ def main() -> dict:
     check(o.state.evidence_ids == ["e1"] and len(o.state.tool_history) == 1,
           "状态累计 evidence_id + 工具历史 1 条")
 
+    # ---- 重复动作去重 ----
+    llm = MockLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE])
+    o = _run("DIRECT_EVIDENCE", llm)
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "重复动作去重后仍可完成 COMPLETED")
+    check(len(o.state.tool_history) == 1,
+          "重复 SEARCH_LOCAL 未重复执行（tool_history 仅 1 条）")
+    check(len(o.state.executed_action_keys) == 1,
+          "executed_action_keys 记录 1 个幂等 key")
+    check(len(o.state.rejected_duplicate_actions) == 1
+          and o.state.rejected_duplicate_actions[0]["action"] == "SEARCH_LOCAL"
+          and o.state.rejected_duplicate_actions[0]["source"] == "model_proposed"
+          and o.state.rejected_duplicate_actions[0].get("key"),
+          "重复动作写入 rejected_duplicate_actions（含 key + source）")
+
     # ---- ANSWER 带未覆盖方面 → 补检到预算耗尽 → COMPLETED_WITH_GAPS ----
     llm = MockLLM(
         ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',

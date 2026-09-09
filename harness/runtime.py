@@ -607,8 +607,21 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
             break
         args = _inject_args(action.action, action.arguments, state, route_result)
         call = _make_call(tool_name, args, state)
+        key = call.idempotency_key
+        # 重复动作去重：同 tool + 同参数已执行过 → 拒绝（不调 registry、不写 tool_history）。
+        if key in state.executed_action_keys:
+            state.usage.consecutive_no_new_evidence += 1
+            state.rejected_duplicate_actions.append({
+                "round": state.usage.rounds, "action": action.action,
+                "tool": tool_name, "key": key, "source": "model_proposed"})
+            if trace_enabled:
+                T.emit(run_id, need.need_id, "DUPLICATE_ACTION",
+                       {"round": state.usage.rounds, "action": action.action,
+                        "tool": tool_name, "key": key, "tool_called": False})
+            continue
         result = registry.execute(call, route=route, run_id=state.run_id,
                                   max_retries=budget.max_retries_per_call)
+        state.executed_action_keys.append(key)
         state.tool_history.append(H.ToolCallRecord(
             call=call, result=result, elapsed_ms=result.latency_ms))
         _apply_tool_result(state, result, budget)

@@ -330,6 +330,8 @@ class ResearchState:
     entailment_verdicts: list = field(default_factory=list)  # list[EntailmentVerdict]
     unsupported_claims: list = field(default_factory=list)   # entailment UNSUPPORTED 描述
     entailment_evaluator_failed: bool = False                # evaluator 调用/解析异常
+    executed_action_keys: list = field(default_factory=list)  # 已执行动作的幂等 key（去重）
+    rejected_duplicate_actions: list = field(default_factory=list)  # 被拒绝的重复动作记录
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None
