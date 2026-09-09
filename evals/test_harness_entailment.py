@@ -266,6 +266,81 @@ def main() -> dict:
     check("本次检索未取得担保明细" in vars_obs["retrieval_observations"],
           "entailment_prompt_vars：retrieval_observation 进入检索观测上下文")
 
+    # ---- canonical 归一化（金额统一到元、比例取数值；先换算再比较，Decimal 无 float）----
+    check(E.normalize_amount("4亿元") == E.normalize_amount("40,000万元")
+          == E.normalize_amount("400,000,000元"),
+          "canonical：4亿元 == 40,000万元 == 400,000,000元")
+    check(E.normalize_amount("4万元") != E.normalize_amount("4亿元"),
+          "canonical：4万元 != 4亿元")
+    check(E.normalize_amount("18.12%") == E.normalize_amount("18.12％")
+          == E.normalize_amount("18.12 percent"),
+          "canonical：18.12% == 18.12％ == 18.12 percent")
+    check(E.normalize_amount("4千万元") == E.normalize_amount("40,000,000元"),
+          "canonical：千万元长后缀优先（4千万元 == 40,000,000元）")
+
+    # ---- units_compatible：金额↔比例、unknown↔有单位 跨类不可比 ----
+    amt_wan = E.extract_amounts("18.12万元")[0]
+    amt_pct = E.extract_amounts("18.12%")[0]
+    amt_raw = E.extract_amounts("18.12")[0]
+    check(amt_wan.canonical_kind == "money" and amt_pct.canonical_kind == "percent"
+          and amt_raw.canonical_kind == "unknown",
+          "Amount.canonical_kind：money/percent/unknown 三态")
+    check(E.units_compatible(amt_wan, amt_pct) is False,
+          "units_compatible：金额 vs 比例 → False")
+    check(E.units_compatible(amt_wan, amt_raw) is False,
+          "units_compatible：金额 vs unknown → False")
+    check(E.units_compatible(amt_wan, amt_wan) is True,
+          "units_compatible：金额 vs 金额 → True")
+
+    # ---- 表头/列级单位上下文传播（Change 1 合成测试，公司无关）----
+    # 1) 表级万元：表注「单位：万元」传播到裸数字 → 金额匹配（原 false-positive 消失）。
+    vp = E.value_presence(H.Claim(claim_id="c1", text="主营业务收入31,650,636.9万元",
+                                  kind="fact", citation_refs=[0]),
+                          [_mat("表 5-10 主营业务收入构成表\n单位：万元\n项目          金额\n"
+                                 "动力电池      31,650,636.9\n")])
+    check(vp.missing == [] and vp.matched,
+          "表级万元：表注单位传播 → 金额匹配（false-positive 消失）")
+    # 2) 金额+百分比双单位：表注「单位：万元，%」按列对位，金额与占比各自匹配。
+    mixed_ev = _mat("表 5-10 主营业务收入构成表\n单位：万元，%\n项目          金额          占比\n"
+                    "动力电池      31,650,636.9  74.7\n储能          5,850,000.0   13.8\n")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="动力电池收入占比74.7%",
+                                  kind="fact", citation_refs=[0]), [mixed_ev])
+    check(vp.missing == [], "双单位：占比列 % 匹配")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="储能收入5,850,000.0万元",
+                                  kind="fact", citation_refs=[0]), [mixed_ev])
+    check(vp.missing == [], "双单位：金额列万元匹配")
+    # 3) 列级单位覆盖表级：表注「单位：元」但列头「金额（万元）」→ 按列级万元。
+    col_ev = _mat("单位：元\n项目          金额（万元）\n动力电池      31,650,636.9\n")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="主营业务收入31,650,636.9万元",
+                                  kind="fact", citation_refs=[0]), [col_ev])
+    check(vp.missing == [], "列级覆盖表级：金额（万元）优先于表注「单位：元」")
+    # 4) 行内单位覆盖列级：列头万元但数字带内联「元」→ 按内联元。
+    inline_ev = _mat("单位：万元\n项目          金额\n动力电池      31,650,636.9元\n")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="主营业务收入31,650,636.9元",
+                                  kind="fact", citation_refs=[0]), [inline_ev])
+    check(vp.missing == [], "行内覆盖列级：内联「元」优先于表注「万元」")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="主营业务收入31,650,636.9万元",
+                                  kind="fact", citation_refs=[0]), [inline_ev])
+    check(vp.missing == ["31,650,636.9万元"],
+          "行内覆盖列级：同数字万元不再误匹配（证据实为元）")
+    # 5) 单位缺失：证据裸数字无单位 → 与有单位 claim 不等价 → missing。
+    vp = E.value_presence(H.Claim(claim_id="c1", text="授信额度40,000万元",
+                                  kind="fact", citation_refs=[0]),
+                          [_mat("授信额度40,000")])
+    check(vp.missing == ["40,000万元"],
+          "单位缺失：证据裸数字与万元 claim 不等价 → missing")
+    # 6) 同数字不同单位不等价：4万元 != 4亿元。
+    vp = E.value_presence(H.Claim(claim_id="c1", text="授信额度4亿元",
+                                  kind="fact", citation_refs=[0]),
+                          [_mat("授信额度4万元")])
+    check(vp.missing == ["4亿元"], "同数字不同单位：4亿元 != 4万元")
+    # 7) 多单位表头无法确定列归属 → PARTIAL（不误判 SUPPORTED）。
+    part_ev = _mat("单位：万元，%\n项目          金额          占比\n动力电池      74.7\n")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="占比74.7%",
+                                  kind="fact", citation_refs=[0]), [part_ev])
+    check(vp.partial == ["74.7%"] and vp.missing == ["74.7%"],
+          "多单位表头无法归列 → PARTIAL（不误判 SUPPORTED）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

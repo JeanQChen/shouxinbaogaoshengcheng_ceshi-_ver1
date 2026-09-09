@@ -53,17 +53,106 @@ _FULLWIDTH = str.maketrans({
 
 # 数值 token 抽取（含可选的金额/比例单位后缀）。预检用，允许误抽取（如年份/代码），
 # 因「值存在」最终由批量 entailment 权威判定，此处只做保守信号。
+# 后缀另收英文单位（DeepSeek 习惯写 "18.12 percent"/"133219980000.00 yuan"）。
 _AMOUNT_RE = re.compile(
-    r"[-−]?\d[\d,，]*(?:\.\d+)?\s*(?:千万元|百万元|亿元|万元|千元|亿|万|千|元|％|%)?")
+    r"[-−]?\d[\d,，]*(?:\.\d+)?\s*(?:千万元|百万元|亿元|万元|千元|亿|万|千|元|％|%|percent|pct|yuan|rmb)?")
+
+# 英文单位后缀 → 中文（归一化前先翻译，使 _UNIT_MULTIPLIERS / 百分号判定统一走中文路径）。
+_ENGLISH_UNITS = (("percent", "%"), ("pct", "%"), ("yuan", "元"), ("rmb", "元"))
+
+# 趋势语义词（跨期/变化子 need 与结构化权威的趋势守卫共用）。
+_TREND_TOKENS = ("同比", "较上年", "较上一年", "上升", "下降", "趋势",
+                 "近三年", "增长率", "增速")
+
+
+def has_trend_semantics(text: str) -> bool:
+    """文本是否含趋势/比较语义（同比/较上年/变化/近三年/增速等）。
+
+    「变化」单列处理：仅当不含「变化原因」时才算趋势——「变化原因」是解释性追问
+    （为什么变），不是跨期比较。
+    """
+    t = text or ""
+    if any(tok in t for tok in _TREND_TOKENS):
+        return True
+    return "变化" in t and "变化原因" not in t
+
+
+def _translate_english_units(s: str) -> str:
+    """把英文单位后缀翻译为中文（percent/pct→%、yuan/rmb→元），供统一归一化。"""
+    t = (s or "").strip()
+    low = t.lower()
+    for en, zh in _ENGLISH_UNITS:
+        if low.endswith(en):
+            return t[: -len(en)].rstrip() + zh
+    return t
+
+
+def _detect_unit(token: str) -> str:
+    """判定一个数值 token 的内联单位类别：percent | yuan | raw。"""
+    t = token.strip()
+    low = t.lower()
+    if t.endswith("%") or t.endswith("％") or low.endswith("percent") or low.endswith("pct"):
+        return "percent"
+    for name, _ in _UNIT_MULTIPLIERS:
+        if t.endswith(name):
+            return "yuan"
+    if low.endswith("yuan") or low.endswith("rmb"):
+        return "yuan"
+    return "raw"
+
+
+def _canonical_kind(unit: str) -> str:
+    return {"yuan": "money", "percent": "percent"}.get(unit, "unknown")
+
+
+def _inline_mult(token: str) -> "Decimal | None":
+    """token 内联金额单位的元倍率（无内联金额单位则 None）。"""
+    t = _translate_english_units(token.strip())
+    for name, mult in _UNIT_MULTIPLIERS:
+        if t.endswith(name):
+            return mult
+    return None
+
+
+def _bare_decimal(token: str) -> Decimal | None:
+    """抽取 token 的纯数字部分（去单位后缀/百分号/逗号，不乘倍率）。"""
+    t = _translate_english_units(token.strip())
+    t = t.translate(_FULLWIDTH).strip()
+    if not t:
+        return None
+    t = re.sub(r"[%％]\s*$", "", t).strip()
+    neg = False
+    if t.startswith("-") or t.startswith("−"):
+        neg = True
+        t = t[1:].strip()
+    for name, _ in _UNIT_MULTIPLIERS:
+        if t.endswith(name):
+            t = t[: -len(name)].strip()
+            break
+    t = t.replace(",", "").replace("，", "").strip()
+    if not t:
+        return None
+    try:
+        v = Decimal(t)
+    except InvalidOperation:
+        return None
+    return -v if neg else v
 
 
 @dataclass(frozen=True)
 class Amount:
-    """一个抽取出的数值 token（原文 + 归一化 Decimal，金额统一到元）。"""
+    """一个抽取出的数值 token（原文 + canonical Decimal + 单位类别）。
+
+    value = canonical Decimal（金额统一到「元」、比例取数值）；canonical_kind =
+    money|percent|unknown；ambiguous = 多单位表头且无法归列（三态里区分 UNSUPPORTED 与
+    PARTIAL）。SUPPORTED 只用 canonical_kind + value 的 Decimal 等价判定。
+    """
 
     token: str
     value: Decimal
-    unit: str  # yuan | percent | raw
+    unit: str            # yuan | percent | raw
+    canonical_kind: str = "unknown"  # money | percent | unknown
+    ambiguous: bool = False
 
 
 def normalize_amount(s: str) -> Decimal | None:
@@ -74,6 +163,7 @@ def normalize_amount(s: str) -> Decimal | None:
     s = (s or "").strip()
     if not s:
         return None
+    s = _translate_english_units(s)  # 18.12 percent → 18.12%；… yuan → …元
     s = s.translate(_FULLWIDTH).strip()
     is_pct = s.endswith("%") or s.endswith("％")
     if is_pct:
@@ -110,7 +200,7 @@ def amounts_equivalent(a: str, b: str) -> bool:
 
 
 def extract_amounts(text: str) -> list[Amount]:
-    """从文本抽取数值 token（含单位），返回归一化后的 Amount 列表。"""
+    """从文本抽取数值 token（含内联单位），返回 canonical Amount 列表。"""
     out: list[Amount] = []
     seen: set[str] = set()
     for m in _AMOUNT_RE.finditer(text or ""):
@@ -120,11 +210,147 @@ def extract_amounts(text: str) -> list[Amount]:
         v = normalize_amount(tok)
         if v is None:
             continue
-        unit = "percent" if (tok.endswith("%") or tok.endswith("％")) else (
-            "yuan" if any(tok.endswith(n) for n, _ in _UNIT_MULTIPLIERS) else "raw")
+        unit = _detect_unit(tok)
         seen.add(tok)
-        out.append(Amount(token=tok, value=v, unit=unit))
+        out.append(Amount(token=tok, value=v, unit=unit,
+                          canonical_kind=_canonical_kind(unit)))
     return out
+
+
+# ---------------------------------------------------------------------------
+# 表头/列级单位上下文（材料解释层，不动 parser/Evidence 身份规则）
+# ---------------------------------------------------------------------------
+
+_UNIT_NOTE_RE = re.compile(r"单位\s*[:：]\s*([^\n\r]*)")
+_UNIT_SEP_RE = re.compile(r"[，,、;；/\t\s]+")
+# 列级单位标注：金额（万元）/ 占比（%）/ 金额(千元) 等括号形式。
+_COLUMN_UNIT_RE = re.compile(r"[（(]\s*(万元|千元|百万元|亿元|元|％|%)\s*[）)]")
+_COLUMN_HEADER_HINT = ("金额", "占比", "比例", "比率", "项目", "指标", "科目", "余额")
+
+
+def _resolve_unit_label(p: str) -> tuple[str, "Decimal | None"] | None:
+    """单位标签 → (kind, mult)：%/%→percent；金额单位→money；否则 None。"""
+    p = _translate_english_units((p or "").strip())
+    if p in ("%", "％"):
+        return ("percent", None)
+    for name, mm in _UNIT_MULTIPLIERS:
+        if p == name:
+            return ("money", mm)
+    return None
+
+
+def _parse_table_units(text: str) -> list[tuple[str, "Decimal | None"]]:
+    """解析「单位：万元，%」→ [("money",10000),("percent",None)]（按类别去重、保序）。"""
+    m = _UNIT_NOTE_RE.search(text or "")
+    if not m:
+        return []
+    out: list[tuple[str, "Decimal | None"]] = []
+    seen: set[str] = set()
+    for part in _UNIT_SEP_RE.split(m.group(1).strip()):
+        r = _resolve_unit_label(part)
+        if r is None or r[0] in seen:
+            continue
+        seen.add(r[0])
+        out.append(r)
+    return out
+
+
+def _parse_column_header_units(text: str) -> list[tuple[str, "Decimal | None"]]:
+    """从表头行解析列级单位（金额（万元）/ 占比（%）），返回数据列序单位列表。
+
+    仅在「非单位 note 行、含列头提示词、且含括号单位标注」时才解析，避免误判正文。
+    """
+    for line in (text or "").splitlines():
+        if "单位" in line:
+            continue
+        if not any(w in line for w in _COLUMN_HEADER_HINT):
+            continue
+        labels = _COLUMN_UNIT_RE.findall(line)
+        out: list[tuple[str, "Decimal | None"]] = []
+        for lab in labels:
+            r = _resolve_unit_label(lab)
+            if r is not None:
+                out.append(r)
+        if out:
+            return out
+    return []
+
+
+def _assign_bare_unit(table_units, column_units, bare_idx, can_cycle
+                      ) -> tuple[str, "Decimal | None", bool]:
+    """裸数字单位解析（优先级：列级 > 表级单单位 > 表级多单位按列对位 > raw）。
+
+    返回 (unit, mult, ambiguous)。ambiguous=True 表示单位类别明确但具体列归属不确定
+    （多单位表头且无法完整对位）→ 上层记 PARTIAL。
+    """
+    if column_units:
+        if bare_idx < len(column_units):
+            kind, mult = column_units[bare_idx]
+            return ("yuan" if kind == "money" else kind), mult, False
+        return "raw", None, True
+    if len(table_units) == 1:
+        kind, mult = table_units[0]
+        return ("yuan" if kind == "money" else kind), mult, False
+    if len(table_units) >= 2:
+        if can_cycle:
+            kind, mult = table_units[bare_idx % len(table_units)]
+            return ("yuan" if kind == "money" else kind), mult, False
+        return "raw", None, True
+    return "raw", None, False
+
+
+def extract_evidence_amounts(text: str) -> list[Amount]:
+    """证据正文抽取（表头/列级单位上下文传播）。优先级：
+    行内后缀 > 列头单位（按位置）> 表级单单位 > 表级多单位按列对位 > 无单位 → raw。
+
+    多单位表（如「单位：万元，%」）按行内裸数字顺序对位（第 i 个裸数字 →
+    units[i % len(units)]）；当某行裸数字不足一个完整周期（无法确定列归属）时 →
+    ambiguous（PARTIAL）。金额统一换算到「元」、比例取数值；先换算再比较，全程 Decimal。
+    """
+    table_units = _parse_table_units(text)
+    column_units = _parse_column_header_units(text)
+    out: list[Amount] = []
+    seen: set[tuple[str, str]] = set()
+    for line in (text or "").splitlines():
+        matches = list(_AMOUNT_RE.finditer(line))
+        bare_total = sum(1 for m in matches
+                         if _detect_unit(m.group(0).strip()) == "raw")
+        can_cycle = len(table_units) >= 2 and bare_total >= len(table_units)
+        bare_idx = 0
+        for m in matches:
+            tok = m.group(0).strip()
+            if not tok:
+                continue
+            unit = _detect_unit(tok)
+            mult: "Decimal | None" = None
+            ambiguous = False
+            if unit == "raw":
+                unit, mult, ambiguous = _assign_bare_unit(
+                    table_units, column_units, bare_idx, can_cycle)
+                bare_idx += 1
+            base = _bare_decimal(tok)
+            if base is None:
+                continue
+            if unit == "yuan":
+                mult = mult or _inline_mult(tok) or Decimal("1")
+                value = base * mult
+            else:
+                value = base  # percent / raw
+            key = (tok, unit)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(Amount(token=tok, value=value, unit=unit,
+                              canonical_kind=_canonical_kind(unit), ambiguous=ambiguous))
+    return out
+
+
+def units_compatible(a: Amount, b: Amount) -> bool:
+    """两 Amount 单位类别是否可比：raw 只匹配 raw；金额↔金额、比例↔比例；跨类 False。"""
+    ka, kb = a.canonical_kind, b.canonical_kind
+    if ka == "unknown" or kb == "unknown":
+        return ka == kb
+    return ka == kb
 
 
 # ---------------------------------------------------------------------------
@@ -206,35 +432,65 @@ def scope_risks(claim: H.Claim, materials: list[H.InspectedMaterial],
 
 @dataclass(frozen=True)
 class ValueCheck:
-    """claim 数值在证据中的存在性判定。"""
+    """claim 数值在证据中的存在性判定（三态：SUPPORTED/PARTIAL/UNSUPPORTED）。
+
+    matched = 找到 canonical Decimal 等价的 SUPPORTED 项；
+    missing = 未达 SUPPORTED 的 claim 数值 token（含 PARTIAL + UNSUPPORTED，均阻止 FULL）；
+    partial = missing 中「单位类别明确但换算上下文不确定」的 PARTIAL 子集（仅报告用）。
+    """
 
     claim_amounts: list[Amount]
     matched: list[dict]
-    missing: list[str]           # 未找到数值等价的 claim 数值 token
+    missing: list[str]
+    partial: list[str] = ()
+
+
+def _find_supported(ct: Amount, ev: list[Amount]) -> Amount | None:
+    """找 SUPPORTED 匹配：单位类别相同 + canonical Decimal 等价。"""
+    for e in ev:
+        if ct.canonical_kind == "unknown":
+            continue
+        if e.canonical_kind == ct.canonical_kind and e.value == ct.value:
+            return e
+    return None
+
+
+def _has_ambiguous_match(ct: Amount, ev: list[Amount]) -> bool:
+    """claim 数值的裸数字与某 ambiguous 证据项一致（多单位表头无法归列）→ PARTIAL。"""
+    if ct.canonical_kind == "unknown":
+        return False
+    bare = _bare_decimal(ct.token)
+    return any(e.ambiguous and e.value == bare for e in ev)
 
 
 def value_presence(claim: H.Claim, materials: list[H.InspectedMaterial]) -> ValueCheck:
-    """claim 中每个数值是否在 cited 证据正文/payload 中找到数值等价项。"""
+    """claim 中每个数值是否在 cited 证据正文/payload 中找到 canonical 数值等价项。
+
+    证据正文走表头/列级单位上下文（extract_evidence_amounts）；structured_payload 走内联
+    路径（extract_amounts，结构化值自带单位）。逐 claim 数值分类 SUPPORTED / PARTIAL /
+    UNSUPPORTED（详见模块 docstring 的三态语义）。
+    """
     claim_amounts = extract_amounts(claim.text or "")
     if not claim_amounts:
-        return ValueCheck([], [], [])
-    ev_tokens: list[str] = []
+        return ValueCheck([], [], [], [])
+    ev_amounts: list[Amount] = []
     for m in materials:
-        ev_tokens.extend(t.token for t in extract_amounts(m.text or ""))
+        ev_amounts.extend(extract_evidence_amounts(m.text or ""))
         if m.structured_payload:
-            ev_tokens.extend(
-                t.token for t in extract_amounts(
-                    json.dumps(m.structured_payload, ensure_ascii=False, default=str)))
-    ev_vals = [(t, normalize_amount(t)) for t in ev_tokens]
+            ev_amounts.extend(extract_amounts(
+                json.dumps(m.structured_payload, ensure_ascii=False, default=str)))
     matched: list[dict] = []
     missing: list[str] = []
+    partial: list[str] = []
     for ct in claim_amounts:
-        hit = next((t for t, ev in ev_vals if ev is not None and ev == ct.value), None)
+        hit = _find_supported(ct, ev_amounts)
         if hit is not None:
-            matched.append({"claim_token": ct.token, "evidence_token": hit})
-        else:
-            missing.append(ct.token)
-    return ValueCheck(claim_amounts, matched, missing)
+            matched.append({"claim_token": ct.token, "evidence_token": hit.token})
+            continue
+        if _has_ambiguous_match(ct, ev_amounts):
+            partial.append(ct.token)
+        missing.append(ct.token)
+    return ValueCheck(claim_amounts, matched, missing, partial)
 
 
 def _claim_evidence_ids(claim: H.Claim, answer: H.ResearchAnswer) -> list[str]:
@@ -381,6 +637,10 @@ def _describe_citation(cit: H.CitationRef, state: H.ResearchState) -> str:
                          or (cit.item_code and r.item_code == cit.item_code))):
                 v = r.display_value if r.display_value is not None else r.raw_value
                 val = f" value={v} unit={r.unit}"
+                # Change 3：比较/趋势字段表面化（方向/差额由代码算好，LLM 只解读不重算）。
+                if getattr(r, "direction", None):
+                    val += (f" period_a={r.period_a} period_b={r.period_b}"
+                            f" direction={r.direction} change={r.change_value}")
                 break
         return f"structured {kind}={key} snapshot={cit.snapshot_id} period={cit.period}{val}"
     if cit.ref_type == "external":
@@ -389,8 +649,13 @@ def _describe_citation(cit: H.CitationRef, state: H.ResearchState) -> str:
 
 
 def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
-                           prechecks: dict[str, dict]) -> dict:
-    """拼批量 entailment 的 prompt 变量（claims + 引用映射 + 正文 + 确定性标记）。"""
+                           prechecks: dict[str, dict],
+                           exclude_claim_ids: frozenset[str] = frozenset()) -> dict:
+    """拼批量 entailment 的 prompt 变量（claims + 引用映射 + 正文 + 确定性标记）。
+
+    exclude_claim_ids：结构化权威已 SUPPORTED 的 claim，不送 LLM entailment（避免纯
+    结构化 claim 因「无正文」被误判 UNSUPPORTED）。
+    """
     claim_lines: list[str] = []
     obs_lines: list[str] = []
     for c in answer.claims:
@@ -398,6 +663,8 @@ def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
         # 不参与 entailment 判定（不判 SUPPORTED/UNSUPPORTED），仅供法官理解缺口上下文。
         if c.kind == "retrieval_observation":
             obs_lines.append(f"- {c.claim_id}: {c.text}")
+            continue
+        if c.claim_id in exclude_claim_ids:
             continue
         pc = prechecks.get(c.claim_id, {})
         markers: list[str] = []
@@ -481,18 +748,21 @@ def parse_entailment(raw: str) -> list[H.EntailmentVerdict]:
 
 def evaluate_entailment_batch(state: H.ResearchState, answer: H.ResearchAnswer,
                               llm, prechecks: dict[str, dict],
+                              exclude_claim_ids: frozenset[str] = frozenset(),
                               on_response=None) -> list[H.EntailmentVerdict]:
     """单次批量 entailment（每问 1 次调用）。
 
     llm 无 evaluate_entailment_batch（Mock）→ 跳过返回 []；有但调用/解析异常 → 向上抛，
     由 runtime 记 entailment_evaluator_failed（fail-closed）。
 
+    exclude_claim_ids：结构化权威已 SUPPORTED 的 claim，跳过 LLM 判定。
+
     on_response(resp)：可选回调，在解析前接收原始 LLMResponse（供 runtime 记账
     entailment 分类 usage，不改变本函数语义）。
     """
     if not hasattr(llm, "evaluate_entailment_batch"):
         return []
-    prompt_vars = entailment_prompt_vars(state, answer, prechecks)
+    prompt_vars = entailment_prompt_vars(state, answer, prechecks, exclude_claim_ids)
     resp = llm.evaluate_entailment_batch(prompt_vars)
     if on_response is not None:
         on_response(resp)
@@ -539,6 +809,12 @@ def _main(argv: list[str]) -> int:
             evidence_id="e1", text="为股东及实际控制人提供担保的余额为0万元",
             is_snippet=False)
         risks = scope_risks(claim, [mat], "")
+        # 表头/列级单位传播样例：单单位表 / 双单位表 / 无单位。
+        table_wan = ("表 5-10 主营业务收入构成表\n单位：万元\n项目          金额\n"
+                     "动力电池      31,650,636.9\n储能          5,850,000.0\n")
+        table_mixed = ("表 5-10 主营业务收入构成表\n单位：万元，%\n项目          金额          占比\n"
+                       "动力电池      31,650,636.9  74.7\n储能          5,850,000.0   13.8\n")
+        table_none = "项目          金额\n动力电池      31,650,636.9\n"
         print(json.dumps({
             "amounts_equivalent": [
                 {"a": a, "b": b, "equivalent": amounts_equivalent(a, b)}
@@ -548,8 +824,19 @@ def _main(argv: list[str]) -> int:
                 {"a": a, "b": b, "equivalent": amounts_equivalent(a, b)}
                 for a, b in not_equiv
             ],
+            "canonical_4亿": normalize_amount("4亿元"),
+            "canonical_4万": normalize_amount("4万元"),
+            "canonical_18pct": normalize_amount("18.12 percent"),
             "scope_risks_example": [dataclasses_asdict(r) for r in risks],
-        }, ensure_ascii=False, indent=2))
+            "table_wan_units": [_parse_table_units(table_wan)],
+            "table_mixed_units": [_parse_table_units(table_mixed)],
+            "table_wan_amounts": [dataclasses_asdict(a)
+                                  for a in extract_evidence_amounts(table_wan)],
+            "table_mixed_amounts": [dataclasses_asdict(a)
+                                    for a in extract_evidence_amounts(table_mixed)],
+            "table_none_amounts": [dataclasses_asdict(a)
+                                   for a in extract_evidence_amounts(table_none)],
+        }, ensure_ascii=False, indent=2, default=str))
         return 0
 
     parser.print_help()
