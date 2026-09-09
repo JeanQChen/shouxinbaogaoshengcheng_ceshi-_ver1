@@ -100,6 +100,11 @@ FALLBACK；审计结论公司无关→DIRECT）。
 
 ## 5. 环境状态提醒（非本轮代码问题）
 
+> **【已解决 2026-09-09】** 财务 Demo 数据已按现有正式入口重建到 `data/financial_v2.db`
+> （新快照 `snap-490c67ac...`，`report_as_of=2026-03-31`），并新增只读 preflight
+> `scripts.demo_preflight` 完成 8/8 校验、COMP-SW1 定点重验 F4 真实链路。见
+> `PHASE3_DEMO_ENV_RESTORE_ACCEPTANCE.md`。下文为本报告当时（未恢复）的状态记录，保留原文。
+
 `data/financial_v2.db` 当前为空（0 快照 / 0 记录集）。原 unseen 运行时尚有快照
 `snap-1370505b...`（`report_as_of=2026-03-31`），二者之间财务快照数据被清空。
 

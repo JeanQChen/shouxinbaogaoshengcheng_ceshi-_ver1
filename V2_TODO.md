@@ -218,14 +218,24 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 7. 修复验收问题，运行完整 eval。
 8. 将实际产物、commit、命令、测试和遗留问题写回路线图，再关闭阶段。
 
-## 六、当前最近的三个动作
+## 六、当前最近的动作
 
-1. Phase 3 Batch A 已严格关闭：10 个工具统一经过 Registry，博查搜索、正文获取、HTML/PDF
+1. **Demo 数据环境恢复与 F4 真实链路验收（2026-09-09）**：用现有正式入口
+   `scripts.run_financial_v2_chain` 就地重建 300750 财务主链到 `data/financial_v2.db`
+   （快照 `snap-490c67ac...`、`report_as_of=2026-03-31`、432 条目 / 112 指标、valid 且未
+   quarantine），未手工插库、不改业务口径；新增只读 fail-closed 的 `scripts.demo_preflight`
+   （公司无关，8/8 校验通过）。COMP-SW1 以新 run_id 重验：路由归位 `EXTERNAL_RESEARCH`，
+   `search_external_sources → fetch_external_content → 自动 snapshot_external_source →
+   source_snapshot_id` 全链路真实跑通（3 个外部快照）。但答案端点未达
+   （`BUDGET_TOOL_CALLS`，answer=null），根因分类为 `MODEL_ACTION`（主，预算内未发 ANSWER）
+   + `SOURCE_DATA_GAP`（辅，检索命中 2022/2024 陈旧来源），为非规则缺陷、本轮不改。
+   详见 `PHASE3_DEMO_ENV_RESTORE_ACCEPTANCE.md`。
+2. Phase 3 Batch A 已严格关闭：10 个工具统一经过 Registry，博查搜索、正文获取、HTML/PDF
    来源快照及真实财务工具链均已验收；audit 提前返回失败关闭和软超时熔断已补齐。
-2. Phase 3 Batch B 主体实现与多轮冒烟修复已完成：required-aspect、Evidence inspect、批量
+3. Phase 3 Batch B 主体实现与多轮冒烟修复已完成：required-aspect、Evidence inspect、批量
    entailment、重复动作去重、结构化财务子 need、答案修订清理及证据外数字拦截均已接线；
    最新完整 eval 为 2787 passed / 0 failed / 0 skipped。
-3. Batch B 冻结前收口计划已于 2026-09-09 人工确认：下一步实施表头单位归一化、
+4. Batch B 冻结前收口计划已于 2026-09-09 人工确认：下一步实施表头单位归一化、
    StructuredResultRef 权威引用（含 RunManifest 锁定及 Store 复合有效性校验）、趋势类多期查询，
    再生成并冻结 split manifest；不得继续针对同一组冒烟题做局部拟合。
 
