@@ -330,3 +330,54 @@ UsageLedger 中已闭环，且 `run_actual_path_41._record_case` 现 surface `ll
 
 四项均为通用安全/正确性修复，无业务分支，专项 + 全量 eval 全绿，git 追踪已收敛。
 **建议正式冻结，进入一次性 `unseen_validation`**（之后 `frozen_final` 最后一次全量）。
+
+## 12. 冻结前最后两项定点修复（通用正确性，无业务分支）
+
+> §11 之后、正式冻结前，最后两项**通用正确性**修复。仍只改 `harness/structured_provenance.py`
+> + `evals/test_harness_structured_provenance.py`，**未**针对 `case_id`/`300750`/「宁德时代」
+> 写业务分支，未改 Prompt / FULL-PARTIAL 判据 / split manifest / V1 / Phase 2 / Financial V2 /
+> Evidence / Router。未跑 development / unseen_validation / frozen_final / 完整 41 问。
+
+| # | 修复项 | 根因 → 修复 |
+|---|---|---|
+| 一 | 排除 Claim 中非业务数值 | 原 `extract_amounts` 把 `2024`/`2025` 等年份当财务数值，使「2024年至2025年净利率下降」这类纯方向 claim 被误判 `value_mismatch`。新增 `_extract_claim_business_amounts`：先用非业务模式（年份 `YYYY年`、数字日期 `YYYY-MM-DD`/`YYYY/MM/DD`、中文完整日期年月日、月/日、`第N页/条`、`[N]`/`(N)` 引用序号）「挖空」，再走 `extract_amounts`。金额/比例带单位后缀（`2025万元`/`2025%`/`2025元`）不受影响；`require_value` 改为基于过滤后业务数值，纯方向 claim 不再因年份误判 value_mismatch |
+| 二 | Citation Repair 两阶段原子化 | 原 `_resolve_ref` 找到唯一候选后立即 `cit.snapshot_id = cand.snapshot_id`，但后续 value/period/direction/trend 可能仍判 UNSUPPORTED，导致引用已改却无完整审计。改为：阶段 A `_resolve_ref` 只返回 pending repair（携带 `_citation` 引用 + 审计字段），不改写引用、不写 `state.citation_repairs`、不发 trace；阶段 B `_commit_repairs` 仅当整条 claim 最终 SUPPORTED 时一次性改写全部引用 + 落审计（`reason=structured_authoritative_after_citation_repair`）。PARTIAL/UNSUPPORTED 不提交、不落审计、不发 `CITATION_REF_REPAIRED`；多引用任一失败则全部不提交（禁止部分提交） |
+
+### 12.1 验证结果
+
+- 专项测试（全绿）：`test_harness_entailment` **48** / `test_harness_structured_provenance`
+  **68**（§11.1 的 54 → 本轮 +14 覆盖非业务数值过滤 + repair 原子化）/ `test_harness_structured_needs`
+  **31** / `test_harness_snapshot_lock` **7** / `test_split_manifest` **13**。
+- `python -m harness.structured_provenance --self-check` 正常输出（方向/期间/权威判定样例一致）。
+- 完整 `run_evals`：**2903 passed / 0 failed / 0 skipped**（§11.1 的 2889 → +14）。
+- 未重跑任何 targeted 题，未据结果调 Prompt。
+
+### 12.2 非业务数值过滤状态表
+
+| 输入 | 提取结果 |
+|---|---|
+| `2024年至2025年净利率下降` | 无业务数值（方向判据）→ SUPPORTED |
+| 同句写「上升」 | → UNSUPPORTED `direction_mismatch` |
+| `2024年至2025年净利率由18.1%下降至17.3%` | `[18.1%, 17.3%]` |
+| `截至2025年12月31日，资产为4亿元` | `[4亿元]`（日期数字剔除） |
+| `金额为2025万元` | `[2025万元]` |
+| `2025%` / `2025元` | 保留 |
+| `参见第5页，净利率为18.12%[3]` | `[18.12%]`（页码/引用序号剔除） |
+| `2025年净利率上升`（单期无数值） | 无业务数值 → PARTIAL `single_period_for_trend`（非 value_mismatch） |
+
+### 12.3 Citation Repair 原子性状态表
+
+| 场景 | 判定 | CitationRef | 审计/trace |
+|---|---|---|---|
+| 唯一候选 + 全部校验通过 | SUPPORTED | 改写 | 落 `CITATION_REF_REPAIRED` |
+| 候选身份有效但 value mismatch | UNSUPPORTED | 不变 | 无 |
+| 候选身份有效但 period mismatch | UNSUPPORTED | 不变 | 无 |
+| 候选身份有效但 direction mismatch | UNSUPPORTED | 不变 | 无 |
+| 多引用全部成功 | SUPPORTED | 一次性全部改写 | 2 条审计 |
+| 多引用一个失败 | UNSUPPORTED | 全部不变 | 无 |
+| 无 repair 的正常引用 | SUPPORTED | 不变 | 无 |
+
+### 12.4 冻结判断
+
+两项均为通用正确性修复（非业务数值过滤 + repair 原子化），无业务分支，专项 + 全量 eval 全绿。
+**可正式冻结，进入一次性 `unseen_validation`**（之后 `frozen_final` 最后一次全量）。

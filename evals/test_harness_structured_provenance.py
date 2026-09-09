@@ -14,6 +14,10 @@
 - Citation Repair：snapshot_id 写错 → 唯一 active+period+code 候选才显式改写引用 + 记录
   CITATION_REF_REPAIRED，reason=structured_authoritative_after_citation_repair；0/多候选/
   候选不通过权威 → unresolvable_ref；原错误 ID 不得残留；
+- 非业务数值过滤：年份/日期/页码/引用序号不计入业务数值（`_extract_claim_business_amounts`），
+  避免「仅述方向无数值」被误判 value_mismatch；
+- Citation Repair 两阶段原子化：阶段 A 只提出 pending repair（无副作用），阶段 B 仅在整条
+  claim SUPPORTED 时一次性改写全部引用 + 落审计；PARTIAL/UNSUPPORTED 引用不变、无审计；
 - 三期趋势确定性计算（Decimal）：increased/decreased/unchanged/mixed；期间不足/数值缺失/
   单位不一致 → PARTIAL；claim 趋势相反 → trend_direction_mismatch；方向无法识别 → PARTIAL；
 - 纯结构化 claim 经 exclude_claim_ids 不送 LLM entailment；
@@ -324,6 +328,47 @@ def main() -> dict:
                       _valid_auth())
     check(v == "SUPPORTED", f"仅陈述两正确数值（无方向词）→ SUPPORTED（实际 {v}/{r}）")
 
+    # ===================== 非业务数值过滤（定点修复①） =====================
+
+    def biz_tokens(text):
+        return [a.token for a in SP._extract_claim_business_amounts(text)]
+
+    # 「2024年至2025年净利率下降」——年份不当指标值，方向正确 → SUPPORTED
+    state_cmp = _state(refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    v, r = verdict_of(state_cmp, _compare_answer(text="2024年至2025年净利率下降"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"年份不当指标值（下降）→ SUPPORTED（实际 {v}/{r}）")
+
+    # 同一句写「上升」→ direction_mismatch（方向仍由工具结果核对）
+    v, r = verdict_of(state_cmp, _compare_answer(text="2024年至2025年净利率上升"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "direction_mismatch",
+          f"年份不当指标值（上升写反）→ direction_mismatch（实际 {v}/{r}）")
+
+    # 只提取两个百分比，剔除年份
+    check(biz_tokens("2024年至2025年净利率由18.1%下降至17.3%") == ["18.1%", "17.3%"],
+          f"只提取两个百分比（实际 {biz_tokens('2024年至2025年净利率由18.1%下降至17.3%')}）")
+
+    # 完整日期：保留 4亿元，剔除 2025/12/31
+    check(biz_tokens("截至2025年12月31日，资产为4亿元") == ["4亿元"],
+          f"保留4亿元、剔除日期数字（实际 {biz_tokens('截至2025年12月31日，资产为4亿元')}）")
+
+    # 金额/比例带单位后缀 → 保留（2025 是业务数值）
+    check(biz_tokens("金额为2025万元") == ["2025万元"],
+          f"保留2025万元（实际 {biz_tokens('金额为2025万元')}）")
+    check(biz_tokens("2025%") == ["2025%"], "保留 2025%")
+    check(biz_tokens("2025元") == ["2025元"], "保留 2025元")
+
+    # 页码/引用序号不进业务数值匹配
+    check(biz_tokens("参见第5页，净利率为18.12%[3]") == ["18.12%"],
+          f"页码/引用序号不进业务数值（实际 {biz_tokens('参见第5页，净利率为18.12%[3]')}）")
+
+    # 单期只陈述方向无数值（年份被剔除）→ 不误判 value_mismatch，按方向/期间语义判 PARTIAL
+    state_single = _state(refs=[_ref()])
+    v, r = verdict_of(state_single, _answer(text="2025年净利率上升"), _valid_auth())
+    check(v == "PARTIAL" and r == "single_period_for_trend",
+          f"单期只述方向无数值 → PARTIAL（实际 {v}/{r}）")
+
     # ===================== Citation Repair（定点修复②） =====================
 
     # snapshot_id 正确 → 不产生 repair，reason=structured_authoritative
@@ -370,6 +415,67 @@ def main() -> dict:
                       _valid_auth())
     check(v == "UNSUPPORTED" and r == "unresolvable_ref",
           f"无同 period 候选 → unresolvable_ref（实际 {v}/{r}）")
+
+    # ===================== Citation Repair 两阶段原子化（定点修复②） =====================
+
+    # repair 候选身份有效但 value mismatch → UNSUPPORTED，引用不变、无 repair 审计
+    state_r = _state(active="S1", refs=[_ref(display="20.00")])
+    ans_vm = _answer(sid="S1_typo", text="2025年净利率为18.12%")
+    v, r = verdict_of(state_r, ans_vm, _valid_auth())
+    check(v == "UNSUPPORTED" and r == "value_mismatch"
+          and ans_vm.citations[0].snapshot_id == "S1_typo"
+          and state_r.citation_repairs == [],
+          f"repair 候选 value mismatch → 引用不变、无审计（实际 {v}/{r}）")
+
+    # repair 候选身份有效但 period mismatch → 引用不变
+    state_r = _state(active="S1", refs=[_ref()])
+    ans_pm = _answer(sid="S1_typo", text="2024年净利率为18.12%")
+    v, r = verdict_of(state_r, ans_pm, _valid_auth())
+    check(v == "UNSUPPORTED" and r == "period_mismatch"
+          and ans_pm.citations[0].snapshot_id == "S1_typo"
+          and state_r.citation_repairs == [],
+          f"repair 候选 period mismatch → 引用不变（实际 {v}/{r}）")
+
+    # repair 候选身份有效但 direction mismatch → 引用不变
+    state_r = _state(active="S1",
+                     refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    ans_dm = _compare_answer(text="2024年1.61%，2025年1.60%，上升", sid="S1_typo")
+    v, r = verdict_of(state_r, ans_dm, _valid_auth())
+    check(v == "UNSUPPORTED" and r == "direction_mismatch"
+          and all(c.snapshot_id == "S1_typo" for c in ans_dm.citations)
+          and state_r.citation_repairs == [],
+          f"repair 候选 direction mismatch → 引用不变（实际 {v}/{r}）")
+
+    # 多引用全部成功 → 一次性全部改写 + 2 条审计
+    state_r = _state(active="S1",
+                     refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    ans_ok2 = _compare_answer(text="2024年1.61%，2025年1.60%，下降", sid="S1_typo")
+    v, r = verdict_of(state_r, ans_ok2, _valid_auth())
+    check(v == "SUPPORTED"
+          and all(c.snapshot_id == "S1" for c in ans_ok2.citations)
+          and len(state_r.citation_repairs) == 2,
+          f"多引用全部成功 → 一次性改写 + 2 审计（实际 {v}/{r}）")
+
+    # 多引用中一个失败（period 无匹配）→ 所有引用保持原值，禁止部分提交
+    state_r = _state(active="S1",
+                     refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    ans_part = H.ResearchAnswer(
+        question_id="q", answer_text="2024年1.61%，2025年1.60%，下降",
+        claims=[H.Claim(claim_id="c1", text="2024年1.61%，2025年1.60%，下降",
+                        kind="fact", citation_refs=[0, 1])],
+        citations=[
+            H.CitationRef(ref_type="structured", snapshot_id="S1_typo",
+                          formula_id="NET_MARGIN", formula_version="v1",
+                          period="2024-12-31"),
+            H.CitationRef(ref_type="structured", snapshot_id="S1_typo",
+                          formula_id="NET_MARGIN", formula_version="v1",
+                          period="2020-12-31"),  # 无匹配 ref → unresolvable
+        ])
+    v, r = verdict_of(state_r, ans_part, _valid_auth())
+    check(v == "UNSUPPORTED" and r == "unresolvable_ref"
+          and all(c.snapshot_id == "S1_typo" for c in ans_part.citations)
+          and state_r.citation_repairs == [],
+          f"多引用一个失败 → 全部不变（实际 {v}/{r}）")
 
     # ===================== 三期趋势（定点修复③） =====================
 
