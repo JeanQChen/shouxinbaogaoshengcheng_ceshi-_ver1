@@ -83,10 +83,13 @@ EVAL_MODULES = [
     "evals.test_harness_aspects",
     "evals.test_harness_entailment",
     "evals.test_harness_structured_needs",
+    "evals.test_harness_structured_provenance",
+    "evals.test_harness_snapshot_lock",
     "evals.test_harness_checkpoint",
     "evals.test_harness_runtime",
     "evals.test_actual_path_41",
     "evals.test_research_preview",
+    "evals.test_split_manifest",
 ]
 
 

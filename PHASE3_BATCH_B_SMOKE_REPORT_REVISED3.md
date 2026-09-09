@@ -194,12 +194,78 @@ UsageLedger 中已闭环，且 `run_actual_path_41._record_case` 现 surface `ll
 
 按 5 项收口分责（+ 报告 + 冒烟脚本），每项一个 commit，互不混改（CLAUDE.md「One module per change」）。
 
-- [ ] commit 1（§一）：`harness/runtime.py` + `harness/schema.py` 跨 ANSWER 状态污染修复
-- [ ] commit 2（§二）：`harness/schema.py` + `harness/runtime.py` + `evaluation/run_actual_path_41.py` entailment 记账
-- [ ] commit 3（§四）：`templates/contracts/standard_v2.yaml` + `contracts/review/required_aspects_review.md`
-- [ ] commit 4（§三）：`harness/structured_needs.py` + `harness/runtime.py` + `harness/checkpoint.py`（Decimal 修复）
-- [ ] commit 5（§五）：`llm/prompts/research_answer_v1.txt` + `harness/entailment.py` + `harness/runtime.py`
-- [ ] commit 6（§六）：冒烟脚本 + 本报告 + 测试（`test_harness_structured_needs` / `test_harness_checkpoint` 回归）
+- [x] commit 1（§一）：`harness/runtime.py` + `harness/schema.py` 跨 ANSWER 状态污染修复
+- [x] commit 2（§二）：`harness/schema.py` + `harness/runtime.py` + `evaluation/run_actual_path_41.py` entailment 记账
+- [x] commit 3（§四）：`templates/contracts/standard_v2.yaml` + `contracts/review/required_aspects_review.md`
+- [x] commit 4（§三）：`harness/structured_needs.py` + `harness/runtime.py` + `harness/checkpoint.py`（Decimal 修复）
+- [x] commit 5（§五）：`llm/prompts/research_answer_v1.txt` + `harness/entailment.py` + `harness/runtime.py`
+- [x] commit 6（§六）：冒烟脚本 + 本报告 + 测试（`test_harness_structured_needs` / `test_harness_checkpoint` 回归）
+
+> 提交时原计划 6 项合并为 4 个 commit：`7b6bc97`（§四）/ `eb2e5e4`（§三）/
+> `41783ca`（§一 + §二 + §五）/ `d929a7a`（§六 + 本报告）。
 
 **不提交**：`.claude/settings.json`、`.env`、API Key、临时数据库、`evaluation/results/actual_path_41/`
 运行目录（含本次 `reaccept_*`）、Phase 2 冻结结果。
+
+---
+
+## 10. 规则冻结前收口（三项修复 + split manifest）
+
+> 人工门结论（v4 重新验收 §8）后，§6 三个发现在本轮冻结前收口。本轮**只**做三修复 +
+> 防过拟合 split manifest，定点回归 3 题（新 run_id），**未**跑完整 41 问。修复后不再
+> 围绕原开发题调整规则或 Prompt。
+
+### 10.1 三修复
+
+| 修复（对应 §6 发现） | 落点 | 专项测试 |
+|---|---|---|
+| #1 表头/列级单位上下文传播 | `harness/entailment.py`（`extract_evidence_amounts` 优先级：行内 > 列头 > 表级单单位 > 表级多单位列对位；三态 `value_presence`；canonical Decimal 归一化 `4亿元==40,000万元==400,000,000元`） | `test_harness_entailment` **48** |
+| #2 StructuredResult 权威化 | `harness/structured_provenance.py`（新：Store 权威复合判定 + 三 evaluator 区分 + `exclude_claim_ids`） | `test_harness_structured_provenance` **27** |
+| #3 跨期/趋势结构化子 need | `harness/structured_needs.py`（`period_mode` single/compare/trend + `resolve_comparison_periods` + `compare_tool_args`） | `test_harness_structured_needs` **31** |
+
+> 另加 `active_snapshot_id` run 级锁定（`test_harness_snapshot_lock` **7**）：run 开始由
+> `context.snapshot_id` 一次性锁定，`_reset_answer_derived_state` 不清除；resume 时
+> `manifest_mismatches` 逐字段校验 `snapshot_id`（fail-closed）。
+
+### 10.2 split manifest（防过拟合）
+
+- `evaluation/split_manifest.py`（`python -m evaluation.split_manifest`）确定性分层：**dev=8 固定**、
+  **unseen_validation=9**（`(section_id, priority, expected_route_v2)` 3-way 分层 + 路由覆盖校验）、
+  **frozen_final=24**。只读 `case_id/section_id/priority/expected_route_v2`，**不读 gold**。
+- 产物 `evaluation/datasets/v1_baseline.split_manifest.json`（`algorithm=split_manifest_v1`、
+  `seed=42`、`dataset_sha256=bb6ea0de…`、`route_coverage.covered=true`）。本轮**只生成 + 提交**，未跑。
+
+### 10.3 定点回归（3 题，新 run_id `freeze_rerun_20260909T084110Z`）
+
+| case_id | 路由 | 子 need | 终态 | 验证点 |
+|---|---|---|---|---|
+| COMP-R1 | STANDARD_RAG | — | PARTIAL（0 失败） | 表 5-10「单位：万元，%」金额+占比全部 SUPPORTED，false-positive 消除 |
+| FIN-PM1 | DEEP_RETRIEVAL | compare / [2024,2025] RESOLVED | PARTIAL（0 失败） | structured 权威（c1/c2 exclude=SUPPORTED）+ 两期比较 c3「上升」SUPPORTED |
+| FIN-CF1 | DEEP_RETRIEVAL | single / 2025 RESOLVED | PARTIAL（0 失败） | 结构化值 133,219,980,000 元 SUPPORTED（修 snapshot_id 转写错）；变化原因诚实「未提供」 |
+
+- 完整 `run_evals`：**2862 passed / 0 failed / 0 skipped**。
+- 无新增 300750 / 宁德时代 / case_id 专用分支（合成测试公司无关）；token/latency 完整记账
+  （`usage_unknown_calls=0`，`tool_errors=0`）。
+- 定点回归中发现并修复一处 `structured_provenance` 集成 bug：LLM 写引用时把 opaque `snapshot_id`
+  `…eadbde…` 转写为 `…deadbe…`，`_resolve_ref` 原按 snapshot+period 精确匹配 → `unresolvable_ref`。
+  改为按 `period+code` 匹配、snapshot_id 仅作偏好（ref 自身 snapshot_id 由 `_check_ref` 做 is_current
+  校验）。回归 `test_harness_structured_provenance`（+1）。
+- 终态 3 题均 PARTIAL（非 FAILED）原因：COMP-R1「各业务收入占比」是 segment 级无法映射 DB 指标
+  （`segment_scope_qualifier`，证据通道已答出）；FIN-PM1/FIN-CF1 父路由 DEEP_RETRIEVAL + 结构化-only
+  答案无 `evidence_ids` → `classify_completion` 路由级降 PARTIAL（**报告级分类，非 harness 规则缺陷**）。
+
+### 10.4 冻结候选（核心 harness policy / prompt / version）
+
+| 项 | 值 |
+|---|---|
+| harness_fingerprint | `c8589656f816f15ad7029e4036a11681185c663ff158b0a93d4db6e88a7f10b7` |
+| router_fingerprint | `v2-rule-1.0` |
+| contract_version | `v1` |
+| prompt_versions | `research_action_v1=9afd7284…`、`research_answer_v1=4b587b94…` |
+| external_policy_version | `v1-provisional` |
+| snapshot_id（run 级锁定） | `snap-1370505b2feadbde95bc8bd2d47d5f5a`（300750 当前快照） |
+
+**冻结核心规则**：表头/列级单位优先级与 canonical 归一化（Change 1）、结构化权威复合判定
+（Change 2：Store 权威、ref 不自证、`exclude_claim_ids`）、跨期/趋势子 need（Change 3：compare
+替代 single、≥3 期回退 LLM 解读、缺期记 gap）。三者均 fail-closed（错答案不放过，正确答案降 PARTIAL
+而非误判 FULL）。
