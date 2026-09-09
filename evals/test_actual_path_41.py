@@ -240,6 +240,60 @@ def main() -> dict:
     check(agg["latency_ms"]["p50"] == 900 and agg["tokens"]["avg"] == 135.0,
           "耗时 p50 + token avg")
 
+    # ---- _record_case 新字段（修订①③④：aspects / entailment / 去重审计）----
+    st = _state("DIRECT_EVIDENCE", evidence=["e1"])
+    st.required_aspects = [
+        {"aspect_id": "a1", "text": "主营业务构成", "source": "DATASET_MAPPING"},
+        {"aspect_id": "a2", "text": "各业务收入及收入占比", "source": "DATASET_MAPPING"},
+    ]
+    st.aspect_source = "DATASET_MAPPING"
+    st.inspected_evidence = {
+        "e1": H.InspectedMaterial(
+            evidence_id="e1", document_id="d1", source_name="年报",
+            page_number=36, report_period="2024-12-31", text="动力电池收入占比 65%",
+            is_snippet=False),
+    }
+    st.entailment_verdicts = [
+        H.EntailmentVerdict(claim_id="c1", citation_ids=["0"], verdict="SUPPORTED",
+                            reason="证据正文含具体占比", scope_consistency="consistent",
+                            period_consistency="consistent", unit_consistency="consistent",
+                            subject_consistency="consistent"),
+    ]
+    st.unsupported_claims = []
+    st.entailment_evaluator_failed = False
+    st.rejected_duplicate_actions = [
+        {"round": 1, "action": "INSPECT_EVIDENCE", "tool": "inspect_evidence",
+         "key": "k1", "source": "model_proposed"},
+    ]
+    ans = H.ResearchAnswer(
+        question_id="n1", answer_text="动力电池收入占比 65%",
+        claims=[H.Claim(claim_id="c1", text="动力电池收入占比 65%", kind="fact",
+                        citation_refs=[0])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1", page_number=36)],
+        aspects=[H.AspectAnswer(aspect_id="a1", text="动力电池", claim_ids=["c1"]),
+                 H.AspectAnswer(aspect_id="a2", text="占比 65%", claim_ids=["c1"])],
+        confidence="high")
+    outcome = H.ResearchOutcome(state=st, answer=ans, success=True,
+                                completion_status="COMPLETED", stop_reason="COMPLETED")
+    rec = R._record_case(_case(case_id="COMP-R1", question="主营业务及收入占比？"),
+                         st.route_result, outcome, {("d1", 36)})
+    check(rec["required_aspects"] == st.required_aspects
+          and rec["aspect_source"] == "DATASET_MAPPING",
+          "_record_case：required_aspects + aspect_source")
+    check(len(rec["aspects"]) == 2 and rec["aspects"][0]["answered"] is True
+          and rec["aspects"][1]["has_number"] is True,
+          "_record_case：逐 aspect 覆盖 + 数值方面有数字")
+    check(rec["uncovered_aspects"] == [], "_record_case：无未覆盖方面")
+    check(len(rec["entailment_verdicts"]) == 1
+          and rec["entailment_verdicts"][0]["verdict"] == "SUPPORTED",
+          "_record_case：entailment 判定")
+    check(rec["answer"]["claims"][0]["entailment"]["verdict"] == "SUPPORTED"
+          and rec["answer"]["claims"][0]["evidence_summary"][0]["text"] == "动力电池收入占比 65%",
+          "_record_case：claim 挂 entailment + 证据正文摘要")
+    check(rec["entailment_evaluator_failed"] is False
+          and len(rec["rejected_duplicate_actions"]) == 1,
+          "_record_case：entailment 失败标记 + 去重审计")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

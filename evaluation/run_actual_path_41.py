@@ -41,6 +41,7 @@ from harness import checkpoint as C
 from harness import policies as P
 from harness import runtime as RT
 from harness import schema as H
+from harness import state as HS
 from routing import context as routing_context
 from routing import router as router_mod
 from routing import schema as RS
@@ -300,12 +301,44 @@ def _structured_summary(refs: list) -> list[dict]:
     return out
 
 
+def _claim_evidence_summary(claim, answer, state) -> list[dict]:
+    """claim 的 evidence 引用 → 已 inspect 的正文摘要（供报告，不影响判分）。"""
+    if answer is None:
+        return []
+    inspected = state.inspected_evidence or {}
+    rows: list[dict] = []
+    for idx in claim.citation_refs:
+        if not (0 <= idx < len(answer.citations)):
+            continue
+        cit = answer.citations[idx]
+        if cit.ref_type != "evidence" or not cit.evidence_id:
+            continue
+        m = inspected.get(cit.evidence_id)
+        page = cit.page_number
+        if m is not None:
+            page = m.page_number if m.page_number is not None else page
+            rows.append({
+                "evidence_id": cit.evidence_id,
+                "page_number": page,
+                "source_name": m.source_name,
+                "report_period": m.report_period,
+                "is_snippet": m.is_snippet,
+                "text": (m.text[:400] if m.text else None),
+            })
+        else:
+            rows.append({"evidence_id": cit.evidence_id, "page_number": page,
+                         "source_name": "", "report_period": None,
+                         "is_snippet": True, "text": None})
+    return rows
+
+
 def _record_case(case, route_result: RS.RouterResult, outcome: H.ResearchOutcome,
                  evidence_pages: set[tuple[str, int]]) -> dict:
     st = outcome.state
     u = st.usage
     route = route_result.decision.route if route_result.decision else None
     answer = outcome.answer
+    entailment_by_claim = {v.claim_id: v for v in st.entailment_verdicts}
     return {
         "case_id": case.case_id,
         "question": case.question,
@@ -341,7 +374,9 @@ def _record_case(case, route_result: RS.RouterResult, outcome: H.ResearchOutcome
             "answer_text": answer.answer_text if answer else None,
             "claims": [
                 {"claim_id": c.claim_id, "text": c.text, "kind": c.kind,
-                 "citation_refs": c.citation_refs}
+                 "citation_refs": c.citation_refs,
+                 "entailment": _jsonable(entailment_by_claim.get(c.claim_id)),
+                 "evidence_summary": _claim_evidence_summary(c, answer, st)}
                 for c in (answer.claims if answer else [])
             ],
             "citations": [
@@ -368,6 +403,15 @@ def _record_case(case, route_result: RS.RouterResult, outcome: H.ResearchOutcome
             "elapsed_ms": u.elapsed_ms,
         },
         "page_diagnosis": _diagnose_local_pages(case, evidence_pages),
+        # 修订①③④：契约优先 aspects + 批量 entailment + 去重审计（读自 state，不影响判分）。
+        "required_aspects": _jsonable(st.required_aspects),
+        "aspect_source": st.aspect_source,
+        "aspects": HS.aspect_answers(st, answer),
+        "uncovered_aspects": HS.uncovered_aspects(st, answer),
+        "entailment_verdicts": _jsonable(st.entailment_verdicts),
+        "entailment_evaluator_failed": st.entailment_evaluator_failed,
+        "unsupported_claims": _jsonable(st.unsupported_claims),
+        "rejected_duplicate_actions": _jsonable(st.rejected_duplicate_actions),
     }
 
 
