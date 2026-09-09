@@ -1,0 +1,191 @@
+{
+  "freeze_kind": "unseen_validation_pre_run",
+  "run_id": "unseen_validation_20260909T105105Z",
+  "generated_at": "2026-09-09T10:51:10Z",
+  "git_commit": "53f654c96552600ba62466b06895438fa37128f6",
+  "workspace_clean": true,
+  "dataset": "evaluation/datasets/v1_baseline.jsonl",
+  "dataset_sha256": "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8",
+  "split_manifest": "evaluation/datasets/v1_baseline.split_manifest.json",
+  "split_manifest_sha256": "08d7dfc0cfd8de809c0479780ba0e1d41e1a4bb86643744542acc5e0fc6e7ad1",
+  "split": {
+    "unseen_validation": [
+      "COMP-BD1",
+      "COMP-RP1",
+      "COMP-SW1",
+      "COMP-RD1",
+      "FIN-INV1",
+      "FIN-AUD1",
+      "IND-R3",
+      "IND-R4",
+      "IND-R6"
+    ],
+    "route_coverage": {
+      "remaining_routes": [
+        "DEEP_RETRIEVAL",
+        "DIRECT_EVIDENCE",
+        "EXTERNAL_RESEARCH",
+        "STANDARD_RAG"
+      ],
+      "unseen_validation": {
+        "DIRECT_EVIDENCE": 4,
+        "EXTERNAL_RESEARCH": 1,
+        "STANDARD_RAG": 3,
+        "DEEP_RETRIEVAL": 1
+      },
+      "covered": true
+    },
+    "total": 41,
+    "algorithm": "split_manifest_v1",
+    "seed": 42
+  },
+  "case_ids": [
+    "COMP-BD1",
+    "COMP-RP1",
+    "COMP-SW1",
+    "COMP-RD1",
+    "FIN-INV1",
+    "FIN-AUD1",
+    "IND-R3",
+    "IND-R4",
+    "IND-R6"
+  ],
+  "company_id": "300750",
+  "report_as_of": "2026-03-31",
+  "scope": "consolidated",
+  "currency": "CNY",
+  "purpose": "credit_analysis",
+  "contract_version": "v1",
+  "router_fingerprint": "v2-rule-1.0",
+  "prompt_versions": {
+    "company_subject.txt": "6281accc8b351405f1453a689b6747dda35a5cb510a080ab7bd583e298a4ead0",
+    "financial_analysis.txt": "1309be3d0ffb16379a2bd89d758359f7fcb54ac6967e811f88efc2772f412d0e",
+    "industry.txt": "276922aea4398ec17dfa998298c03344a512e647614917e7c3c11bb051cd40bc",
+    "research_action_v1.txt": "9afd728419773748b95002c987a8eb3c6586878cabaa4089b6a450f95b8a9140",
+    "research_answer_v1.txt": "4b587b942c02666e99a3dbb8155b29f424571f6a996c731a70a639134cac49b9",
+    "research_entailment_v1.txt": "abc1ee99390325c01720202de9bc1962224543eb3fd3337a88dfcb5db735aa9d",
+    "research_preview_v1.txt": "fea9b4b7c09aaaa268eb38a86ac2bb69272ee0870ccc4a4c4969eb7b514924cc",
+    "router_v2.txt": "5560397d537ad903a41f5c5bd4cd19afe02534e50582e4af0f2f9cf70e7bd8d3",
+    "schema_mapping.txt": "dea15ebb2d0daa5d741eb06203dc0413d35155ae29bc82e641bb6e545c8b0552",
+    "synthesizer.txt": "eac9710b22fc39bb45dfc83a2e168ba20e3463fcb00c4fca1f807254d7e8007d"
+  },
+  "model": "deepseek-v4-pro",
+  "budget": {
+    "max_rounds": 5,
+    "max_tool_calls": 5,
+    "max_local_searches": 2,
+    "max_external_searches": 2,
+    "max_fetches": 2,
+    "max_action_repairs": 1,
+    "max_added_needs": 2,
+    "max_consecutive_no_new_evidence": 2,
+    "max_tokens": 8000,
+    "max_elapsed_ms": 120000,
+    "max_retries_per_call": 1
+  },
+  "evidence_fingerprint": "9919ddb14cc870324fcd2ee0f4d7fa5d85fa0d1eb8af09b410fcbae105568966",
+  "snapshot_id": "snap-1370505b2feadbde95bc8bd2d47d5f5a",
+  "external_policy_version": "v1-provisional",
+  "external_search_provider": "bocha",
+  "harness_fingerprint": "0f0538e2086ead13c0420c72dbd4e10b1df065f034c8e6ab88a958176d21edae",
+  "config_sha256": "a6dba53eef4be2c1bcc0bea44e510291e9f3ef5066ff2df13ea3e2c86b7eb525",
+  "demo_mode": true,
+  "executed_subset_note": "9 unseen_validation cases from split manifest; executed via temp dataset subset (original dataset untouched); Financial Snapshot built into temp db because production data/financial_v2.db is intentionally empty.",
+  "runner_meta": {
+    "runner": "run_actual_path_41",
+    "run_id": "unseen_validation_20260909T105105Z",
+    "company_id": "300750",
+    "dataset_path": "C:\\Users\\jeank\\AppData\\Local\\Temp\\unseen_validation__ezrzg_u\\unseen_cases.jsonl",
+    "dataset_sha256": "1ebbf2e5ad3d2bb744b70ed8ea650071256fc9478a2c38934766fb92cbd41ddb",
+    "report_as_of": "2026-03-31",
+    "model": "deepseek-v4-pro",
+    "budget": {
+      "max_rounds": 5,
+      "max_tool_calls": 5,
+      "max_local_searches": 2,
+      "max_external_searches": 2,
+      "max_fetches": 2,
+      "max_action_repairs": 1,
+      "max_added_needs": 2,
+      "max_consecutive_no_new_evidence": 2,
+      "max_tokens": 8000,
+      "max_elapsed_ms": 120000,
+      "max_retries_per_call": 1
+    },
+    "contract_version": "v1",
+    "router_fingerprint": "v2-rule-1.0",
+    "external_policy_version": "v1-provisional",
+    "harness_fingerprint": "0f0538e2086ead13c0420c72dbd4e10b1df065f034c8e6ab88a958176d21edae",
+    "resume_run_id": null,
+    "generated_at": "2026-09-09T10:51:10Z",
+    "git": {
+      "commit": "53f654c96552600ba62466b06895438fa37128f6"
+    }
+  },
+  "run_completed_at": "2026-09-09T10:53:23Z",
+  "run_elapsed_sec": 138.2,
+  "metrics": {
+    "n_cases": 9,
+    "route_distribution": {
+      "DIRECT_EVIDENCE": 1,
+      "STANDARD_RAG": 5,
+      "EXTERNAL_RESEARCH": 1,
+      "DEEP_RETRIEVAL": 1,
+      "UNDECIDED": 1
+    },
+    "completion_distribution": {
+      "FULL": 0,
+      "PARTIAL": 7,
+      "UNRESOLVED": 1,
+      "NOT_IMPLEMENTED": 1,
+      "FAILED": 0
+    },
+    "p0_completion_distribution": {
+      "FULL": 0,
+      "PARTIAL": 2,
+      "UNRESOLVED": 0,
+      "NOT_IMPLEMENTED": 0,
+      "FAILED": 0
+    },
+    "stop_reason_distribution": {
+      "COMPLETED_WITH_GAPS": 7,
+      "BUDGET_EXTERNAL": 1,
+      "PATH_NOT_IMPLEMENTED": 1
+    },
+    "source_coverage": {
+      "n_with_evidence": 7,
+      "n_with_structured": 1,
+      "n_with_external": 0
+    },
+    "tool_errors": 0,
+    "tool_empty": 0,
+    "budget_stops": 1,
+    "invalid_loops": 0,
+    "latency_ms": {
+      "avg": 14722.444444444445,
+      "p50": 15812,
+      "p95": 21282
+    },
+    "tokens": {
+      "avg": 7631.111111111111,
+      "p50": 8844,
+      "p95": 10468
+    },
+    "usage_unknown_calls": 0,
+    "page_diagnosis": {
+      "n_applicable": 9,
+      "macro_required_page_coverage": 0.07407407407407407,
+      "page_hit": 2
+    },
+    "external_cost_available": false,
+    "structured_subneeds": {
+      "parent_db_routes": 0,
+      "n_subneeds": 1,
+      "n_resolved": 1,
+      "n_unavailable": 0,
+      "n_not_db_routed": 0,
+      "n_semantic_mismatches_rejected": 0,
+      "n_cases_with_structured": 1
+    }
+  }
+}

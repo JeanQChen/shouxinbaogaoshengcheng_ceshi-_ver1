@@ -1,0 +1,31 @@
+{
+  "runner": "run_actual_path_41",
+  "run_id": "unseen_validation_20260909T105105Z",
+  "company_id": "300750",
+  "dataset_path": "C:\\Users\\jeank\\AppData\\Local\\Temp\\unseen_validation__ezrzg_u\\unseen_cases.jsonl",
+  "dataset_sha256": "1ebbf2e5ad3d2bb744b70ed8ea650071256fc9478a2c38934766fb92cbd41ddb",
+  "report_as_of": "2026-03-31",
+  "model": "deepseek-v4-pro",
+  "budget": {
+    "max_rounds": 5,
+    "max_tool_calls": 5,
+    "max_local_searches": 2,
+    "max_external_searches": 2,
+    "max_fetches": 2,
+    "max_action_repairs": 1,
+    "max_added_needs": 2,
+    "max_consecutive_no_new_evidence": 2,
+    "max_tokens": 8000,
+    "max_elapsed_ms": 120000,
+    "max_retries_per_call": 1
+  },
+  "contract_version": "v1",
+  "router_fingerprint": "v2-rule-1.0",
+  "external_policy_version": "v1-provisional",
+  "harness_fingerprint": "0f0538e2086ead13c0420c72dbd4e10b1df065f034c8e6ab88a958176d21edae",
+  "resume_run_id": null,
+  "generated_at": "2026-09-09T10:51:10Z",
+  "git": {
+    "commit": "53f654c96552600ba62466b06895438fa37128f6"
+  }
+}

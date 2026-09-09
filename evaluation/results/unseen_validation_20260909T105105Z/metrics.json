@@ -1,0 +1,64 @@
+{
+  "n_cases": 9,
+  "route_distribution": {
+    "DIRECT_EVIDENCE": 1,
+    "STANDARD_RAG": 5,
+    "EXTERNAL_RESEARCH": 1,
+    "DEEP_RETRIEVAL": 1,
+    "UNDECIDED": 1
+  },
+  "completion_distribution": {
+    "FULL": 0,
+    "PARTIAL": 7,
+    "UNRESOLVED": 1,
+    "NOT_IMPLEMENTED": 1,
+    "FAILED": 0
+  },
+  "p0_completion_distribution": {
+    "FULL": 0,
+    "PARTIAL": 2,
+    "UNRESOLVED": 0,
+    "NOT_IMPLEMENTED": 0,
+    "FAILED": 0
+  },
+  "stop_reason_distribution": {
+    "COMPLETED_WITH_GAPS": 7,
+    "BUDGET_EXTERNAL": 1,
+    "PATH_NOT_IMPLEMENTED": 1
+  },
+  "source_coverage": {
+    "n_with_evidence": 7,
+    "n_with_structured": 1,
+    "n_with_external": 0
+  },
+  "tool_errors": 0,
+  "tool_empty": 0,
+  "budget_stops": 1,
+  "invalid_loops": 0,
+  "latency_ms": {
+    "avg": 14722.444444444445,
+    "p50": 15812,
+    "p95": 21282
+  },
+  "tokens": {
+    "avg": 7631.111111111111,
+    "p50": 8844,
+    "p95": 10468
+  },
+  "usage_unknown_calls": 0,
+  "page_diagnosis": {
+    "n_applicable": 9,
+    "macro_required_page_coverage": 0.07407407407407407,
+    "page_hit": 2
+  },
+  "external_cost_available": false,
+  "structured_subneeds": {
+    "parent_db_routes": 0,
+    "n_subneeds": 1,
+    "n_resolved": 1,
+    "n_unavailable": 0,
+    "n_not_db_routed": 0,
+    "n_semantic_mismatches_rejected": 0,
+    "n_cases_with_structured": 1
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "run_id": "unseen_validation_20260909T105105Z",
+  "generated_at": "2026-09-09T18:55:00Z",
+  "classifier": "manual review (frozen rules; no fixes applied)",
+  "categories": {
+    "GENERAL_P0_SAFETY_BUG": "安全/正确性缺陷：会产生错误答案或错误实体，需立即止血",
+    "GENERAL_IMPLEMENTATION_BUG": "harness/Router/Entailment 逻辑缺口：系统性地把本应可答的题降级或误路由",
+    "RETRIEVAL_OR_DATA_GAP": "检索/数据缺口：证据或外部数据源未能提供可核实材料",
+    "MODEL_VARIANCE": "模型生成波动：同输入多次运行结果不稳定，或偶发幻觉",
+    "EXPECTED_PARTIAL": "预期内部分完成：问题本身要求的数据/指标在可得范围内本就不可得",
+    "CASE_SPECIFIC": "单题特例：无法泛化的个案问题"
+  },
+  "summary_counts": {
+    "GENERAL_P0_SAFETY_BUG": 0,
+    "GENERAL_IMPLEMENTATION_BUG": 3,
+    "RETRIEVAL_OR_DATA_GAP": 3,
+    "MODEL_VARIANCE": 0,
+    "EXPECTED_PARTIAL": 1,
+    "CASE_SPECIFIC": 0
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "category": "GENERAL_IMPLEMENTATION_BUG",
+      "severity": "P1",
+      "title": "value_presence 数值等价误伤年份/区间/连续年数/计数/排名",
+      "affected_cases": ["COMP-BD1", "COMP-RP1", "COMP-RD1", "FIN-INV1", "IND-R3", "IND-R4", "IND-R6"],
+      "evidence": "G3 确定性预检（harness/state.py:247-250，经 harness/entailment.py deterministic_prechecks → value_presence）把 claim 中的年份（2023/2024/2025）、年份区间（2023—2025）、连续年数（9年/5年）、计数（2位执行董事 / 54,538项专利）当作需与证据金额等价的数值，逐一判 value_missing，产生 unresolved 项「数字在证据正文中未找到数值等价」。",
+      "root_cause": "Round-2 Fix 1（_extract_claim_business_amounts 排除非业务数值）仅作用于 structured_provenance 的 claim 金额路径；entailment 的 deterministic_prechecks / value_presence 未同步排除年份与非业务数值。",
+      "nature": "保守降级（PARTIAL 而非错误 FULL），非安全 bug；但导致 unseen 集 0 FULL 的泛化塌缩。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F2",
+      "category": "GENERAL_IMPLEMENTATION_BUG",
+      "severity": "P1",
+      "title": "Router FALLBACK_UNAVAILABLE：跨年审计师一致性问题无规则命中且无 fallback",
+      "affected_cases": ["FIN-AUD1"],
+      "evidence": "「2023—2025年会计师事务所是否一致」路由结果 router_status=FALLBACK_UNAVAILABLE、decision=None → UNDECIDED → completion_status=NOT_IMPLEMENTED / stop_reason=PATH_NOT_IMPLEMENTED。required_aspect「会计师事务所」经 DATASET_MAPPING 已识别，但 Router 无匹配规则且无 fallback。",
+      "root_cause": "Router v2-rule-1.0 缺少「多期实体身份一致性（auditor 等）」问题类型的路由规则，且 fallback 不可用。",
+      "nature": "fail-closed（NOT_IMPLEMENTED，未产出错误答案），但丢失一道可答的 DIRECT_EVIDENCE 题。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F3",
+      "category": "GENERAL_IMPLEMENTATION_BUG",
+      "severity": "P2",
+      "title": "Router 将 DIRECT_EVIDENCE 多面题误路由到 STANDARD_RAG",
+      "affected_cases": ["COMP-RP1", "IND-R4"],
+      "evidence": "COMP-RP1（关联采购情况）、IND-R4（行业定义/细分/边界）expected_route_v2=DIRECT_EVIDENCE，实际被 SECTION_TOPIC_SYNTHESIS 规则路由到 STANDARD_RAG。",
+      "root_cause": "Router 规则把「面状/定义类」措辞优先判为 topic synthesis，覆盖了 DIRECT_EVIDENCE 的精确文档字段意图。",
+      "nature": "误路由未直接导致失败（两题仍产出 PARTIAL 答案），但偏离 expected_route_v2。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F4",
+      "category": "RETRIEVAL_OR_DATA_GAP",
+      "severity": "P1",
+      "title": "外部检索无可引用快照（换电业务）",
+      "affected_cases": ["COMP-SW1"],
+      "evidence": "search_external_sources 被调用 3 次均 SUCCESS，但 external_snapshot_ids=0、evidence_ids=0、claims=0 → 触发 BUDGET_EXTERNAL 停止 → UNRESOLVED。",
+      "root_cause": "外部源（Bocha web search）对「宁德时代换电业务」未返回可转化为 citable external snapshot 的结果；也可能含动作模型查询构造/快照转化环节缺口。",
+      "nature": "无结果、无答案、无错误数字。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F5",
+      "category": "RETRIEVAL_OR_DATA_GAP",
+      "severity": "P1",
+      "title": "检索证据页命中率极低（离线诊断）",
+      "affected_cases": ["ALL 9"],
+      "evidence": "page_diagnosis: macro_required_page_coverage=0.074、page_hit=2/9。检索取得的 Evidence (document_id,page) 与 gold 本地页几乎不重叠（对比 reaccept 冒烟 macro≈0.30、page_hit=4/6）。",
+      "root_cause": "离线诊断（gold 页仅诊断、不回流 runtime）；可能为检索/重排对 unseen 问的泛化弱，或 gold 页分布与问法不匹配。",
+      "nature": "诊断信号，非 runtime 判分输入；但强烈提示检索质量在 unseen 集退化。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F6",
+      "category": "RETRIEVAL_OR_DATA_GAP",
+      "severity": "P1",
+      "title": "具体金额/指标在可得材料中未披露或未检索到",
+      "affected_cases": ["COMP-RP1", "COMP-RD1", "FIN-INV1"],
+      "evidence": "COMP-RP1 缺关联采购具体金额/占比/对手方；COMP-RD1 的 54,538 项专利数未在已 inspect 证据正文中；FIN-INV1 缺存货周转率/周转天数。",
+      "root_cause": "相关数字确未在可得 PDF/快照中披露，或未检索到对应页。",
+      "nature": "数据可得性缺口，非计算错误。",
+      "disposition": "记录，不修复（冻结）。"
+    },
+    {
+      "id": "F7",
+      "category": "EXPECTED_PARTIAL",
+      "severity": "P0",
+      "title": "FIN-INV1 核心「存货如何变化」已答对，仅「为什么」周转指标不可得",
+      "affected_cases": ["FIN-INV1"],
+      "evidence": "结构化子 need RESOLVED（存货 INVENTORY 经 Financial Snapshot 命中），答案给出 2025 年末 94526240000 元 vs 2024 年末 59835530000 元 且方向正确；unresolved 仅剩「存货周转率/周转天数」未覆盖 + 年份区间 value_missing 误伤。",
+      "root_cause": "「为什么」方面需要存货周转指标，当前可用 metric 集未提供该公式。",
+      "nature": "预期内部分完成：主问正确，次问受指标集限制。",
+      "disposition": "记录，不修复（冻结）。"
+    }
+  ],
+  "no_general_p0_safety_bug": true,
+  "stop_boundary": "本轮禁止修复。以上 7 项（0 项 P0 安全、3 项实现、3 项检索/数据、1 项预期部分）仅记录；不在同一次 unseen run 后修改规则/Prompt/Router/Retriever/Evidence/Financial V2/Section Contract/split manifest/gold 后重跑。"
+}

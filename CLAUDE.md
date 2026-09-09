@@ -469,6 +469,15 @@ make clean-db     # 清掉 data/credit.db （重置财务数据）
 - [x] 演示路径打磨（步骤指示器、友好错误提示、使用指南）
 - [x] 提示词优化（四份 prompt 重构：结构化任务、强制引用、事实/研判区分）
 
+### Phase 3: 授信报告工具化（Batch A/B — 冻结）
+- [x] Financial V2 快照链 + `lookup_company_field` / `lookup_financial_metric` / `compare_financial_periods` 三财务工具
+- [x] 5 路由（DB_LOOKUP / DIRECT_EVIDENCE / STANDARD_RAG / DEEP_RETRIEVAL / EXTERNAL_RESEARCH）+ Router v2-rule-1.0
+- [x] Actual-Path Runner（`evaluation/run_actual_path_41.py`，RunManifest + resume fail-closed）
+- [x] 结构化 provenance / 跨期比较子 need / 表头单位上下文 / Citation Repair 原子应用（规则冻结前收口）
+- [x] split manifest（dev=8 / unseen_validation=9 / frozen_final=24 / total=41）
+- [x] 规则冻结（git `53f654c`）+ **unseen_validation 9 题一次性评测**（见 `PHASE3_UNSEEN_VALIDATION_REPORT.md`）
+- [ ] frozen_final 24 题（待人工门决策，unseen 结果暴露 F1 value_presence 泛化塌缩，是否解冻修复留待决策）
+
 ---
 
 ## When You're Stuck

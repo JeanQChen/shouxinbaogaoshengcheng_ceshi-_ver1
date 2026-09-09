@@ -1,0 +1,15 @@
+{
+  "run_id": "unseen_validation_20260909T105105Z",
+  "trace_dir": "logs\\harness\\unseen_validation_20260909T105105Z",
+  "n_trace_files": 8,
+  "files": [
+    "COMP-BD1.jsonl",
+    "COMP-RD1.jsonl",
+    "COMP-RP1.jsonl",
+    "COMP-SW1.jsonl",
+    "FIN-INV1.jsonl",
+    "IND-R3.jsonl",
+    "IND-R4.jsonl",
+    "IND-R6.jsonl"
+  ]
+}
