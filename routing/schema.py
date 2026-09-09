@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 # ---------------------------------------------------------------------------
 
 # Router 规则版本（进入 trace / 评测，规则变更需递增）。
-RULE_VERSION = "v2-rule-1.0"
+RULE_VERSION = "v2-rule-1.1"
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +67,7 @@ REASON_CODES = (
     "EXPLICIT_EXTERNAL_RECENCY",
     "CROSS_DOCUMENT_OR_CONFLICT",
     "SECTION_TOPIC_SYNTHESIS",
+    "AUDIT_OPINION_FIELD",
     "AMBIGUOUS_RULE_MATCH",
     "LLM_FALLBACK_DECISION",
     # Track A 公平对照：不调 Router，对全部 ELIGIBLE_LOCAL 用同一固定本地 Hybrid 决策。

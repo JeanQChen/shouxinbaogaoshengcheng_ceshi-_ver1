@@ -3,7 +3,8 @@
 规则判定完全基于 InformationNeed 的需求特征与 RouteContext 的静态能力清单，
 不执行检索、不预知 evidence_id 命中（契约修正 2）。
 
-有效判定顺序（对应任务书 §5 规则 1-5）：
+有效判定顺序（对应任务书 §5 规则 1-5，F3 新增审计字段优先级 0）：
+0. DIRECT_EVIDENCE —— 审计意见/会计师事务所字段（F3，先于 time_scope 解析与 DEEP）；
 1. DB 目标 + 明确外部时效 → 冲突，交 fallback；
 2. EXTERNAL_RESEARCH —— 外部来源词（新闻/处罚/政策/行情/市值…）或时间窗口晚于本地截止；
 3. DEEP_RETRIEVAL  —— 跨期/变化/冲突（趋势非单值字段查询，优先于 DB）；
@@ -98,6 +99,14 @@ _SYNTHESIS_TERMS = (
     "风险", "发展历程", "核心竞争力", "业务发展", "结构", "规划", "布局",
 )
 
+# 审计意见 / 会计师事务所字段信号（F3）：年度报告审计章节的单一可定位字段。
+# 这类问题即使带「是否一致」「2023—2025年」区间，也应默认 DIRECT_EVIDENCE，
+# 而非因 time_scope 无法解析而 fallback、或误判为跨期 DEEP。
+_AUDIT_TERMS = (
+    "审计意见", "无保留意见", "保留意见", "否定意见", "无法表示意见",
+    "强调事项", "关键审计事项", "会计师事务所", "审计结论",
+)
+
 
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(t in text for t in terms)
@@ -147,6 +156,15 @@ def _has_deep_signal(need: S.InformationNeed) -> bool:
 def _has_direct_signal(need: S.InformationNeed) -> bool:
     return (_contains_any(need.question, _DIRECT_WH_TERMS)
             and not _contains_any(need.question, _SYNTHESIS_TERMS))
+
+
+def _has_audit_signal(need: S.InformationNeed) -> bool:
+    """审计意见/会计师事务所字段信号（F3）：默认 DIRECT_EVIDENCE。
+
+    审计意见/事务所是年度报告审计章节的单一可定位字段，不构成跨期 DEEP 检索，
+    也不应因 time_scope 区间无法解析而拒绝作答。
+    """
+    return _contains_any(need.question, _AUDIT_TERMS)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +297,13 @@ def _route(need: S.InformationNeed, context: S.RouteContext,
     db_target = db_targets.resolve_db_target(need.question)
     db_supported = db_target is not None and _target_supported(db_target, context)
 
-    # 0. time_scope 无法可靠解析 → 交 fallback（禁止猜测，契约修正 2）。
+    # 0. 审计意见/会计师事务所字段 → DIRECT_EVIDENCE（F3：默认单字段定位，先于
+    #    time_scope 解析与 DEEP「是否一致」，避免因区间无法解析而 fallback）。
+    if _has_audit_signal(need):
+        return _decided(_decision(
+            need, "DIRECT_EVIDENCE", "AUDIT_OPINION_FIELD", {}), trace_id)
+
+    # 1. time_scope 无法可靠解析 → 交 fallback（禁止猜测，契约修正 2）。
     if _time_scope_unparseable(need):
         return _resolve_fallback(need, context, fallback, trace_id,
                                  reason="TIME_SCOPE_UNPARSEABLE")
@@ -287,21 +311,21 @@ def _route(need: S.InformationNeed, context: S.RouteContext,
     external_subject = _has_external_subject(need, context)
     recency = _has_recency(need)
 
-    # 1. DB 目标 + 外部来源/时效 → 冲突，交 fallback。
+    # 2. DB 目标 + 外部来源/时效 → 冲突，交 fallback。
     if db_supported and (external_subject or recency):
         return _resolve_fallback(need, context, fallback, trace_id)
 
-    # 2. EXTERNAL：外部来源或时间窗口晚于本地（数据不在上传文档内）。
+    # 3. EXTERNAL：外部来源或时间窗口晚于本地（数据不在上传文档内）。
     if external_subject:
         return _decided(_decision(
             need, "EXTERNAL_RESEARCH", "EXPLICIT_EXTERNAL_RECENCY", {}), trace_id)
 
-    # 3. DEEP：跨期/变化/冲突（趋势非单值字段查询，优先于 DB）。
+    # 4. DEEP：跨期/变化/冲突（趋势非单值字段查询，优先于 DB）。
     if _has_deep_signal(need):
         return _decided(_decision(
             need, "DEEP_RETRIEVAL", "CROSS_DOCUMENT_OR_CONFLICT", {}), trace_id)
 
-    # 4. DB：确定性解析 + supported（不看当前值），且无外部/深信号。
+    # 5. DB：确定性解析 + supported（不看当前值），且无外部/深信号。
     if db_supported:
         return _decided(_decision(
             need, "DB_LOOKUP",
@@ -309,12 +333,12 @@ def _route(need: S.InformationNeed, context: S.RouteContext,
             else "REGISTERED_FINANCIAL_METRIC",
             _db_filters(db_target, context, need.question)), trace_id)
 
-    # 5. DIRECT：单个明确字段/日期/人数/名称/表格项目。
+    # 6. DIRECT：单个明确字段/日期/人数/名称/表格项目。
     if _has_direct_signal(need):
         return _decided(_decision(
             need, "DIRECT_EVIDENCE", "EXACT_DOCUMENT_FIELD", {}), trace_id)
 
-    # 6. STANDARD（兜底）。
+    # 7. STANDARD（兜底）。
     return _decided(_decision(
         need, "STANDARD_RAG", "SECTION_TOPIC_SYNTHESIS", {}, confidence="high"), trace_id)
 

@@ -133,6 +133,37 @@ def main() -> dict:
           and r.decision.reason_code == "EXACT_DOCUMENT_FIELD",
           "实际控制人是谁 → DIRECT_EVIDENCE")
 
+    # ---- F3：审计意见/会计师事务所 → DIRECT_EVIDENCE（先于 time_scope 与 DEEP）----
+    r = route_of("2024 年审计意见是什么？")
+    check(r.decision.route == "DIRECT_EVIDENCE"
+          and r.decision.reason_code == "AUDIT_OPINION_FIELD",
+          "审计意见 → DIRECT_EVIDENCE(AUDIT_OPINION_FIELD)")
+
+    # 审计字段 + time_scope 区间无法解析 → 仍 DIRECT（不 fallback）。
+    r = R.route(_need("2023—2025年宁德时代的会计师事务所是否一致？",
+                      time_scope="2023-2025"), _context())
+    check(r.status == "DECIDED" and r.decision.route == "DIRECT_EVIDENCE"
+          and r.decision.reason_code == "AUDIT_OPINION_FIELD",
+          "会计师事务所 + time_scope=2023-2025 → DIRECT（不 FALLBACK_UNAVAILABLE）")
+
+    # 审计字段 + 「是否一致」（DEEP 词）→ 审计字段优先于 DEEP。
+    r = route_of("近三年会计师事务所是否一致？")
+    check(r.decision.route == "DIRECT_EVIDENCE"
+          and r.decision.reason_code == "AUDIT_OPINION_FIELD",
+          "会计师事务所 + 是否一致 → DIRECT（审计优先于 DEEP）")
+
+    # 无审计词 + time_scope 区间无法解析 → 仍 FALLBACK（无回归）。
+    r = R.route(_need("总资产是多少？", time_scope="2023-2025"), _context())
+    check(r.status == "FALLBACK_UNAVAILABLE",
+          "无审计词 + time_scope=2023-2025 → 仍 FALLBACK_UNAVAILABLE")
+
+    # 公司无关（不硬编码宁德时代）。
+    ctx_audit = _context(company_id="601318")
+    r = R.route(_need("审计结论是什么？", need_id="AUD-OTHER"), ctx_audit)
+    check(r.decision.route == "DIRECT_EVIDENCE"
+          and r.decision.reason_code == "AUDIT_OPINION_FIELD",
+          "审计结论公司无关表达同样 DIRECT（无硬编码）")
+
     # ---- STANDARD（兜底）----
     r = route_of("公司的核心竞争优势是什么？")
     check(r.decision.route == "STANDARD_RAG"
