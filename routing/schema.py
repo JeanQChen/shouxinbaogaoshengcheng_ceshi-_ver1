@@ -182,6 +182,10 @@ class RouteContext:
     scope: str = "consolidated"
     currency: str = "CNY"
     purpose: str = "credit_analysis"
+    # 快照内可用报告期（report_period 去重升序；仅 healthy current snapshot 才填，否则 []）。
+    available_periods: list[str] = field(default_factory=list)
+    # 本次 run 锁定的 current snapshot_id（healthy 才非空，否则 None，fail-closed）。
+    snapshot_id: str | None = None
 
 
 @dataclass
@@ -268,6 +272,22 @@ class StructuredResultRef:
     reason_code: str | None
     input_record_refs: list[str]
     input_snapshot_item_refs: list[str]
+    # Change 2：权威性判定所需快照维度（自当前 snapshot 解析后填充；仅供展示/审计，
+    # 不自证权威——权威以 Store 的 current 指针 + 最新 validity + report_blocked +
+    # quarantine 复合判定为准）。
+    company_id: str | None = None
+    scope: str | None = None
+    currency: str | None = None
+    purpose: str | None = None
+    snapshot_status: str | None = None   # valid|stale|superseded|blocked（仅展示/审计）
+    # Change 3：比较/趋势表面化（compare_financial_periods 或趋势子 need 填入；不新增
+    # result_type——比较元数据挂在两个单期 ref 的扩展字段上）。
+    period_a: str | None = None
+    period_b: str | None = None
+    value_a: str | None = None
+    value_b: str | None = None
+    direction: str | None = None          # increased|decreased|unchanged|missing_period
+    change_value: str | None = None       # Decimal delta(b-a)，仅代码算得时非空
 
 
 @dataclass

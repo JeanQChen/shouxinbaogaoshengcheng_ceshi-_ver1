@@ -195,7 +195,8 @@ def uncovered_aspects(state: H.ResearchState,
 def _result(success: bool, completion_status: str, reasons: list[str],
             uncovered_aspects: list[str] | None = None,
             unsupported_claims: list[str] | None = None,
-            aspect_answers: list[dict] | None = None) -> dict:
+            aspect_answers: list[dict] | None = None,
+            entailment_summary: list | None = None) -> dict:
     return {
         "success": success,
         "completion_status": completion_status,
@@ -203,6 +204,7 @@ def _result(success: bool, completion_status: str, reasons: list[str],
         "uncovered_aspects": uncovered_aspects or [],
         "unsupported_claims": unsupported_claims or [],
         "aspect_answers": aspect_answers or [],
+        "entailment_summary": entailment_summary or [],
     }
 
 
@@ -260,10 +262,12 @@ def evaluate_success(state: H.ResearchState,
     if reasons or unsupported:
         return _result(False, "COMPLETED_WITH_GAPS", reasons + unsupported,
                        uncovered_aspects=uncovered,
-                       unsupported_claims=unsupported, aspect_answers=aa)
+                       unsupported_claims=unsupported, aspect_answers=aa,
+                       entailment_summary=getattr(state, "entailment_summary", []))
     return _result(True, "COMPLETED", [],
                    uncovered_aspects=uncovered, unsupported_claims=unsupported,
-                   aspect_answers=aa)
+                   aspect_answers=aa,
+                   entailment_summary=getattr(state, "entailment_summary", []))
 
 
 def is_sufficient(state: H.ResearchState,

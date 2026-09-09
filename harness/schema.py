@@ -345,6 +345,13 @@ class ResearchState:
     checkpoint_id: str | None = None
     input_versions: dict = field(default_factory=dict)   # 冻结输入版本指纹
     budget: dict = field(default_factory=dict)           # ResearchBudget 的 asdict 快照
+    # Change 2：结构化权威判定产物（每 ANSWER 版本重算，属答案派生状态）。
+    structured_provenance: dict = field(default_factory=dict)  # claim_id -> StructuredProvenanceVerdict
+    entailment_summary: list = field(default_factory=list)     # 三 evaluator 汇总（claim_id/evaluator/verdict/reason）
+    # run 级冻结输入（非答案派生）：run 开始由 RouteContext.snapshot_id 一次性写入；
+    # 工具返回的 StructuredResultRef.snapshot_id 只与之比较，绝不反向设置/覆盖；
+    # _reset_answer_derived_state 禁止清理/重写本字段。
+    active_snapshot_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
