@@ -352,6 +352,10 @@ class ResearchState:
     # 工具返回的 StructuredResultRef.snapshot_id 只与之比较，绝不反向设置/覆盖；
     # _reset_answer_derived_state 禁止清理/重写本字段。
     active_snapshot_id: str | None = None
+    # 答案派生的 citation repair 审计（每次 ANSWER 由 structured_provenance 重算；
+    # 记录被修复引用 {original_snapshot_id, repaired_snapshot_id, ...}，供 trace /
+    # 报告展示 CITATION_REF_REPAIRED）。
+    citation_repairs: list = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

@@ -545,6 +545,7 @@ def _reset_answer_derived_state(state: H.ResearchState) -> None:
     state.entailment_evaluator_failed = False
     state.structured_provenance = {}
     state.entailment_summary = []
+    state.citation_repairs = []
     state.unresolved_items = [
         x for x in state.unresolved_items
         if not x.startswith(_ANSWER_DERIVED_GAP_PREFIXES)
@@ -768,8 +769,16 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 if v.verdict in ("PARTIAL", "UNSUPPORTED"):
                     state.unsupported_claims.append(
                         f"{cid}: 结构化权威 {v.verdict}: {v.reason}")
+            # Citation Repair 审计：结构化判定如发生 snapshot_id 改写，落盘 trace。
+            if trace_enabled and getattr(state, "citation_repairs", None):
+                T.emit(run_id, need.need_id, "CITATION_REF_REPAIRED",
+                       {"answer_revision": state.answer_revision,
+                        "repairs": state.citation_repairs})
+            # SUPPORTED 结构化 claim 排除出 LLM；比较/趋势方向的确定性判定也不让 LLM
+            # 法官重新算方向（方向必须来自 Python 工具结果）。
             excluded = frozenset(cid for cid, v in state.structured_provenance.items()
-                                 if v.verdict == "SUPPORTED")
+                                 if v.verdict == "SUPPORTED"
+                                 or v.mode in ("comparison", "trend"))
             if hasattr(llm, "evaluate_entailment_batch"):
                 try:
                     state.entailment_verdicts = E.evaluate_entailment_batch(

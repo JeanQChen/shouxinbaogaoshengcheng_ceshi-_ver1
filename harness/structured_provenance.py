@@ -1,19 +1,29 @@
-"""Phase 3 Batch B 修订④：结构化结果权威判定（确定性，无 LLM）。
+"""Phase 3 Batch B 修订⑤：结构化结果权威判定（确定性，无 LLM）。
 
 针对「仅结构化引用」的 fact claim，用 Store 权威 + canonical Decimal 数值等价，在 LLM
 entailment 之前确定性地判定 SUPPORTED / PARTIAL / UNSUPPORTED，避免纯结构化 claim 被
-LLM 因「无正文」误判 UNSUPPORTED（FIN-PM1）。
+LLM 因「无正文」误判 UNSUPPORTED。
 
 判定原则（fail-closed）：
 - 权威性 = 复合判定（exists + is_current + validity==valid + not report_blocked +
   not quarantined），由 Store 决定；ref.snapshot_status 仅展示/审计，不自证。
-- 数值事实任一实质不匹配 → UNSUPPORTED（非 PARTIAL）；唯一 PARTIAL 是「单期答变化」。
-- ≥3 期「近三年趋势」序列无代码算得方向 → 本模块不判（回退 LLM 解读序列）。
+- 数值事实任一实质不匹配 → UNSUPPORTED（非 PARTIAL）。
+- 比较方向（上升/下降/持平）与趋势（近三年连续上升/下降/持平/有升有降）由本模块
+  确定性核对：方向来自 Python 工具结果（ref.direction / 多期序列），LLM 不计算方向。
 
 本模块只做「纯判定」（读 state/answer + 注入的 snapshot_authority，不写库）；
 `query_snapshot_authority` 为唯一 I/O 边界（Store 只读），运行时以
 `partial(query_snapshot_authority, current_snapshot_id=state.active_snapshot_id)`
 注入，使判定函数本身可离线测试。
+
+本轮（冻结前定点修复）改动：
+- 比较方向验证：claim 明确表达的方向与 ref.direction 不一致 → direction_mismatch；
+  ref.direction=missing_period → comparison_period_missing。
+- Citation Repair：snapshot_id 写错时不再静默回退 period+code；改为显式 repair
+  （唯一 active+period+code 候选且通过权威 + 维度校验）→ 改写 answer 引用 + 记录
+  CITATION_REF_REPAIRED；0/多候选/不通过 → unresolvable_ref。
+- 三期趋势确定性计算：删除「≥3 期回退 LLM」逻辑；用 Decimal 对年度序列算
+  increased/decreased/unchanged/mixed；期间不足/数值缺失/单位口径不一致 → PARTIAL。
 
 CLI: python -m harness.structured_provenance --self-check
 """
@@ -24,6 +34,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass, field
+from decimal import Decimal
 from functools import partial
 
 from financial_v2 import store as fstore
@@ -40,14 +51,26 @@ from routing import schema as RS
 # 用 CALCULATED_EXACT / CALCULATED_PROXY，与 routing.context._AVAILABLE_METRIC_STATUSES 对齐）。
 _AVAILABLE_STATUSES = ("available", "CALCULATED_EXACT", "CALCULATED_PROXY")
 
-# ≥3 期趋势序列标记：代码无算得方向 → 本模块不判（回退 LLM 解读序列）。
-_MULTI_PERIOD_TREND = ("近三年", "近3年", "连续三年")
-
 # 唯一年份抽取（"2025年" → "2025-12-31"；≥2 个或 0 个年份 → None）。
 _YEAR_RE = re.compile(r"(20\d{2})\s*年")
 
 # 结构化引用解析「code 不符但同 snapshot+period 存在其它 ref」的哨兵。
 _CODE_MISMATCH = object()
+
+# 方向词 → 方向（increased/decreased/unchanged/mixed）。
+# 「增长」用负向 lookahead 排除「增长率/增长速度」名词；「减少/降低/下降」同理排除「率」。
+_DIRECTION_WORDS: dict[str, tuple[str, ...]] = {
+    "increased": ("上升", "增加", "提高", "提升", "上涨", "走高", "攀升", "上扬",
+                  "向好", "走强"),
+    "decreased": ("下降", "减少", "降低", "回落", "走低", "下滑", "恶化", "收窄",
+                  "走弱"),
+    "unchanged": ("持平", "不变", "基本稳定", "保持稳定", "维持不变", "基本持平",
+                  "无变化", "稳定不变"),
+    "mixed": ("有升有降", "先升后降", "先降后升", "涨跌互现", "起伏", "震荡", "波动"),
+}
+# 「增长」「减少」的动词形式（排除名词「增长率/增长速度/减少率」）。
+_INCREASED_VERB_RE = re.compile(r"增长(?!率|速度)")
+_DECREASED_VERB_RE = re.compile(r"减少(?!率)|降低(?!率)")
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +101,9 @@ class StructuredProvenanceVerdict:
     evaluator: str = "structured_provenance"
     matched_refs: list = field(default_factory=list)
     reason: str = ""
+    mode: str = "single"                  # single | comparison | trend
+    trend: str | None = None              # trend 模式下的 Python 算得趋势
+    citation_repairs: list = field(default_factory=list)  # CITATION_REF_REPAIRED 审计
     snapshot_valid: bool = False
     company_match: bool = False
     period_match: bool = False
@@ -121,6 +147,12 @@ def _ref_amount(ref: RS.StructuredResultRef) -> E.Amount | None:
     return amts[0] if amts else None
 
 
+def _ref_decimal(ref: RS.StructuredResultRef) -> Decimal | None:
+    """结构化 ref 的 canonical Decimal 值（金额→元、比例→百分数数值）。"""
+    amt = _ref_amount(ref)
+    return amt.value if amt is not None else None
+
+
 def _value_matches(ref_amount: E.Amount | None,
                    claim_amounts: list[E.Amount]) -> bool:
     """ref 数值与 claim 数值中任一 canonical Decimal 等价 + 单位同类。"""
@@ -130,6 +162,75 @@ def _value_matches(ref_amount: E.Amount | None,
         if E.units_compatible(ref_amount, ca) and ca.value == ref_amount.value:
             return True
     return False
+
+
+def _claim_direction(text: str) -> str | None:
+    """识别 claim 明确表达的方向 → increased|decreased|unchanged|mixed；无法可靠识别 → None。
+
+    方向必须来自 Python 工具结果，本函数只做「识别」不做「计算」；多个不同方向词同时出现
+    （冲突）→ None（无法可靠识别，上层记 PARTIAL，不让 LLM 法官替代数值计算）。
+    """
+    t = text or ""
+    # 先中性化名词短语，避免「增长率/增长速度/增速」误判为「增长」方向。
+    t = t.replace("增长率", "").replace("增长速度", "").replace("增速", "")
+    found: set[str] = set()
+    for word in _DIRECTION_WORDS["mixed"]:
+        if word in t:
+            found.add("mixed")
+    for word in _DIRECTION_WORDS["increased"]:
+        if word in t:
+            found.add("increased")
+    for word in _DIRECTION_WORDS["decreased"]:
+        if word in t:
+            found.add("decreased")
+    for word in _DIRECTION_WORDS["unchanged"]:
+        if word in t:
+            found.add("unchanged")
+    if _INCREASED_VERB_RE.search(t):
+        found.add("increased")
+    if _DECREASED_VERB_RE.search(t):
+        found.add("decreased")
+    if len(found) != 1:
+        return None
+    return found.pop()
+
+
+def _trend_relation(refs: list[RS.StructuredResultRef],
+                    ) -> tuple[str | None, str | None]:
+    """对同一 item/formula、相同单位的年度序列确定性计算趋势（Decimal，无 float）。
+
+    返回 (relation, reason)：relation ∈ increased|decreased|unchanged|mixed；期间不足/
+    数值缺失/单位口径不一致 → (None, reason)（上层记 PARTIAL，不得 FULL）。
+    """
+    by_period: dict[str, RS.StructuredResultRef] = {}
+    for r in refs:
+        if r.period is not None:
+            by_period.setdefault(r.period, r)
+    ordered = [by_period[p] for p in sorted(by_period)]
+    if len(ordered) < 2:
+        return None, "trend_insufficient_periods"
+
+    # 单位/口径一致性：同一 item/formula、相同单位与 canonical 类别才可比。
+    units = {r.unit for r in ordered if r.unit}
+    kinds = {_ref_amount(r).canonical_kind for r in ordered if _ref_amount(r) is not None}
+    if len(units) > 1 or len(kinds) > 1:
+        return None, "trend_unit_scope_mismatch"
+
+    vals: list[Decimal] = []
+    for r in ordered:
+        v = _ref_decimal(r)
+        if v is None:
+            return None, "trend_value_missing"
+        vals.append(v)
+
+    deltas = [vals[i] - vals[i - 1] for i in range(1, len(vals))]
+    if all(d > 0 for d in deltas):
+        return "increased", None
+    if all(d < 0 for d in deltas):
+        return "decreased", None
+    if all(d == 0 for d in deltas):
+        return "unchanged", None
+    return "mixed", None
 
 
 def _structured_citations(claim: H.Claim, answer: H.ResearchAnswer
@@ -145,98 +246,120 @@ def _has_evidence_citation(claim: H.Claim, answer: H.ResearchAnswer) -> bool:
                for i in claim.citation_refs)
 
 
-def _resolve_ref(cit: H.CitationRef, state: H.ResearchState):
-    """按 period + code 匹配结构化 ref。
+def _code_match(cit: H.CitationRef, r: RS.StructuredResultRef) -> bool:
+    if cit.formula_id:
+        return r.formula_id == cit.formula_id
+    if cit.item_code:
+        return r.item_code == cit.item_code
+    return False
 
-    snapshot_id 是机器生成的 opaque 长 token，LLM 在写引用时可能转写错（真实复跑
-    FIN-CF1 中 "…eadbde…" 被写成 "…deadbe…"），故 snapshot_id 不作为匹配硬键；
-    ref 自身 snapshot_id 才是权威来源，由 `_check_ref` 做 is_current 校验。
 
-    返回 StructuredResultRef（命中）/ None（无同 period ref，unresolvable）/
-    _CODE_MISMATCH（同 period 有 ref 但 code 不符，item_formula_mismatch）。
+def _resolve_ref(cit: H.CitationRef, state: H.ResearchState,
+                 snapshot_authority, scope: str, currency: str, purpose: str):
+    """解析结构化引用：严格匹配 → ref；否则显式 Citation Repair → (ref, repair)。
+
+    返回 (ref, repair|None) / _CODE_MISMATCH / None（unresolvable）。
+    snapshot_id 是机器生成的 opaque 长 token，LLM 写引用时可能转写错；禁止静默回退到
+    「active 或第一个 code match」——只有唯一 active+period+code 候选且通过权威 + 维度
+    校验时才 repair（并改写 answer 引用 + 记录审计），否则 fail-closed。
     """
     same_period = [r for r in state.structured_refs if r.period == cit.period]
-    if not same_period:
-        return None
 
-    def _code_match(r) -> bool:
-        if cit.formula_id:
-            return r.formula_id == cit.formula_id
-        if cit.item_code:
-            return r.item_code == cit.item_code
-        return False
-
-    # 1) 精确 snapshot + code 命中优先（LLM 正确转写时）。
+    # 1) 严格匹配：snapshot_id + period + item/formula。
     for r in same_period:
-        if r.snapshot_id == cit.snapshot_id and _code_match(r):
-            return r
-    # 2) snapshot 转写错 → 回退 period+code；多个候选优先 current snapshot。
-    code_matches = [r for r in same_period if _code_match(r)]
-    if not code_matches:
-        return _CODE_MISMATCH
-    for r in code_matches:
-        if r.snapshot_id == state.active_snapshot_id:
-            return r
-    return code_matches[0]
+        if r.snapshot_id == cit.snapshot_id and _code_match(cit, r):
+            return r, None
+
+    # 2) 显式 repair：仅当 citation 有 snapshot_id（可被改写）且 run 锁定了 current。
+    if not cit.snapshot_id or not state.active_snapshot_id:
+        return None
+    active = state.active_snapshot_id
+    candidates = [r for r in same_period
+                  if r.snapshot_id == active and _code_match(cit, r)]
+    if len(candidates) != 1:
+        # 0 或多候选 → 区分 code 不符（item_formula_mismatch）与 unresolvable。
+        if not same_period:
+            return None  # 无同 period ref → unresolvable
+        if not any(_code_match(cit, r) for r in same_period):
+            return _CODE_MISMATCH  # 同 period 有 ref 但 code 不符
+        return None  # 多候选（非唯一 active 候选）→ unresolvable
+    cand = candidates[0]
+    # 候选必须通过权威 + 维度校验（company/scope/currency/purpose/status），否则不 repair。
+    fail = _validate_ref_identity(cand, state, snapshot_authority, scope, currency, purpose)
+    if fail is not None:
+        return None
+    repair = {
+        "original_snapshot_id": cit.snapshot_id,
+        "repaired_snapshot_id": cand.snapshot_id,
+        "period": cit.period,
+        "formula_id": cit.formula_id,
+        "item_code": cit.item_code,
+    }
+    # 改写最终 answer 中的引用为真实 snapshot_id（原始错误 ID 不得继续存在）。
+    cit.snapshot_id = cand.snapshot_id
+    return cand, repair
 
 
 def _verdict(claim_id: str, verdict: str, reason: str, *,
-             matched_refs: list = (), snapshot_valid: bool = False,
+             matched_refs: list = (), mode: str = "single", trend: str | None = None,
+             citation_repairs: list = (), snapshot_valid: bool = False,
              company_match: bool = False, scope_currency_purpose_match: bool = False,
              item_formula_match: bool = False, value_match: bool = False,
              period_match: bool = False) -> StructuredProvenanceVerdict:
     return StructuredProvenanceVerdict(
         claim_id=claim_id, verdict=verdict, reason=reason,
-        matched_refs=list(matched_refs), snapshot_valid=snapshot_valid,
+        matched_refs=list(matched_refs), mode=mode, trend=trend,
+        citation_repairs=list(citation_repairs), snapshot_valid=snapshot_valid,
         company_match=company_match,
         scope_currency_purpose_match=scope_currency_purpose_match,
         item_formula_match=item_formula_match, value_match=value_match,
         period_match=period_match)
 
 
-def _check_ref(ref: RS.StructuredResultRef, claim: H.Claim, state: H.ResearchState,
-               snapshot_authority, scope: str, currency: str, purpose: str,
-               ) -> StructuredProvenanceVerdict | None:
-    """单条结构化 ref 的 fail-closed 判定（返回 None=通过；否则失败 verdict）。"""
-    # 1. 权威性（Store 权威；ref.snapshot_status 不自证）。
+def _validate_ref_identity(ref: RS.StructuredResultRef, state: H.ResearchState,
+                           snapshot_authority, scope: str, currency: str, purpose: str,
+                           ) -> str | None:
+    """权威性 + company + scope/currency/purpose + status 校验（不含数值匹配）。
+
+    返回 None=通过；否则失败 reason 字符串。数值匹配单独在 _check_ref 里做，使 repair
+    候选可在改写前先做身份校验。
+    """
     if snapshot_authority is None:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "validity_query_unavailable")
+        return "validity_query_unavailable"
     auth = snapshot_authority(ref.snapshot_id)
     if auth is None or not auth.exists:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "snapshot_not_found")
+        return "snapshot_not_found"
     if not auth.is_current:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "snapshot_not_current")
+        return "snapshot_not_current"
     if auth.validity != "valid":
-        return _verdict(claim.claim_id, "UNSUPPORTED",
-                        f"snapshot_{auth.validity or 'validity_missing'}")
+        return f"snapshot_{auth.validity or 'validity_missing'}"
     if auth.report_blocked:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "snapshot_report_blocked")
+        return "snapshot_report_blocked"
     if auth.quarantined:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "snapshot_quarantined")
-    # 2. company。
+        return "snapshot_quarantined"
     if ref.company_id != state.company_id:
-        return _verdict(claim.claim_id, "UNSUPPORTED", "company_mismatch",
-                        snapshot_valid=True, company_match=False)
-    # 3. scope/currency/purpose。
+        return "company_mismatch"
     if (ref.scope != scope or ref.currency != currency or ref.purpose != purpose):
-        dim = ("scope" if ref.scope != scope
-               else ("currency" if ref.currency != currency else "purpose"))
-        return _verdict(claim.claim_id, "UNSUPPORTED", f"{dim}_mismatch",
-                        snapshot_valid=True, company_match=True,
-                        scope_currency_purpose_match=False)
-    # 4. 指标计算态（覆盖 blocked / not_applicable / missing_input 等）。
+        return ("scope_mismatch" if ref.scope != scope
+                else ("currency_mismatch" if ref.currency != currency
+                      else "purpose_mismatch"))
     if ref.status not in _AVAILABLE_STATUSES:
-        return _verdict(claim.claim_id, "UNSUPPORTED", f"metric_status_{ref.status}",
-                        snapshot_valid=True, company_match=True,
-                        scope_currency_purpose_match=True, item_formula_match=False)
-    # 5. 数值等价（canonical Decimal + 单位同类）。
-    ref_amt = _ref_amount(ref)
-    claim_amounts = E.extract_amounts(claim.text or "")
-    if not _value_matches(ref_amt, claim_amounts):
-        return _verdict(claim.claim_id, "UNSUPPORTED", "value_mismatch",
-                        snapshot_valid=True, company_match=True,
-                        scope_currency_purpose_match=True, item_formula_match=True,
-                        value_match=False)
+        return f"metric_status_{ref.status}"
+    return None
+
+
+def _check_ref(ref: RS.StructuredResultRef, claim: H.Claim, state: H.ResearchState,
+               snapshot_authority, scope: str, currency: str, purpose: str,
+               claim_amounts: list[E.Amount], require_value: bool,
+               ) -> StructuredProvenanceVerdict | None:
+    """单条结构化 ref 的 fail-closed 判定（返回 None=通过；否则失败 verdict）。"""
+    reason = _validate_ref_identity(ref, state, snapshot_authority, scope, currency, purpose)
+    if reason is not None:
+        return _verdict(claim.claim_id, "UNSUPPORTED", reason)
+    if require_value:
+        ref_amt = _ref_amount(ref)
+        if not _value_matches(ref_amt, claim_amounts):
+            return _verdict(claim.claim_id, "UNSUPPORTED", "value_mismatch")
     return None
 
 
@@ -244,22 +367,39 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
                     snapshot_authority, scope: str, currency: str, purpose: str
                     ) -> StructuredProvenanceVerdict:
     refs: list[RS.StructuredResultRef] = []
+    repairs: list[dict] = []
     for c in scits:
-        r = _resolve_ref(c, state)
+        r = _resolve_ref(c, state, snapshot_authority, scope, currency, purpose)
         if r is _CODE_MISMATCH:
             return _verdict(claim.claim_id, "UNSUPPORTED", "item_formula_mismatch")
         if r is None:
             return _verdict(claim.claim_id, "UNSUPPORTED", "unresolvable_ref")
-        refs.append(r)
+        ref, repair = r
+        refs.append(ref)
+        if repair is not None:
+            repairs.append(repair)
+
+    claim_amounts = E.extract_amounts(claim.text or "")
+    claim_dir = _claim_direction(claim.text)
+    has_direction = any(getattr(r, "direction", None) for r in refs)
+    # 趋势语义 = 显式趋势词 或 claim 明确表达方向（含 mixed）。方向识别缺位时不算趋势。
+    trend_semantics = E.has_trend_semantics(claim.text) or claim_dir is not None
+    mode = "comparison" if has_direction else ("trend" if (
+        trend_semantics and len({r.period for r in refs}) >= 2) else "single")
+
+    # 比较/趋势模式下，claim 不陈述数值（仅陈述方向）时不做逐值匹配（方向是主判据）；
+    # 单期模式必须有数值匹配。
+    require_value = mode == "single" or bool(claim_amounts)
 
     matched: list[str] = []
     for r in refs:
-        fail = _check_ref(r, claim, state, snapshot_authority, scope, currency, purpose)
+        fail = _check_ref(r, claim, state, snapshot_authority, scope, currency, purpose,
+                          claim_amounts, require_value)
         if fail is not None:
             return fail
         matched.append(f"{r.snapshot_id}:{r.formula_id or r.item_code}:{r.period}")
 
-    # 6. 单期 period 匹配（claim 唯一年份 → ref.period == "YYYY-12-31"）。
+    # 单期 period 匹配（claim 唯一年份 → ref.period == "YYYY-12-31"）。
     cp = _claim_period(claim.text)
     period_match = cp is None or all(r.period == cp for r in refs)
     if not period_match:
@@ -268,16 +408,68 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
                         scope_currency_purpose_match=True, item_formula_match=True,
                         value_match=True, period_match=False)
 
-    # 7. 趋势守卫：claim 含趋势词但 ref 无 period_a/period_b（比较所需期间缺失）→ PARTIAL。
-    if E.has_trend_semantics(claim.text) and not any(getattr(r, "period_a", None)
-                                                     for r in refs):
+    # 比较方向验证（方向来自 Python 工具结果，LLM 不算方向）。
+    if has_direction:
+        direction = next(getattr(r, "direction", None) for r in refs
+                         if getattr(r, "direction", None))
+        if direction == "missing_period":
+            return _verdict(claim.claim_id, "PARTIAL", "comparison_period_missing",
+                            matched_refs=matched, mode="comparison", snapshot_valid=True,
+                            company_match=True, scope_currency_purpose_match=True,
+                            item_formula_match=True, value_match=True, period_match=True)
+        if claim_dir is not None and claim_dir != direction:
+            return _verdict(claim.claim_id, "UNSUPPORTED", "direction_mismatch",
+                            matched_refs=matched, mode="comparison", snapshot_valid=True,
+                            company_match=True, scope_currency_purpose_match=True,
+                            item_formula_match=True, value_match=True, period_match=True)
+        reason = ("structured_authoritative_after_citation_repair" if repairs
+                  else "structured_authoritative")
+        return _verdict(claim.claim_id, "SUPPORTED", reason,
+                        matched_refs=matched, mode="comparison",
+                        citation_repairs=repairs, snapshot_valid=True, company_match=True,
+                        scope_currency_purpose_match=True, item_formula_match=True,
+                        value_match=True, period_match=True)
+
+    # 趋势（≥2 期，无 direction 字段）确定性计算 + 核对 claim 趋势表达。
+    if mode == "trend":
+        relation, reason = _trend_relation(refs)
+        if relation is None:
+            return _verdict(claim.claim_id, "PARTIAL", reason,
+                            matched_refs=matched, mode="trend", snapshot_valid=True,
+                            company_match=True, scope_currency_purpose_match=True,
+                            item_formula_match=True, value_match=True, period_match=True)
+        if claim_dir is None:
+            return _verdict(claim.claim_id, "PARTIAL", "trend_direction_ambiguous",
+                            matched_refs=matched, mode="trend", trend=relation,
+                            snapshot_valid=True, company_match=True,
+                            scope_currency_purpose_match=True, item_formula_match=True,
+                            value_match=True, period_match=True)
+        if claim_dir != relation:
+            return _verdict(claim.claim_id, "UNSUPPORTED", "trend_direction_mismatch",
+                            matched_refs=matched, mode="trend", trend=relation,
+                            snapshot_valid=True, company_match=True,
+                            scope_currency_purpose_match=True, item_formula_match=True,
+                            value_match=True, period_match=True)
+        reason = ("structured_authoritative_after_citation_repair" if repairs
+                  else "structured_authoritative")
+        return _verdict(claim.claim_id, "SUPPORTED", reason,
+                        matched_refs=matched, mode="trend", trend=relation,
+                        citation_repairs=repairs, snapshot_valid=True, company_match=True,
+                        scope_currency_purpose_match=True, item_formula_match=True,
+                        value_match=True, period_match=True)
+
+    # 单期：含趋势语义但无比较期间 → PARTIAL（引用有效，仅比较所需期间缺失）。
+    if trend_semantics:
         return _verdict(claim.claim_id, "PARTIAL", "single_period_for_trend",
                         matched_refs=matched, snapshot_valid=True, company_match=True,
                         scope_currency_purpose_match=True, item_formula_match=True,
                         value_match=True, period_match=True)
 
-    return _verdict(claim.claim_id, "SUPPORTED", "structured_authoritative",
-                    matched_refs=matched, snapshot_valid=True, company_match=True,
+    reason = ("structured_authoritative_after_citation_repair" if repairs
+              else "structured_authoritative")
+    return _verdict(claim.claim_id, "SUPPORTED", reason,
+                    matched_refs=matched, citation_repairs=repairs,
+                    snapshot_valid=True, company_match=True,
                     scope_currency_purpose_match=True, item_formula_match=True,
                     value_match=True, period_match=True)
 
@@ -297,11 +489,16 @@ def evaluate_structured_provenance(state: H.ResearchState, answer: H.ResearchAns
     partial(query_snapshot_authority, current_snapshot_id=state.active_snapshot_id) 注入；
     传入 None → 命中 claim 判 validity_query_unavailable（fail-closed）。
 
-    返回 {claim_id: StructuredProvenanceVerdict}。仅结构化引用（无 evidence 引用）且非
-    ≥3 期趋势序列的 fact claim 才被判定；混合引用/≥3 期趋势/无结构化引用的 claim 不在此
-    层（回退 LLM entailment）。
+    副作用（repair 所需，属答案改写而非写库）：
+    - Citation Repair 会就地改写 answer.citations 中该引用的 snapshot_id；
+    - 审计记录写入 state.citation_repairs（本 ANSWER 版本，供 trace/报告）。
+
+    返回 {claim_id: StructuredProvenanceVerdict}。仅结构化引用（无 evidence 引用）的
+    fact claim 才被判定；混合引用/无结构化引用的 claim 不在此层（回退 LLM entailment）。
     """
     out: dict[str, StructuredProvenanceVerdict] = {}
+    if hasattr(state, "citation_repairs"):
+        state.citation_repairs = []
     if answer is None:
         return out
     for claim in answer.claims:
@@ -312,10 +509,10 @@ def evaluate_structured_provenance(state: H.ResearchState, answer: H.ResearchAns
             continue
         if _has_evidence_citation(claim, answer):
             continue  # 混合引用 → 交 LLM entailment
-        if any(t in (claim.text or "") for t in _MULTI_PERIOD_TREND):
-            continue  # ≥3 期趋势序列 → 本模块不判（回退 LLM 解读序列）
-        out[claim.claim_id] = _evaluate_claim(claim, scits, state, snapshot_authority,
-                                              scope, currency, purpose)
+        v = _evaluate_claim(claim, scits, state, snapshot_authority, scope, currency, purpose)
+        out[claim.claim_id] = v
+        if v.citation_repairs and hasattr(state, "citation_repairs"):
+            state.citation_repairs.extend(v.citation_repairs)
     return out
 
 
@@ -410,6 +607,10 @@ def _main(argv: list[str]) -> int:
         print(json.dumps({
             "claim_period_single": _claim_period("2025年净利率18.12%"),
             "claim_period_multi": _claim_period("2024年较2025年如何变化？"),
+            "direction_up": _claim_direction("净利率同比上升"),
+            "direction_down": _claim_direction("净利率下降"),
+            "direction_unchanged": _claim_direction("净利率持平"),
+            "direction_none": _claim_direction("净利率为18.12%"),
             "ref_amount": E.dataclasses_asdict(_ref_amount(state.structured_refs[0]))
                          if _ref_amount(state.structured_refs[0]) else None,
             "supported": {k: {"verdict": v.verdict, "reason": v.reason}

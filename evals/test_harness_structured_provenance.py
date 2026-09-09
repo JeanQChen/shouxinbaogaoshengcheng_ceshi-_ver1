@@ -1,14 +1,21 @@
-"""Eval: 结构化结果权威判定 —— Phase 3 Batch B 修订④（Change 2）。
+"""Eval: 结构化结果权威判定 —— Phase 3 Batch B 修订⑤（Change 2 + 定点修复）。
 
 用法: python -m evals.test_harness_structured_provenance
 
 断言（纯逻辑，无 LLM / Store I/O——authority 以假函数注入）：
 - SnapshotAuthority.authoritative() 复合门（exists+is_current+valid+not_blocked+not_quarantined）；
-- 有效 ref → SUPPORTED；单期答变化 → PARTIAL（唯一 PARTIAL 情形）；
+- 有效 ref → SUPPORTED；单期答变化 → PARTIAL（唯一单期 PARTIAL 情形）；
 - company / scope / period / value / item-formula 任一不一致 → UNSUPPORTED；
 - unresolvable ref → UNSUPPORTED；快照 not_current / stale / blocked / quarantined /
   not_found → UNSUPPORTED；authority 不可用 → validity_query_unavailable；
 - ref.snapshot_status 自称 valid 但 Store 权威为 stale → UNSUPPORTED（不自证）；
+- 比较方向验证：claim 方向与 ref.direction 不一致 → direction_mismatch；missing_period →
+  comparison_period_missing；只陈述两正确数值不表达方向 → 继续数值/期间校验；
+- Citation Repair：snapshot_id 写错 → 唯一 active+period+code 候选才显式改写引用 + 记录
+  CITATION_REF_REPAIRED，reason=structured_authoritative_after_citation_repair；0/多候选/
+  候选不通过权威 → unresolvable_ref；原错误 ID 不得残留；
+- 三期趋势确定性计算（Decimal）：increased/decreased/unchanged/mixed；期间不足/数值缺失/
+  单位不一致 → PARTIAL；claim 趋势相反 → trend_direction_mismatch；方向无法识别 → PARTIAL；
 - 纯结构化 claim 经 exclude_claim_ids 不送 LLM entailment；
 - entailment_summary 合并三 evaluator（evidence_deterministic/structured_provenance/
   llm_entailment）。
@@ -82,6 +89,65 @@ def _valid_auth(sid="S1", **kw) -> callable:
     return _auth({sid: SP.SnapshotAuthority(**base)})
 
 
+def _compare_refs(sid="S1", formula_id="NET_MARGIN", a="1.61", b="1.60",
+                  direction="decreased", unit="%", **kw) -> list[RS.StructuredResultRef]:
+    """两期比较 ref（period_a=2024, period_b=2025，同 direction）。"""
+    common = dict(snapshot_id=sid, formula_id=formula_id, item_code=None,
+                  formula_version="v1", unit=unit, status="CALCULATED_EXACT",
+                  reason_code=None, input_record_refs=[], input_snapshot_item_refs=[],
+                  company_id="ACME", scope="consolidated", currency="CNY",
+                  purpose="credit_analysis", snapshot_status="valid",
+                  period_a="2024-12-31", period_b="2025-12-31",
+                  value_a=a, value_b=b, direction=direction)
+    common.update(kw)
+    return [
+        RS.StructuredResultRef(result_type="financial_metric", period="2024-12-31",
+                               raw_value=a, display_value=a, **common),
+        RS.StructuredResultRef(result_type="financial_metric", period="2025-12-31",
+                               raw_value=b, display_value=b, **common),
+    ]
+
+
+def _compare_answer(text="2024年1.61，2025年1.60，下降", sid="S1",
+                    formula_id="NET_MARGIN", periods=("2024-12-31", "2025-12-31")
+                    ) -> H.ResearchAnswer:
+    return H.ResearchAnswer(
+        question_id="q", answer_text=text,
+        claims=[H.Claim(claim_id="c1", text=text, kind="fact",
+                        citation_refs=[0, 1])],
+        citations=[H.CitationRef(ref_type="structured", snapshot_id=sid,
+                                  formula_id=formula_id, formula_version="v1",
+                                  period=p) for p in periods])
+
+
+def _trend_refs(sid="S1", formula_id="NET_MARGIN", displays=("15.0", "16.0", "17.0"),
+                unit="%", periods=("2022-12-31", "2023-12-31", "2024-12-31"),
+                **kw) -> list[RS.StructuredResultRef]:
+    out = []
+    for p, d in zip(periods, displays):
+        base = dict(snapshot_id=sid, item_code=None, formula_id=formula_id,
+                    formula_version="v1", period=p, raw_value=d, display_value=d,
+                    unit=unit, status="CALCULATED_EXACT", reason_code=None,
+                    input_record_refs=[], input_snapshot_item_refs=[],
+                    company_id="ACME", scope="consolidated", currency="CNY",
+                    purpose="credit_analysis", snapshot_status="valid")
+        base.update(kw)
+        out.append(RS.StructuredResultRef(result_type="financial_metric", **base))
+    return out
+
+
+def _trend_answer(text="近三年净利率持续上升", sid="S1", formula_id="NET_MARGIN",
+                  periods=("2022-12-31", "2023-12-31", "2024-12-31")
+                  ) -> H.ResearchAnswer:
+    return H.ResearchAnswer(
+        question_id="q", answer_text=text,
+        claims=[H.Claim(claim_id="c1", text=text, kind="fact",
+                        citation_refs=list(range(len(periods))))],
+        citations=[H.CitationRef(ref_type="structured", snapshot_id=sid,
+                                  formula_id=formula_id, formula_version="v1",
+                                  period=p) for p in periods])
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -102,6 +168,11 @@ def main() -> dict:
                                                 snapshot_authority=authority)
         return out["c1"].verdict, out["c1"].reason
 
+    def verdict_obj(state, answer, authority):
+        out = SP.evaluate_structured_provenance(state, answer,
+                                                snapshot_authority=authority)
+        return out["c1"]
+
     # ---- SnapshotAuthority.authoritative() 复合门 ----
     check(SP.SnapshotAuthority(True, True, "valid", False, False).authoritative(),
           "authoritative：全真 → True")
@@ -116,84 +187,73 @@ def main() -> dict:
     check(not SP.SnapshotAuthority(False, True, "valid", False, False).authoritative(),
           "authoritative：exists=False → False")
 
-    # ---- 有效 ref → SUPPORTED ----
+    # ---- 单期：有效 ref → SUPPORTED ----
     state = _state(refs=[_ref()])
     v, r = verdict_of(state, _answer(), _valid_auth())
     check(v == "SUPPORTED" and r == "structured_authoritative",
           f"有效 ref → SUPPORTED（实际 {v}/{r}）")
 
-    # ---- 无年份 claim → 跳过期间匹配仍 SUPPORTED ----
+    # ---- 单期：无年份 claim → 跳过期间匹配仍 SUPPORTED ----
     v, r = verdict_of(state, _answer(text="净利率为18.12%"), _valid_auth())
-    check(v == "SUPPORTED", f"无年份 claim → 跳过期间匹配 SUPPORTED（实际 {v}）")
+    check(v == "SUPPORTED", f"无年份 claim → SUPPORTED（实际 {v}）")
 
-    # ---- company 不一致 → UNSUPPORTED ----
+    # ---- 单期：company 不一致 → UNSUPPORTED ----
     state_bad = _state(refs=[_ref(company_id="OTHER")])
     v, r = verdict_of(state_bad, _answer(), _valid_auth())
     check(v == "UNSUPPORTED" and r == "company_mismatch",
           f"company_mismatch → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- scope 不一致 → UNSUPPORTED ----
+    # ---- 单期：scope 不一致 → UNSUPPORTED ----
     state_bad = _state(refs=[_ref(scope="parent")])
     v, r = verdict_of(state_bad, _answer(), _valid_auth())
     check(v == "UNSUPPORTED" and r == "scope_mismatch",
           f"scope_mismatch → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- period 不一致（claim 唯一年份 ≠ ref.period）→ UNSUPPORTED ----
+    # ---- 单期：period 不一致（claim 唯一年份 ≠ ref.period）→ UNSUPPORTED ----
     state_bad = _state(refs=[_ref()])
     v, r = verdict_of(state_bad, _answer(text="2024年净利率为18.12%"), _valid_auth())
     check(v == "UNSUPPORTED" and r == "period_mismatch",
           f"period_mismatch → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- value 不一致 → UNSUPPORTED ----
+    # ---- 单期：value 不一致 → UNSUPPORTED ----
     state_bad = _state(refs=[_ref(display="20.00")])
     v, r = verdict_of(state_bad, _answer(), _valid_auth())
     check(v == "UNSUPPORTED" and r == "value_mismatch",
           f"value_mismatch → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- item_formula 不一致（同 snapshot+period 但 code 不符）→ UNSUPPORTED ----
+    # ---- 单期：item_formula 不一致（同 snapshot+period 但 code 不符）→ UNSUPPORTED ----
     state_bad = _state(refs=[_ref(formula_id="PROF_GROSS_MARGIN")])
     v, r = verdict_of(state_bad, _answer(), _valid_auth())
     check(v == "UNSUPPORTED" and r == "item_formula_mismatch",
           f"item_formula_mismatch → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- unresolvable ref（period 不在 state.refs）→ UNSUPPORTED ----
+    # ---- 单期：unresolvable ref（period 不在 state.refs）→ UNSUPPORTED ----
     state_bad = _state(refs=[_ref()])
     v, r = verdict_of(state_bad, _answer(period="2024-12-31"), _valid_auth())
     check(v == "UNSUPPORTED" and r == "unresolvable_ref",
           f"unresolvable_ref → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- snapshot 转写错（period+code 命中，ref 自身 snapshot 为 current）→ SUPPORTED ----
-    # 真实复跑 FIN-CF1：LLM 把 snapshot_id "…eadbde…" 写成 "…deadbe…"。
-    state_bad = _state(refs=[_ref()])
-    v, r = verdict_of(state_bad, _answer(sid="S1_typo"), _valid_auth())
-    check(v == "SUPPORTED" and r == "structured_authoritative",
-          f"snapshot 转写错仍按 period+code 命中 → SUPPORTED（实际 {v}/{r}）")
-
     # ---- 快照 not_current → UNSUPPORTED ----
     state_bad = _state(refs=[_ref()])
-    v, r = verdict_of(state_bad, _answer(),
-                      _valid_auth(is_current=False))
+    v, r = verdict_of(state_bad, _answer(), _valid_auth(is_current=False))
     check(v == "UNSUPPORTED" and r == "snapshot_not_current",
           f"snapshot_not_current → UNSUPPORTED（实际 {v}/{r}）")
 
     # ---- Store 权威 stale（ref.snapshot_status 自称 valid）→ UNSUPPORTED ----
     state_bad = _state(refs=[_ref(snapshot_status="valid")])
-    v, r = verdict_of(state_bad, _answer(),
-                      _valid_auth(validity="stale"))
+    v, r = verdict_of(state_bad, _answer(), _valid_auth(validity="stale"))
     check(v == "UNSUPPORTED" and r == "snapshot_stale",
           f"ref 自称 valid 但 Store stale → UNSUPPORTED（实际 {v}/{r}）")
 
     # ---- validity=valid 但 report_blocked → UNSUPPORTED ----
     state_bad = _state(refs=[_ref()])
-    v, r = verdict_of(state_bad, _answer(),
-                      _valid_auth(report_blocked=True))
+    v, r = verdict_of(state_bad, _answer(), _valid_auth(report_blocked=True))
     check(v == "UNSUPPORTED" and r == "snapshot_report_blocked",
           f"report_blocked → UNSUPPORTED（实际 {v}/{r}）")
 
     # ---- validity=valid 但 quarantine → UNSUPPORTED ----
     state_bad = _state(refs=[_ref()])
-    v, r = verdict_of(state_bad, _answer(),
-                      _valid_auth(quarantined=True))
+    v, r = verdict_of(state_bad, _answer(), _valid_auth(quarantined=True))
     check(v == "UNSUPPORTED" and r == "snapshot_quarantined",
           f"quarantined → UNSUPPORTED（实际 {v}/{r}）")
 
@@ -216,7 +276,7 @@ def main() -> dict:
     check(v == "UNSUPPORTED" and r == "metric_status_blocked",
           f"metric_status_blocked → UNSUPPORTED（实际 {v}/{r}）")
 
-    # ---- 单期答变化 → PARTIAL（唯一 PARTIAL 情形）----
+    # ---- 单期答变化 → PARTIAL（唯一单期 PARTIAL 情形）----
     state_trend = _state(refs=[_ref()])
     v, r = verdict_of(state_trend,
                       _answer(text="2025年净利率同比如何变化？18.12%"),
@@ -224,21 +284,177 @@ def main() -> dict:
     check(v == "PARTIAL" and r == "single_period_for_trend",
           f"单期答变化 → PARTIAL（实际 {v}/{r}）")
 
-    # ---- 比较 ref（带 period_a/period_b/direction）答变化 → SUPPORTED ----
-    state_cmp = _state(refs=[_ref(period_a="2024-12-31", period_b="2025-12-31",
-                                  direction="increased", change_value="1.2")])
-    v, r = verdict_of(state_cmp,
-                      _answer(text="净利率同比上升1.2个百分点至18.12%"),
-                      _valid_auth())
-    check(v == "SUPPORTED",
-          f"带比较字段的 ref 答变化 → SUPPORTED（实际 {v}/{r}）")
+    # ===================== 比较方向验证（定点修复①） =====================
 
-    # ---- ≥3 期趋势序列 → 本模块不判（回退 LLM）----
-    state_seq = _state(refs=[_ref()])
-    out = SP.evaluate_structured_provenance(
-        state_seq, _answer(text="近三年净利率趋势如何？18.12%"),
-        snapshot_authority=_valid_auth())
-    check("c1" not in out, "近三年趋势序列 → 本模块不判（claim 不在结果中）")
+    # 1.61→1.60，claim「下降」→ SUPPORTED
+    state_cmp = _state(refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    v, r = verdict_of(state_cmp,
+                      _compare_answer(text="2024年1.61%，2025年1.60%，下降"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"1.61→1.60 下降 → SUPPORTED（实际 {v}/{r}）")
+
+    # 1.61→1.60，claim「上升」→ UNSUPPORTED direction_mismatch
+    v, r = verdict_of(state_cmp,
+                      _compare_answer(text="2024年1.61%，2025年1.60%，上升"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "direction_mismatch",
+          f"1.61→1.60 上升（写反）→ direction_mismatch（实际 {v}/{r}）")
+
+    # direction=missing_period → PARTIAL comparison_period_missing（单 present ref）
+    ref_missing = _ref(period="2025-12-31", display="1.60", unit="%",
+                       period_a="2024-12-31", period_b="2025-12-31",
+                       value_a=None, value_b="1.60", direction="missing_period")
+    state_cmp = _state(refs=[ref_missing])
+    v, r = verdict_of(state_cmp,
+                      _answer(text="2024年数据缺失，2025年1.60%"),
+                      _valid_auth())
+    check(v == "PARTIAL" and r == "comparison_period_missing",
+          f"missing_period → PARTIAL comparison_period_missing（实际 {v}/{r}）")
+
+    # 正确数字但方向写反 → 不因数字匹配而通过（direction_mismatch）
+    state_cmp = _state(refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))
+    v, r = verdict_of(state_cmp,
+                      _compare_answer(text="2024年1.61%，2025年1.60%，上升"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "direction_mismatch",
+          f"数字正确方向写反 → 不通过（实际 {v}/{r}）")
+
+    # claim 不表达方向、只陈述两个正确数值 → 按数值/期间校验 → SUPPORTED
+    v, r = verdict_of(state_cmp, _compare_answer(text="2024年1.61%，2025年1.60%"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"仅陈述两正确数值（无方向词）→ SUPPORTED（实际 {v}/{r}）")
+
+    # ===================== Citation Repair（定点修复②） =====================
+
+    # snapshot_id 正确 → 不产生 repair，reason=structured_authoritative
+    state_r = _state(active="S1", refs=[_ref()])
+    ans_ok = _answer(sid="S1")
+    vo = verdict_obj(state_r, ans_ok, _valid_auth())
+    check(vo.verdict == "SUPPORTED" and vo.reason == "structured_authoritative"
+          and vo.citation_repairs == [] and state_r.citation_repairs == [],
+          f"snapshot_id 正确 → 无 repair（实际 {vo.verdict}/{vo.reason}）")
+
+    # snapshot_id 写错 + 唯一候选 → 显式 repair，答案引用被改写，state 有记录
+    state_r = _state(active="S1", refs=[_ref()])
+    ans_typo = _answer(sid="S1_typo")
+    vo = verdict_obj(state_r, ans_typo, _valid_auth())
+    repaired = (vo.verdict == "SUPPORTED"
+                and vo.reason == "structured_authoritative_after_citation_repair"
+                and ans_typo.citations[0].snapshot_id == "S1"
+                and len(state_r.citation_repairs) == 1
+                and state_r.citation_repairs[0]["original_snapshot_id"] == "S1_typo"
+                and state_r.citation_repairs[0]["repaired_snapshot_id"] == "S1")
+    check(repaired,
+          f"唯一候选 → 显式 repair + 改写引用 + 审计（实际 {vo.verdict}/{vo.reason}）")
+
+    # 原错误 ID 不得继续出现在最终持久化 CitationRef 中
+    check("S1_typo" not in [c.snapshot_id for c in ans_typo.citations],
+          "原错误 snapshot_id 不残留于最终 CitationRef")
+
+    # 两个候选 → UNSUPPORTED unresolvable_ref
+    state_r = _state(active="S1", refs=[_ref(), _ref()])
+    v, r = verdict_of(state_r, _answer(sid="S1_typo"), _valid_auth())
+    check(v == "UNSUPPORTED" and r == "unresolvable_ref",
+          f"两候选 → unresolvable_ref（实际 {v}/{r}）")
+
+    # 候选不是 current（repair 候选不通过权威）→ UNSUPPORTED unresolvable_ref
+    state_r = _state(active="S1", refs=[_ref()])
+    v, r = verdict_of(state_r, _answer(sid="S1_typo"),
+                      _valid_auth(is_current=False))
+    check(v == "UNSUPPORTED" and r == "unresolvable_ref",
+          f"候选不 current → unresolvable_ref（实际 {v}/{r}）")
+
+    # 候选是 active 但 period 无匹配 → unresolvable_ref（无同 period ref）
+    state_r = _state(active="S1", refs=[_ref()])
+    v, r = verdict_of(state_r, _answer(sid="S1_typo", period="2024-12-31"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "unresolvable_ref",
+          f"无同 period 候选 → unresolvable_ref（实际 {v}/{r}）")
+
+    # ===================== 三期趋势（定点修复③） =====================
+
+    # 连续上升 → increased，claim「持续上升」→ SUPPORTED
+    state_t = _state(refs=_trend_refs(displays=("15.0", "16.0", "17.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续上升"), _valid_auth())
+    check(v == "SUPPORTED", f"三期连续上升 → SUPPORTED（实际 {v}/{r}）")
+
+    # 连续下降 → decreased，claim「持续下降」→ SUPPORTED
+    state_t = _state(refs=_trend_refs(displays=("17.0", "16.0", "15.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续下降"), _valid_auth())
+    check(v == "SUPPORTED", f"三期连续下降 → SUPPORTED（实际 {v}/{r}）")
+
+    # 全部相等 → unchanged，claim「基本稳定」→ SUPPORTED
+    state_t = _state(refs=_trend_refs(displays=("15.0", "15.0", "15.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率基本稳定"), _valid_auth())
+    check(v == "SUPPORTED", f"三期全部相等 → SUPPORTED（实际 {v}/{r}）")
+
+    # 有升有降 → mixed，claim「有升有降」→ SUPPORTED
+    state_t = _state(refs=_trend_refs(displays=("15.0", "16.0", "15.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率有升有降"), _valid_auth())
+    check(v == "SUPPORTED", f"三期有升有降（mixed）→ SUPPORTED（实际 {v}/{r}）")
+
+    # mixed 却写成持续上升 → UNSUPPORTED trend_direction_mismatch
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续上升"), _valid_auth())
+    check(v == "UNSUPPORTED" and r == "trend_direction_mismatch",
+          f"mixed 写成持续上升 → trend_direction_mismatch（实际 {v}/{r}）")
+
+    # 连续上升但 claim 写「持续下降」→ UNSUPPORTED trend_direction_mismatch
+    state_t = _state(refs=_trend_refs(displays=("15.0", "16.0", "17.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续下降"), _valid_auth())
+    check(v == "UNSUPPORTED" and r == "trend_direction_mismatch",
+          f"连续上升写成持续下降 → trend_direction_mismatch（实际 {v}/{r}）")
+
+    # 数值缺失 → PARTIAL
+    state_t = _state(refs=_trend_refs(displays=("15.0", None, "17.0")))
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续上升"), _valid_auth())
+    check(v == "PARTIAL" and r == "trend_value_missing",
+          f"数值缺失 → PARTIAL trend_value_missing（实际 {v}/{r}）")
+
+    # 单位不一致（% vs 元）→ PARTIAL
+    refs_mixed_unit = [_ref(period="2022-12-31", display="15.0", unit="%"),
+                       _ref(period="2023-12-31", display="16.0", unit="%"),
+                       _ref(period="2024-12-31", display="17.0", unit="元")]
+    state_t = _state(refs=refs_mixed_unit)
+    v, r = verdict_of(state_t, _trend_answer(text="近三年净利率持续上升"), _valid_auth())
+    check(v == "PARTIAL" and r == "trend_unit_scope_mismatch",
+          f"单位不一致 → PARTIAL trend_unit_scope_mismatch（实际 {v}/{r}）")
+
+    # 方向无法可靠识别（无方向词 + 无显式趋势词）→ 单期 PARTIAL（single_period_for_trend）
+    # （claim 只有数值无方向 → 不算趋势语义；单期直接 SUPPORTED，见下）
+    state_t = _state(refs=[_ref()])
+    v, r = verdict_of(state_t, _answer(text="2025年净利率为18.12%"), _valid_auth())
+    check(v == "SUPPORTED", f"无趋势语义单期 → SUPPORTED（实际 {v}/{r}）")
+
+    # 三期但 claim 无法识别方向 → PARTIAL trend_direction_ambiguous
+    state_t = _state(refs=_trend_refs(displays=("15.0", "16.0", "17.0")))
+    v, r = verdict_of(state_t,
+                      _trend_answer(text="近三年净利率走势如下：15%、16%、17%"),
+                      _valid_auth())
+    check(v == "PARTIAL" and r == "trend_direction_ambiguous",
+          f"三期方向无法识别 → PARTIAL trend_direction_ambiguous（实际 {v}/{r}）")
+
+    # ---- _trend_relation 直接单测：期间不足 / 方向 ----
+    check(SP._trend_relation([_ref(period="2022-12-31", display="15.0")]) ==
+          (None, "trend_insufficient_periods"),
+          "_trend_relation：单期 → insufficient_periods")
+    rel, _ = SP._trend_relation(_trend_refs(displays=("15.0", "16.0", "17.0")))
+    check(rel == "increased", f"_trend_relation：连续上升 → increased（实际 {rel}）")
+    rel, _ = SP._trend_relation(_trend_refs(displays=("15.0", "16.0", "15.0")))
+    check(rel == "mixed", f"_trend_relation：有升有降 → mixed（实际 {rel}）")
+
+    # ---- _claim_direction 直接单测 ----
+    check(SP._claim_direction("净利率同比上升") == "increased",
+          "_claim_direction：上升 → increased")
+    check(SP._claim_direction("净利率下降") == "decreased",
+          "_claim_direction：下降 → decreased")
+    check(SP._claim_direction("净利率基本稳定") == "unchanged",
+          "_claim_direction：基本稳定 → unchanged")
+    check(SP._claim_direction("净利率有升有降") == "mixed",
+          "_claim_direction：有升有降 → mixed")
+    check(SP._claim_direction("净利率为18.12%") is None,
+          "_claim_direction：无数值方向 → None")
+    check(SP._claim_direction("营收增长率为15%") is None,
+          "_claim_direction：增长率名词不误判为方向 → None")
 
     # ---- 纯结构化 claim 经 exclude_claim_ids 不送 LLM entailment ----
     state_ex = _state(refs=[_ref()])
