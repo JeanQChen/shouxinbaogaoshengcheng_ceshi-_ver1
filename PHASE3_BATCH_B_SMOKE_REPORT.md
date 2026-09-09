@@ -1,8 +1,23 @@
 # Phase 3 Batch B — 真实冒烟报告（人工门交付物）
 
-> 状态：**STOP at human gate**。本文档只报告 5 问真实冒烟结果，不进入全量 41 问，不进入 Batch C / Phase 4。
+> 状态：**SMOKE_HUMAN_GATE_REJECTED**（本文档已被人工门驳回，原文保留不删，见下方驳回原因）。
+> 修订版见 [`PHASE3_BATCH_B_SMOKE_REPORT_REVISED.md`](./PHASE3_BATCH_B_SMOKE_REPORT_REVISED.md)。
+
+## 人工门驳回原因（5 条）
+
+| # | 驳回点 | 证据 |
+|---|---|---|
+| 1 | **aspect 覆盖缺失**：`COMP-R1` 只答业务名/排名，**没答具体收入占比**却判 FULL。`evaluate_success` 只查「引用可回查」，不查「覆盖问题要求的每一方面」 | §3 COMP-R1 答案仅列四大板块、未给各业务收入占比数字 |
+| 2 | **引用存在但不支持结论**：`COMP-CR1` 答「合计授信 40,000 万元、对外担保 0 万元」——事实错误（把**局部授信当合计**、把「为股东/实控人担保=0」当「**全部对外担保=0**」）。当前只校验引用 ID 可回查，不校验「证据正文是否真的支撑断言」 | §3 COMP-CR1 答案与 4 个 evidence_id 的正文口径不符 |
+| 3 | **重复动作未去重**：`dedup_key` 已算但 runtime 从不拒绝重复 `INSPECT_EVIDENCE` | harness/runtime.py 工具执行分支无条件执行 |
+| 4 | **DB_LOOKUP 未覆盖**：`financial_v2.db` 空，41 问无一落到 DB_LOOKUP | §2 来源覆盖 Structured/Financial ×0 |
+| 5 | **报告未标 REJECTED，无新旧对比** | 本报告原状态为「STOP at human gate」 |
+
+> 以下为原始报告正文（未删改，供审计对比）。
 
 ---
+
+
 
 ## 0. 执行顺序（满足计划要求）
 
