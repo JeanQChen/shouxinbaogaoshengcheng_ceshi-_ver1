@@ -91,6 +91,7 @@ EVAL_MODULES = [
     "evals.test_actual_path_41",
     "evals.test_research_preview",
     "evals.test_split_manifest",
+    "evals.test_report_planner",
 ]
 
 
