@@ -70,15 +70,26 @@ def _fake_registry() -> R.ToolRegistry:
                        ("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL")),
                  lambda a: TC.ToolResult(
                      call_id="", tool_name="search_evidence", tool_version="v1",
-                     status="SUCCESS", data={"evidence_count": 1}, evidence_ids=["e1"],
-                     error_code=None, message=None, retryable=False, trace_id="t"))
+                     status="SUCCESS", data={"evidence_count": 1, "items": [
+                         {"evidence_id": "e1", "source_name": "s", "page_number": 3,
+                          "evidence_type": "paragraph", "snippet": "实际控制人为曾毓群",
+                          "score": 0.9, "rank": 1}]},
+                     evidence_ids=["e1"], error_code=None, message=None,
+                     retryable=False, trace_id="t"))
     reg.register(_spec("inspect_evidence", ["evidence_id"],
                        {"evidence_id": {"type": "string"}},
                        ("DIRECT_EVIDENCE", "STANDARD_RAG", "DEEP_RETRIEVAL")),
                  lambda a: TC.ToolResult(
                      call_id="", tool_name="inspect_evidence", tool_version="v1",
-                     status="SUCCESS", data={}, evidence_ids=["e1"],
-                     error_code=None, message=None, retryable=False, trace_id="t"))
+                     status="SUCCESS",
+                     data={"evidence_id": "e1", "document_id": "d1",
+                           "source_name": "s", "source_type": "annual_report",
+                           "page_number": 3, "section_path": "控制关系",
+                           "evidence_type": "paragraph",
+                           "report_period": "2024-12-31",
+                           "text": "实际控制人为曾毓群", "structured_payload": None},
+                     evidence_ids=["e1"], error_code=None, message=None,
+                     retryable=False, trace_id="t"))
     reg.register(_spec("fetch_external_content", ["url"],
                        {"url": {"type": "string"}}, ("EXTERNAL_RESEARCH",)),
                  lambda a: TC.ToolResult(
@@ -158,6 +169,13 @@ _ANSWER_GHOST = ('{"answer_text": "x", "claims": [{"claim_id": "c1", "text": "x"
                  '"citations": [{"ref_type": "evidence", "evidence_id": "ghost"}], '
                  '"unresolved_items": [], "confidence": "high"}')
 
+# 未自报 aspects 的答案 → 触发 G2 未覆盖方面缺口（用于补检到预算耗尽测试）。
+_ANSWER_NO_ASPECT = ('{"answer_text": "实控人为曾毓群", '
+                     '"claims": [{"claim_id": "c1", "text": "实控人为曾毓群", '
+                     '"kind": "fact", "citation_refs": [0]}], '
+                     '"citations": [{"ref_type": "evidence", "evidence_id": "e1"}], '
+                     '"unresolved_items": [], "confidence": "high"}')
+
 
 def main() -> dict:
     passed = 0
@@ -201,6 +219,19 @@ def main() -> dict:
           and o.state.status == "COMPLETED", "本地检索→答案：COMPLETED")
     check(o.state.evidence_ids == ["e1"] and len(o.state.tool_history) == 1,
           "状态累计 evidence_id + 工具历史 1 条")
+
+    # ---- ANSWER 带未覆盖方面 → 补检到预算耗尽 → COMPLETED_WITH_GAPS ----
+    llm = MockLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_NO_ASPECT, _ANSWER_NO_ASPECT])
+    o = _run("DIRECT_EVIDENCE", llm)
+    check(o.success is False and o.completion_status == "COMPLETED_WITH_GAPS"
+          and o.state.status == "COMPLETED_WITH_GAPS",
+          "ANSWER 带未覆盖方面 → 预算耗尽 → COMPLETED_WITH_GAPS")
+    check(any("未覆盖方面" in u for u in o.state.unresolved_items),
+          "缺口写回 unresolved_items（未覆盖方面）")
 
     # ---- 外部 fetch 自动 snapshot ----
     llm = MockLLM(

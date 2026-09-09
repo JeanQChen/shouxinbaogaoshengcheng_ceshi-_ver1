@@ -25,6 +25,7 @@ from typing import Protocol
 
 from harness import actions as A
 from harness import aspects as ASP
+from harness import entailment as E
 from harness import policies as P
 from harness import schema as H
 from harness import state as S
@@ -523,6 +524,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 stop_reason = "MODEL_OUTPUT_INVALID"
                 S.set_status(state, "FAILED", stop_reason)
                 break
+            # 回填 evidence 引用页码（只补空，不重写）。
+            E.backfill_page_numbers(answer, state)
             S.set_status(state, "ANSWER_READY")
             ev = S.evaluate_success(state, answer)
             if ev["completion_status"] == "COMPLETED":
@@ -584,6 +587,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
         state.tool_history.append(H.ToolCallRecord(
             call=call, result=result, elapsed_ms=result.latency_ms))
         _apply_tool_result(state, result, budget)
+        # 捕获可校验正文/摘要（供 G3 数字/口径预检 + G4 entailment）。
+        E.capture_inspected(state, result)
         if trace_enabled:
             T.emit(run_id, need.need_id, "TOOL_RESULT",
                    {"tool": result.tool_name, "status": result.status,

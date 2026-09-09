@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 
+from harness import entailment as E
 from harness import schema as H
 
 
@@ -228,12 +229,28 @@ def evaluate_success(state: H.ResearchState,
     if uncovered:
         reasons.extend(f"未覆盖方面: {u}" for u in uncovered)
 
-    # G3/G4 汇总（entailment 层把不支持 claim 写入 state；此处由调用方在
-    # ANSWER 分支填充 state.unsupported_claims 后再调 evaluate_success）。
-    unsupported = list(getattr(state, "unsupported_claims", []) or [])
+    # G3 确定性数字/口径预检（仅 evidence 引用的 fact claim；值缺失/未 inspect/高危口径 → 硬）。
+    unsupported: list[str] = []
+    for cid, pc in E.deterministic_prechecks(state, answer).items():
+        if pc["not_inspected"]:
+            unsupported.append(f"{cid}: 引用证据未被 inspect（无法验证正文支撑结论）")
+        elif pc["value_missing"]:
+            unsupported.append(
+                f"{cid}: 数字在证据正文中未找到数值等价: "
+                + ", ".join(pc["value_missing_tokens"]))
+        if pc["high_risk_scope"]:
+            for r in pc["scope_risks"]:
+                if r.get("severity") == "high":
+                    unsupported.append(f"{cid}: 口径风险[{r['dimension']}]: {r['detail']}")
+
+    # G4 批量 entailment（由 runtime ANSWER 分支填充 state.entailment_verdicts /
+    # unsupported_claims；entailment evaluator 失败 → fail-closed）。
+    unsupported.extend(list(getattr(state, "unsupported_claims", []) or []))
+    if getattr(state, "entailment_evaluator_failed", False):
+        unsupported.append("entailment_evaluator_failed")
 
     if reasons or unsupported:
-        return _result(False, "COMPLETED_WITH_GAPS", reasons,
+        return _result(False, "COMPLETED_WITH_GAPS", reasons + unsupported,
                        uncovered_aspects=uncovered,
                        unsupported_claims=unsupported, aspect_answers=aa)
     return _result(True, "COMPLETED", [],

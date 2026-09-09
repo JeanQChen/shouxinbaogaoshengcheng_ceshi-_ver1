@@ -185,6 +185,27 @@ class ResearchAnswer:
     aspects: list[AspectAnswer] = field(default_factory=list)  # 逐 required-aspect 覆盖
 
 
+@dataclass
+class InspectedMaterial:
+    """已捕获的 Evidence 正文/摘要（inspect_evidence 全文，search 结果为 snippet）。
+
+    供 G3/G4 校验「证据正文是否真的支撑 claim」使用；gold 不进入本结构。
+    is_snippet=True 表示仅有检索摘要（≤200 字符），非全文。
+    """
+
+    evidence_id: str
+    document_id: str = ""
+    source_name: str = ""
+    source_type: str = ""
+    page_number: int | None = None
+    section_path: str = ""
+    evidence_type: str = ""
+    report_period: str | None = None
+    text: str = ""
+    structured_payload: dict | None = None
+    is_snippet: bool = False
+
+
 # ---------------------------------------------------------------------------
 # 动作协议（LLM 可见面由 actions.py 的 ACTIONS 定义，这里只承载解析后的结果）
 # ---------------------------------------------------------------------------
@@ -280,6 +301,7 @@ class ResearchState:
     unresolved_items: list[str] = field(default_factory=list)
     required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict
     aspect_source: str = ""                                # SECTION_CONTRACT/DATASET_MAPPING/TEXT_FALLBACK
+    inspected_evidence: dict = field(default_factory=dict)  # evidence_id -> InspectedMaterial
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None
