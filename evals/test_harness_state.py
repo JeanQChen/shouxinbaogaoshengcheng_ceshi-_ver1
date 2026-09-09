@@ -197,6 +197,41 @@ def main() -> dict:
           and any("缺具体数字" in u for u in r["uncovered_aspects"]),
           "evaluate_success：数值方面覆盖但无数字 → COMPLETED_WITH_GAPS")
 
+    # ---- retrieval_observation：运行时诊断，不作事实断言 / 不作方面支撑 ----
+    obs_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="本次检索未取得授信额度数据",
+        claims=[H.Claim(claim_id="c1", text="本次检索未取得授信额度数据",
+                        kind="retrieval_observation", citation_refs=[])],
+        citations=[])
+    check(S.validate_answer(obs_ans, _state()) == [],
+          "validate_answer：retrieval_observation 无引用也通过（诊断非事实）")
+
+    st_obs = _state()
+    st_obs.required_aspects = [{"aspect_id": "a1", "text": "授信额度",
+                                "source": "SECTION_CONTRACT"}]
+    obs_ans.aspects = [H.AspectAnswer(aspect_id="a1", text="未取得", claim_ids=["c1"])]
+    r = S.evaluate_success(st_obs, obs_ans)
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and r["uncovered_aspects"] == ["授信额度"],
+          "retrieval_observation 不能覆盖方面 → 未覆盖 → COMPLETED_WITH_GAPS（不能 FULL）")
+
+    # 实体事实/关键结论需 fact/inference 支撑；retrieval_observation 不参与，也不阻断已覆盖方面。
+    st_mix = _state(structured_refs=[_structured_ref()])
+    st_mix.required_aspects = [{"aspect_id": "a1", "text": "授信额度",
+                                "source": "SECTION_CONTRACT"}]
+    mix_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="授信额度为4亿元",
+        claims=[H.Claim(claim_id="c1", text="授信额度为4亿元", kind="fact",
+                        citation_refs=[0]),
+                H.Claim(claim_id="c2", text="未取得某细分数据",
+                        kind="retrieval_observation", citation_refs=[])],
+        citations=[H.CitationRef(ref_type="structured", snapshot_id="snap1",
+                                 item_code="ITEM_A", period="2024-12-31")])
+    mix_ans.aspects = [H.AspectAnswer(aspect_id="a1", text="4亿元", claim_ids=["c1"])]
+    r = S.evaluate_success(st_mix, mix_ans)
+    check(r["completion_status"] == "COMPLETED",
+          "retrieval_observation 不阻断 fact 已支撑的方面 → COMPLETED")
+
     # ---- G3 确定性 value_missing / high_risk_scope ----
     st_vm = _state(evidence_ids=["e1"], inspected_evidence={"e1": H.InspectedMaterial(
         evidence_id="e1", text="授信额度4万元", is_snippet=False)})

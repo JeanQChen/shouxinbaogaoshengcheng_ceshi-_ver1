@@ -29,8 +29,10 @@ from harness import entailment as E
 from harness import policies as P
 from harness import schema as H
 from harness import state as S
+from harness import structured_needs as SN
 from harness import trace as T
 from llm import client as llm_client
+from routing import router as router_mod
 from routing import schema as RS
 from tools import contracts as TC
 from tools import registry as R
@@ -133,14 +135,36 @@ def _finalize(state: H.ResearchState, answer: H.ResearchAnswer | None,
 # 账本 / 状态累计
 # ---------------------------------------------------------------------------
 
-def _add_llm_usage(state: H.ResearchState, resp: "llm_client.LLMResponse") -> None:
+# LLM 调用分类（动作选择 / 答案生成 / entailment）——分别记账 + 合计，供报告区分展示。
+LLM_CATEGORY_ACTION = "action"
+LLM_CATEGORY_ANSWER = "answer"
+LLM_CATEGORY_ENTAILMENT = "entailment"
+
+
+def _add_llm_usage(state: H.ResearchState, resp: "llm_client.LLMResponse",
+                   category: str | None = None) -> None:
+    """累计一次 LLM 调用到账本（合计 + 可选分类）。不重复计数：同一 resp 只调一次。"""
     u = state.usage
     u.llm_calls += 1
+    u.llm_latency_ms += resp.latency_ms or 0
     if resp.input_tokens is not None and resp.output_tokens is not None:
         u.input_tokens += resp.input_tokens
         u.output_tokens += resp.output_tokens
     else:
         u.usage_unknown_calls += 1
+
+    if category is not None:
+        cat = u.llm_by_category.setdefault(category, {
+            "calls": 0, "input_tokens": 0, "output_tokens": 0,
+            "unknown_calls": 0, "latency_ms": 0,
+        })
+        cat["calls"] += 1
+        cat["latency_ms"] += resp.latency_ms or 0
+        if resp.input_tokens is not None and resp.output_tokens is not None:
+            cat["input_tokens"] += resp.input_tokens
+            cat["output_tokens"] += resp.output_tokens
+        else:
+            cat["unknown_calls"] += 1
 
 
 def _same_ref(a: RS.StructuredResultRef, b: RS.StructuredResultRef) -> bool:
@@ -330,26 +354,47 @@ def _action_prompt_vars(state: H.ResearchState, route: str, reason: str,
         "search_candidates": _search_candidates(state),
         "required_aspects": _aspects_text(state),
         "rejected_duplicates": _rejected_duplicates_text(state),
+        "already_inspected": _already_inspected_text(state),
+        "must_converge": "是（本回合是最后一个可用回合，必须选 ANSWER/STOP_WITH_GAP/REQUEST_HUMAN）"
+                         if _must_converge(state, budget) else "否",
     }
 
 
 def _available_material(state: H.ResearchState) -> str:
     parts: list[str] = []
-    if state.evidence_ids:
-        parts.append("本地证据 evidence_id：" + ", ".join(state.evidence_ids))
+    # 结构化结果：value 是代码算好的精确值（StructuredResult 注入），模型原样照抄，
+    # 禁止换算单位、四舍五入、重新计算。
     if state.structured_refs:
         lines: list[str] = []
         for r in state.structured_refs:
+            val = r.display_value if r.display_value is not None else r.raw_value
+            unit = r.unit or ""
+            val_str = f"{val} {unit}".strip() if val is not None else "（值不可用）"
             if r.item_code:
                 lines.append(f'  {{"snapshot_id": "{r.snapshot_id}", "item_code": "{r.item_code}", '
-                             f'"period": "{r.period}"}}')
+                             f'"period": "{r.period}", "value": "{val_str}"}}')
             else:
                 lines.append(f'  {{"snapshot_id": "{r.snapshot_id}", "formula_id": "{r.formula_id}", '
-                             f'"formula_version": "{r.formula_version}", "period": "{r.period}"}}')
-        parts.append("结构化结果（structured）：\n" + "\n".join(lines))
+                             f'"formula_version": "{r.formula_version}", "period": "{r.period}", '
+                             f'"value": "{val_str}"}}')
+        parts.append("结构化结果（value 为代码算好的精确值，原样照抄，禁止换算/改写）：\n"
+                     + "\n".join(lines))
+    if state.evidence_ids:
+        parts.append("本地证据 evidence_id：" + ", ".join(state.evidence_ids))
+    # 已取得正文/摘要：数字只能从这里逐字抄（或抄上面结构化 value），不得凭记忆补数。
+    if state.inspected_evidence:
+        ev_lines: list[str] = []
+        for eid, mat in state.inspected_evidence.items():
+            kind = "摘要" if mat.is_snippet else "全文"
+            ev_lines.append(
+                f"### evidence_id={eid} [{kind}] doc={mat.document_id or '-'} "
+                f"page={mat.page_number} period={mat.report_period or '-'}\n"
+                f"{E.bounded_text(mat.text)}")
+        parts.append("已取得正文/摘要（数字只能逐字抄这里，或抄上面结构化 value）：\n"
+                     + "\n".join(ev_lines))
     if state.external_snapshot_ids:
         parts.append("外部快照 source_snapshot_id：" + ", ".join(state.external_snapshot_ids))
-    return "\n".join(parts) if parts else "（无）"
+    return "\n\n".join(parts) if parts else "（无）"
 
 
 def _aspects_text(state: H.ResearchState) -> str:
@@ -366,6 +411,22 @@ def _rejected_duplicates_text(state: H.ResearchState) -> str:
     return "\n".join(
         f'- round {r.get("round", "?")} {r.get("action", "?")} {r.get("tool", "?")}'
         for r in rej)
+
+
+def _already_inspected_text(state: H.ResearchState) -> str:
+    """已取得全文的 evidence_id（inspect 后）——不再建议对其发起 INSPECT_EVIDENCE。"""
+    insp = [eid for eid, m in (state.inspected_evidence or {}).items() if not m.is_snippet]
+    if not insp:
+        return "（无）"
+    return ", ".join(insp)
+
+
+def _must_converge(state: H.ResearchState, budget: P.ResearchBudget) -> bool:
+    """末回合且已有可引用材料 → 必须收敛到终态动作（ANSWER/STOP_WITH_GAP/REQUEST_HUMAN）。"""
+    last_round = state.usage.rounds >= budget.max_rounds
+    has_material = bool(state.evidence_ids or state.structured_refs
+                        or state.external_snapshot_ids)
+    return last_round and has_material
 
 
 def _answer_prompt_vars(state: H.ResearchState, route: str) -> dict:
@@ -445,7 +506,7 @@ def parse_answer(raw: str, question_id: str) -> H.ResearchAnswer:
 def _generate_answer(state: H.ResearchState, llm: ResearchLLM, route: str,
                      budget: P.ResearchBudget) -> H.ResearchAnswer | None:
     resp = llm.generate_answer(_answer_prompt_vars(state, route))
-    _add_llm_usage(state, resp)
+    _add_llm_usage(state, resp, LLM_CATEGORY_ANSWER)
     try:
         answer = parse_answer(resp.text, state.question_id)
         state.unresolved_items = list(dict.fromkeys(
@@ -465,6 +526,117 @@ def _merge_gaps(state: H.ResearchState, ev: dict) -> None:
     state.unresolved_items = list(dict.fromkeys(state.unresolved_items + new))
 
 
+# 答案派生缺口的统一前缀（_merge_gaps 写入；跨 ANSWER 重置时按此清除）。
+_ANSWER_DERIVED_GAP_PREFIXES = ("未覆盖方面:", "引用不支持结论:")
+
+
+def _reset_answer_derived_state(state: H.ResearchState) -> None:
+    """清除上一答案派生的临时判定，保留研究历史（跨 ANSWER 状态污染修复）。
+
+    每次 ANSWER 评估前调用：上一答案的 UNSUPPORTED / 未覆盖方面是「上一答案版本的临时
+    缺口」，不应残留到最终判定。保留：工具历史、已捕获正文（inspected_evidence）、
+    已拒绝重复动作、已取得可引用材料（evidence/structured/external）、以及非答案派生的
+    unresolved_items（STOP_WITH_GAP / REQUEST_HUMAN 等研究历史缺口）。
+    """
+    state.unsupported_claims = []
+    state.entailment_verdicts = []
+    state.entailment_evaluator_failed = False
+    state.unresolved_items = [
+        x for x in state.unresolved_items
+        if not x.startswith(_ANSWER_DERIVED_GAP_PREFIXES)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# 结构化子 need（§三：原始财务问题接入 Financial Snapshot）
+# ---------------------------------------------------------------------------
+
+def _run_structured_subneeds(state: H.ResearchState, context: RS.RouteContext,
+                             registry: R.ToolRegistry, budget: P.ResearchBudget,
+                             run_id: str, trace_enabled: bool) -> None:
+    """原始问题 → required aspects → 数值/指标方面 → 结构化子 need → Router/DB resolver
+    → ToolRegistry → StructuredResultRef 汇入 state.structured_refs（确定性，Rules 内部）。
+
+    - 父路由保持不变（state.route_result 不动）；子 need 路由单独记录在
+      state.structured_subneeds，不篡改 Track B。
+    - 仅可精确表达的 field/metric 派生；数值方面无法精确表达 →
+      state.semantic_mismatches_rejected（不冒充 DB 结果）。
+    - 目标报告期取自原始问题（如「2025年」→ 2025-12-31），与 snapshot_as_of_date 分离。
+    - 数字来自 StructuredResult（LLM 只解读，不重新算数）。
+    """
+    derivation = SN.derive_structured_subneeds(
+        state.original_question, state.required_aspects)
+    state.semantic_mismatches_rejected = [
+        dataclasses.asdict(r) for r in derivation.rejected_aspects]
+    qperiod = SN.target_period(state.original_question)
+
+    records: list[dict] = []
+    for sn in derivation.subneeds:
+        rec = {
+            "sub_need_id": sn.sub_need_id, "source": sn.source,
+            "aspect_id": sn.aspect_id, "text": sn.text,
+            "target_type": sn.target_type,
+            "standard_item_code": sn.standard_item_code,
+            "formula_id": sn.formula_id,
+            "formula_version": sn.formula_version,
+            "route": None, "reason_code": None, "status": "NOT_ROUTED",
+            "n_structured": 0, "period": None, "error_code": None,
+        }
+        expr = SN.target_expression(sn)
+        sub_need = RS.InformationNeed(
+            need_id=f"{state.question_id}__{sn.sub_need_id}",
+            section_id=state.section_id, question=expr,
+            required_evidence_types=[], required_source_types=[],
+            time_scope=None, priority="normal", depends_on=[])
+        try:
+            rr = router_mod.route(sub_need, context)
+        except Exception as e:  # noqa: BLE001 — 路由审计落盘失败，诚实标记不 crash
+            rec["status"] = "ROUTE_FAILED"
+            rec["error_code"] = f"ROUTER_FAILED:{type(e).__name__}"
+            records.append(rec)
+            continue
+        if rr.status != "DECIDED" or rr.decision is None:
+            rec["status"] = "ROUTE_FAILED"
+            rec["error_code"] = rr.error_code or rr.status
+            records.append(rec)
+            continue
+        rec["route"] = rr.decision.route
+        rec["reason_code"] = rr.decision.reason_code
+        if rr.decision.route != "DB_LOOKUP":
+            rec["status"] = "NOT_DB_ROUTED"
+            records.append(rec)
+            continue
+        tool_name, args = SN.db_tool_args(state.company_id, rr.decision.filters)
+        # 目标报告期取自原始问题（子 need 表达式「净利率」不含年份）。
+        if qperiod is not None:
+            args["target_period"] = qperiod
+        call = TC.ToolCall(
+            call_id=uuid.uuid4().hex, tool_name=tool_name, arguments=args,
+            idempotency_key=P.dedup_key(TC.ToolCall(
+                call_id="", tool_name=tool_name, arguments=args,
+                idempotency_key="", need_id=sub_need.need_id, batch_id=state.run_id)),
+            need_id=sub_need.need_id, batch_id=state.run_id)
+        result = registry.execute(call, route="DB_LOOKUP", run_id=state.run_id,
+                                  max_retries=budget.max_retries_per_call)
+        state.tool_history.append(H.ToolCallRecord(
+            call=call, result=result, elapsed_ms=result.latency_ms, auto=True))
+        _apply_tool_result(state, result, budget)
+        if result.structured_result_refs:
+            rec["status"] = "RESOLVED"
+            rec["n_structured"] = len(result.structured_result_refs)
+            rec["period"] = result.structured_result_refs[0].period
+        else:
+            rec["status"] = "UNAVAILABLE"
+            rec["error_code"] = result.error_code
+        records.append(rec)
+        if trace_enabled:
+            T.emit(run_id, state.question_id, "STRUCTURED_SUBNEED",
+                   {"sub_need_id": sn.sub_need_id, "route": rec["route"],
+                    "status": rec["status"], "n_structured": rec["n_structured"],
+                    "error_code": rec["error_code"]})
+    state.structured_subneeds = records
+
+
 # ---------------------------------------------------------------------------
 # 主循环
 # ---------------------------------------------------------------------------
@@ -474,7 +646,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                  budget: P.ResearchBudget = P.DEFAULT_BUDGET,
                  run_id: str, case_id: str, company_id: str,
                  section_id: str | None = None,
-                 trace_enabled: bool = True) -> H.ResearchOutcome:
+                 trace_enabled: bool = True,
+                 context: RS.RouteContext | None = None) -> H.ResearchOutcome:
     """跑单题受限研究循环，返回 ResearchOutcome（终态 state + answer）。"""
     state = _new_state(need, route_result, run_id=run_id, case_id=case_id,
                        company_id=company_id, section_id=section_id, budget=budget)
@@ -489,6 +662,11 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
     S.set_status(state, "ROUTED")
     if trace_enabled:
         T.emit(run_id, need.need_id, "ROUTED", {"route": route, "reason_code": reason})
+
+    # §三：结构化子 need（原始财务问题接入 Financial Snapshot，Rules 内部确定性）。
+    # 仅在注入 RouteContext（真实快照路径）时运行；父路由判定保持 Phase 2 原样。
+    if context is not None:
+        _run_structured_subneeds(state, context, registry, budget, run_id, trace_enabled)
 
     answer: H.ResearchAnswer | None = None
     stop_reason: str | None = None
@@ -507,7 +685,7 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
 
         # 1. 动作选择（一次修复）
         raw = llm.select_action(_action_prompt_vars(state, route, reason, budget))
-        _add_llm_usage(state, raw)
+        _add_llm_usage(state, raw, LLM_CATEGORY_ACTION)
         action: H.ActionCall | None
         try:
             action = A.parse_action(raw.text)
@@ -525,6 +703,11 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
 
         # 2. 终态动作
         if action.action == "ANSWER":
+            # 每次 ANSWER 评估前清除上一答案派生的临时判定（unsupported_claims /
+            # entailment_verdicts / evaluator 失败 / 未覆盖方面缺口），保留研究历史；
+            # 答案版本号递增，本轮评估结果带 answer_revision（最终判定只读最新版本）。
+            _reset_answer_derived_state(state)
+            state.answer_revision += 1
             answer = _generate_answer(state, llm, route, budget)
             if answer is None:
                 stop_reason = "MODEL_OUTPUT_INVALID"
@@ -537,20 +720,24 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
             if hasattr(llm, "evaluate_entailment_batch"):
                 try:
                     state.entailment_verdicts = E.evaluate_entailment_batch(
-                        state, answer, llm, prechecks)
+                        state, answer, llm, prechecks,
+                        on_response=lambda r: _add_llm_usage(
+                            state, r, LLM_CATEGORY_ENTAILMENT))
                     for v in state.entailment_verdicts:
                         if v.verdict == "UNSUPPORTED":
                             state.unsupported_claims.append(
                                 f"{v.claim_id}: entailment UNSUPPORTED: {v.reason}")
                     if trace_enabled:
                         T.emit(run_id, need.need_id, "ENTAILMENT",
-                               {"verdicts": [dataclasses.asdict(v)
+                               {"answer_revision": state.answer_revision,
+                                "verdicts": [dataclasses.asdict(v)
                                              for v in state.entailment_verdicts]})
                 except Exception as e:  # noqa: BLE001 — 记失败（fail-closed），不吞错
                     state.entailment_evaluator_failed = True
                     if trace_enabled:
                         T.emit(run_id, need.need_id, "ENTAILMENT",
-                               {"failed": True, "error": str(e)})
+                               {"answer_revision": state.answer_revision,
+                                "failed": True, "error": str(e)})
             S.set_status(state, "ANSWER_READY")
             ev = S.evaluate_success(state, answer)
             if ev["completion_status"] == "COMPLETED":
@@ -573,7 +760,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 stop_reason = "PATH_NOT_IMPLEMENTED"
             if trace_enabled:
                 T.emit(run_id, need.need_id, "ANSWER",
-                       {"completion_status": state.status,
+                       {"answer_revision": state.answer_revision,
+                        "completion_status": state.status,
                         "claims": len(answer.claims),
                         "citations": len(answer.citations),
                         "unresolved": state.unresolved_items,
@@ -664,6 +852,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 "tool_calls": state.usage.tool_calls, "llm_calls": state.usage.llm_calls,
                 "input_tokens": state.usage.input_tokens,
                 "output_tokens": state.usage.output_tokens,
+                "llm_latency_ms": state.usage.llm_latency_ms,
+                "llm_by_category": state.usage.llm_by_category,
                 "elapsed_ms": state.usage.elapsed_ms})
     return outcome
 
@@ -708,8 +898,10 @@ def _main(argv: list[str]) -> int:
                        "route": "STANDARD_RAG", "route_reason": "r", "current_goal": "g",
                        "round": 1, "allowed_actions": "- SEARCH_LOCAL\n- ANSWER",
                        "evidence_summary": "（无）", "unresolved": "（无）",
-                       "budget_left": "rounds 1/3", "search_candidates": "",
-                       "available_material": "（无）"}
+                       "budget_left": "rounds 1/5", "search_candidates": "",
+                       "available_material": "（无）", "required_aspects": "（无）",
+                       "rejected_duplicates": "（无）", "already_inspected": "（无）",
+                       "must_converge": "否"}
         act_rendered = _render_template(act_tpl, sample_vars)
         ans_rendered = _render_template(ans_tpl, sample_vars)
         no_leftover = "{{" not in act_rendered and "{{" not in ans_rendered

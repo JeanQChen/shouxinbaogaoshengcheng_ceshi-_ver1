@@ -24,6 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness import runtime as RT
 from harness import schema as H
+from harness import policies as P
+from harness import trace as T
 from llm import client as llm_client
 from routing import schema as RS
 from tools import contracts as TC
@@ -138,6 +140,34 @@ class MockLLM:
                                       call_id="m", finish_reason="stop")
 
 
+class MockEntailLLM:
+    """mock LLM：动作/答案 + 批量 entailment（可编程 verdict 序列 + 独立 usage）。"""
+
+    def __init__(self, actions, answers, verdicts, entailment_tokens=(30, 40)):
+        self._actions = list(actions)
+        self._answers = list(answers)
+        self._verdicts = list(verdicts)
+        self._et = entailment_tokens
+        self.entailment_calls = 0
+
+    def select_action(self, prompt_vars):
+        return llm_client.LLMResponse(text=self._actions.pop(0), input_tokens=10,
+                                      output_tokens=20, latency_ms=1, model="mock",
+                                      call_id="m", finish_reason="stop")
+
+    def generate_answer(self, prompt_vars):
+        return llm_client.LLMResponse(text=self._answers.pop(0), input_tokens=10,
+                                      output_tokens=20, latency_ms=1, model="mock",
+                                      call_id="m", finish_reason="stop")
+
+    def evaluate_entailment_batch(self, prompt_vars):
+        self.entailment_calls += 1
+        it, ot = self._et
+        return llm_client.LLMResponse(text=self._verdicts.pop(0), input_tokens=it,
+                                      output_tokens=ot, latency_ms=1, model="mock",
+                                      call_id="m", finish_reason="stop")
+
+
 def _run(route, llm, reg=None):
     return RT.run_question(
         need=_need(), route_result=_router_result(route),
@@ -240,11 +270,14 @@ def main() -> dict:
           "重复动作写入 rejected_duplicate_actions（含 key + source）")
 
     # ---- ANSWER 带未覆盖方面 → 补检到预算耗尽 → COMPLETED_WITH_GAPS ----
+    # 修订：max_rounds=5，补检循环走满「search + 4 次 ANSWER」直到末回合无空间再带缺口结束。
     llm = MockLLM(
         ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
          '{"action": "ANSWER", "arguments": {}}',
+         '{"action": "ANSWER", "arguments": {}}',
+         '{"action": "ANSWER", "arguments": {}}',
          '{"action": "ANSWER", "arguments": {}}'],
-        [_ANSWER_NO_ASPECT, _ANSWER_NO_ASPECT])
+        [_ANSWER_NO_ASPECT, _ANSWER_NO_ASPECT, _ANSWER_NO_ASPECT, _ANSWER_NO_ASPECT])
     o = _run("DIRECT_EVIDENCE", llm)
     check(o.success is False and o.completion_status == "COMPLETED_WITH_GAPS"
           and o.state.status == "COMPLETED_WITH_GAPS",
@@ -285,13 +318,33 @@ def main() -> dict:
           "REQUEST_HUMAN → WAITING_HUMAN / UNRESOLVED")
 
     # ---- 预算耗尽（回合，INSPECT_EVIDENCE 不计分项） ----
+    # 修订：DEFAULT_BUDGET.max_rounds 由 3 → 5（完整「search→inspect A→inspect B→ANSWER」
+    # 需 ≥4 回合）。此处用显式小预算（max_rounds=2）确定性触发回合耗尽，不依赖新默认值。
+    small = P.ResearchBudget(
+        max_rounds=2, max_tool_calls=5, max_local_searches=2,
+        max_external_searches=2, max_fetches=2, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=5,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
     llm = MockLLM([
         '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}',
-        '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}',
         '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}'])
-    o = _run("DIRECT_EVIDENCE", llm)
+    o = RT.run_question(need=_need(), route_result=_router_result("DIRECT_EVIDENCE"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company",
+                        budget=small, trace_enabled=False)
     check(o.state.status == "BLOCKED" and o.stop_reason == "BUDGET_ITERATIONS",
           "预算耗尽（回合）→ BLOCKED BUDGET_ITERATIONS")
+
+    # ---- 修订：默认 5 回合足以走完 search→inspect→ANSWER（收敛不被回合预算腰斩） ----
+    llm = MockLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "INSPECT_EVIDENCE", "arguments": {"evidence_id": "e1"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE])
+    o = _run("DIRECT_EVIDENCE", llm)
+    check(o.success is True and o.completion_status == "COMPLETED"
+          and o.state.usage.rounds == 3,
+          "默认预算内 search→inspect→ANSWER 三回合收敛 COMPLETED（rounds=3 ≤ max_rounds=5）")
 
     # ---- 本地搜索分项预算超限 ----
     llm = MockLLM([
@@ -349,6 +402,93 @@ def main() -> dict:
           "动作选择 max_tokens ≥ 2048（推理关闭后仍留头部）")
     check(ans.get("max_tokens", 0) >= 4096,
           "答案解析 max_tokens ≥ 4096（推理关闭后仍留头部）")
+
+    # ---- 跨 ANSWER 状态污染修复（answer_revision 清理 + 版本标记）----
+    # 第一答案 entailment UNSUPPORTED → 补检 → 第二答案 SUPPORTED：
+    # 最终结果不残留第一答案的陈旧 unsupported；answer_revision=2；trace 保留两次判定。
+    unsupported_v = json.dumps({"verdicts": [
+        {"claim_id": "c1", "citation_ids": ["0"], "verdict": "UNSUPPORTED",
+         "reason": "口径不一致"}]}, ensure_ascii=False)
+    supported_v = json.dumps({"verdicts": [
+        {"claim_id": "c1", "citation_ids": ["0"], "verdict": "SUPPORTED",
+         "reason": "口径一致"}]}, ensure_ascii=False)
+    poll_run = "revpoll_" + Path(tempfile.mkdtemp()).name
+    e_llm = MockEntailLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE, _ANSWER_EVIDENCE],
+        [unsupported_v, supported_v])
+    o = RT.run_question(
+        need=_need(), route_result=_router_result("DIRECT_EVIDENCE"),
+        registry=_fake_registry(), llm=e_llm, run_id=poll_run, case_id="c",
+        company_id="300750", section_id="company", trace_enabled=True)
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "跨 ANSWER：UNSUPPORTED→补检→SUPPORTED 最终 COMPLETED")
+    check(o.state.answer_revision == 2,
+          "answer_revision 递增到 2（两次 ANSWER 评估）")
+    check(o.state.unsupported_claims == [],
+          "最终不残留第一答案的陈旧 unsupported_claims")
+    check(all(v.verdict == "SUPPORTED" for v in o.state.entailment_verdicts),
+          "最终 entailment_verdicts 只含最新答案版本（SUPPORTED）")
+    check(not any(x.startswith("引用不支持结论") for x in o.state.unresolved_items),
+          "unresolved_items 不含第一答案的陈旧 UNSUPPORTED 记录")
+    trace_lines = T.trace_path(poll_run, "n1").read_text(encoding="utf-8").strip().splitlines()
+    ent_events = [json.loads(l) for l in trace_lines
+                  if json.loads(l).get("event") == "ENTAILMENT"]
+    check(len(ent_events) == 2
+          and ent_events[0]["verdicts"][0]["verdict"] == "UNSUPPORTED"
+          and ent_events[1]["verdicts"][0]["verdict"] == "SUPPORTED",
+          "trace 保留两次 ENTAILMENT 判定历史（UNSUPPORTED→SUPPORTED）")
+    check(all(ev.get("answer_revision") is not None for ev in ent_events)
+          and ent_events[0]["answer_revision"] != ent_events[1]["answer_revision"],
+          "ENTAILMENT trace 事件带 answer_revision 且逐轮递增")
+
+    # ---- entailment usage 记账（3 类 LLM 分别 + 合计）----
+    e2 = MockEntailLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE],
+        [supported_v],
+        entailment_tokens=(300, 400))
+    o = _run("DIRECT_EVIDENCE", e2)
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "entailment 记账：含 entailment 的题目正常 COMPLETED")
+    u = o.state.usage
+    check(u.llm_calls == 4 and e2.entailment_calls == 1,
+          "llm_calls 合计=4（2 动作 + 1 答案 + 1 entailment）")
+    check(u.llm_by_category.get("action", {}).get("calls") == 2
+          and u.llm_by_category.get("answer", {}).get("calls") == 1
+          and u.llm_by_category.get("entailment", {}).get("calls") == 1,
+          "llm_by_category 三类（action/answer/entailment）分别计数")
+    check(u.input_tokens == 10 + 10 + 10 + 300 and u.output_tokens == 20 + 20 + 20 + 400,
+          "entailment tokens 计入合计 input/output（无重复计数）")
+    check(u.llm_by_category.get("entailment", {}).get("input_tokens") == 300
+          and u.llm_by_category.get("entailment", {}).get("output_tokens") == 400,
+          "entailment 分类独立记 input/output tokens")
+    check(u.llm_latency_ms == 4,
+          "llm_latency_ms 累计 4 次调用 latency（各 1ms）")
+
+    # ---- 预算纳入 entailment：小 max_tokens 下 entailment 使合计超限 → BUDGET_TOKENS ----
+    small_tok = P.ResearchBudget(
+        max_rounds=5, max_tool_calls=5, max_local_searches=2,
+        max_external_searches=2, max_fetches=2, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=5,
+        max_tokens=100, max_elapsed_ms=120000, max_retries_per_call=1)
+    e3 = MockEntailLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE],
+        [unsupported_v],
+        entailment_tokens=(500, 500))
+    o = RT.run_question(need=_need(), route_result=_router_result("DIRECT_EVIDENCE"),
+                        registry=_fake_registry(), llm=e3, run_id="r", case_id="c",
+                        company_id="300750", section_id="company",
+                        budget=small_tok, trace_enabled=False)
+    check(P.check_budget(o.state, small_tok) == "BUDGET_TOKENS",
+          "预算检查识别 entailment 计入后的 token 超限 → BUDGET_TOKENS")
+    check(e3.entailment_calls == 1,
+          "entailment 超预算后当前判定已落盘、未再发起新 LLM 调用")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

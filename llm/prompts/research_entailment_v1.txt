@@ -12,6 +12,9 @@
 ## 待判定 claims（每条 claim 后附「确定性预检」标记，仅作提示，你需基于材料独立判断）
 {{claims}}
 
+## 检索观测（运行时诊断，非事实断言，不参与判定，仅作缺口上下文）
+{{retrieval_observations}}
+
 ## 引用映射（claim 里 cites=[i] 的 i 对应下面 [i]）
 {{citations}}
 

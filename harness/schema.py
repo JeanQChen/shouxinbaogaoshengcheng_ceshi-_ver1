@@ -90,8 +90,11 @@ COMPLETION_STATUSES = (
     "FAILED",
 )
 
-# 答案 claim 类别（事实 vs 研判）。
-CLAIM_KINDS = ("fact", "inference")
+# 答案 claim 类别（事实 / 研判 / 检索观测）。
+# retrieval_observation 是「运行时诊断」（如「本次检索未取得 X」），不是关于世界的事实
+# 断言（不得写成「X 不存在」）；不参与 entailment 判定，也不作为任何 required-aspect
+# 或实体事实/关键结论的支撑依据（不能据此判 FULL）。
+CLAIM_KINDS = ("fact", "inference", "retrieval_observation")
 
 # 引用类别（本地证据 / 结构化 DB 结果 / 外部快照）。
 CITATION_TYPES = ("evidence", "structured", "external")
@@ -279,6 +282,8 @@ class UsageLedger:
     input_tokens: int = 0                    # 已知 usage 累计；None 时不加
     output_tokens: int = 0
     usage_unknown_calls: int = 0             # provider 未返回 usage 的次数
+    llm_latency_ms: int = 0                  # 全部 LLM 调用 latency 之和（与 elapsed_ms 正交）
+    llm_by_category: dict = field(default_factory=dict)  # category -> {calls, input_tokens, output_tokens, unknown_calls, latency_ms}
     elapsed_ms: int = 0
     added_needs: int = 0
     consecutive_no_new_evidence: int = 0
@@ -327,11 +332,14 @@ class ResearchState:
     required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict
     aspect_source: str = ""                                # SECTION_CONTRACT/DATASET_MAPPING/TEXT_FALLBACK
     inspected_evidence: dict = field(default_factory=dict)  # evidence_id -> InspectedMaterial
-    entailment_verdicts: list = field(default_factory=list)  # list[EntailmentVerdict]
-    unsupported_claims: list = field(default_factory=list)   # entailment UNSUPPORTED 描述
-    entailment_evaluator_failed: bool = False                # evaluator 调用/解析异常
+    entailment_verdicts: list = field(default_factory=list)  # list[EntailmentVerdict]（仅最新答案版本）
+    unsupported_claims: list = field(default_factory=list)   # entailment UNSUPPORTED 描述（仅最新答案版本）
+    entailment_evaluator_failed: bool = False                # evaluator 调用/解析异常（仅最新答案版本）
+    answer_revision: int = 0                                 # 已评估答案版本号（每次 ANSWER 递增；最终判定只读最新版本）
     executed_action_keys: list = field(default_factory=list)  # 已执行动作的幂等 key（去重）
     rejected_duplicate_actions: list = field(default_factory=list)  # 被拒绝的重复动作记录
+    structured_subneeds: list = field(default_factory=list)  # 结构化子 need 记录（§三，父路由不变）
+    semantic_mismatches_rejected: list = field(default_factory=list)  # 数值方面无法精确表达（§三）
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None

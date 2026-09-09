@@ -357,6 +357,11 @@ def _bounded_text(text: str, head: int = 1200, tail: int = 300) -> str:
     return t[:head] + "\n…[中段截断]…\n" + t[-tail:]
 
 
+def bounded_text(text: str, head: int = 1200, tail: int = 300) -> str:
+    """公开别名（答案 prompt 复用同一有界截断口径，避免正文整段丢失单位/合计行）。"""
+    return _bounded_text(text, head, tail)
+
+
 def _describe_citation(cit: H.CitationRef, state: H.ResearchState) -> str:
     """把一条引用翻译为给法官看的可读描述（含结构化值/正文元数据）。"""
     if cit.ref_type == "evidence":
@@ -387,7 +392,13 @@ def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
                            prechecks: dict[str, dict]) -> dict:
     """拼批量 entailment 的 prompt 变量（claims + 引用映射 + 正文 + 确定性标记）。"""
     claim_lines: list[str] = []
+    obs_lines: list[str] = []
     for c in answer.claims:
+        # retrieval_observation 是运行时诊断（「本次检索未取得 X」），不是事实断言，
+        # 不参与 entailment 判定（不判 SUPPORTED/UNSUPPORTED），仅供法官理解缺口上下文。
+        if c.kind == "retrieval_observation":
+            obs_lines.append(f"- {c.claim_id}: {c.text}")
+            continue
         pc = prechecks.get(c.claim_id, {})
         markers: list[str] = []
         if pc.get("not_inspected"):
@@ -419,6 +430,7 @@ def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
         "claims": "\n".join(claim_lines) if claim_lines else "（无）",
         "citations": "\n".join(citation_lines) if citation_lines else "（无）",
         "evidence": "\n\n".join(evidence_lines) if evidence_lines else "（无正文）",
+        "retrieval_observations": "\n".join(obs_lines) if obs_lines else "（无）",
     }
 
 
@@ -468,16 +480,22 @@ def parse_entailment(raw: str) -> list[H.EntailmentVerdict]:
 
 
 def evaluate_entailment_batch(state: H.ResearchState, answer: H.ResearchAnswer,
-                              llm, prechecks: dict[str, dict]) -> list[H.EntailmentVerdict]:
+                              llm, prechecks: dict[str, dict],
+                              on_response=None) -> list[H.EntailmentVerdict]:
     """单次批量 entailment（每问 1 次调用）。
 
     llm 无 evaluate_entailment_batch（Mock）→ 跳过返回 []；有但调用/解析异常 → 向上抛，
     由 runtime 记 entailment_evaluator_failed（fail-closed）。
+
+    on_response(resp)：可选回调，在解析前接收原始 LLMResponse（供 runtime 记账
+    entailment 分类 usage，不改变本函数语义）。
     """
     if not hasattr(llm, "evaluate_entailment_batch"):
         return []
     prompt_vars = entailment_prompt_vars(state, answer, prechecks)
     resp = llm.evaluate_entailment_batch(prompt_vars)
+    if on_response is not None:
+        on_response(resp)
     return parse_entailment(resp.text)
 
 

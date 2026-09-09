@@ -3,7 +3,7 @@
 用法: python -m evals.test_harness_budget
 
 断言（纯逻辑，无 I/O / LLM / 工具执行）：
-- ResearchBudget / DEFAULT_BUDGET 默认值（3 回合 / 5 调用 / 2 本地 / 2 外部搜索 / 2 fetch /
+- ResearchBudget / DEFAULT_BUDGET 默认值（5 回合 / 5 调用 / 2 本地 / 2 外部搜索 / 2 fetch /
   1 修复 / 2 added needs / 2 连续无新证据 / 8000 tokens / 120000ms / 1 retry）；
 - dedup_key：同 tool+args → 同 key；不同 args → 不同 key；
 - check_budget：回合/调用/外部/token（仅 usage 已知）/耗时/连续无新证据 各命中对应 stop_reason，
@@ -69,7 +69,7 @@ def main() -> dict:
 
     # ---- 默认预算 ----
     b = P.DEFAULT_BUDGET
-    check(b.max_rounds == 3 and b.max_tool_calls == 5 and b.max_local_searches == 2
+    check(b.max_rounds == 5 and b.max_tool_calls == 5 and b.max_local_searches == 2
           and b.max_external_searches == 2 and b.max_fetches == 2
           and b.max_action_repairs == 1 and b.max_added_needs == 2
           and b.max_consecutive_no_new_evidence == 2 and b.max_tokens == 8000
@@ -88,7 +88,7 @@ def main() -> dict:
     # ---- check_budget 逐项 ----
     check(P.check_budget(_state(), b) is None, "check_budget：默认未超限 → None")
     st = _state()
-    st.usage.rounds = 4
+    st.usage.rounds = b.max_rounds + 1
     check(P.check_budget(st, b) == "BUDGET_ITERATIONS", "回合超限 → BUDGET_ITERATIONS")
 
     st = _state()

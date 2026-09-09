@@ -250,6 +250,22 @@ def main() -> dict:
     check(E.evaluate_entailment_batch(st_b, ans_b, _NoMethodLLM(), pc_b) == [],
           "evaluate_entailment_batch：llm 无方法 → 返回 []")
 
+    # ---- retrieval_observation 不参与 entailment（诊断，非事实断言） ----
+    st_obs = _state(inspected={"e1": _mat("授信额度4亿元", page=3)})
+    obs_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="授信额度4亿元",
+        claims=[H.Claim(claim_id="c1", text="授信额度4亿元", kind="fact",
+                        citation_refs=[0]),
+                H.Claim(claim_id="c2", text="本次检索未取得担保明细",
+                        kind="retrieval_observation", citation_refs=[])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1")])
+    vars_obs = E.entailment_prompt_vars(st_obs, obs_ans,
+                                        E.deterministic_prechecks(st_obs, obs_ans))
+    check("c2" not in vars_obs["claims"] and "c1" in vars_obs["claims"],
+          "entailment_prompt_vars：retrieval_observation 不进入待判定 claims")
+    check("本次检索未取得担保明细" in vars_obs["retrieval_observations"],
+          "entailment_prompt_vars：retrieval_observation 进入检索观测上下文")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

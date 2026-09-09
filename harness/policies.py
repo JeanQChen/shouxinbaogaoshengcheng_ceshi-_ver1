@@ -56,9 +56,13 @@ class ResearchBudget:
         }
 
 
-# 默认预算（用户 §三：3 回合 / 5 工具调用 / 2 本地 / 2 外部搜索 / 2 fetch / 1 动作格式修复）。
+# 默认预算（用户 §三修订：5 回合 / 5 工具调用 / 2 本地 / 2 外部搜索 / 2 fetch /
+# 1 动作格式修复）。max_rounds 由 3 提到 5：完整链路「search → inspect A → inspect B →
+# ANSWER」需要 ≥4 个动作回合，3 回合在补检/双证据核对前就耗尽；ANSWER 是终态动作，
+# 不占用工具调用预算（tool_calls 只在 registry.execute 后累计），故 5 回合足以走完
+# 检索+两证据 inspect+作答，并保留 1 回合补检余量。
 DEFAULT_BUDGET = ResearchBudget(
-    max_rounds=3,
+    max_rounds=5,
     max_tool_calls=5,
     max_local_searches=2,
     max_external_searches=2,

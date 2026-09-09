@@ -42,6 +42,7 @@ from harness import policies as P
 from harness import runtime as RT
 from harness import schema as H
 from harness import state as HS
+from harness import structured_needs as SN
 from routing import context as routing_context
 from routing import router as router_mod
 from routing import schema as RS
@@ -401,6 +402,9 @@ def _record_case(case, route_result: RS.RouterResult, outcome: H.ResearchOutcome
             "output_tokens": u.output_tokens,
             "usage_unknown_calls": u.usage_unknown_calls,
             "elapsed_ms": u.elapsed_ms,
+            # §二：LLM 分类记账（action/answer/entailment）+ latency 之和。
+            "llm_latency_ms": u.llm_latency_ms,
+            "llm_by_category": _jsonable(u.llm_by_category),
         },
         "page_diagnosis": _diagnose_local_pages(case, evidence_pages),
         # 修订①③④：契约优先 aspects + 批量 entailment + 去重审计（读自 state，不影响判分）。
@@ -412,6 +416,12 @@ def _record_case(case, route_result: RS.RouterResult, outcome: H.ResearchOutcome
         "entailment_evaluator_failed": st.entailment_evaluator_failed,
         "unsupported_claims": _jsonable(st.unsupported_claims),
         "rejected_duplicate_actions": _jsonable(st.rejected_duplicate_actions),
+        # §三：结构化子 need（原始财务问题接入 Financial Snapshot，父路由不变）。
+        "structured_subneeds": _jsonable(st.structured_subneeds),
+        "semantic_mismatches_rejected": _jsonable(st.semantic_mismatches_rejected),
+        "db_vs_evidence_aspects": SN.classify_aspects(
+            st.required_aspects, st.structured_subneeds,
+            st.semantic_mismatches_rejected),
     }
 
 
@@ -447,6 +457,14 @@ def _aggregate(records: list[dict]) -> dict:
     page_coverages: list[float] = []
     page_hits = 0
     n_page_applicable = 0
+    # §三：结构化子 need 统计（父路由 DB 数 / 子 need 数 / 成功 / 语义不匹配）。
+    n_parent_db_route = 0
+    n_subneeds = 0
+    n_subneeds_resolved = 0
+    n_subneeds_unavailable = 0
+    n_subneeds_not_db = 0
+    n_semantic_mismatch = 0
+    n_cases_structured = 0
 
     for r in records:
         route = r["route"]["route"] or "UNDECIDED"
@@ -492,6 +510,22 @@ def _aggregate(records: list[dict]) -> dict:
             if pd.get("page_hit"):
                 page_hits += 1
 
+        # §三：结构化子 need 统计。
+        if r["route"]["route"] == "DB_LOOKUP":
+            n_parent_db_route += 1
+        sns = r.get("structured_subneeds") or []
+        n_subneeds += len(sns)
+        for sn in sns:
+            if sn.get("status") == "RESOLVED":
+                n_subneeds_resolved += 1
+            elif sn.get("status") == "UNAVAILABLE":
+                n_subneeds_unavailable += 1
+            elif sn.get("status") == "NOT_DB_ROUTED":
+                n_subneeds_not_db += 1
+        n_semantic_mismatch += len(r.get("semantic_mismatches_rejected") or [])
+        if sns:
+            n_cases_structured += 1
+
     return {
         "n_cases": n,
         "route_distribution": route_dist,
@@ -517,6 +551,15 @@ def _aggregate(records: list[dict]) -> dict:
             "page_hit": page_hits,
         },
         "external_cost_available": False,
+        "structured_subneeds": {
+            "parent_db_routes": n_parent_db_route,
+            "n_subneeds": n_subneeds,
+            "n_resolved": n_subneeds_resolved,
+            "n_unavailable": n_subneeds_unavailable,
+            "n_not_db_routed": n_subneeds_not_db,
+            "n_semantic_mismatches_rejected": n_semantic_mismatch,
+            "n_cases_with_structured": n_cases_structured,
+        },
     }
 
 
@@ -599,6 +642,16 @@ def _report_lines(run_id: str, meta: dict, metrics: dict, records: list[dict]) -
               f"- Structured: {m['source_coverage']['n_with_structured']} 题",
               f"- External: {m['source_coverage']['n_with_external']} 题",
               "",
+              "## 结构化子 need（§三 原始财务问题接入 Financial Snapshot）",
+              "",
+              f"- 父路由 DB_LOOKUP 题数: {m['structured_subneeds']['parent_db_routes']}",
+              f"- 结构化子 need 数: {m['structured_subneeds']['n_subneeds']}",
+              f"- 子 need RESOLVED（结构化结果命中）: {m['structured_subneeds']['n_resolved']}",
+              f"- 子 need UNAVAILABLE（快照缺失）: {m['structured_subneeds']['n_unavailable']}",
+              f"- 子 need NOT_DB_ROUTED（子表达未被路由到 DB）: {m['structured_subneeds']['n_not_db_routed']}",
+              f"- 语义不匹配拒绝（数值方面无法精确表达）: {m['structured_subneeds']['n_semantic_mismatches_rejected']}",
+              f"- 含结构化子 need 的题数: {m['structured_subneeds']['n_cases_with_structured']}",
+              "",
               "## 耗时 / token",
               "",
               f"- 耗时 avg/p50/p95: {m['latency_ms']['avg']:.0f}/{m['latency_ms']['p50']:.0f}/{m['latency_ms']['p95']:.0f} ms",
@@ -622,16 +675,19 @@ def _report_lines(run_id: str, meta: dict, metrics: dict, records: list[dict]) -
               "",
               "## 逐题摘要",
               "",
-              "| case | route | 实际状态 | stop_reason | 工具数 | 证据 | 结构化 | 外部 |",
-              "|---|---|---|---|---|---|---|---|",
+              "| case | route | 实际状态 | stop_reason | 工具数 | 证据 | 结构化 | 外部 | 子need(命中/总) |",
+              "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in records:
         c = r["completion"]
+        sns = r.get("structured_subneeds") or []
+        sn_hit = sum(1 for sn in sns if sn.get("status") == "RESOLVED")
         lines.append(
             f"| {r['case_id']} | {r['route']['route'] or 'UNDECIDED'} | "
             f"{c['actual_status']} | {c['stop_reason'] or '-'} | "
             f"{len(r['tool_calls'])} | {len(r['evidence_ids'])} | "
-            f"{len(r['structured_refs'])} | {len(r['external_snapshot_ids'])} |")
+            f"{len(r['structured_refs'])} | {len(r['external_snapshot_ids'])} | "
+            f"{sn_hit}/{len(sns)} |")
     return lines
 
 
@@ -777,7 +833,8 @@ def run_actual_path_41(
         outcome = RT.run_question(
             need=need, route_result=route_result, registry=registry, llm=llm,
             budget=P.DEFAULT_BUDGET, run_id=run_id, case_id=case.case_id,
-            company_id=company_id, section_id=case.section_id, trace_enabled=True)
+            company_id=company_id, section_id=case.section_id, trace_enabled=True,
+            context=context)
         C.write_question_outcome(run_id, outcome, harness_db_path)
         evidence_pages = _resolve_evidence_pages(outcome.state.evidence_ids, ev_db_path)
         rec = _record_case(case, route_result, outcome, evidence_pages)
@@ -821,6 +878,9 @@ def _outcome_from_raw(raw: dict, need: RS.InformationNeed,
     state.unresolved_items = st_data["unresolved_items"]
     # structured_refs 还原为轻量对象（仅摘要需 item_code/formula_id/period/value）。
     state.structured_refs = _refs_from_raw(st_data.get("structured_refs", []))
+    # §三：结构化子 need 记录（resume 跳过题仅保证可回读，不影响判分）。
+    state.structured_subneeds = st_data.get("structured_subneeds", [])
+    state.semantic_mismatches_rejected = st_data.get("semantic_mismatches_rejected", [])
     answer = None
     if raw.get("answer"):
         a = raw["answer"]

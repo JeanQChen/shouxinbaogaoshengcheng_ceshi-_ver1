@@ -19,11 +19,17 @@
 ## 已收集材料（摘要；正文在工具结果里，引用必须用下面给出的 ID）
 {{evidence_summary}}
 
+## 已 inspect（已取得全文）的 evidence_id（不要再对其发 INSPECT_EVIDENCE）
+{{already_inspected}}
+
 ## 仍未解决
 {{unresolved}}
 
 ## 剩余预算
 {{budget_left}}
+
+## 是否必须收敛
+{{must_converge}}
 
 ## 已拒绝的重复动作（不要重复发起同样参数的动作）
 {{rejected_duplicates}}
@@ -50,3 +56,5 @@
 5. 不要输出 SNAPSHOT_EXTERNAL（由系统自动处理）；不要把搜索摘要直接当作结论来源。
 6. ANSWER 前核对口径：合计 vs 明细、合并 vs 母公司、授信总额度 vs 已用 vs 单笔、全部对外担保 vs 对子公司/为股东实控人、金额单位、表头行标签。口径对不上时先 INSPECT_EVIDENCE 看正文，不要硬答。
 7. 不要重复「已拒绝的重复动作」里同样参数的动作。
+8. 不要对「已 inspect」里列出的 evidence_id 再发 INSPECT_EVIDENCE（正文已取得，可直接用于 ANSWER）。
+9. 当「是否必须收敛」为「是」时：本回合是最后一个可用回合，必须从 ANSWER / STOP_WITH_GAP / REQUEST_HUMAN 中选一个，不得再发检索或 inspect 动作；已有可引用材料时优先 ANSWER。
