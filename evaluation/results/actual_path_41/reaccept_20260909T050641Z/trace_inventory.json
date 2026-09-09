@@ -1,0 +1,14 @@
+{
+  "run_id": "reaccept_20260909T050641Z",
+  "trace_dir": "logs\\harness\\reaccept_20260909T050641Z",
+  "n_trace_files": 7,
+  "files": [
+    "COMP-CR1.jsonl",
+    "COMP-MV1.jsonl",
+    "COMP-R1.jsonl",
+    "COMP-S1.jsonl",
+    "COMP-S2.jsonl",
+    "FIN-CF1.jsonl",
+    "FIN-PM1.jsonl"
+  ]
+}

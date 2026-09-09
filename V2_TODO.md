@@ -1,14 +1,17 @@
 # 授信报告生成器 V2 TODO
 
-> 更新时间：2026-09-08
+> 更新时间：2026-09-09
 > 用途：记录 V2 已完成、正在进行和下一步工作。  
 > 上位依据：`DESIGN_V2.md`；阶段顺序：`V2_IMPLEMENTATION_PLAN.md`；具体实施以对应阶段开发任务书为准。
 
 ## 一、当前结论
 
-当前已经关闭 V1 基线、报告章节契约、Evidence Architecture、Phase 1F-A 财务基础和
-Phase 2 Router + Hybrid Retrieval（真实 BGE-M3 Track A 对照评测已跑通并严格关闭，
-净收益显著）。完整 1F 仍需在 Phase 5 完成 1F-B。
+当前已经关闭 V1 基线、报告章节契约、Evidence Architecture、Phase 1F-A 财务基础、
+Phase 2 Router + Hybrid Retrieval，以及 Phase 3 Batch A 工具层与真实外部来源闭环。
+
+Phase 3 Batch B 的最小 Research Harness、41 问 Actual-Path Runner、章节预览接口已经实现，
+并经过多轮真实冒烟修正；当前停在“冻结前人工门”，尚不能把 Batch B 或 Phase 3 标记为关闭。
+完整 1F 仍需在 Phase 5 完成 1F-B。
 
 完成 V2 第一阶段仍需依次完成：
 
@@ -95,7 +98,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 四、后续 TODO
 
-### [ ] Phase 2：Router + Hybrid Retrieval
+### [x] Phase 2：Router + Hybrid Retrieval（已严格关闭）
 
 - [x] 编写 Phase 2 开发任务书：`ROUTER_HYBRID_RETRIEVAL_DEVELOPMENT_TASK.md`。
 - [x] 审核 Claude Code 编码前实施计划（含三项契约修正 A/B/C，已并入实现）。
@@ -109,12 +112,67 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ### [ ] Phase 3：Tool Layer + Research Harness
 
-- 编写并确认 Phase 3 开发任务书。
-- 建立 Tool Registry、结构化 ToolResult 和统一错误码。
-- 接入文档检索、Evidence 查看、核准财务查询、外部搜索和网页快照工具。
-- 实现 ResearchState、轮次/时间/token/工具预算、停止条件、重试和 checkpoint/resume。
-- 分别定义公司信用和行业研究 Policy；财务分析继续走确定性 Workflow，不进入自由研究循环。
-- 区分外部来源“未找到”“访问失败”“网络降级”和“过期”，不得把失败写成不存在风险。
+- [x] 编写并确认 Phase 3 开发任务书：`PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md`。
+- [x] Batch A：建立 Tool Registry、结构化 ToolResult、统一错误码、路由门控、审计失败关闭、
+  软超时熔断和重试边界。
+- [x] Batch A：接入 Evidence 搜索/查看、核准财务查询与期间比较、博查搜索、外部正文获取和
+  不可变来源快照；Tavily 不参与当前运行时、fallback 或验收。
+- [x] Batch A：完成真实博查搜索→正文→快照、HTML/PDF Fetch、300750 FinancialSnapshot
+  工具调用验收；Batch A 已严格关闭。
+- [x] Batch B：实现带 usage/call_id 的 LLM 客户端、ResearchState、动作协议、运行时 Policy、
+  trace、最小 checkpoint/resume、轮次/时间/token/工具预算及停止条件。
+- [x] Batch B：实现 `run_actual_path_41` 与只消费已持久化 ResearchAnswer 的章节预览接口；
+  未提前实现 Phase 4 章节 Worker。
+- [x] Batch B：落实 Gold 与运行时充分性隔离；gold document/page 仅作运行后离线诊断，
+  不进入 query、Router、补检、成功判定、停止原因或 completion status。
+- [x] Batch B：完成 required-aspect 字段级映射、重复动作去重、批量 entailment、
+  Evidence inspect 后确定性预检、ANSWER 修订清理和证据外数字拦截。
+- [x] Batch B：结构化子 need 已接入 FinancialSnapshot；FIN-PM1、FIN-CF1 的财务路径可真实执行，
+  Decimal 序列化问题已修复。
+- [x] 4 项 `BUSINESS_REVIEW_REQUIRED` 已确认并固化：主体经营状态、主营期间/范围与补充主题、
+  债务担保范围/期间及债券和借款、行业规模周期的截止日/统计范围。
+- [x] 最新真实冒烟：7 问中 FULL 1、PARTIAL 6、FAILED/UNRESOLVED 0；所有 PARTIAL 均保留
+  明确缺口，未以放宽 FULL 换取通过。最新完整 eval：2787 passed / 0 failed / 0 skipped。
+
+#### Batch B 冻结前待办（当前最高优先级）
+
+- [x] 冻结前收口实施计划已经人工确认（2026-09-09）；确认仅代表允许实施，以下修复、测试、
+  定点复跑及冻结判断尚未完成。
+- [ ] 修复表头单位传播：表格“单位：万元，%”不得被误识别为答案值，消除 COMP-R1 / FIN-CF1
+  的 `value_presence` 假阳性；金额统一以 Decimal 换算到“元”，比例统一到百分数口径后比较，
+  保留原值和原单位供审计。必须覆盖 `4亿元 == 40,000万元 == 400,000,000元`、金额与比例
+  不兼容、多单位列归属不明降级等公司无关回归场景。
+- [ ] 明确结构化引用规则：通过 provenance、状态、公司、期间、scope、currency、value 校验的
+  `StructuredResultRef` 可作为权威引用，不强制要求 Evidence 正文；失效、缺字段或口径不一致仍失败关闭。
+  `active_snapshot_id` 必须在 run 开始时由 RunManifest/RouteContext 根据权威 current Snapshot 锁定，
+  不得由工具返回 ref 反向设置，也不得在 ANSWER 重试时清理或改写。
+- [ ] Structured provenance 必须通过 Financial Store 复合校验 Snapshot：对象存在、仍为 current、
+  最新 validity=`valid`、`report_blocked=false`、未被 quarantine，五项同时满足才可引用；
+  ref 自带的 `snapshot_status` 只作展示/审计，不能自证有效。
+- [ ] 对“变化/趋势”类结构化 need 调用 `compare_financial_periods` 或查询多个期间；复用现有多期
+  FinancialSnapshot，不为此新增或伪造数据。“某年度如何变化”默认与此前最近完整年度比较，
+  “近三年”取截至 `report_as_of` 最近三个完整年度，默认不把季度累计值混入年度趋势。
+- [ ] 只复跑受影响的 COMP-R1、FIN-PM1、FIN-CF1，确认上述修复后冻结 Harness 规则和 prompt；
+  不再围绕已经进入开发集的问题持续调参。
+- [ ] 建立反过拟合拆分 manifest：已经用于开发或定点复跑的 COMP-S1、COMP-S2、COMP-R1、
+  COMP-MV1、COMP-CR1、FIN-PM1、FIN-CF1、FIN-GM1 共 8 题固定归入 `development`；
+  从剩余 33 题按章节、优先级和 `expected_route_v2` 离线标签确定性分层抽取 8～10 题作为
+  `unseen_validation`，其余归入 `frozen_final`。
+  manifest 必须记录数据集 hash、算法、固定 seed、case IDs，拆分过程不得读取 gold 答案或页码。
+- [ ] 冻结代码、规则、prompt 和拆分 manifest 后，仅运行一次 `unseen_validation`；先如实报告结果，
+  不因单题失败立即改规则。如需修改，必须说明它是通用修复并重新生成新的验证版本。
+- [ ] unseen 门通过后运行完整 41 问 Actual-Path 评测，逐题输出实际路径、证据/结构化结果、
+  简短答案与引用、未解决项、耗时、token 和离线 gold-page 诊断；未实现路径不得计成功。
+- [ ] 生成并人工审阅一个真实章节预览，确认无无来源数字、无“未找到=不存在”、引用可回查，
+  并记录它只是 Phase 4 的输入/接口验收，不代表 Phase 4 完成。
+
+#### Batch C 待办
+
+- [ ] 完成跨题预算、停止、恢复和失效边界的严格验收；区分可恢复失败、预算耗尽、
+  `COMPLETED_WITH_GAPS`、`BLOCKED` 与 `WAITING_HUMAN`。
+- [ ] 完成 Phase 3 全量 trace/cost/latency/audit 汇总和完整回放验收。
+- [ ] 同步 `PHASE3_*_ACCEPTANCE.md`、`V2_IMPLEMENTATION_PLAN.md` 与本 TODO，满足全部关闭条件后
+  才将 Phase 3 标记为关闭并进入 Phase 4。
 
 ### [ ] Phase 4：章节 Worker + Claim + Section Evaluator
 
@@ -162,10 +220,23 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的三个动作
 
-1. Phase 2 Router + Hybrid Retrieval 代码全部落地：契约层 / 规则优先五路由 Router / RouteContext / indexer_v2 / sparse / fusion / retriever_v2+trace / Track B 评测（真实 41 题 + 合成 23 题）/ Track A Runner（de-Router 固定本地决策 TRACK_A_FIXED_LOCAL + 冻结分母 fail-closed 校验）。
-2. 专项与完整 eval 全绿（2336 项通过、0 失败）。
-3. Phase 2 已严格关闭：真实 BGE-M3 Track A 对照评测跑通（RequiredPageCoverage@10 25.3%→35.3%，净收益显著，3 题轻微退步已记录）；验收接线补齐（trace 完整性 fail-closed、同机同进程 V1/V2 性能门、Track B 正式产物），完整 eval 2360 项全绿。
+1. Phase 3 Batch A 已严格关闭：10 个工具统一经过 Registry，博查搜索、正文获取、HTML/PDF
+   来源快照及真实财务工具链均已验收；audit 提前返回失败关闭和软超时熔断已补齐。
+2. Phase 3 Batch B 主体实现与多轮冒烟修复已完成：required-aspect、Evidence inspect、批量
+   entailment、重复动作去重、结构化财务子 need、答案修订清理及证据外数字拦截均已接线；
+   最新完整 eval 为 2787 passed / 0 failed / 0 skipped。
+3. Batch B 冻结前收口计划已于 2026-09-09 人工确认：下一步实施表头单位归一化、
+   StructuredResultRef 权威引用（含 RunManifest 锁定及 Store 复合有效性校验）、趋势类多期查询，
+   再生成并冻结 split manifest；不得继续针对同一组冒烟题做局部拟合。
 
-## 七、完成定义
+## 七、交付时间门
+
+- 目标：2026-09-26 前完成 V2、网页展示和面试讲解准备。
+- 原计划 2026-09-13 前取得 41 问实际路径结果；为避免过拟合，执行顺序调整为：
+  三项通用修复 → 冻结 manifest → unseen validation → 完整 41 问。
+- 若时间与严格关闭冲突，优先保证可演示主路径、结果诚实、失败可解释；不通过放宽 FULL、修改 gold、
+  隐藏缺口或预先扩张 reranker/解析器替换来换取表面完成。
+
+## 八、完成定义
 
 V2 第一阶段只有在 Phase 0A、0B、1、1F-A、2、3、4、5/1F-B、6 全部通过后才算完成。某份设计文档、任务书或代码模块“已经生成”，不等于对应阶段已经验收关闭。

@@ -1,0 +1,31 @@
+{
+  "runner": "run_actual_path_41",
+  "run_id": "reaccept_20260909T050641Z",
+  "company_id": "300750",
+  "dataset_path": "C:\\Users\\jeank\\AppData\\Local\\Temp\\reaccept_smoke_96qq1f61\\reaccept_cases.jsonl",
+  "dataset_sha256": "0eb2d4ae90b086b680aca3a97d12eed8a40d491db3511de506b5a1fdc2e22d4e",
+  "report_as_of": "2026-03-31",
+  "model": "deepseek-v4-pro",
+  "budget": {
+    "max_rounds": 5,
+    "max_tool_calls": 5,
+    "max_local_searches": 2,
+    "max_external_searches": 2,
+    "max_fetches": 2,
+    "max_action_repairs": 1,
+    "max_added_needs": 2,
+    "max_consecutive_no_new_evidence": 2,
+    "max_tokens": 8000,
+    "max_elapsed_ms": 120000,
+    "max_retries_per_call": 1
+  },
+  "contract_version": "v1",
+  "router_fingerprint": "v2-rule-1.0",
+  "external_policy_version": "v1-provisional",
+  "harness_fingerprint": "d521a49806ca409265adc87dfd3bae5c63af71d43452ee95be253af8540431c3",
+  "resume_run_id": null,
+  "generated_at": "2026-09-09T05:06:42Z",
+  "git": {
+    "commit": "105a8f03029f08cf21d8df41965fdf20d56a7b72"
+  }
+}

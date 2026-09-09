@@ -1,0 +1,8 @@
+{
+  "run_id": "smoke_rev2_COMP-S2",
+  "trace_dir": "logs\\harness\\smoke_rev2_COMP-S2",
+  "n_trace_files": 1,
+  "files": [
+    "COMP-S2.jsonl"
+  ]
+}

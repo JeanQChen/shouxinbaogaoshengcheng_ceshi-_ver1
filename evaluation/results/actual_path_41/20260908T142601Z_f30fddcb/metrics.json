@@ -1,0 +1,49 @@
+{
+  "n_cases": 1,
+  "route_distribution": {
+    "EXTERNAL_RESEARCH": 1
+  },
+  "completion_distribution": {
+    "FULL": 0,
+    "PARTIAL": 0,
+    "UNRESOLVED": 0,
+    "NOT_IMPLEMENTED": 0,
+    "FAILED": 1
+  },
+  "p0_completion_distribution": {
+    "FULL": 0,
+    "PARTIAL": 0,
+    "UNRESOLVED": 0,
+    "NOT_IMPLEMENTED": 0,
+    "FAILED": 1
+  },
+  "stop_reason_distribution": {
+    "ACTION_SCHEMA_INVALID": 1
+  },
+  "source_coverage": {
+    "n_with_evidence": 0,
+    "n_with_structured": 0,
+    "n_with_external": 1
+  },
+  "tool_errors": 0,
+  "tool_empty": 0,
+  "budget_stops": 0,
+  "invalid_loops": 0,
+  "latency_ms": {
+    "avg": 52301.0,
+    "p50": 52301,
+    "p95": 52301
+  },
+  "tokens": {
+    "avg": 4790.0,
+    "p50": 4790,
+    "p95": 4790
+  },
+  "usage_unknown_calls": 0,
+  "page_diagnosis": {
+    "n_applicable": 0,
+    "macro_required_page_coverage": null,
+    "page_hit": 0
+  },
+  "external_cost_available": false
+}

@@ -1,0 +1,31 @@
+{
+  "runner": "run_actual_path_41",
+  "run_id": "smoke_revised_COMP-S2",
+  "company_id": "300750",
+  "dataset_path": "evaluation/datasets/v1_baseline.jsonl",
+  "dataset_sha256": "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8",
+  "report_as_of": null,
+  "model": "deepseek-v4-pro",
+  "budget": {
+    "max_rounds": 3,
+    "max_tool_calls": 5,
+    "max_local_searches": 2,
+    "max_external_searches": 2,
+    "max_fetches": 2,
+    "max_action_repairs": 1,
+    "max_added_needs": 2,
+    "max_consecutive_no_new_evidence": 2,
+    "max_tokens": 8000,
+    "max_elapsed_ms": 120000,
+    "max_retries_per_call": 1
+  },
+  "contract_version": "v1",
+  "router_fingerprint": "v2-rule-1.0",
+  "external_policy_version": "v1-provisional",
+  "harness_fingerprint": "95b43959b79e2dc35e09fc90ff5e20447ab8d78a3f0b6e020a6ffd97ca03f1b1",
+  "resume_run_id": null,
+  "generated_at": "2026-09-09T01:53:14Z",
+  "git": {
+    "commit": "07bf4ef1d3304f3f251141e2f9a06e39bbbcbd56"
+  }
+}
