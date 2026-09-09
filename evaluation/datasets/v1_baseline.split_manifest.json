@@ -1,0 +1,76 @@
+{
+  "dataset": "evaluation/datasets/v1_baseline.jsonl",
+  "dataset_sha256": "bb6ea0de00a9984fccc15ca840ff4719c5a2a954e6e0076d098c09093f9e10b8",
+  "algorithm": "split_manifest_v1",
+  "seed": 42,
+  "case_id_hash": "sha256[:8]",
+  "strat_fields": [
+    "section_id",
+    "priority",
+    "expected_route_v2"
+  ],
+  "val_size": 9,
+  "dev": [
+    "COMP-S1",
+    "COMP-S2",
+    "COMP-R1",
+    "COMP-MV1",
+    "COMP-CR1",
+    "FIN-PM1",
+    "FIN-CF1",
+    "FIN-GM1"
+  ],
+  "unseen_validation": [
+    "COMP-BD1",
+    "COMP-RP1",
+    "COMP-SW1",
+    "COMP-RD1",
+    "FIN-INV1",
+    "FIN-AUD1",
+    "IND-R3",
+    "IND-R4",
+    "IND-R6"
+  ],
+  "frozen_final": [
+    "COMP-S3",
+    "COMP-D1",
+    "COMP-MS1",
+    "COMP-E1",
+    "COMP-S1b",
+    "COMP-C1",
+    "COMP-FP1",
+    "COMP-R3",
+    "COMP-EQ1",
+    "COMP-ZB1",
+    "COMP-DZ1",
+    "FIN-P1",
+    "FIN-TR1",
+    "FIN-SLV1",
+    "FIN-CAX1",
+    "FIN-DEP1",
+    "FIN-RST1",
+    "FIN-AGE1",
+    "FIN-FIX1",
+    "IND-R1",
+    "IND-R2",
+    "IND-R5",
+    "IND-R7",
+    "IND-R8"
+  ],
+  "route_coverage": {
+    "remaining_routes": [
+      "DEEP_RETRIEVAL",
+      "DIRECT_EVIDENCE",
+      "EXTERNAL_RESEARCH",
+      "STANDARD_RAG"
+    ],
+    "unseen_validation": {
+      "DIRECT_EVIDENCE": 4,
+      "EXTERNAL_RESEARCH": 1,
+      "STANDARD_RAG": 3,
+      "DEEP_RETRIEVAL": 1
+    },
+    "covered": true
+  },
+  "total": 41
+}
