@@ -178,6 +178,66 @@ def main() -> dict:
     check(r["completion_status"] == "COMPLETED" and r["success"] is True,
           "evaluate_success：全通过 → COMPLETED")
 
+    # ---- G2 方面覆盖 ----
+    st_asp = _state(structured_refs=[_structured_ref()])
+    st_asp.required_aspects = [{"aspect_id": "a1", "text": "主营收入占比",
+                                "source": "SECTION_CONTRACT"}]
+    r = S.evaluate_success(st_asp, _answer([structured_cit]))
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and r["uncovered_aspects"] == ["主营收入占比"],
+          "evaluate_success：方面未覆盖 → COMPLETED_WITH_GAPS")
+
+    st_num = _state(structured_refs=[_structured_ref()])
+    st_num.required_aspects = [{"aspect_id": "a1", "text": "营收增速",
+                                "source": "SECTION_CONTRACT"}]
+    ans_num = _answer([structured_cit])
+    ans_num.aspects = [H.AspectAnswer(aspect_id="a1", text="增长较快", claim_ids=["c1"])]
+    r = S.evaluate_success(st_num, ans_num)
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and any("缺具体数字" in u for u in r["uncovered_aspects"]),
+          "evaluate_success：数值方面覆盖但无数字 → COMPLETED_WITH_GAPS")
+
+    # ---- G3 确定性 value_missing / high_risk_scope ----
+    st_vm = _state(evidence_ids=["e1"], inspected_evidence={"e1": H.InspectedMaterial(
+        evidence_id="e1", text="授信额度4万元", is_snippet=False)})
+    vm_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="授信额度40,000万元",
+        claims=[H.Claim(claim_id="c1", text="授信额度40,000万元", kind="fact",
+                        citation_refs=[0])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1")])
+    r = S.evaluate_success(st_vm, vm_ans)
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and any("数值等价" in u for u in r["unsupported_claims"]),
+          "evaluate_success：确定性 value_missing → COMPLETED_WITH_GAPS")
+
+    st_scope = _state(evidence_ids=["e1"], inspected_evidence={"e1": H.InspectedMaterial(
+        evidence_id="e1", text="为股东及实际控制人提供担保的余额为0万元",
+        is_snippet=False)})
+    sc_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="公司全部对外担保余额为0万元",
+        claims=[H.Claim(claim_id="c1", text="公司全部对外担保余额为0万元", kind="fact",
+                        citation_refs=[0])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1")])
+    r = S.evaluate_success(st_scope, sc_ans)
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and any("口径风险" in u for u in r["unsupported_claims"]),
+          "evaluate_success：确定性 high_risk_scope → COMPLETED_WITH_GAPS")
+
+    # ---- G4 entailment 汇总 + evaluator 失败（fail-closed） ----
+    st_ent = _state(structured_refs=[_structured_ref()])
+    st_ent.unsupported_claims = ["c1: entailment UNSUPPORTED: 口径不符"]
+    r = S.evaluate_success(st_ent, _answer([structured_cit]))
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and r["unsupported_claims"] == ["c1: entailment UNSUPPORTED: 口径不符"],
+          "evaluate_success：entailment UNSUPPORTED → COMPLETED_WITH_GAPS")
+
+    st_fail = _state(structured_refs=[_structured_ref()])
+    st_fail.entailment_evaluator_failed = True
+    r = S.evaluate_success(st_fail, _answer([structured_cit]))
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and "entailment_evaluator_failed" in r["unsupported_claims"],
+          "evaluate_success：entailment_evaluator_failed → fail-closed")
+
     # ---- is_sufficient / has_citable_material ----
     check(S.is_sufficient(st_ok2, _answer([structured_cit])) is True,
           "is_sufficient：充分")

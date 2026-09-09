@@ -68,6 +68,12 @@ class RealResearchLLM:
             [{"role": "user", "content": prompt}], model=self.model, max_tokens=4096,
             prompt_version="research_answer_v1", thinking={"type": "disabled"})
 
+    def evaluate_entailment_batch(self, prompt_vars: dict) -> "llm_client.LLMResponse":
+        prompt = _render_template(llm_client.load_prompt("research_entailment_v1"), prompt_vars)
+        return llm_client.chat_with_usage(
+            [{"role": "user", "content": prompt}], model=self.model, max_tokens=4096,
+            prompt_version="research_entailment_v1", thinking={"type": "disabled"})
+
 
 def _render_template(template: str, vars: dict) -> str:
     """把 {{key}} 占位符替换为值（JSON 花括号原样保留，不受 .format 影响）。"""
@@ -526,6 +532,25 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 break
             # 回填 evidence 引用页码（只补空，不重写）。
             E.backfill_page_numbers(answer, state)
+            # G3 确定性预检 + G4 批量 entailment（每问 1 次调用，fail-closed）。
+            prechecks = E.deterministic_prechecks(state, answer)
+            if hasattr(llm, "evaluate_entailment_batch"):
+                try:
+                    state.entailment_verdicts = E.evaluate_entailment_batch(
+                        state, answer, llm, prechecks)
+                    for v in state.entailment_verdicts:
+                        if v.verdict == "UNSUPPORTED":
+                            state.unsupported_claims.append(
+                                f"{v.claim_id}: entailment UNSUPPORTED: {v.reason}")
+                    if trace_enabled:
+                        T.emit(run_id, need.need_id, "ENTAILMENT",
+                               {"verdicts": [dataclasses.asdict(v)
+                                             for v in state.entailment_verdicts]})
+                except Exception as e:  # noqa: BLE001 — 记失败（fail-closed），不吞错
+                    state.entailment_evaluator_failed = True
+                    if trace_enabled:
+                        T.emit(run_id, need.need_id, "ENTAILMENT",
+                               {"failed": True, "error": str(e)})
             S.set_status(state, "ANSWER_READY")
             ev = S.evaluate_success(state, answer)
             if ev["completion_status"] == "COMPLETED":

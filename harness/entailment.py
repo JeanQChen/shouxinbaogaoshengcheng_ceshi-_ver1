@@ -346,6 +346,142 @@ def backfill_page_numbers(answer: H.ResearchAnswer | None,
 
 
 # ---------------------------------------------------------------------------
+# 批量 entailment（只读法官，每问 1 次调用；非 claim×citation）
+# ---------------------------------------------------------------------------
+
+def _bounded_text(text: str, head: int = 1200, tail: int = 300) -> str:
+    """有界截断：保留头部（含表头/段落开头）+ 尾部（常含合计/单位），不整段丢失口径。"""
+    t = text or ""
+    if len(t) <= head + tail:
+        return t
+    return t[:head] + "\n…[中段截断]…\n" + t[-tail:]
+
+
+def _describe_citation(cit: H.CitationRef, state: H.ResearchState) -> str:
+    """把一条引用翻译为给法官看的可读描述（含结构化值/正文元数据）。"""
+    if cit.ref_type == "evidence":
+        mat = state.inspected_evidence.get(cit.evidence_id or "")
+        meta = ""
+        if mat is not None:
+            meta = (f" doc={mat.document_id or '-'} page={mat.page_number} "
+                    f"period={mat.report_period or '-'}")
+        return f"evidence_id={cit.evidence_id} page={cit.page_number}{meta}"
+    if cit.ref_type == "structured":
+        key = cit.formula_id or cit.item_code or "?"
+        kind = "formula" if cit.formula_id else "item"
+        val = ""
+        for r in state.structured_refs:
+            if (r.snapshot_id == cit.snapshot_id and r.period == cit.period
+                    and ((cit.formula_id and r.formula_id == cit.formula_id)
+                         or (cit.item_code and r.item_code == cit.item_code))):
+                v = r.display_value if r.display_value is not None else r.raw_value
+                val = f" value={v} unit={r.unit}"
+                break
+        return f"structured {kind}={key} snapshot={cit.snapshot_id} period={cit.period}{val}"
+    if cit.ref_type == "external":
+        return f"external source_snapshot_id={cit.source_snapshot_id}"
+    return f"ref_type={cit.ref_type}"
+
+
+def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
+                           prechecks: dict[str, dict]) -> dict:
+    """拼批量 entailment 的 prompt 变量（claims + 引用映射 + 正文 + 确定性标记）。"""
+    claim_lines: list[str] = []
+    for c in answer.claims:
+        pc = prechecks.get(c.claim_id, {})
+        markers: list[str] = []
+        if pc.get("not_inspected"):
+            markers.append("not_inspected")
+        if pc.get("value_missing"):
+            markers.append("value_missing(" + ",".join(pc.get("value_missing_tokens", [])) + ")")
+        if pc.get("high_risk_scope"):
+            markers.append("high_risk_scope")
+        marker = " | ".join(markers) or "-"
+        claim_lines.append(
+            f"- {c.claim_id} [{c.kind}] cites={c.citation_refs}: {c.text}\n"
+            f"  确定性预检: {marker}")
+    citation_lines = [f"- [{i}] {_describe_citation(cit, state)}"
+                      for i, cit in enumerate(answer.citations)]
+    evidence_lines: list[str] = []
+    for eid, mat in state.inspected_evidence.items():
+        kind = "snippet" if mat.is_snippet else "全文"
+        evidence_lines.append(
+            f"### evidence_id={eid} [{kind}] doc={mat.document_id or '-'} "
+            f"page={mat.page_number} period={mat.report_period or '-'} "
+            f"source={mat.source_name}\n{_bounded_text(mat.text)}")
+    aspects = "\n".join(f"- {a.get('aspect_id')}: {a.get('text')}"
+                        for a in state.required_aspects) or "（无）"
+    return {
+        "company_id": state.company_id,
+        "section_id": state.section_id or "",
+        "question": state.original_question,
+        "required_aspects": aspects,
+        "claims": "\n".join(claim_lines) if claim_lines else "（无）",
+        "citations": "\n".join(citation_lines) if citation_lines else "（无）",
+        "evidence": "\n\n".join(evidence_lines) if evidence_lines else "（无正文）",
+    }
+
+
+def _extract_json(raw: str) -> str | None:
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    raw = re.sub(r"```(?:json)?", "", raw).strip()
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return raw[start:end + 1]
+
+
+def _consistency(v) -> str:
+    s = str(v or "").strip().lower()
+    return s if s in H.CONSISTENCY_LEVELS else "unknown"
+
+
+def parse_entailment(raw: str) -> list[H.EntailmentVerdict]:
+    """解析批量 entailment 输出；非法抛 ValueError（fail-closed）。"""
+    cleaned = _extract_json(raw)
+    if cleaned is None:
+        raise ValueError("无法从 entailment 输出提取 JSON")
+    data = json.loads(cleaned)
+    if not isinstance(data, dict):
+        raise ValueError("entailment 输出必须为 JSON object")
+    verdicts: list[H.EntailmentVerdict] = []
+    for v in data.get("verdicts", []):
+        if not isinstance(v, dict):
+            continue
+        verdict = str(v.get("verdict", "")).upper()
+        if verdict not in H.ENTAILMENT_VERDICTS:
+            raise ValueError(f"非法 entailment verdict: {verdict!r}")
+        verdicts.append(H.EntailmentVerdict(
+            claim_id=str(v.get("claim_id", "")),
+            citation_ids=[str(c) for c in v.get("citation_ids", [])],
+            verdict=verdict,
+            reason=str(v.get("reason", "")),
+            scope_consistency=_consistency(v.get("scope_consistency")),
+            period_consistency=_consistency(v.get("period_consistency")),
+            unit_consistency=_consistency(v.get("unit_consistency")),
+            subject_consistency=_consistency(v.get("subject_consistency")),
+        ))
+    return verdicts
+
+
+def evaluate_entailment_batch(state: H.ResearchState, answer: H.ResearchAnswer,
+                              llm, prechecks: dict[str, dict]) -> list[H.EntailmentVerdict]:
+    """单次批量 entailment（每问 1 次调用）。
+
+    llm 无 evaluate_entailment_batch（Mock）→ 跳过返回 []；有但调用/解析异常 → 向上抛，
+    由 runtime 记 entailment_evaluator_failed（fail-closed）。
+    """
+    if not hasattr(llm, "evaluate_entailment_batch"):
+        return []
+    prompt_vars = entailment_prompt_vars(state, answer, prechecks)
+    resp = llm.evaluate_entailment_batch(prompt_vars)
+    return parse_entailment(resp.text)
+
+
+# ---------------------------------------------------------------------------
 # 工具：asdict 辅助
 # ---------------------------------------------------------------------------
 

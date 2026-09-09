@@ -17,6 +17,7 @@ import json
 import sys
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -75,6 +76,13 @@ def main() -> dict:
         else:
             failed += 1
             details.append(f"FAIL: {msg}")
+
+    def raises(exc_type, fn):
+        try:
+            fn()
+            return False
+        except exc_type:
+            return True
 
     # ---- normalize_amount ----
     check(E.normalize_amount("40,000万元") == Decimal("400000000"),
@@ -179,6 +187,68 @@ def main() -> dict:
     check("e2" in st2.inspected_evidence and st2.inspected_evidence["e2"].is_snippet is True
           and st2.inspected_evidence["e2"].text == "摘要",
           "capture_inspected：search_evidence 摘要（is_snippet=True）")
+
+    # ---- parse_entailment（批量法官输出解析） ----
+    raw = json.dumps({"verdicts": [
+        {"claim_id": "c1", "citation_ids": ["0"], "verdict": "SUPPORTED",
+         "reason": "口径一致", "scope_consistency": "consistent",
+         "period_consistency": "consistent", "unit_consistency": "consistent",
+         "subject_consistency": "consistent"},
+        {"claim_id": "c2", "citation_ids": ["1"], "verdict": "UNSUPPORTED",
+         "reason": "只覆盖子项", "scope_consistency": "mismatch",
+         "period_consistency": "unknown", "unit_consistency": "unknown",
+         "subject_consistency": "unknown"},
+    ]}, ensure_ascii=False)
+    verdicts = E.parse_entailment(raw)
+    check(len(verdicts) == 2
+          and verdicts[0].claim_id == "c1" and verdicts[0].verdict == "SUPPORTED"
+          and verdicts[0].scope_consistency == "consistent"
+          and verdicts[1].verdict == "UNSUPPORTED"
+          and verdicts[1].scope_consistency == "mismatch",
+          "parse_entailment：SUPPORTED + UNSUPPORTED + 一致性字段")
+    # 带 markdown 围栏 + 非法 verdict → fail-closed。
+    fenced = "```json\n" + raw + "\n```"
+    check(len(E.parse_entailment(fenced)) == 2,
+          "parse_entailment：markdown 围栏可剥离")
+    def _bad_verdict():
+        E.parse_entailment(json.dumps({"verdicts": [
+            {"claim_id": "c1", "verdict": "BOGUS"}]}))
+    check(raises(ValueError, _bad_verdict),
+          "parse_entailment：非法 verdict → ValueError（fail-closed）")
+
+    # ---- evaluate_entailment_batch（单问 1 次调用） ----
+    class _BatchLLM:
+        def __init__(self, text):
+            self._text = text
+            self.calls = 0
+        def evaluate_entailment_batch(self, prompt_vars):
+            self.calls += 1
+            self.last_vars = prompt_vars
+            return SimpleNamespace(text=self._text)
+
+    st_b = _state(inspected={"e1": _mat("授信额度4亿元", page=3)})
+    ans_b = _answer("授信额度40,000万元")
+    pc_b = E.deterministic_prechecks(st_b, ans_b)
+    batch_llm = _BatchLLM(json.dumps({"verdicts": [
+        {"claim_id": "c1", "citation_ids": ["0"], "verdict": "SUPPORTED",
+         "reason": "数值等价", "scope_consistency": "consistent",
+         "period_consistency": "consistent", "unit_consistency": "mismatch",
+         "subject_consistency": "consistent"}]}, ensure_ascii=False))
+    vlist = E.evaluate_entailment_batch(st_b, ans_b, batch_llm, pc_b)
+    check(len(vlist) == 1 and vlist[0].verdict == "SUPPORTED"
+          and vlist[0].unit_consistency == "mismatch"
+          and batch_llm.calls == 1,
+          "evaluate_entailment_batch：单问 1 次调用，返回 verdict")
+    check("claims" in batch_llm.last_vars and "citations" in batch_llm.last_vars
+          and "evidence" in batch_llm.last_vars and "required_aspects" in batch_llm.last_vars,
+          "entailment_prompt_vars：含 claims/citations/evidence/required_aspects")
+    check("授信额度4亿元" in batch_llm.last_vars["evidence"],
+          "entailment_prompt_vars：证据正文进入 prompt")
+    # llm 无 evaluate_entailment_batch（Mock）→ 跳过返回 []。
+    class _NoMethodLLM:
+        pass
+    check(E.evaluate_entailment_batch(st_b, ans_b, _NoMethodLLM(), pc_b) == [],
+          "evaluate_entailment_batch：llm 无方法 → 返回 []")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

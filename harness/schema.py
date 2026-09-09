@@ -99,6 +99,12 @@ CITATION_TYPES = ("evidence", "structured", "external")
 # 答案置信度。
 CONFIDENCE_LEVELS = ("high", "low")
 
+# 批量 entailment 判定（只读法官，每问 1 次调用）。
+ENTAILMENT_VERDICTS = ("SUPPORTED", "PARTIAL", "UNSUPPORTED")
+
+# 四项一致性（scope/period/unit/subject）。
+CONSISTENCY_LEVELS = ("consistent", "partial_mismatch", "mismatch", "unknown")
+
 # 研究错误类别（与 stop_reason 正交：stop_reason 描述「为何停止」，
 # error_code 描述「哪里失败」；两者共同区分用户 §五 9 种失败类型）。
 RESEARCH_ERROR_CODES = (
@@ -206,6 +212,25 @@ class InspectedMaterial:
     is_snippet: bool = False
 
 
+@dataclass
+class EntailmentVerdict:
+    """批量 entailment（只读法官）对单个 claim 的判定。
+
+    verdict ∈ ENTAILMENT_VERDICTS；四项一致性 ∈ CONSISTENCY_LEVELS。
+    citation_ids 为 claim 的 citation_refs 下标（字符串），供审计定位。
+    """
+
+    claim_id: str
+    citation_ids: list[str] = field(default_factory=list)
+    verdict: str = "UNSUPPORTED"
+    reason: str = ""
+    scope_consistency: str = "unknown"
+    period_consistency: str = "unknown"
+    unit_consistency: str = "unknown"
+    subject_consistency: str = "unknown"
+    evaluator_version: str = "entailment_v1"
+
+
 # ---------------------------------------------------------------------------
 # 动作协议（LLM 可见面由 actions.py 的 ACTIONS 定义，这里只承载解析后的结果）
 # ---------------------------------------------------------------------------
@@ -302,6 +327,9 @@ class ResearchState:
     required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict
     aspect_source: str = ""                                # SECTION_CONTRACT/DATASET_MAPPING/TEXT_FALLBACK
     inspected_evidence: dict = field(default_factory=dict)  # evidence_id -> InspectedMaterial
+    entailment_verdicts: list = field(default_factory=list)  # list[EntailmentVerdict]
+    unsupported_claims: list = field(default_factory=list)   # entailment UNSUPPORTED 描述
+    entailment_evaluator_failed: bool = False                # evaluator 调用/解析异常
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None
