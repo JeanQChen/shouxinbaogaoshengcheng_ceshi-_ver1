@@ -21,6 +21,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 from harness import schema as H
@@ -162,13 +163,21 @@ def _outcome_to_dict(outcome: H.ResearchOutcome) -> dict:
     }
 
 
+def _json_default(o):
+    """JSON 序列化兜底：Decimal → str（财务金额/指标值），其余类型仍 fail-loud。"""
+    if isinstance(o, Decimal):
+        return str(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
 def write_question_outcome(run_id: str, outcome: H.ResearchOutcome,
                            db_path: Path | str | None = None) -> None:
     """落盘单题终态 outcome（幂等覆盖同 run+question）。"""
     if db_path is not None:
         init_db(db_path)
     st = outcome.state
-    payload = json.dumps(_outcome_to_dict(outcome), ensure_ascii=False)
+    payload = json.dumps(_outcome_to_dict(outcome), ensure_ascii=False,
+                         default=_json_default)
     conn = _get_conn()
     try:
         conn.execute(

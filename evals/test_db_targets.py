@@ -71,6 +71,32 @@ def main() -> dict:
     check(resolve("") is None, "空问题返回 None")
     check(resolve("   ") is None, "空白问题返回 None")
 
+    # ---- 子类/明细语义：受限资金 ≠ 货币资金总额 ----
+    t = resolve("2025年合并口径下，货币资金中受限资金占比多少？")
+    check(t is None, "受限资金 → 不映射到货币资金总额（CASH_AND_EQUIVALENTS），fail-closed")
+    t = resolve("受限货币资金是多少？")
+    check(t is None, "受限货币资金 → None（子类，非聚合）")
+    t = resolve("货币资金中质押的保证金有多少？")
+    check(t is None, "货币资金中质押/保证金 → None（受限子类）")
+
+    # ---- 子类/明细语义：机器设备净值 ≠ 固定资产总额 ----
+    t = resolve("2025年合并口径下，固定资产中机器设备的年末净值是多少？")
+    check(t is None, "机器设备净值 → 不映射到固定资产总额（FIXED_ASSETS），fail-closed")
+    t = resolve("固定资产中房屋及建筑物的原值是多少？")
+    check(t is None, "房屋及建筑物 → None（固定资产子类）")
+
+    # ---- 精确字段仍可 DB（无子类阻断词）----
+    t = resolve("2025年货币资金总额是多少？")
+    check(t is not None and t.standard_item_code == "CASH_AND_EQUIVALENTS",
+          "精确「货币资金总额」仍映射 CASH_AND_EQUIVALENTS（无受限子类）")
+    t = resolve("2025年固定资产原值是多少？")
+    check(t is not None and t.standard_item_code == "FIXED_ASSETS",
+          "精确「固定资产原值」仍映射 FIXED_ASSETS（无子类阻断词）")
+
+    # ---- 子类担保 → 不映射到任何「全部对外担保」聚合（fail-closed）----
+    t = resolve("为股东及实际控制人提供担保的金额是多少？")
+    check(t is None, "子类担保（为股东）→ 不映射到任何担保聚合字段（DB 无此字段，fail-closed）")
+
     # ---- supported 注册表 ----
     fields = T.supported_db_fields()
     metrics = T.supported_metric_ids()

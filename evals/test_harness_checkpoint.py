@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -22,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from harness import checkpoint as C
 from harness import schema as H
 from routing import schema as RS
+from tools import contracts as TC
 
 
 def _need() -> RS.InformationNeed:
@@ -124,6 +126,38 @@ def main() -> dict:
         C.write_question_outcome("r1", _with_qid("q2", "FAILED"), db)
         done2 = C.list_completed_questions("r1", db)
         check(done2 == {"q1", "q_gap", "q_blocked", "q2"}, "多题终态集合 = 4 题")
+
+        # ---- Decimal 序列化回归（§三：结构化结果/工具 data 含 Decimal 金额/指标值）----
+        ref = RS.StructuredResultRef(
+            result_type="financial_metric", snapshot_id="s1", item_code=None,
+            formula_id="PROF_NET_MARGIN", formula_version="1.0",
+            period="2025-12-31", raw_value="0.1812", display_value="18.12%",
+            unit="percent", status="available", reason_code=None,
+            input_record_refs=[], input_snapshot_item_refs=[])
+        tool_result = TC.ToolResult(
+            call_id="c_db", tool_name="lookup_financial_metric", tool_version="v1",
+            status="SUCCESS",
+            data={"metric_value": Decimal("0.1812"),
+                  "amount": Decimal("133219980000.00")},
+            structured_result_refs=[ref], latency_ms=10)
+        dec_state = _state("COMPLETED")
+        dec_state.tool_history = [H.ToolCallRecord(
+            call=TC.ToolCall(call_id="c_db", tool_name="lookup_financial_metric",
+                             arguments={}, idempotency_key="k", need_id="n1",
+                             batch_id="r1"),
+            result=tool_result, elapsed_ms=10, auto=True)]
+        dec_state.structured_refs = [ref]
+        dec_out = H.ResearchOutcome(state=dec_state, answer=None, success=True,
+                                    completion_status="COMPLETED",
+                                    stop_reason="DONE")
+        C.write_question_outcome("r1", dec_out, db)
+        dec_raw = C.load_outcome("r1", dec_out.state.question_id, db)
+        check(dec_raw is not None
+              and dec_raw["state"]["tool_history"][0]["result"]["data"]["amount"]
+              == "133219980000.00",
+              "Decimal 工具 data 落盘为 str（不 crash）")
+        check(dec_raw["state"]["structured_refs"][0]["display_value"] == "18.12%",
+              "结构化结果 display_value 往返一致")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

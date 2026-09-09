@@ -96,7 +96,9 @@ def validate_answer(answer: H.ResearchAnswer | None,
     for i, claim in enumerate(answer.claims):
         if claim.kind not in H.CLAIM_KINDS:
             errors.append(f"claim[{i}] kind 非法: {claim.kind}")
-        if not claim.citation_refs:
+        # retrieval_observation 是运行时诊断（「本次检索未取得 X」），不要求引用证据；
+        # 其余 claim（fact/inference）必须引用。
+        if claim.kind != "retrieval_observation" and not claim.citation_refs:
             errors.append(f"claim[{i}] 无引用")
         for idx in claim.citation_refs:
             if not (0 <= idx < len(answer.citations)):
@@ -126,6 +128,11 @@ def _is_numeric_aspect(text: str) -> bool:
     return any(tok in text for tok in _NUMERIC_ASPECT_TOKENS)
 
 
+def is_numeric_aspect(text: str) -> bool:
+    """数值型方面判定（公开别名，供 structured_needs 派生复用）。"""
+    return _is_numeric_aspect(text)
+
+
 def _has_number(text: str) -> bool:
     return bool(re.search(r"\d", text)) or any(t in text for t in _NUMBER_HINTS)
 
@@ -149,7 +156,8 @@ def aspect_answers(state: H.ResearchState,
         valid_claim_ids: list[str] = []
         for cid in claim_ids:
             c = claim_by_id.get(cid)
-            if c is not None:
+            # retrieval_observation 是运行时诊断，不作为方面覆盖的支撑（不能据此判 FULL）。
+            if c is not None and c.kind != "retrieval_observation":
                 valid_claim_ids.append(cid)
                 claim_texts.append(c.text)
         rows.append({

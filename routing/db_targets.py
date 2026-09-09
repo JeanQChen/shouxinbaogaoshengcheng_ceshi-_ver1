@@ -67,6 +67,15 @@ _FIELD_SYNONYMS: dict[str, list[str]] = {
     "CURRENT_LIABILITIES": ["流动负债"],
 }
 
+# 字段「子类/明细」阻断词：命中即表明提问的是该字段的某个子类（受限资金、机器设备净值），
+# 而非聚合值（货币资金总额、固定资产总额）。子类无对应 DB 字段 → fail-closed 返回 None，
+# 让 Router 落到 DEEP_RETRIEVAL / Evidence 路径；绝不返回「聚合值 + caveat」冒充成功。
+_SUB_ITEM_BLOCKERS: dict[str, tuple[str, ...]] = {
+    "CASH_AND_EQUIVALENTS": ("受限资金", "受限货币资金", "受限", "保证金", "质押"),
+    "FIXED_ASSETS": ("机器设备", "设备净值", "房屋及建筑物", "房屋建筑物",
+                     "运输设备", "电子设备", "专用设备", "办公设备"),
+}
+
 
 # ---------------------------------------------------------------------------
 # 规范化
@@ -172,6 +181,14 @@ def _resolve_spans(spans: list[tuple[int, int, str]]) -> str | None:
     return codes.pop() if len(codes) == 1 else None
 
 
+def _sub_item_blocked(field_code: str, question_norm: str) -> bool:
+    """提问命中该字段的「子类/明细」阻断词时返回 True（聚合值不满足语义，fail-closed）。"""
+    for blocker in _SUB_ITEM_BLOCKERS.get(field_code, ()):
+        if _normalize(blocker) in question_norm:
+            return True
+    return False
+
+
 def resolve_db_target(question: str) -> DbTarget | None:
     """把问题解析为结构化 DB 目标；无法确定/歧义返回 None（fail-closed）。
 
@@ -194,6 +211,10 @@ def resolve_db_target(question: str) -> DbTarget | None:
 
     field_code = _resolve_spans(_collect_spans(_field_aliases(), q))
     if field_code is not None:
+        # 子类/明细语义：提问「受限资金」而非「货币资金总额」、「机器设备净值」而非
+        # 「固定资产总额」时，聚合字段不满足语义 → fail-closed 返回 None（不冒充成功）。
+        if _sub_item_blocked(field_code, q):
+            return None
         return DbTarget(
             target_type="field", standard_item_code=field_code, formula_id=None,
             formula_version=None,
