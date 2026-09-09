@@ -110,17 +110,23 @@ def build_route_context(company_id: str, *, scope: str = "consolidated",
 
     snap = _resolve_snapshot(company_id, scope, currency, as_of_date, purpose)
     report_as_of = snap.as_of_date if snap is not None else None
-    # 健康门：report_blocked 快照不得贡献 available_*（DB executor 会返回
-    # DB_FIELD_UNAVAILABLE，而非把被阻断快照的值当作可计算值）。
-    healthy = snap is not None and not snap.report_blocked
+    # 健康门：report_blocked 或 quarantine 的快照不得贡献 available_*（DB executor 会返回
+    # DB_FIELD_UNAVAILABLE，而非把被阻断/隔离快照的值当作可计算值）；仅 healthy 才锁定
+    # snapshot_id 并填充 available_periods（fail-closed）。
+    healthy = (snap is not None and not snap.report_blocked
+               and not fstore.is_quarantined("financial_snapshot", snap.snapshot_id))
+    snapshot_id: str | None = None
+    available_periods: list[str] = []
     if not healthy:
         avail_fields: list[str] = []
         avail_metrics: list[str] = []
     else:
-        avail_fields = sorted(
-            _available_field_codes(fstore.list_snapshot_items(snap.snapshot_id)))
+        items = fstore.list_snapshot_items(snap.snapshot_id)
+        avail_fields = sorted(_available_field_codes(items))
         avail_metrics = sorted(
             _available_metric_ids(fstore.list_metric_results(snap.snapshot_id)))
+        snapshot_id = snap.snapshot_id
+        available_periods = sorted({it.report_period for it in items if it.report_period})
 
     return S.RouteContext(
         company_id=company_id,
@@ -137,6 +143,8 @@ def build_route_context(company_id: str, *, scope: str = "consolidated",
         scope=scope,
         currency=currency,
         purpose=purpose,
+        available_periods=available_periods,
+        snapshot_id=snapshot_id,
     )
 
 
@@ -177,6 +185,8 @@ def _main(argv: list[str]) -> int:
         "available_db_fields": ctx.available_db_fields,
         "available_metric_ids": ctx.available_metric_ids,
         "external_research_enabled": ctx.external_research_enabled,
+        "available_periods": ctx.available_periods,
+        "snapshot_id": ctx.snapshot_id,
     }, ensure_ascii=False, indent=2))
     return 0
 

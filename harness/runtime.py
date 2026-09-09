@@ -21,6 +21,7 @@ import json
 import re
 import time
 import uuid
+from functools import partial
 from typing import Protocol
 
 from harness import actions as A
@@ -30,6 +31,7 @@ from harness import policies as P
 from harness import schema as H
 from harness import state as S
 from harness import structured_needs as SN
+from harness import structured_provenance as SP
 from harness import trace as T
 from llm import client as llm_client
 from routing import router as router_mod
@@ -541,6 +543,8 @@ def _reset_answer_derived_state(state: H.ResearchState) -> None:
     state.unsupported_claims = []
     state.entailment_verdicts = []
     state.entailment_evaluator_failed = False
+    state.structured_provenance = {}
+    state.entailment_summary = []
     state.unresolved_items = [
         x for x in state.unresolved_items
         if not x.startswith(_ANSWER_DERIVED_GAP_PREFIXES)
@@ -565,7 +569,8 @@ def _run_structured_subneeds(state: H.ResearchState, context: RS.RouteContext,
     - 数字来自 StructuredResult（LLM 只解读，不重新算数）。
     """
     derivation = SN.derive_structured_subneeds(
-        state.original_question, state.required_aspects)
+        state.original_question, state.required_aspects,
+        available_periods=(context.available_periods if context else None))
     state.semantic_mismatches_rejected = [
         dataclasses.asdict(r) for r in derivation.rejected_aspects]
     qperiod = SN.target_period(state.original_question)
@@ -579,6 +584,7 @@ def _run_structured_subneeds(state: H.ResearchState, context: RS.RouteContext,
             "standard_item_code": sn.standard_item_code,
             "formula_id": sn.formula_id,
             "formula_version": sn.formula_version,
+            "period_mode": sn.period_mode, "periods": list(sn.periods),
             "route": None, "reason_code": None, "status": "NOT_ROUTED",
             "n_structured": 0, "period": None, "error_code": None,
         }
@@ -606,34 +612,61 @@ def _run_structured_subneeds(state: H.ResearchState, context: RS.RouteContext,
             rec["status"] = "NOT_DB_ROUTED"
             records.append(rec)
             continue
-        tool_name, args = SN.db_tool_args(state.company_id, rr.decision.filters)
-        # 目标报告期取自原始问题（子 need 表达式「净利率」不含年份）。
-        if qperiod is not None:
-            args["target_period"] = qperiod
-        call = TC.ToolCall(
-            call_id=uuid.uuid4().hex, tool_name=tool_name, arguments=args,
-            idempotency_key=P.dedup_key(TC.ToolCall(
-                call_id="", tool_name=tool_name, arguments=args,
-                idempotency_key="", need_id=sub_need.need_id, batch_id=state.run_id)),
-            need_id=sub_need.need_id, batch_id=state.run_id)
-        result = registry.execute(call, route="DB_LOOKUP", run_id=state.run_id,
-                                  max_retries=budget.max_retries_per_call)
-        state.tool_history.append(H.ToolCallRecord(
-            call=call, result=result, elapsed_ms=result.latency_ms, auto=True))
-        _apply_tool_result(state, result, budget)
-        if result.structured_result_refs:
+
+        # 工具选择：compare（metric+2 期）单次 compare_financial_periods；否则逐期 lookup
+        # （single 用 qperiod；compare/trend/field 逐 periods 循环累积 refs）。
+        if (sn.period_mode == "compare" and sn.target_type == "metric"
+                and len(sn.periods) == 2):
+            execs = [SN.compare_tool_args(state.company_id, rr.decision.filters,
+                                          list(sn.periods))]
+        else:
+            period_list = list(sn.periods) or ([qperiod] if qperiod is not None else [None])
+            execs = []
+            for p in period_list:
+                tool_name, args = SN.db_tool_args(state.company_id, rr.decision.filters)
+                if p is not None:
+                    args["target_period"] = p
+                execs.append((tool_name, args))
+
+        all_refs: list[RS.StructuredResultRef] = []
+        last_error = None
+        for tool_name, args in execs:
+            call = TC.ToolCall(
+                call_id=uuid.uuid4().hex, tool_name=tool_name, arguments=args,
+                idempotency_key=P.dedup_key(TC.ToolCall(
+                    call_id="", tool_name=tool_name, arguments=args,
+                    idempotency_key="", need_id=sub_need.need_id,
+                    batch_id=state.run_id)),
+                need_id=sub_need.need_id, batch_id=state.run_id)
+            result = registry.execute(call, route="DB_LOOKUP", run_id=state.run_id,
+                                      max_retries=budget.max_retries_per_call)
+            state.tool_history.append(H.ToolCallRecord(
+                call=call, result=result, elapsed_ms=result.latency_ms, auto=True))
+            _apply_tool_result(state, result, budget)
+            all_refs.extend(result.structured_result_refs)
+            if result.error_code:
+                last_error = result.error_code
+        if all_refs:
             rec["status"] = "RESOLVED"
-            rec["n_structured"] = len(result.structured_result_refs)
-            rec["period"] = result.structured_result_refs[0].period
+            rec["n_structured"] = len(all_refs)
+            rec["period"] = all_refs[0].period
         else:
             rec["status"] = "UNAVAILABLE"
-            rec["error_code"] = result.error_code
+            rec["error_code"] = last_error
         records.append(rec)
         if trace_enabled:
             T.emit(run_id, state.question_id, "STRUCTURED_SUBNEED",
                    {"sub_need_id": sn.sub_need_id, "route": rec["route"],
                     "status": rec["status"], "n_structured": rec["n_structured"],
+                    "period_mode": sn.period_mode, "periods": list(sn.periods),
                     "error_code": rec["error_code"]})
+    # 趋势/跨期缺口记录（trend 语义但无法解析比较期间 → 保留 single 时记 gap）。
+    for g in derivation.gaps:
+        records.append({
+            "sub_need_id": None, "source": "gap", "status": "GAP",
+            "aspect_id": g.get("aspect_id"), "text": g.get("text"),
+            "reason": g.get("reason"), "detail": g.get("detail"),
+        })
     state.structured_subneeds = records
 
 
@@ -651,6 +684,11 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
     """跑单题受限研究循环，返回 ResearchOutcome（终态 state + answer）。"""
     state = _new_state(need, route_result, run_id=run_id, case_id=case_id,
                        company_id=company_id, section_id=section_id, budget=budget)
+    # run 级冻结输入：active_snapshot_id 由 RouteContext 锁定的 current snapshot 一次性
+    # 写入（healthy 才非空），工具返回的 StructuredResultRef.snapshot_id 只与之比较，
+    # 绝不反向覆盖。context 为 None（无真实快照路径）时保持 None。
+    if context is not None:
+        state.active_snapshot_id = context.snapshot_id
     t0 = time.perf_counter()
 
     if route_result.status != "DECIDED" or route_result.decision is None:
@@ -715,12 +753,27 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 break
             # 回填 evidence 引用页码（只补空，不重写）。
             E.backfill_page_numbers(answer, state)
-            # G3 确定性预检 + G4 批量 entailment（每问 1 次调用，fail-closed）。
+            # G3 确定性预检 + 结构化权威判定 + G4 批量 entailment（每问 1 次，fail-closed）。
             prechecks = E.deterministic_prechecks(state, answer)
+            # 结构化权威判定（仅结构化引用 fact claim，确定性）：SUPPORTED 排除出 LLM，
+            # PARTIAL/UNSUPPORTED 记入 unsupported_claims（evaluate_success 拾取）。
+            state.structured_provenance = SP.evaluate_structured_provenance(
+                state, answer,
+                snapshot_authority=partial(SP.query_snapshot_authority,
+                                           current_snapshot_id=state.active_snapshot_id),
+                scope=(context.scope if context is not None else "consolidated"),
+                currency=(context.currency if context is not None else "CNY"),
+                purpose=(context.purpose if context is not None else "credit_analysis"))
+            for cid, v in state.structured_provenance.items():
+                if v.verdict in ("PARTIAL", "UNSUPPORTED"):
+                    state.unsupported_claims.append(
+                        f"{cid}: 结构化权威 {v.verdict}: {v.reason}")
+            excluded = frozenset(cid for cid, v in state.structured_provenance.items()
+                                 if v.verdict == "SUPPORTED")
             if hasattr(llm, "evaluate_entailment_batch"):
                 try:
                     state.entailment_verdicts = E.evaluate_entailment_batch(
-                        state, answer, llm, prechecks,
+                        state, answer, llm, prechecks, exclude_claim_ids=excluded,
                         on_response=lambda r: _add_llm_usage(
                             state, r, LLM_CATEGORY_ENTAILMENT))
                     for v in state.entailment_verdicts:
@@ -738,6 +791,9 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                         T.emit(run_id, need.need_id, "ENTAILMENT",
                                {"answer_revision": state.answer_revision,
                                 "failed": True, "error": str(e)})
+            # 三 evaluator 汇总（evidence_deterministic / structured_provenance /
+            # llm_entailment），供报告区分展示。
+            state.entailment_summary = SP.entailment_summary(state, prechecks)
             S.set_status(state, "ANSWER_READY")
             ev = S.evaluate_success(state, answer)
             if ev["completion_status"] == "COMPLETED":

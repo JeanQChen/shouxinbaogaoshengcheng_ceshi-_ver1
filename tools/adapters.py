@@ -320,6 +320,25 @@ def _db_unavailable(tool_name: str, reason: str, retryable: bool = False) -> C.T
         trace_id=uuid.uuid4().hex)
 
 
+def _snapshot_status(snap: S.FinancialSnapshot) -> str:
+    """ref.snapshot_status（仅展示/审计，不自证权威；quarantine 不写入，由权威复合查询判）。"""
+    return "blocked" if snap.report_blocked else "valid"
+
+
+def _snap_provenance(snap) -> dict:
+    """快照权威维度（company/scope/currency/purpose），mock/旧快照缺字段时降级 None。
+
+    真实 FinancialSnapshot 恒含这些字段；测试里的 SimpleNamespace 伪快照可能缺，
+    用 getattr 降级 None 以保持向后兼容（不因 mock 缺字段而 crash）。
+    """
+    return {
+        "company_id": getattr(snap, "company_id", None),
+        "scope": getattr(snap, "scope", None),
+        "currency": getattr(snap, "currency", None),
+        "purpose": getattr(snap, "purpose", None),
+    }
+
+
 # ---------------------------------------------------------------------------
 # executors
 # ---------------------------------------------------------------------------
@@ -380,7 +399,8 @@ def _lookup_company_field_executor(args: dict) -> C.ToolResult:
             period=it.report_period, raw_value=str(it.amount),
             display_value=str(it.amount), unit=it.unit, status="available",
             reason_code=None, input_record_refs=it.source_refs,
-            input_snapshot_item_refs=[it.comparison_key])
+            input_snapshot_item_refs=[it.comparison_key],
+            **_snap_provenance(snap), snapshot_status=_snapshot_status(snap))
         data = {
             "result_type": "financial_field", "item_code": code,
             "period": it.report_period, "display_value": str(it.amount),
@@ -415,7 +435,8 @@ def _lookup_financial_metric_executor(args: dict) -> C.ToolResult:
             display_value=str(mr.display_value) if mr.display_value is not None else None,
             unit=mr.unit, status=mr.status, reason_code=mr.reason_code,
             input_record_refs=mr.input_record_refs,
-            input_snapshot_item_refs=mr.input_snapshot_item_refs)
+            input_snapshot_item_refs=mr.input_snapshot_item_refs,
+            **_snap_provenance(snap), snapshot_status=_snapshot_status(snap))
         data = {
             "result_type": "financial_metric", "formula_id": formula_id,
             "formula_version": mr.formula_version, "period": mr.period,
@@ -493,7 +514,7 @@ def _compare_evidence_executor(args: dict) -> C.ToolResult:
         retryable=False, trace_id=uuid.uuid4().hex)
 
 
-def _metric_ref(mr, formula_id: str) -> S.StructuredResultRef:
+def _metric_ref(mr, formula_id: str, snap: S.FinancialSnapshot) -> S.StructuredResultRef:
     """把 MetricResult 翻译为可回查 StructuredResultRef（溯源快照/公式版本/期间/输入）。"""
     return S.StructuredResultRef(
         result_type="financial_metric", snapshot_id=mr.snapshot_id,
@@ -503,7 +524,8 @@ def _metric_ref(mr, formula_id: str) -> S.StructuredResultRef:
         display_value=str(mr.display_value) if mr.display_value is not None else None,
         unit=mr.unit, status=mr.status, reason_code=mr.reason_code,
         input_record_refs=mr.input_record_refs,
-        input_snapshot_item_refs=mr.input_snapshot_item_refs)
+        input_snapshot_item_refs=mr.input_snapshot_item_refs,
+        **_snap_provenance(snap), snapshot_status=_snapshot_status(snap))
 
 
 def _compare_financial_periods_executor(args: dict) -> C.ToolResult:
@@ -553,7 +575,13 @@ def _compare_financial_periods_executor(args: dict) -> C.ToolResult:
             "relation": "missing_period",
             "missing_period": missing_period,
         }
-        refs = [_metric_ref(present, formula_id)]
+        ref = _metric_ref(present, formula_id, snap)
+        ref.period_a = period_a
+        ref.period_b = period_b
+        ref.value_a = _display_of(mra)
+        ref.value_b = _display_of(mrb)
+        ref.direction = "missing_period"
+        refs = [ref]
         return C.ToolResult(
             call_id="", tool_name="compare_financial_periods", tool_version="",
             status="PARTIAL", data=data, structured_result_refs=refs,
@@ -594,10 +622,19 @@ def _compare_financial_periods_executor(args: dict) -> C.ToolResult:
         "delta": str(delta),
         "relation": relation,
     }
+    ref_a = _metric_ref(mra, formula_id, snap)
+    ref_b = _metric_ref(mrb, formula_id, snap)
+    for r in (ref_a, ref_b):
+        r.period_a = period_a
+        r.period_b = period_b
+        r.value_a = str(av)
+        r.value_b = str(bv)
+        r.direction = relation
+        r.change_value = str(delta)
     return C.ToolResult(
         call_id="", tool_name="compare_financial_periods", tool_version="",
         status="SUCCESS", data=data,
-        structured_result_refs=[_metric_ref(mra, formula_id), _metric_ref(mrb, formula_id)],
+        structured_result_refs=[ref_a, ref_b],
         error_code=None, message=None, retryable=False, trace_id=uuid.uuid4().hex)
 
 

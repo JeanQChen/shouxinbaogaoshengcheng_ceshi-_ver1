@@ -147,6 +147,72 @@ def main() -> dict:
     check(chans == {"a1": "db", "a2": "evidence", "a3": "rejected"},
           "classify_aspects：db/rejected/evidence 通道正确")
 
+    # ---- Change 3：跨期/趋势结构化子 need ----
+    avail = ["2023-12-31", "2024-12-31", "2025-12-31", "2026-03-31"]
+
+    # resolve_comparison_periods：两个显式年份 → [Y1-12-31, Y2-12-31]。
+    check(SN.resolve_comparison_periods("2024年较2025年净利率如何变化？", avail)
+          == ["2024-12-31", "2025-12-31"],
+          "resolve_comparison_periods：两个显式年份 → 升序两期")
+    # 单年份 + 趋势词 → 小于该年的最近年报期 + 该年。
+    check(SN.resolve_comparison_periods("2025年净利率如何变化？", avail)
+          == ["2024-12-31", "2025-12-31"],
+          "resolve_comparison_periods：单年份+趋势词 → 上一期+该期")
+    # 近三年 → 最近 3 个年报期。
+    check(SN.resolve_comparison_periods("近三年净利率趋势如何？", avail)
+          == ["2023-12-31", "2024-12-31", "2025-12-31"],
+          "resolve_comparison_periods：近三年 → 最近 3 个年报期")
+    # 不可靠（无年份 + 趋势词）→ []。
+    check(SN.resolve_comparison_periods("净利率如何变化？", avail) == [],
+          "resolve_comparison_periods：无年份趋势词 → []（不猜）")
+    # 显式年份不在 available → []。
+    check(SN.resolve_comparison_periods("2022年较2023年净利率如何变化？", avail) == [],
+          "resolve_comparison_periods：年份不在 available → []（fail-closed）")
+
+    # compare_tool_args：period_a/period_b + dims，无 target_period。
+    cmp_filters = {
+        "db_target_type": "metric", "formula_id": "PROF_NET_MARGIN",
+        "formula_version": "v1", "snapshot_as_of_date": "2025-12-31",
+        "scope": "consolidated", "currency": "CNY", "purpose": "credit_analysis"}
+    cname, cargs = SN.compare_tool_args("300750", cmp_filters,
+                                        ["2024-12-31", "2025-12-31"])
+    check(cname == "compare_financial_periods"
+          and cargs["formula_id"] == "PROF_NET_MARGIN"
+          and cargs["period_a"] == "2024-12-31"
+          and cargs["period_b"] == "2025-12-31"
+          and "target_period" not in cargs
+          and cargs["scope"] == "consolidated",
+          "compare_tool_args：compare_financial_periods + period_a/b + dims（无 target_period）")
+
+    # derive：单年份「如何变化」+ 两年 available → metric compare（2 期）。
+    met = SN.derive_structured_subneeds(
+        "2025年合并口径下，销售利润率（净利率）如何变化？",
+        [{"aspect_id": "a1", "text": "净利率", "source": "DATASET_MAPPING"}],
+        available_periods=avail)
+    check(len(met.subneeds) == 1 and met.subneeds[0].period_mode == "compare"
+          and met.subneeds[0].periods == ("2024-12-31", "2025-12-31"),
+          "derive：纯指标「如何变化」→ compare 子 need（替代 single）")
+    check(met.gaps == [], "derive：compare 无 gap")
+
+    # derive：近三年 → metric trend（3 期）。
+    met3 = SN.derive_structured_subneeds(
+        "近三年净利率趋势如何？",
+        [{"aspect_id": "a1", "text": "净利率", "source": "DATASET_MAPPING"}],
+        available_periods=avail)
+    check(len(met3.subneeds) == 1 and met3.subneeds[0].period_mode == "trend"
+          and met3.subneeds[0].periods == ("2023-12-31", "2024-12-31", "2025-12-31"),
+          "derive：近三年 → trend 子 need（3 期）")
+
+    # derive：趋势但缺上一期 → 保留 single + 记 gap（不猜、不冒充比较）。
+    met_gap = SN.derive_structured_subneeds(
+        "2025年合并口径下，销售利润率（净利率）如何变化？",
+        [{"aspect_id": "a1", "text": "净利率", "source": "DATASET_MAPPING"}],
+        available_periods=["2025-12-31"])
+    check(len(met_gap.subneeds) == 1 and met_gap.subneeds[0].period_mode == "single",
+          "derive：缺上一期 → 保留 single")
+    check(len(met_gap.gaps) == 1 and met_gap.gaps[0]["reason"] == "trend_prior_missing",
+          "derive：缺上一期 → 记 gap（trend_prior_missing）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 
