@@ -267,5 +267,66 @@ UsageLedger 中已闭环，且 `run_actual_path_41._record_case` 现 surface `ll
 
 **冻结核心规则**：表头/列级单位优先级与 canonical 归一化（Change 1）、结构化权威复合判定
 （Change 2：Store 权威、ref 不自证、`exclude_claim_ids`）、跨期/趋势子 need（Change 3：compare
-替代 single、≥3 期回退 LLM 解读、缺期记 gap）。三者均 fail-closed（错答案不放过，正确答案降 PARTIAL
+替代 single、缺期记 gap）。三者均 fail-closed（错答案不放过，正确答案降 PARTIAL
 而非误判 FULL）。
+
+## 11. 冻结前最后一次定点修复（四项通用安全问题）
+
+> 上一轮 §10 收口后，冻结前最后一轮**只修通用安全/正确性问题**，**未**针对任何
+> `case_id`、`300750` 或「宁德时代」写业务分支；全部改动落在 harness 通用层
+> （`structured_provenance` 方向/引用/趋势判定 + repo 追踪范围），合成测试公司无关。
+> 未重跑完整 41 问、未重跑 unseen_validation / frozen_final；未据结果继续调 Prompt。
+
+| # | 修复项 | 落点 | 根因 → 修复 |
+|---|---|---|---|
+| 一 | 比较方向校验 | `harness/structured_provenance.py` | 原只校验 ref 有 `period_a/b` 与值，未校验 claim 的「上升/下降/持平」与 `ref.direction` 一致。新增 `_claim_direction`（词表识别 + 增长率/增速中性化）与 `_DIRECTION_WORDS`；方向矛盾 → `UNSUPPORTED/direction_mismatch`，`missing_period` → `PARTIAL/comparison_period_missing`，claim 未表达方向（仅两个正确值）→ 继续 value/period 校验。方向来自 Python 工具，LLM 不算 |
+| 二 | 显式引用修复（替代静默回退） | `harness/structured_provenance.py` `_resolve_ref` + `harness/schema.py` + `harness/runtime.py` | 原 snapshot_id 转写错时静默按 period+code 回退。改为：先严格 match snapshot_id+period+item/formula；失败仅当 active_snapshot_id+period+code 唯一命中且通过 `SnapshotAuthority` 复合（company/scope/currency/purpose/status 全有效）才修复；修复后**改写最终 `CitationRef` 的 snapshot_id**、记录原值+修复值、落 `CITATION_REF_REPAIRED` trace（`reason=structured_authoritative_after_citation_repair`）。0 或 >1 候选 / 无法改写 / 无法记录 → `UNSUPPORTED/unresolvable_ref`；移除「pick active 或 first code match」回退 |
+| 三 | 三期趋势不落 LLM | `harness/structured_provenance.py` `_trend_relation` | 删除「≥3 期 trend 跳过 Structured Provenance、回退 LLM」逻辑（§10.4 中「≥3 期回退 LLM 解读」即此条，本轮作废）。改由 Python Decimal 对同 item/formula/unit/scope 年报序列算方向：连续升→increased、连续降→decreased、全等→unchanged、有升有降→mixed；期数不足/缺值/单位或口径不一致→PARTIAL（绝不 FULL）。LLM 只解读 Python 已算好的方向；claim 趋势与 `_trend_relation` 相反 → `UNSUPPORTED/trend_direction_mismatch`，mixed 写成持续升/降 → UNSUPPORTED |
+| 四 | repo 追踪范围修复 | `.gitignore` + `git rm --cached` | e6219c3 误提交 `.claude/settings.json` 与 `evaluation/results/actual_path_41/` 临时目录。**不重写历史、不删本地文件**：仅从追踪移除（`git rm --cached`），`.gitignore` 增加两行忽略。本地 `.claude/settings.json`（18932 B）与 `actual_path_41/` 全部临时目录均保留 |
+
+### 11.1 验证结果
+
+- 专项测试（全绿）：
+  `test_harness_entailment` **48** / `test_harness_structured_provenance` **54**
+  （§10.1 的 27 → 本轮 +27 覆盖方向/引用修复/趋势）/ `test_harness_structured_needs` **31** /
+  `test_harness_snapshot_lock` **7** / `test_split_manifest` **13**。
+- 完整 `run_evals`：**2889 passed / 0 failed / 0 skipped**（§10.3 的 2862 → +27）。
+- 未重跑 FIN-PM1 等 3 题（新增测试已覆盖集成接线；不据结果调 Prompt）。
+
+### 11.2 比较方向与三期趋势状态表
+
+| 场景 | claim 表述 | ref.direction / Python trend | 判定 |
+|---|---|---|---|
+| 比较·下降一致 | 2024 1.61% → 2025 1.60%，「下降」 | `decreased` | SUPPORTED |
+| 比较·方向矛盾 | 同上数值写「上升」 | `decreased` | UNSUPPORTED `direction_mismatch` |
+| 比较·缺期 | 仅一个 ref `direction=missing_period` | `missing_period` | PARTIAL `comparison_period_missing` |
+| 比较·无方向词 | 仅两个正确值，无升/降 | 有 direction | 继续 value/period 校验 |
+| 趋势·连续升 | 2023<2024<2025「持续上升」 | `increased` | SUPPORTED |
+| 趋势·连续降 | 「持续下降」 | `decreased` | SUPPORTED |
+| 趋势·全等 | 「基本持平」 | `unchanged` | SUPPORTED |
+| 趋势·有升有降 | mixed 写成「持续上升/下降」 | `mixed` | UNSUPPORTED `trend_direction_mismatch` |
+| 趋势·期数不足/缺值/单位口径不一 | — | 无法可靠算方向 | PARTIAL（绝不 FULL） |
+
+### 11.3 引用修复唯一性与审计证据
+
+- 修复条件 = 严格 match 失败 **且** active+period+code 候选**恰好 1 个** **且** 候选通过
+  `SnapshotAuthority` 复合（exists+is_current+validity=valid+非 report_blocked+非 quarantined）
+  + company/scope/currency/purpose/status 全有效。
+- 修复后最终 `CitationRef.snapshot_id` 改写为真实 id（原错误 id 不残留）；`state.citation_repairs`
+  记 `{original_snapshot_id, repaired_snapshot_id, period, item_code/formula_id}`；runtime ANSWER
+  分支落 `CITATION_REF_REPAIRED` trace。
+- 0 候选 / >1 候选 / 候选非 current / 候选 validity 非 valid → `UNSUPPORTED/unresolvable_ref`。
+
+### 11.4 git 追踪清理结果
+
+- 从追踪移除：`.claude/settings.json`（1 文件）、`evaluation/results/actual_path_41/`（**28 个
+  目录**：17 时间戳 + 1 reaccept + 5 smoke_rev2 + 5 smoke_revised，共 **168 文件**，含
+  case_results.jsonl / inputs / metrics.json / report.md / run_manifest.json / trace_inventory.json）。
+- `.gitignore` 新增：`.claude/settings.json`、`evaluation/results/actual_path_41/`。
+- **本地文件全部保留**：`.claude/settings.json`（18932 B）仍存在；`actual_path_41/` 目录未删。
+- 未改历史、未删本地文件、未提交 `.env` / API Key / 临时数据库 / 个人配置。
+
+### 11.5 冻结判断
+
+四项均为通用安全/正确性修复，无业务分支，专项 + 全量 eval 全绿，git 追踪已收敛。
+**建议正式冻结，进入一次性 `unseen_validation`**（之后 `frozen_final` 最后一次全量）。
