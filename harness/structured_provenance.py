@@ -25,6 +25,14 @@ LLM 因「无正文」误判 UNSUPPORTED。
 - 三期趋势确定性计算：删除「≥3 期回退 LLM」逻辑；用 Decimal 对年度序列算
   increased/decreased/unchanged/mixed；期间不足/数值缺失/单位口径不一致 → PARTIAL。
 
+冻结前最后一轮（两项定点修复）改动：
+- 排除非业务数值：`_extract_claim_business_amounts` 剔除年份（YYYY年）、完整日期
+  （YYYY-MM-DD / 2025年12月31日）、月/日、页码/条款、括号引用序号，避免年份被当
+  成指标值触发误判 value_mismatch；金额/比例带单位后缀不受影响。
+- Citation Repair 两阶段原子化：`_resolve_ref`（阶段 A）只「提出」pending repair，
+  不改写引用、不写审计、不发 trace；整条 claim 最终 SUPPORTED 时才经 `_commit_repairs`
+  （阶段 B）一次性改写全部引用并落审计。PARTIAL/UNSUPPORTED 一律不提交，禁止部分提交。
+
 CLI: python -m harness.structured_provenance --self-check
 """
 
@@ -71,6 +79,19 @@ _DIRECTION_WORDS: dict[str, tuple[str, ...]] = {
 # 「增长」「减少」的动词形式（排除名词「增长率/增长速度/减少率」）。
 _INCREASED_VERB_RE = re.compile(r"增长(?!率|速度)")
 _DECREASED_VERB_RE = re.compile(r"减少(?!率)|降低(?!率)")
+
+# Claim 业务数值提取：排除年份/日期/页码/引用序号等非业务数字（确定性，无 LLM）。
+# 按「长模式优先」排序：完整中文日期 → 数字日期 → 年份 → 月/日 → 页码/条款 → 括号引用。
+# 全部替换为空格（避免拼接出新数字）；金额/比例带单位后缀（万元/元/%等），不含「年」，
+# 故不受年份/日期模式影响，不会被误删。
+_CLAIM_NON_BUSINESS_RES: tuple[re.Pattern, ...] = (
+    re.compile(r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),  # 2025年12月31日 / 2025年12月
+    re.compile(r"\d{4}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{1,2}"),      # 2025-12-31 / 2025/12/31 / 2025.12.31
+    re.compile(r"\d{4}\s*年"),                                     # 2025年 / 2024年度
+    re.compile(r"\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),               # 12月 / 12月31日（无年份）
+    re.compile(r"第\s*\d+\s*[页条章节款]"),                        # 第5页 / 第3条
+    re.compile(r"[\[(（]\s*\d+\s*[\])）]"),                        # [3] / (3) / （3）
+)
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +216,22 @@ def _claim_direction(text: str) -> str | None:
     return found.pop()
 
 
+def _extract_claim_business_amounts(text: str) -> list[E.Amount]:
+    """从 claim 文本抽取「业务数值」，排除年份/日期/页码/引用序号等非业务数字。
+
+    确定性、无 LLM、无 gold、无公司/案例规则。先用非业务模式「挖空」（替换为空格），
+    再走 E.extract_amounts（含单位归一化 + canonical Decimal）。
+
+    - `2025万元` / `2025%` / `2025元` 无「年」后缀，不受年份模式影响 → 保留；
+    - `2024年至2025年净利率由18.1%下降至17.3%` → 仅 18.1%、17.3%；
+    - `截至2025年12月31日，资产为4亿元` → 仅 4亿元（日期组成部分全部剔除）。
+    """
+    t = text or ""
+    for pat in _CLAIM_NON_BUSINESS_RES:
+        t = pat.sub(" ", t)
+    return E.extract_amounts(t)
+
+
 def _trend_relation(refs: list[RS.StructuredResultRef],
                     ) -> tuple[str | None, str | None]:
     """对同一 item/formula、相同单位的年度序列确定性计算趋势（Decimal，无 float）。
@@ -256,12 +293,17 @@ def _code_match(cit: H.CitationRef, r: RS.StructuredResultRef) -> bool:
 
 def _resolve_ref(cit: H.CitationRef, state: H.ResearchState,
                  snapshot_authority, scope: str, currency: str, purpose: str):
-    """解析结构化引用：严格匹配 → ref；否则显式 Citation Repair → (ref, repair)。
+    """解析结构化引用：严格匹配 → ref；否则显式 Citation Repair → (ref, pending_repair)。
 
-    返回 (ref, repair|None) / _CODE_MISMATCH / None（unresolvable）。
+    返回 (ref, pending_repair|None) / _CODE_MISMATCH / None（unresolvable）。
     snapshot_id 是机器生成的 opaque 长 token，LLM 写引用时可能转写错；禁止静默回退到
     「active 或第一个 code match」——只有唯一 active+period+code 候选且通过权威 + 维度
-    校验时才 repair（并改写 answer 引用 + 记录审计），否则 fail-closed。
+    校验时才提出 repair，否则 fail-closed。
+
+    **阶段 A（无副作用）**：本函数只「提出」pending repair，不改写 CitationRef、
+    不写 state.citation_repairs、不发 trace。pending repair 携带 `_citation`（对象引用，
+    仅内部用于阶段 B 提交）与审计字段；是否真正改写由 `_evaluate_claim` 在整条 claim
+    最终 SUPPORTED 时经 `_commit_repairs` 一次性原子提交。
     """
     same_period = [r for r in state.structured_refs if r.period == cit.period]
 
@@ -288,16 +330,35 @@ def _resolve_ref(cit: H.CitationRef, state: H.ResearchState,
     fail = _validate_ref_identity(cand, state, snapshot_authority, scope, currency, purpose)
     if fail is not None:
         return None
-    repair = {
+    # pending repair：仅提出，不应用（阶段 B 经 _commit_repairs 原子提交）。
+    return cand, {
+        "_citation": cit,
         "original_snapshot_id": cit.snapshot_id,
         "repaired_snapshot_id": cand.snapshot_id,
         "period": cit.period,
         "formula_id": cit.formula_id,
         "item_code": cit.item_code,
     }
-    # 改写最终 answer 中的引用为真实 snapshot_id（原始错误 ID 不得继续存在）。
-    cit.snapshot_id = cand.snapshot_id
-    return cand, repair
+
+
+def _commit_repairs(pending: list[dict]) -> list[dict]:
+    """阶段 B：原子应用所有 pending repairs，返回审计记录（不含内部 `_citation`）。
+
+    仅在整条 claim 最终 SUPPORTED 时调用（PARTIAL/UNSUPPORTED 不调用），故不会部分提交：
+    要么全部改写引用并落审计，要么一条都不改。审计记录为可序列化 dict
+    {original_snapshot_id, repaired_snapshot_id, period, item_code, formula_id}。
+    """
+    audit: list[dict] = []
+    for pr in pending:
+        pr["_citation"].snapshot_id = pr["repaired_snapshot_id"]
+        audit.append({
+            "original_snapshot_id": pr["original_snapshot_id"],
+            "repaired_snapshot_id": pr["repaired_snapshot_id"],
+            "period": pr["period"],
+            "formula_id": pr["formula_id"],
+            "item_code": pr["item_code"],
+        })
+    return audit
 
 
 def _verdict(claim_id: str, verdict: str, reason: str, *,
@@ -379,7 +440,7 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
         if repair is not None:
             repairs.append(repair)
 
-    claim_amounts = E.extract_amounts(claim.text or "")
+    claim_amounts = _extract_claim_business_amounts(claim.text or "")
     claim_dir = _claim_direction(claim.text)
     has_direction = any(getattr(r, "direction", None) for r in refs)
     # 趋势语义 = 显式趋势词 或 claim 明确表达方向（含 mixed）。方向识别缺位时不算趋势。
@@ -387,9 +448,12 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
     mode = "comparison" if has_direction else ("trend" if (
         trend_semantics and len({r.period for r in refs}) >= 2) else "single")
 
-    # 比较/趋势模式下，claim 不陈述数值（仅陈述方向）时不做逐值匹配（方向是主判据）；
-    # 单期模式必须有数值匹配。
-    require_value = mode == "single" or bool(claim_amounts)
+    # 逐值匹配触发条件：
+    # - 纯单期数值 claim（无方向/趋势语义）必须有数值 → 强制逐值；
+    # - 比较/趋势、或单期但含方向语义 → 方向是主判据，仅在 claim 实际陈述业务数值时
+    #   才逐值匹配（年份/日期等非业务数字已由 _extract_claim_business_amounts 剔除，
+    #   不再让「仅陈述方向无数值」的 claim 因年份存在被误判 value_mismatch）。
+    require_value = (mode == "single" and not trend_semantics) or bool(claim_amounts)
 
     matched: list[str] = []
     for r in refs:
@@ -426,7 +490,7 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
                   else "structured_authoritative")
         return _verdict(claim.claim_id, "SUPPORTED", reason,
                         matched_refs=matched, mode="comparison",
-                        citation_repairs=repairs, snapshot_valid=True, company_match=True,
+                        citation_repairs=_commit_repairs(repairs), snapshot_valid=True, company_match=True,
                         scope_currency_purpose_match=True, item_formula_match=True,
                         value_match=True, period_match=True)
 
@@ -454,7 +518,7 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
                   else "structured_authoritative")
         return _verdict(claim.claim_id, "SUPPORTED", reason,
                         matched_refs=matched, mode="trend", trend=relation,
-                        citation_repairs=repairs, snapshot_valid=True, company_match=True,
+                        citation_repairs=_commit_repairs(repairs), snapshot_valid=True, company_match=True,
                         scope_currency_purpose_match=True, item_formula_match=True,
                         value_match=True, period_match=True)
 
@@ -468,7 +532,7 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
     reason = ("structured_authoritative_after_citation_repair" if repairs
               else "structured_authoritative")
     return _verdict(claim.claim_id, "SUPPORTED", reason,
-                    matched_refs=matched, citation_repairs=repairs,
+                    matched_refs=matched, citation_repairs=_commit_repairs(repairs),
                     snapshot_valid=True, company_match=True,
                     scope_currency_purpose_match=True, item_formula_match=True,
                     value_match=True, period_match=True)
