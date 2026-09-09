@@ -218,6 +218,45 @@ def extract_amounts(text: str) -> list[Amount]:
 
 
 # ---------------------------------------------------------------------------
+# Claim 业务数值提取（排除年份/日期/页码/引用序号/序数排名等非业务数字）
+# ---------------------------------------------------------------------------
+
+# 非业务数字模式（按「长模式优先」排序）：年份区间 → 完整中文日期 → 数字日期 →
+# 年份 → 月/日 → 页码/条款/章节/序数排名 → 括号引用序号。全部替换为空格（避免拼接
+# 出新数字）；金额/比例带单位后缀（万元/元/% 等）不含「年」或「第」，故不受影响。
+# 仅排除序数/排名语义（第X位/第X名/第X次），不排除数量（X位/X名/X家/X项/连续X年）。
+_CLAIM_NON_BUSINESS_RES: tuple[re.Pattern, ...] = (
+    re.compile(r"\d{4}\s*[—–\-－−~～至到]\s*\d{4}\s*年"),      # 2023—2025年 / 2023至2025年（年份区间）
+    re.compile(r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),  # 2025年12月31日 / 2025年12月
+    re.compile(r"\d{4}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{1,2}"),      # 2025-12-31 / 2025/12/31 / 2025.12.31
+    re.compile(r"\d{4}\s*年"),                                     # 2025年 / 2024年度
+    re.compile(r"\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),               # 12月 / 12月31日（无年份）
+    re.compile(r"第\s*\d+\s*[页条章节款位名次]"),                  # 第5页 / 第3条 / 第2位 / 第1名（序数/排名）
+    re.compile(r"[\[(（]\s*\d+\s*[\])）]"),                        # [3] / (3) / （3）
+)
+
+
+def extract_claim_business_amounts(text: str) -> list[Amount]:
+    """从 claim 文本抽取「业务数值」，排除年份/日期/页码/引用序号/序数排名等非业务数字。
+
+    确定性、无 LLM、无 gold、无公司/案例规则。先用非业务模式「挖空」（替换为空格），
+    再走 extract_amounts（含单位归一化 + canonical Decimal）。value_presence /
+    deterministic_prechecks / structured_provenance 共同复用本实现（禁止复制两套正则）。
+
+    - `2025万元` / `2025%` / `2025元` 无「年」后缀，不受年份模式影响 → 保留；
+    - `2023—2025年` / `2023至2025年` → 年份区间整体剔除，无 value_missing；
+    - `截至2025年12月31日，资产为4亿元` → 仅 4亿元（日期组成部分全部剔除）；
+    - `2位执行董事` / `5家客户` / `连续9年` / `54,538项专利` → 数量保留；
+    - `第2位` / `第1名` / `第3条` / `第5页` / `引用[2]` → 序数/排名/页码/引用剔除
+      （排名语义仍由 entailment 判定）。
+    """
+    t = text or ""
+    for pat in _CLAIM_NON_BUSINESS_RES:
+        t = pat.sub(" ", t)
+    return extract_amounts(t)
+
+
+# ---------------------------------------------------------------------------
 # 表头/列级单位上下文（材料解释层，不动 parser/Evidence 身份规则）
 # ---------------------------------------------------------------------------
 
@@ -427,6 +466,126 @@ def scope_risks(claim: H.Claim, materials: list[H.InspectedMaterial],
 
 
 # ---------------------------------------------------------------------------
+# 封闭集合/总数安全门（确定性，fail-closed；LLM 不计数）
+# ---------------------------------------------------------------------------
+
+# 总数/完整性信号（claim 侧）：只有显式「共/一共/总共/共计/合计/总计/共有 + 数 + 单位」
+# 或「完整名单/全部为/均为/均由/前N名/多少位/几家」才触发封闭集合判定；裸数量
+# 「2位执行董事」不是总数断言，不触发（其数值仍由 F1 保留，按一般数值校验）。
+_TOTAL_COUNT_RE = re.compile(
+    r"(一共有|一共|总共|共计|合计|总计|共有|共)\s*(\d+)\s*([位人名家项个])")
+_COMPLETENESS_TERMS = ("完整名单", "全部为", "均为", "均由")
+_RANK_TOP_RE = re.compile(r"前\s*(\d+)\s*名")
+_COUNT_QUERY_TERMS = ("多少位", "多少家", "多少名", "几位", "几家")
+# 诚实缺口/降级表达：承认部分、待核实 → PARTIAL（不作总数断言）。
+_HEDGE_TERMS = ("至少", "待核实", "待补充", "尚未", "暂未", "仅确认")
+
+
+@dataclass(frozen=True)
+class ClosedSetGuard:
+    """封闭集合/总数 claim 的确定性安全判定。
+
+    triggered=False 表示该 claim 非总数/完整性断言（不参与本门）；
+    verdict ∈ SUPPORTED|PARTIAL|UNSUPPORTED，只有 SUPPORTED 才允许该 claim 达 FULL。
+    """
+
+    triggered: bool
+    verdict: str            # SUPPORTED | PARTIAL | UNSUPPORTED（triggered 时有效）
+    reason: str
+    claim_total: str = ""   # claim 侧总数表达式（如「共2位」）
+    evidence_total: str = ""# 证据侧显式总数/枚举计数
+    hedged: bool = False
+
+
+def _total_value(total_expr: str) -> int | None:
+    """从总数表达式抽数值（共2位 → 2、前3名 → 3）；无法抽返回 None。"""
+    m = re.search(r"\d+", total_expr or "")
+    return int(m.group(0)) if m else None
+
+
+def _claim_total(text: str) -> str | None:
+    """提取 claim 侧显式总数表达式（共2位/共计3人/前3名）；无则 None。"""
+    m = _TOTAL_COUNT_RE.search(text or "")
+    if m:
+        return m.group(0).strip()
+    m = _RANK_TOP_RE.search(text or "")
+    if m:
+        return m.group(0).strip()
+    return None
+
+
+def _count_members(text: str) -> int | None:
+    """保守计数证据中顿号/逗号分隔的短项枚举；无法可靠计数返回 None。
+
+    仅当所有分隔片段都是短项（≤6 字，姓名/简称形态）时才信任计数，避免把散文逗号
+    误当成员分隔；不确定返回 None → 上层按 PARTIAL（宁可降级也不误判 extra member）。
+    """
+    t = text or ""
+    t = _TOTAL_COUNT_RE.sub(" ", t)      # 去显式总数，避免与列表混在一起计数
+    parts = [p.strip() for p in re.split(r"[、，,；;]", t) if p.strip()]
+    if len(parts) < 2:
+        return None
+    if not all(0 < len(p) <= 6 for p in parts):
+        return None
+    return len(parts)
+
+
+def closed_set_guard(claim: H.Claim,
+                     materials: list[H.InspectedMaterial]) -> ClosedSetGuard:
+    """封闭集合/总数安全门（确定性）：总数断言只有在证据显式给出同口径总数时才 SUPPORTED。
+
+    规则（冻结，公司无关）：
+    - 触发：claim 含总数表达式（共N位/共计N家/前N名）或完整性词（完整名单/全部为/均为/均由）
+      或计数追问词（多少位/几家…）。
+    - 诚实降级（至少…待核实）→ PARTIAL（承认部分，不作总数断言）。
+    - 证据显式同口径总数、数值相等 → SUPPORTED；数值不等 → UNSUPPORTED total_mismatch。
+    - 证据枚举成员数 > claim 总数 → UNSUPPORTED incomplete_closed_set（漏报成员）。
+    - 其余（部分列表/无显式总数）→ PARTIAL（部分列表不能证明总数，永不 FULL）。
+    """
+    text = claim.text or ""
+    total = _claim_total(text)
+    completeness = any(t in text for t in _COMPLETENESS_TERMS)
+    query = any(t in text for t in _COUNT_QUERY_TERMS)
+    triggered = total is not None or completeness or query
+    if not triggered:
+        return ClosedSetGuard(triggered=False, verdict="", reason="")
+
+    if any(h in text for h in _HEDGE_TERMS):
+        return ClosedSetGuard(triggered=True, verdict="PARTIAL",
+                              reason="hedged_partial", claim_total=total or "",
+                              hedged=True)
+
+    ev_text = " ".join((m.text or "") for m in materials)
+    ev_total_match = _TOTAL_COUNT_RE.search(ev_text)
+    if ev_total_match and total is not None:
+        ev_total = ev_total_match.group(0).strip()
+        ev_n = _total_value(ev_total)
+        claim_n = _total_value(total)
+        if ev_n is not None and claim_n is not None:
+            if ev_n == claim_n:
+                return ClosedSetGuard(triggered=True, verdict="SUPPORTED",
+                                      reason="explicit_total_match",
+                                      claim_total=total, evidence_total=ev_total)
+            return ClosedSetGuard(triggered=True, verdict="UNSUPPORTED",
+                                  reason="total_mismatch",
+                                  claim_total=total, evidence_total=ev_total)
+
+    if total is not None:
+        claim_n = _total_value(total)
+        mem = _count_members(ev_text)
+        if claim_n is not None and mem is not None and mem > claim_n:
+            return ClosedSetGuard(triggered=True, verdict="UNSUPPORTED",
+                                  reason="incomplete_closed_set",
+                                  claim_total=total,
+                                  evidence_total=f"enumerated={mem}")
+
+    return ClosedSetGuard(triggered=True, verdict="PARTIAL",
+                          reason="no_explicit_total", claim_total=total or "",
+                          evidence_total=(ev_total_match.group(0).strip()
+                                          if ev_total_match else ""))
+
+
+# ---------------------------------------------------------------------------
 # 值存在 + 口径预检
 # ---------------------------------------------------------------------------
 
@@ -470,7 +629,7 @@ def value_presence(claim: H.Claim, materials: list[H.InspectedMaterial]) -> Valu
     路径（extract_amounts，结构化值自带单位）。逐 claim 数值分类 SUPPORTED / PARTIAL /
     UNSUPPORTED（详见模块 docstring 的三态语义）。
     """
-    claim_amounts = extract_amounts(claim.text or "")
+    claim_amounts = extract_claim_business_amounts(claim.text or "")
     if not claim_amounts:
         return ValueCheck([], [], [], [])
     ev_amounts: list[Amount] = []
@@ -523,6 +682,7 @@ def deterministic_prechecks(state: H.ResearchState,
         materials = [state.inspected_evidence[e] for e in ev_ids
                      if e in state.inspected_evidence]
         not_inspected = bool(len(materials) < len(set(ev_ids)))
+        csg = closed_set_guard(claim, materials)
         if not materials:
             out[claim.claim_id] = {
                 "not_inspected": True,
@@ -530,6 +690,7 @@ def deterministic_prechecks(state: H.ResearchState,
                 "value_missing_tokens": [],
                 "scope_risks": [],
                 "high_risk_scope": False,
+                "closed_set": dataclasses_asdict(csg),
             }
             continue
         vc = value_presence(claim, materials)
@@ -540,6 +701,7 @@ def deterministic_prechecks(state: H.ResearchState,
             "value_missing_tokens": list(vc.missing),
             "scope_risks": [dataclasses_asdict(r) for r in risks],
             "high_risk_scope": any(r.severity == "high" for r in risks),
+            "closed_set": dataclasses_asdict(csg),
         }
     return out
 

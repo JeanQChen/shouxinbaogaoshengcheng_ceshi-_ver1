@@ -80,19 +80,6 @@ _DIRECTION_WORDS: dict[str, tuple[str, ...]] = {
 _INCREASED_VERB_RE = re.compile(r"增长(?!率|速度)")
 _DECREASED_VERB_RE = re.compile(r"减少(?!率)|降低(?!率)")
 
-# Claim 业务数值提取：排除年份/日期/页码/引用序号等非业务数字（确定性，无 LLM）。
-# 按「长模式优先」排序：完整中文日期 → 数字日期 → 年份 → 月/日 → 页码/条款 → 括号引用。
-# 全部替换为空格（避免拼接出新数字）；金额/比例带单位后缀（万元/元/%等），不含「年」，
-# 故不受年份/日期模式影响，不会被误删。
-_CLAIM_NON_BUSINESS_RES: tuple[re.Pattern, ...] = (
-    re.compile(r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),  # 2025年12月31日 / 2025年12月
-    re.compile(r"\d{4}\s*[-/.]\s*\d{1,2}\s*[-/.]\s*\d{1,2}"),      # 2025-12-31 / 2025/12/31 / 2025.12.31
-    re.compile(r"\d{4}\s*年"),                                     # 2025年 / 2024年度
-    re.compile(r"\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"),               # 12月 / 12月31日（无年份）
-    re.compile(r"第\s*\d+\s*[页条章节款]"),                        # 第5页 / 第3条
-    re.compile(r"[\[(（]\s*\d+\s*[\])）]"),                        # [3] / (3) / （3）
-)
-
 
 # ---------------------------------------------------------------------------
 # 权威性复合判定（Store 权威）
@@ -214,22 +201,6 @@ def _claim_direction(text: str) -> str | None:
     if len(found) != 1:
         return None
     return found.pop()
-
-
-def _extract_claim_business_amounts(text: str) -> list[E.Amount]:
-    """从 claim 文本抽取「业务数值」，排除年份/日期/页码/引用序号等非业务数字。
-
-    确定性、无 LLM、无 gold、无公司/案例规则。先用非业务模式「挖空」（替换为空格），
-    再走 E.extract_amounts（含单位归一化 + canonical Decimal）。
-
-    - `2025万元` / `2025%` / `2025元` 无「年」后缀，不受年份模式影响 → 保留；
-    - `2024年至2025年净利率由18.1%下降至17.3%` → 仅 18.1%、17.3%；
-    - `截至2025年12月31日，资产为4亿元` → 仅 4亿元（日期组成部分全部剔除）。
-    """
-    t = text or ""
-    for pat in _CLAIM_NON_BUSINESS_RES:
-        t = pat.sub(" ", t)
-    return E.extract_amounts(t)
 
 
 def _trend_relation(refs: list[RS.StructuredResultRef],
@@ -440,7 +411,7 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
         if repair is not None:
             repairs.append(repair)
 
-    claim_amounts = _extract_claim_business_amounts(claim.text or "")
+    claim_amounts = E.extract_claim_business_amounts(claim.text or "")
     claim_dir = _claim_direction(claim.text)
     has_direction = any(getattr(r, "direction", None) for r in refs)
     # 趋势语义 = 显式趋势词 或 claim 明确表达方向（含 mixed）。方向识别缺位时不算趋势。
@@ -596,6 +567,11 @@ def entailment_summary(state: H.ResearchState, prechecks: dict) -> list[dict]:
         elif pc.get("high_risk_scope"):
             summary.append({"claim_id": cid, "evaluator": "evidence_deterministic",
                             "verdict": "PARTIAL", "reason": "high_risk_scope"})
+        csg = pc.get("closed_set")
+        if csg and csg.get("triggered") and csg.get("verdict") in ("PARTIAL", "UNSUPPORTED"):
+            summary.append({"claim_id": cid, "evaluator": "evidence_deterministic",
+                            "verdict": csg["verdict"],
+                            "reason": "closed_set:" + csg["reason"]})
     for cid, v in state.structured_provenance.items():
         summary.append({"claim_id": cid, "evaluator": "structured_provenance",
                         "verdict": v.verdict, "reason": v.reason})

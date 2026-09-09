@@ -341,6 +341,81 @@ def main() -> dict:
     check(vp.partial == ["74.7%"] and vp.missing == ["74.7%"],
           "多单位表头无法归列 → PARTIAL（不误判 SUPPORTED）")
 
+    # ---- F1：共享业务数值提取（extract_claim_business_amounts，公司无关）----
+    def tokens(text: str) -> list[str]:
+        return [a.token for a in E.extract_claim_business_amounts(text)]
+
+    def has_value(text: str, v: str) -> bool:
+        return any(a.value == Decimal(v)
+                   for a in E.extract_claim_business_amounts(text))
+
+    # 年份区间（em-dash / 至）：整体剔除，不留裸年份。
+    check(tokens("2023—2025年营收增长") == [],
+          "F1 年份区间 em-dash：2023—2025年 → 无业务数值")
+    check(tokens("2023至2025年营收增长") == [],
+          "F1 年份区间「至」：2023至2025年 → 无业务数值")
+    # 完整中文日期 / 数字日期 / 月日：全部剔除。
+    check(tokens("截至2025年12月31日，资产为4亿元") == ["4亿元"],
+          "F1 中文日期剔除：仅剩 4亿元")
+    check(tokens("截至2025-12-31，资产为4亿元") == ["4亿元"],
+          "F1 数字日期剔除：仅剩 4亿元")
+    check(tokens("2024年度营收") == [],
+          "F1 年份（2024年度）剔除")
+    # 页码/条款/引用序号/序数排名：非业务，剔除。
+    check(tokens("第5页、第3条、引用[2]") == [],
+          "F1 页码/条款/引用序号：均非业务")
+    check(tokens("公司为行业第2位") == [] and tokens("排名第1名") == [],
+          "F1 序数/排名：第2位/第1名 → 非业务（排名语义交 entailment）")
+    # 业务数量：保留。
+    check(has_value("2位执行董事", "2"), "F1 数量保留：2位执行董事 → 保留 2")
+    check(has_value("5家客户", "5"), "F1 数量保留：5家客户 → 保留 5")
+    check(has_value("连续9年增长", "9"), "F1 数量保留：连续9年 → 保留 9")
+    check(has_value("54,538项专利", "54538"), "F1 数量保留：54,538项专利 → 保留 54538")
+    # 金额/比例带单位后缀：4 位数字不是年份，保留。
+    check(has_value("2025万元", "20250000"), "F1 金额保留：2025万元（2025 非年份）")
+    check(has_value("2025元", "2025"), "F1 金额保留：2025元")
+    check(has_value("2025%", "2025"), "F1 比例保留：2025%")
+    # 趋势句仅剩业务数值。
+    check(tokens("2024年至2025年净利率由18.1%下降至17.3%") == ["18.1%", "17.3%"],
+          "F1 趋势句：仅 18.1% / 17.3%")
+    # value_presence 不再误报年份/日期为 value_missing。
+    vp = E.value_presence(H.Claim(claim_id="c1", text="2023—2025年营业收入持续增长",
+                                  kind="fact", citation_refs=[0]),
+                          [_mat("2023—2025年营业收入逐年上升，2025年达4亿元")])
+    check(vp.missing == [], "F1 value_presence：年份区间不触发 value_missing")
+    vp = E.value_presence(H.Claim(claim_id="c1", text="截至2025年12月31日资产为4亿元",
+                                  kind="fact", citation_refs=[0]),
+                          [_mat("截至2025年12月31日资产4亿元")])
+    check(vp.missing == [], "F1 value_presence：中文日期不触发 value_missing")
+
+    # ---- F2：封闭集合/总数安全门（closed_set_guard，公司无关）----
+    def guard(text: str, ev: str) -> E.ClosedSetGuard:
+        return E.closed_set_guard(
+            H.Claim(claim_id="c1", text=text, kind="fact", citation_refs=[0]),
+            [_mat(ev)] if ev else [])
+
+    g = guard("共2人", "甲、乙")
+    check(g.triggered and g.verdict != "SUPPORTED",
+          "F2 部分列表：证据仅列甲、乙，claim「共2人」不得 SUPPORTED")
+    g = guard("共2人", "执行成员共2人：甲、乙")
+    check(g.triggered and g.verdict == "SUPPORTED" and g.reason == "explicit_total_match",
+          "F2 显式同口径总数：证据「共2人」匹配 → SUPPORTED")
+    g = guard("共2人：甲、乙", "甲、乙、丙")
+    check(g.triggered and g.verdict == "UNSUPPORTED"
+          and g.reason == "incomplete_closed_set",
+          "F2 漏报成员：证据甲、乙、丙 3 人 > claim 共2人 → incomplete_closed_set")
+    g = guard("目前证据至少确认甲、乙两人，完整名单待核实", "甲、乙")
+    check(g.triggered and g.verdict == "PARTIAL" and g.hedged,
+          "F2 诚实降级：至少确认…待核实 → PARTIAL")
+    g = guard("实控人为曾毓群", "实际控制人为曾毓群")
+    check(g.triggered is False,
+          "F2 非封闭集合事实不触发")
+    check(has_value("共2人", "2"),
+          "F2 总数数值不被 F1 过滤：共2人 → 保留 2")
+    g = guard("共2人", "执行成员共3人：甲、乙、丙")
+    check(g.triggered and g.verdict == "UNSUPPORTED" and g.reason == "total_mismatch",
+          "F2 证据显式总数不等 → UNSUPPORTED total_mismatch")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

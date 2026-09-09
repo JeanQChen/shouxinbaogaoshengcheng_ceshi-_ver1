@@ -252,6 +252,10 @@ def evaluate_success(state: H.ResearchState,
             for r in pc["scope_risks"]:
                 if r.get("severity") == "high":
                     unsupported.append(f"{cid}: 口径风险[{r['dimension']}]: {r['detail']}")
+        # 封闭集合/总数安全门：总数断言仅 SUPPORTED 才可 FULL；PARTIAL/UNSUPPORTED 阻断。
+        csg = pc.get("closed_set")
+        if csg and csg.get("triggered") and csg.get("verdict") in ("PARTIAL", "UNSUPPORTED"):
+            unsupported.append(f"{cid}: 封闭集合 {csg['verdict']}: {csg['reason']}")
 
     # G4 批量 entailment（由 runtime ANSWER 分支填充 state.entailment_verdicts /
     # unsupported_claims；entailment evaluator 失败 → fail-closed）。

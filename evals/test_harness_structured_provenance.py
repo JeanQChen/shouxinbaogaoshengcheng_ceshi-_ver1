@@ -331,7 +331,7 @@ def main() -> dict:
     # ===================== 非业务数值过滤（定点修复①） =====================
 
     def biz_tokens(text):
-        return [a.token for a in SP._extract_claim_business_amounts(text)]
+        return [a.token for a in E.extract_claim_business_amounts(text)]
 
     # 「2024年至2025年净利率下降」——年份不当指标值，方向正确 → SUPPORTED
     state_cmp = _state(refs=_compare_refs(a="1.61", b="1.60", direction="decreased"))

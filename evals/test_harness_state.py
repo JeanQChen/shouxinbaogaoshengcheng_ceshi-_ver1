@@ -258,6 +258,18 @@ def main() -> dict:
           and any("口径风险" in u for u in r["unsupported_claims"]),
           "evaluate_success：确定性 high_risk_scope → COMPLETED_WITH_GAPS")
 
+    st_cs = _state(evidence_ids=["e1"], inspected_evidence={"e1": H.InspectedMaterial(
+        evidence_id="e1", text="甲、乙", is_snippet=False)})
+    cs_ans = H.ResearchAnswer(
+        question_id="q1", answer_text="执行董事共2人",
+        claims=[H.Claim(claim_id="c1", text="执行董事共2人", kind="fact",
+                        citation_refs=[0])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1")])
+    r = S.evaluate_success(st_cs, cs_ans)
+    check(r["completion_status"] == "COMPLETED_WITH_GAPS"
+          and any("封闭集合" in u for u in r["unsupported_claims"]),
+          "evaluate_success：封闭集合部分列表 → COMPLETED_WITH_GAPS（不能 FULL）")
+
     # ---- G4 entailment 汇总 + evaluator 失败（fail-closed） ----
     st_ent = _state(structured_refs=[_structured_ref()])
     st_ent.unsupported_claims = ["c1: entailment UNSUPPORTED: 口径不符"]
