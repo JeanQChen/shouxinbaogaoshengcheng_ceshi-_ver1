@@ -121,6 +121,14 @@ def _fake_registry() -> R.ToolRegistry:
                      status="SUCCESS", data={"source_snapshot_id": "snap1"},
                      external_snapshot_ids=["snap1"], error_code=None, message=None,
                      retryable=False, trace_id="t"))
+    reg.register(_spec("search_external_sources", ["query"],
+                       {"query": {"type": "string"}, "limit": {"type": "integer"}},
+                       ("EXTERNAL_RESEARCH",)),
+                 lambda a: TC.ToolResult(
+                     call_id="", tool_name="search_external_sources", tool_version="v1",
+                     status="SUCCESS", data={"results": [
+                         {"url": "https://a.com/x", "snippet": "s", "rank": 1}]},
+                     error_code=None, message=None, retryable=False, trace_id="t"))
     return reg
 
 
@@ -297,6 +305,28 @@ def main() -> dict:
     check(tools == ["fetch_external_content", "snapshot_external_source"],
           "fetch + 自动 snapshot 两条工具记录")
     check(any(r.auto for r in o.state.tool_history), "snapshot 标记为 auto")
+
+    # ---- F4：SEARCH_EXTERNAL 已有未 fetch 候选 → 重复 search 被拦截，改 fetch→snapshot ----
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "软件收入"}}',
+         '{"action": "SEARCH_EXTERNAL", "arguments": {"query": "软件业务 收入"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://a.com/x"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = _run("EXTERNAL_RESEARCH", llm)
+    tools = [r.result.tool_name for r in o.state.tool_history]
+    check(tools == ["search_external_sources", "fetch_external_content",
+                    "snapshot_external_source"],
+          "F4 重复 SEARCH_EXTERNAL 被拦截，改 fetch→自动 snapshot")
+    check(len([r for r in o.state.rejected_duplicate_actions
+               if r.get("source") == "external_search_blocked"]) == 1
+          and o.state.rejected_duplicate_actions[0].get("reason")
+          == "EXTERNAL_SEARCH_HAS_UNFETCHED_CANDIDATES",
+          "F4 被拦截的重复 search 写入 rejected（source+reason）")
+    check(o.state.usage.external_searches == 1,
+          "F4 第二次外部搜索被拦截，不计 external_searches 分项")
+    check(o.state.external_snapshot_ids == ["snap1"],
+          "F4 fetch→自动 snapshot 固化 source_snapshot_id")
 
     # ---- 虚构引用 → FAILED ----
     llm = MockLLM(['{"action": "ANSWER", "arguments": {}}'], [_ANSWER_GHOST])

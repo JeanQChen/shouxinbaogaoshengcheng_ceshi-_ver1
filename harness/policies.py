@@ -162,6 +162,61 @@ def dedup_key(call: TC.ToolCall) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 外部搜索 → fetch → snapshot 状态规则（F4）
+# ---------------------------------------------------------------------------
+
+def searched_candidate_urls(state: H.ResearchState) -> list[str]:
+    """SEARCH_EXTERNAL 已返回的候选 URL（保序去重）。
+
+    只读 tool_history 中 search_external_sources 的 results[].url；搜索摘要只导航、
+    不作关键事实引用（正文必须 fetch 后 snapshot 才可引用）。
+    """
+    urls: list[str] = []
+    for rec in state.tool_history:
+        if rec.result.tool_name != "search_external_sources":
+            continue
+        for r in (rec.result.data or {}).get("results", []):
+            url = r.get("url") if isinstance(r, dict) else None
+            if url and url not in urls:
+                urls.append(url)
+    return urls
+
+
+def fetched_urls(state: H.ResearchState) -> set[str]:
+    """已发起过 FETCH_EXTERNAL 的 URL（含失败尝试）。
+
+    失败尝试也算「已消耗候选」：fetch 失败后该 URL 不再永久阻断重搜索（避免死锁）。
+    """
+    urls: set[str] = set()
+    for rec in state.tool_history:
+        if rec.result.tool_name != "fetch_external_content":
+            continue
+        url = (rec.call.arguments or {}).get("url")
+        if url:
+            urls.add(url)
+    return urls
+
+
+def unfetched_candidate_urls(state: H.ResearchState) -> list[str]:
+    """SEARCH_EXTERNAL 已返回、但尚未发起过 FETCH_EXTERNAL 的候选 URL。"""
+    fetched = fetched_urls(state)
+    return [u for u in searched_candidate_urls(state) if u not in fetched]
+
+
+def external_search_blocked(state: H.ResearchState) -> str | None:
+    """F4 状态规则：已有未 fetch 候选 URL 时，禁止再次 SEARCH_EXTERNAL。
+
+    返回阻断原因或 None。规则（fail-closed）：
+    - 无未 fetch 候选 → 不阻断（首个 search 或候选已耗尽）；
+    - 有未 fetch 候选 → 阻断，应优先 FETCH_EXTERNAL 消耗候选，而非重复/近义搜索。
+    「换 aspect 新查询」不在确定性可判范围：须先 fetch 消耗候选，之后才允许再 search。
+    """
+    if unfetched_candidate_urls(state):
+        return "EXTERNAL_SEARCH_HAS_UNFETCHED_CANDIDATES"
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 预算检查
 # ---------------------------------------------------------------------------
 

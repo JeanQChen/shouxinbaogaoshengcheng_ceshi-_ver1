@@ -36,6 +36,9 @@
 
 {{search_candidates}}
 
+## 外部搜索状态
+{{external_search_blocked}}
+
 ## 输出格式（严格 JSON，一个 object，不要任何额外文字）
 {"action": "<动作名>", "arguments": {...}}
 
@@ -58,3 +61,4 @@
 7. 不要重复「已拒绝的重复动作」里同样参数的动作。
 8. 不要对「已 inspect」里列出的 evidence_id 再发 INSPECT_EVIDENCE（正文已取得，可直接用于 ANSWER）。
 9. 当「是否必须收敛」为「是」时：本回合是最后一个可用回合，必须从 ANSWER / STOP_WITH_GAP / REQUEST_HUMAN 中选一个，不得再发检索或 inspect 动作；已有可引用材料时优先 ANSWER。
+10. 当「外部搜索状态」显示 SEARCH_EXTERNAL 已被拦截时，不得再发 SEARCH_EXTERNAL：必须改用 FETCH_EXTERNAL 抓取 search_candidates 里的候选 URL（系统抓取成功后会自动固化快照，之后才能引用）。

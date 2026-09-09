@@ -331,6 +331,18 @@ def _search_candidates(state: H.ResearchState) -> str:
     return "FETCH_EXTERNAL 的 url 只能取自以下候选：\n" + "\n".join(f"- {u}" for u in urls[:10])
 
 
+def _external_search_blocked_text(state: H.ResearchState) -> str:
+    """F4：SEARCH_EXTERNAL 是否被系统拦截的提示（供动作选择 prompt）。"""
+    blocked = P.external_search_blocked(state)
+    if not blocked:
+        return "（无）"
+    unfetched = P.unfetched_candidate_urls(state)
+    return (f"SEARCH_EXTERNAL 已被系统拦截：你已有 {len(unfetched)} 个未 fetch 的候选 URL，"
+            f"必须先 FETCH_EXTERNAL 其中之一（url 取自 search_candidates），"
+            f"不得重复/近义搜索。未 fetch 候选："
+            + "、".join(unfetched[:5]))
+
+
 def _budget_left(state: H.ResearchState, budget: P.ResearchBudget) -> str:
     u = state.usage
     return (f"rounds {u.rounds}/{budget.max_rounds}, tool_calls {u.tool_calls}/"
@@ -354,6 +366,7 @@ def _action_prompt_vars(state: H.ResearchState, route: str, reason: str,
         "unresolved": "\n".join(f"- {x}" for x in state.unresolved_items) or "（无）",
         "budget_left": _budget_left(state, budget),
         "search_candidates": _search_candidates(state),
+        "external_search_blocked": _external_search_blocked_text(state),
         "required_aspects": _aspects_text(state),
         "rejected_duplicates": _rejected_duplicates_text(state),
         "already_inspected": _already_inspected_text(state),
@@ -872,6 +885,20 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                        {"round": state.usage.rounds, "action": action.action,
                         "tool": tool_name, "key": key, "tool_called": False})
             continue
+        # F4：外部重复搜索拦截——已有未 fetch 候选 URL 时，SEARCH_EXTERNAL 被拒绝
+        # （应先 FETCH_EXTERNAL 消耗候选，而非重复/近义搜索；换 aspect 需先 fetch 再 search）。
+        if action.action == "SEARCH_EXTERNAL":
+            blocked = P.external_search_blocked(state)
+            if blocked:
+                state.usage.consecutive_no_new_evidence += 1
+                state.rejected_duplicate_actions.append({
+                    "round": state.usage.rounds, "action": action.action,
+                    "tool": tool_name, "key": key, "source": "external_search_blocked",
+                    "reason": blocked})
+                if trace_enabled:
+                    T.emit(run_id, need.need_id, "EXTERNAL_SEARCH_BLOCKED",
+                           {"round": state.usage.rounds, "reason": blocked})
+                continue
         result = registry.execute(call, route=route, run_id=state.run_id,
                                   max_retries=budget.max_retries_per_call)
         state.executed_action_keys.append(key)
@@ -964,6 +991,7 @@ def _main(argv: list[str]) -> int:
                        "round": 1, "allowed_actions": "- SEARCH_LOCAL\n- ANSWER",
                        "evidence_summary": "（无）", "unresolved": "（无）",
                        "budget_left": "rounds 1/5", "search_candidates": "",
+                       "external_search_blocked": "（无）",
                        "available_material": "（无）", "required_aspects": "（无）",
                        "rejected_duplicates": "（无）", "already_inspected": "（无）",
                        "must_converge": "否"}

@@ -154,6 +154,48 @@ def main() -> dict:
     check("FINANCIAL_UNAVAILABLE" in P.supplement_triggers(st),
           "财务字段不可用 → FINANCIAL_UNAVAILABLE")
 
+    # ---- F4：外部搜索 → fetch → snapshot 状态规则 ----
+    def _ext_search_record(urls):
+        return _record("search_external_sources", "SUCCESS",
+                       {"results": [{"url": u, "snippet": "s"} for u in urls]})
+
+    def _ext_fetch_record(url):
+        res = TC.ToolResult(call_id="cid", tool_name="fetch_external_content",
+                            tool_version="v1", status="SUCCESS", data={})
+        return H.ToolCallRecord(
+            call=_call("fetch_external_content", {"url": url}), result=res)
+
+    st = _state(tool_history=[_ext_search_record(["https://a.com/x"])])
+    check(P.searched_candidate_urls(st) == ["https://a.com/x"],
+          "F4 searched_candidate_urls 提取候选 URL")
+    check(P.unfetched_candidate_urls(st) == ["https://a.com/x"],
+          "F4 未 fetch 候选 = 已搜未 fetch")
+    check(P.external_search_blocked(st) == "EXTERNAL_SEARCH_HAS_UNFETCHED_CANDIDATES",
+          "F4 有未 fetch 候选 → 阻断 SEARCH_EXTERNAL")
+
+    st = _state(tool_history=[_ext_search_record(["https://a.com/x"]),
+                              _ext_fetch_record("https://a.com/x")])
+    check(P.fetched_urls(st) == {"https://a.com/x"},
+          "F4 fetched_urls 记录已 fetch URL")
+    check(P.unfetched_candidate_urls(st) == [],
+          "F4 fetch 后候选已消耗")
+    check(P.external_search_blocked(st) is None,
+          "F4 候选已耗尽 → 允许再 search")
+
+    # 失败 fetch 也算「已消耗候选」（避免死锁）。
+    st = _state(tool_history=[_ext_search_record(["https://a.com/x"]),
+                              _ext_fetch_record("https://a.com/x")])
+    check(P.external_search_blocked(st) is None,
+          "F4 fetch 失败也算消耗候选，不永久阻断")
+
+    st = _state(tool_history=[_record("search_external_sources", "EMPTY")])
+    check(P.external_search_blocked(st) is None,
+          "F4 搜索无候选 → 不阻断")
+
+    st = _state(tool_history=[_record("search_evidence", "SUCCESS")])
+    check(P.external_search_blocked(st) is None,
+          "F4 无关工具 → 不阻断")
+
     # ---- has_gap ----
     check(P.has_gap(_state(unresolved_items=["x"])) is True, "has_gap：有缺口")
     check(P.has_gap(_state()) is False, "has_gap：无缺口")
