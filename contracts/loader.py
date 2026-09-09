@@ -118,6 +118,7 @@ def _parse_question(raw: dict) -> S.KeyQuestion:
         missing_policy=raw.get("missing_policy", "write_not_found"),
         blocking_policy=_parse_blocking_policy(raw.get("blocking_policy")),
         impact_scope=list(raw.get("impact_scope", [])),
+        required_aspects=list(raw.get("required_aspects", [])),
     )
 
 

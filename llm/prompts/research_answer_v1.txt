@@ -8,6 +8,9 @@
 - 原始问题：{{question}}
 - 已定路由：{{route}}
 
+## 必须覆盖的方面（每个方面都要有 claim 覆盖并回查引用；编号是 aspect_id，原样回填）
+{{required_aspects}}
+
 ## 可引用材料（只能引用下面出现的 ID/键；引用时原样照抄，不得改写或编造）
 {{available_material}}
 
@@ -22,6 +25,9 @@
   ],
   "citations": [
     {"ref_type": "evidence", "evidence_id": "e1", "page_number": 3}
+  ],
+  "aspects": [
+    {"aspect_id": "a1", "text": "该方面的回答要点", "claim_ids": ["c1"]}
   ],
   "unresolved_items": [],
   "confidence": "high"
@@ -38,3 +44,6 @@
 4. kind 只能取 "fact" 或 "inference"。
 5. 若有影响核心答案的缺口，写入 unresolved_items（字符串数组）；无缺口给空数组。
 6. confidence 只能取 "high" 或 "low"。
+7. 「必须覆盖的方面」里的每个 aspect_id 都要在 aspects 数组里出现，且 claim_ids 指向确实支撑该方面的 claim。没有覆盖到某方面时，不要编造 aspect 条目，而是在 unresolved_items 里写明缺哪个方面。
+8. 数值型方面（占比/率/金额/余额/额度/规模/增速/多少/几家等）必须给出**具体数字**并逐条回查引用；只写“领先/较高/为主”而无数字视为未覆盖。
+9. 口径必须与证据一致：合计 vs 明细、合并 vs 母公司、授信总额度 vs 已用 vs 单笔、全部对外担保 vs 对子公司/为股东实控人、金额单位、表头行标签。口径不符时把结论降级为 unresolved，不要硬答。

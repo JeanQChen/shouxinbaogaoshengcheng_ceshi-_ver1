@@ -16,6 +16,7 @@ CLI: python -m harness.runtime --self-check
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import time
@@ -23,6 +24,7 @@ import uuid
 from typing import Protocol
 
 from harness import actions as A
+from harness import aspects as ASP
 from harness import policies as P
 from harness import schema as H
 from harness import state as S
@@ -85,6 +87,12 @@ def _new_state(need: RS.InformationNeed, route_result: RS.RouterResult, *,
         section_id=section_id, original_question=need.question, need=need)
     st.route_result = route_result
     st.budget = budget.as_dict()
+    # 契约优先派生 required-aspect（SECTION_CONTRACT / DATASET_MAPPING / TEXT_FALLBACK）。
+    aspects = ASP.derive_required_aspects(
+        need.question, section_id=section_id, case_id=case_id,
+        question_id=need.need_id)
+    st.required_aspects = [dataclasses.asdict(a) for a in aspects]
+    st.aspect_source = ASP.aspect_source(aspects)
     return st
 
 
@@ -313,6 +321,8 @@ def _action_prompt_vars(state: H.ResearchState, route: str, reason: str,
         "unresolved": "\n".join(f"- {x}" for x in state.unresolved_items) or "（无）",
         "budget_left": _budget_left(state, budget),
         "search_candidates": _search_candidates(state),
+        "required_aspects": _aspects_text(state),
+        "rejected_duplicates": _rejected_duplicates_text(state),
     }
 
 
@@ -335,6 +345,22 @@ def _available_material(state: H.ResearchState) -> str:
     return "\n".join(parts) if parts else "（无）"
 
 
+def _aspects_text(state: H.ResearchState) -> str:
+    rows = []
+    for a in state.required_aspects:
+        rows.append(f'- {a.get("aspect_id", "")}: {a.get("text", "")}')
+    return "\n".join(rows) if rows else "（无）"
+
+
+def _rejected_duplicates_text(state: H.ResearchState) -> str:
+    rej = getattr(state, "rejected_duplicate_actions", None) or []
+    if not rej:
+        return "（无）"
+    return "\n".join(
+        f'- round {r.get("round", "?")} {r.get("action", "?")} {r.get("tool", "?")}'
+        for r in rej)
+
+
 def _answer_prompt_vars(state: H.ResearchState, route: str) -> dict:
     return {
         "company_id": state.company_id,
@@ -343,6 +369,7 @@ def _answer_prompt_vars(state: H.ResearchState, route: str) -> dict:
         "route": route,
         "available_material": _available_material(state),
         "unresolved": "\n".join(f"- {x}" for x in state.unresolved_items) or "（无）",
+        "required_aspects": _aspects_text(state),
     }
 
 
@@ -387,6 +414,16 @@ def parse_answer(raw: str, question_id: str) -> H.ResearchAnswer:
 
     citations = [_citation_from_dict(c) for c in data.get("citations", [])]
 
+    aspects = []
+    for a in data.get("aspects", []):
+        if not isinstance(a, dict):
+            continue
+        aspects.append(H.AspectAnswer(
+            aspect_id=str(a.get("aspect_id", "")),
+            text=str(a.get("text", "")),
+            claim_ids=[str(c) for c in a.get("claim_ids", [])],
+        ))
+
     return H.ResearchAnswer(
         question_id=question_id,
         answer_text=str(data.get("answer_text", "")),
@@ -394,6 +431,7 @@ def parse_answer(raw: str, question_id: str) -> H.ResearchAnswer:
         citations=citations,
         unresolved_items=[str(x) for x in data.get("unresolved_items", [])],
         confidence=data.get("confidence", "low") if data.get("confidence") in H.CONFIDENCE_LEVELS else "low",
+        aspects=aspects,
     )
 
 
@@ -408,6 +446,16 @@ def _generate_answer(state: H.ResearchState, llm: ResearchLLM, route: str,
         return answer
     except Exception:
         return None
+
+
+def _merge_gaps(state: H.ResearchState, ev: dict) -> None:
+    """把成功判定返回的缺口（未覆盖方面/不支持 claim）写回 unresolved_items（去重）。"""
+    new: list[str] = []
+    for u in ev.get("uncovered_aspects", []):
+        new.append(f"未覆盖方面: {u}")
+    for c in ev.get("unsupported_claims", []):
+        new.append(f"引用不支持结论: {c}")
+    state.unresolved_items = list(dict.fromkeys(state.unresolved_items + new))
 
 
 # ---------------------------------------------------------------------------
@@ -481,8 +529,14 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 S.set_status(state, "COMPLETED", "COMPLETED")
                 stop_reason = "COMPLETED"
             elif ev["completion_status"] == "COMPLETED_WITH_GAPS":
-                S.set_status(state, "COMPLETED_WITH_GAPS", "COMPLETED_WITH_GAPS")
-                stop_reason = "COMPLETED_WITH_GAPS"
+                # 缺口写回 unresolved；预算有空间则继续补检，否则带缺口结束。
+                _merge_gaps(state, ev)
+                if P.budget_has_room(state, budget):
+                    S.set_status(state, "RESEARCHING")
+                    # 不 break：进入下一轮补检。
+                else:
+                    S.set_status(state, "COMPLETED_WITH_GAPS", "COMPLETED_WITH_GAPS")
+                    stop_reason = "COMPLETED_WITH_GAPS"
             elif ev["completion_status"] == "FAILED":
                 S.set_status(state, "FAILED", "MODEL_OUTPUT_INVALID")
                 stop_reason = "MODEL_OUTPUT_INVALID"
@@ -491,11 +545,14 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 stop_reason = "PATH_NOT_IMPLEMENTED"
             if trace_enabled:
                 T.emit(run_id, need.need_id, "ANSWER",
-                       {"completion_status": stop_reason,
+                       {"completion_status": state.status,
                         "claims": len(answer.claims),
                         "citations": len(answer.citations),
-                        "unresolved": answer.unresolved_items})
-            break
+                        "unresolved": state.unresolved_items,
+                        "uncovered_aspects": ev.get("uncovered_aspects", [])})
+            if state.status in ("COMPLETED", "COMPLETED_WITH_GAPS", "FAILED", "BLOCKED"):
+                break
+            continue
 
         if action.action == "STOP_WITH_GAP":
             gap = (action.arguments or {}).get("reason", "")
@@ -546,9 +603,14 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
             S.set_status(state, "FAILED", stop_reason)
             break
 
-    # 循环结束（预算耗尽 / 连续无新证据）但无终态 → BLOCKED。
+    # 循环结束（预算耗尽 / 连续无新证据）但无终态。
     if state.status not in H.QUESTION_STATUSES[4:]:
-        S.set_status(state, "BLOCKED", stop_reason or "BUDGET_EXHAUSTED")
+        if answer is not None:
+            # 已有带缺口答案（可引用）但预算耗尽无法继续补检 → 带缺口结束。
+            S.set_status(state, "COMPLETED_WITH_GAPS", stop_reason or "COMPLETED_WITH_GAPS")
+            stop_reason = "COMPLETED_WITH_GAPS"
+        else:
+            S.set_status(state, "BLOCKED", stop_reason or "BUDGET_EXHAUSTED")
 
     state.usage.elapsed_ms = int((time.perf_counter() - t0) * 1000)
     outcome = _finalize(state, answer, stop_reason)

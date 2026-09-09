@@ -13,6 +13,7 @@ CLI: python -m harness.state --self-check
 from __future__ import annotations
 
 import json
+import re
 
 from harness import schema as H
 
@@ -107,19 +108,107 @@ def validate_answer(answer: H.ResearchAnswer | None,
 
 
 # ---------------------------------------------------------------------------
+# required-aspect 覆盖（G2 门，契约优先派生）
+# ---------------------------------------------------------------------------
+
+# 数值型方面标记：这些方面要求覆盖 claim 文本出现具体数字（阿拉伯数字或金额/比例单位）。
+_NUMERIC_ASPECT_TOKENS = (
+    "占比", "比例", "份额", "集中度", "率", "金额", "余额", "额度", "规模",
+    "增速", "增长", "多少", "几家", "几个", "持股", "注册资本", "实缴资本",
+)
+
+# 数字 token 判定：阿拉伯数字，或 %/元/万/亿/千 等金额·比例单位（覆盖“单位：万元”这类无阿拉伯数字的值）。
+_NUMBER_HINTS = ("%", "％", "元", "万", "亿", "千")
+
+
+def _is_numeric_aspect(text: str) -> bool:
+    return any(tok in text for tok in _NUMERIC_ASPECT_TOKENS)
+
+
+def _has_number(text: str) -> bool:
+    return bool(re.search(r"\d", text)) or any(t in text for t in _NUMBER_HINTS)
+
+
+def aspect_answers(state: H.ResearchState,
+                   answer: H.ResearchAnswer | None) -> list[dict]:
+    """逐 required-aspect 的覆盖情况（含 claim 归属与是否有数字）。
+
+    返回 [{aspect_id, text, source, answered, claim_ids, claim_texts, has_number}]。
+    required_aspects 为空时返回 []（旧测试/非契约题不受影响）。
+    """
+    required = state.required_aspects or []
+    claim_by_id = {c.claim_id: c for c in (answer.claims if answer else [])}
+    aspect_by_id = {a.aspect_id: a for a in (answer.aspects if answer else [])}
+    rows: list[dict] = []
+    for asp in required:
+        aspect_id = asp.get("aspect_id", "")
+        aa = aspect_by_id.get(aspect_id)
+        claim_ids = list(aa.claim_ids) if aa else []
+        claim_texts: list[str] = []
+        valid_claim_ids: list[str] = []
+        for cid in claim_ids:
+            c = claim_by_id.get(cid)
+            if c is not None:
+                valid_claim_ids.append(cid)
+                claim_texts.append(c.text)
+        rows.append({
+            "aspect_id": aspect_id,
+            "text": asp.get("text", ""),
+            "source": asp.get("source", ""),
+            "answered": bool(aa is not None and valid_claim_ids),
+            "claim_ids": valid_claim_ids,
+            "claim_texts": claim_texts,
+            "has_number": any(_has_number(t) for t in claim_texts),
+        })
+    return rows
+
+
+def uncovered_aspects(state: H.ResearchState,
+                      answer: H.ResearchAnswer | None) -> list[str]:
+    """返回未覆盖的必要方面（文本列表）。
+
+    - 无 AspectAnswer 或支撑 claim 无效 → 该方面文本；
+    - 数值型方面覆盖了但没有数字 → 该方面文本 + "（缺具体数字）"。
+    """
+    missing: list[str] = []
+    for row in aspect_answers(state, answer):
+        if not row["answered"]:
+            missing.append(row["text"])
+        elif _is_numeric_aspect(row["text"]) and not row["has_number"]:
+            missing.append(f"{row['text']}（缺具体数字）")
+    return missing
+
+
+# ---------------------------------------------------------------------------
 # 成功判定
 # ---------------------------------------------------------------------------
 
-def _result(success: bool, completion_status: str, reasons: list[str]) -> dict:
-    return {"success": success, "completion_status": completion_status,
-            "reasons": reasons}
+def _result(success: bool, completion_status: str, reasons: list[str],
+            uncovered_aspects: list[str] | None = None,
+            unsupported_claims: list[str] | None = None,
+            aspect_answers: list[dict] | None = None) -> dict:
+    return {
+        "success": success,
+        "completion_status": completion_status,
+        "reasons": reasons,
+        "uncovered_aspects": uncovered_aspects or [],
+        "unsupported_claims": unsupported_claims or [],
+        "aspect_answers": aspect_answers or [],
+    }
 
 
 def evaluate_success(state: H.ResearchState,
                      answer: H.ResearchAnswer | None) -> dict:
     """确定性成功判定（主判据；LLM evaluator 仅作诊断，不改变此结果）。
 
-    返回 {success, completion_status, reasons}，其中 completion_status 属于
+    四层门：
+      G0 路由 DECIDED（已有）；G1 结构合法 + 引用可回查（已有）；
+      G2 required-aspect 覆盖（契约优先派生，数值方面须有数字）；
+      G3/G4 数字/口径预检 + 批量 entailment（见 harness.entailment，经
+      state.unsupported_claims 汇总进本判定）。
+
+    返回 {success, completion_status, reasons, uncovered_aspects,
+    unsupported_claims, aspect_answers}；completion_status 属于
     COMPLETION_STATUSES：COMPLETED / COMPLETED_WITH_GAPS / UNRESOLVED /
     NOT_IMPLEMENTED / FAILED。
     """
@@ -130,9 +219,26 @@ def evaluate_success(state: H.ResearchState,
     errors = validate_answer(answer, state)
     if errors:
         return _result(False, "FAILED", errors)
-    if answer.unresolved_items:
-        return _result(False, "COMPLETED_WITH_GAPS", ["unresolved_items"])
-    return _result(True, "COMPLETED", [])
+
+    # G2 required-aspect 覆盖。
+    aa = aspect_answers(state, answer)
+    uncovered = uncovered_aspects(state, answer)
+
+    reasons: list[str] = list(answer.unresolved_items or [])
+    if uncovered:
+        reasons.extend(f"未覆盖方面: {u}" for u in uncovered)
+
+    # G3/G4 汇总（entailment 层把不支持 claim 写入 state；此处由调用方在
+    # ANSWER 分支填充 state.unsupported_claims 后再调 evaluate_success）。
+    unsupported = list(getattr(state, "unsupported_claims", []) or [])
+
+    if reasons or unsupported:
+        return _result(False, "COMPLETED_WITH_GAPS", reasons,
+                       uncovered_aspects=uncovered,
+                       unsupported_claims=unsupported, aspect_answers=aa)
+    return _result(True, "COMPLETED", [],
+                   uncovered_aspects=uncovered, unsupported_claims=unsupported,
+                   aspect_answers=aa)
 
 
 def is_sufficient(state: H.ResearchState,

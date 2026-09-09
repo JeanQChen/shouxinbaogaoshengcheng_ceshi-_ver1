@@ -10,6 +10,9 @@
 - 当前目标：{{current_goal}}
 - 当前回合：{{round}}
 
+## 必须覆盖的方面（ANSWER 前逐条核对是否已取得可回查证据）
+{{required_aspects}}
+
 ## 本轮允许的动作（只能从中选一个）
 {{allowed_actions}}
 
@@ -21,6 +24,9 @@
 
 ## 剩余预算
 {{budget_left}}
+
+## 已拒绝的重复动作（不要重复发起同样参数的动作）
+{{rejected_duplicates}}
 
 {{search_candidates}}
 
@@ -42,3 +48,5 @@
 3. INSPECT_EVIDENCE 只能用 evidence_summary 里已出现的 evidence_id；SEARCH_EXTERNAL 的 query 要针对缺口改写；FETCH_EXTERNAL 的 url 只能来自 search_candidates 里给出的 URL。
 4. 若已有足够材料回答核心问题，选 ANSWER（arguments 为空对象 {}）；若缺关键材料且预算允许，选相应检索/取数动作；若关键材料缺失且无法在剩余预算内补齐，选 STOP_WITH_GAP 并说明缺口；若需要客户经理确认才能继续，选 REQUEST_HUMAN 并说明原因。
 5. 不要输出 SNAPSHOT_EXTERNAL（由系统自动处理）；不要把搜索摘要直接当作结论来源。
+6. ANSWER 前核对口径：合计 vs 明细、合并 vs 母公司、授信总额度 vs 已用 vs 单笔、全部对外担保 vs 对子公司/为股东实控人、金额单位、表头行标签。口径对不上时先 INSPECT_EVIDENCE 看正文，不要硬答。
+7. 不要重复「已拒绝的重复动作」里同样参数的动作。

@@ -163,6 +163,15 @@ class Claim:
 
 
 @dataclass
+class AspectAnswer:
+    """答案对单个 required-aspect 的覆盖自述（LLM 输出，供 G2 门核对）。"""
+
+    aspect_id: str                          # 对应 required_aspects 的 aspect_id（a1, a2, ...）
+    text: str                               # 该方面的简短回答要点
+    claim_ids: list[str] = field(default_factory=list)  # 支撑该方面的 claim_id 列表
+
+
+@dataclass
 class ResearchAnswer:
     """一个 KeyQuestion 的简短答案（中间评测产物，非正式章节）。"""
 
@@ -173,6 +182,7 @@ class ResearchAnswer:
     unresolved_items: list[str] = field(default_factory=list)
     confidence: str = "low"
     completion_status: str = "UNRESOLVED"
+    aspects: list[AspectAnswer] = field(default_factory=list)  # 逐 required-aspect 覆盖
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +278,8 @@ class ResearchState:
     external_snapshot_ids: list[str] = field(default_factory=list)
     answered_claims: list[Claim] = field(default_factory=list)
     unresolved_items: list[str] = field(default_factory=list)
+    required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict
+    aspect_source: str = ""                                # SECTION_CONTRACT/DATASET_MAPPING/TEXT_FALLBACK
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None

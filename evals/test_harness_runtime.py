@@ -134,11 +134,14 @@ def _run(route, llm, reg=None):
         company_id="300750", section_id="company", trace_enabled=False)
 
 
-# 答案 JSON
+# 答案 JSON（mock 问题的 required_aspect 由 TEXT_FALLBACK 派生为单方面 a1="q"，
+# 故 COMPLETED 用答案须自报 aspects 覆盖 a1）。
 _ANSWER_EVIDENCE = ('{"answer_text": "实控人为曾毓群", '
                     '"claims": [{"claim_id": "c1", "text": "实控人为曾毓群", '
                     '"kind": "fact", "citation_refs": [0]}], '
                     '"citations": [{"ref_type": "evidence", "evidence_id": "e1"}], '
+                    '"aspects": [{"aspect_id": "a1", "text": "q", '
+                    '"claim_ids": ["c1"]}], '
                     '"unresolved_items": [], "confidence": "high"}')
 
 _ANSWER_EXTERNAL = ('{"answer_text": "近期无重大处罚", '
@@ -146,6 +149,8 @@ _ANSWER_EXTERNAL = ('{"answer_text": "近期无重大处罚", '
                     '"kind": "fact", "citation_refs": [0]}], '
                     '"citations": [{"ref_type": "external", '
                     '"source_snapshot_id": "snap1"}], '
+                    '"aspects": [{"aspect_id": "a1", "text": "q", '
+                    '"claim_ids": ["c1"]}], '
                     '"unresolved_items": [], "confidence": "high"}')
 
 _ANSWER_GHOST = ('{"answer_text": "x", "claims": [{"claim_id": "c1", "text": "x", '

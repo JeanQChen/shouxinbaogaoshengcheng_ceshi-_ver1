@@ -157,6 +157,10 @@ class KeyQuestion:
     missing_policy: str = "write_not_found"   # 引用命名缺失策略 policy_id
     blocking_policy: list[str] = dc_field(default_factory=list)  # 阻断后果集合（可复合），空=NONE
     impact_scope: list[str] = dc_field(default_factory=list)     # SC-04 影响范围（空=非核心）
+    # 该问题必须覆盖的各个可校验方面（通用声明，不写死公司/行业）。
+    # harness 据此逐方面核对 claim 覆盖；空 = 回退到 evidence_requirements.required_fields
+    # 或问题原文（见 harness.aspects 三级派生）。
+    required_aspects: list[str] = dc_field(default_factory=list)
 
 
 @dataclass

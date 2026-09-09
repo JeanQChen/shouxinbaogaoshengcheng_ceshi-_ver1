@@ -55,6 +55,10 @@ sections:
         key_questions:
           - question_id: company_subject_match
             question: 核对输入企业名称、材料内主体、股票代码与公开企业信息是否一致
+            required_aspects:
+              - 输入企业名称与材料主体一致性
+              - 股票代码
+              - 经营状态
             priority: P0
             blocking_policy: [JOB_BLOCKED]
             impact_scope: [subject]
@@ -67,6 +71,13 @@ sections:
                 required_fields: [企业名称, 股票代码, 经营状态]
           - question_id: company_identity_basic
             question: 成立日期、办公地址、法定代表人、注册资本、实缴资本和经营范围
+            required_aspects:
+              - 成立日期
+              - 办公地址
+              - 法定代表人
+              - 注册资本
+              - 实缴资本
+              - 经营范围
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -78,6 +89,10 @@ sections:
                 required_fields: [成立日期, 办公地址, 法定代表人, 注册资本, 实缴资本, 经营范围]
           - question_id: company_identity_history
             question: 历史沿革：重大改革、股权变更、法定代表人变更、上市及重大募资事项
+            required_aspects:
+              - 重大改革与股权变更
+              - 法定代表人变更
+              - 上市及重大募资事项
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -92,6 +107,10 @@ sections:
         key_questions:
           - question_id: company_control_chain
             question: 控股股东、实际控制人及控制链条（含可视化关系图）；合法无实际控制人为 SATISFIED，无法确认时 REPORT_BLOCKED
+            required_aspects:
+              - 控股股东
+              - 实际控制人
+              - 持股比例与控制链条
             priority: P0
             blocking_policy: [REPORT_BLOCKED]
             impact_scope: [subject]
@@ -108,6 +127,10 @@ sections:
         key_questions:
           - question_id: company_subsidiaries
             question: 主要子公司、集团结构与重要关联方
+            required_aspects:
+              - 主要子公司
+              - 集团结构
+              - 重要关联方
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -122,6 +145,10 @@ sections:
         key_questions:
           - question_id: company_business_main
             question: 主营业务、收入/成本/毛利构成与产业链位置；主营业务完全无法确认时阻断章节
+            required_aspects:
+              - 主营业务构成
+              - 各业务收入及收入占比
+              - 对应报告期与口径
             priority: P0
             blocking_policy: [SECTION_BLOCKED]
             impact_scope: [subject]
@@ -134,6 +161,10 @@ sections:
                 required_fields: [主营业务, 收入构成, 毛利构成]
           - question_id: company_business_model
             question: 采购/生产/销售模式、技术路线、成本与竞争能力
+            required_aspects:
+              - 采购生产销售模式
+              - 技术路线
+              - 成本与竞争能力
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -144,6 +175,9 @@ sections:
                 minimum_sources: 1
           - question_id: company_customer_concentration
             question: 客户集中度（客户名称依法未披露时标注“依法未披露”，不视为缺失或不存在）
+            required_aspects:
+              - 客户集中度
+              - 依法未披露时的标注
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found_disclose
@@ -154,6 +188,8 @@ sections:
                 minimum_sources: 1
           - question_id: company_supplier_concentration
             question: 供应商集中度
+            required_aspects:
+              - 供应商集中度
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -168,6 +204,8 @@ sections:
         key_questions:
           - question_id: company_competitiveness
             question: 核心竞争力
+            required_aspects:
+              - 核心竞争力
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -178,6 +216,10 @@ sections:
                 minimum_sources: 1
           - question_id: company_rd_capacity
             question: 研发能力、发展计划与在建工程
+            required_aspects:
+              - 研发能力
+              - 发展计划
+              - 在建工程
             priority: P2
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -192,6 +234,10 @@ sections:
         key_questions:
           - question_id: company_governance
             question: 治理结构、内控、管理层稳定性及主要管理人员履历
+            required_aspects:
+              - 治理结构与内控
+              - 管理层稳定性
+              - 主要管理人员履历
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -206,6 +252,10 @@ sections:
         key_questions:
           - question_id: company_litigation
             question: 重大诉讼、违约、处罚、失信与退市风险（无发现也须记录检索范围与截止日期）
+            required_aspects:
+              - 重大诉讼与处罚
+              - 失信与退市风险
+              - 检索范围与截止日期
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -216,6 +266,10 @@ sections:
                 minimum_sources: 1
           - question_id: company_related_transactions
             question: 关联交易（采购/销售/担保）的合规性与占比
+            required_aspects:
+              - 关联采购销售担保
+              - 关联交易占比
+              - 合规性
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -226,6 +280,9 @@ sections:
                 minimum_sources: 1
           - question_id: company_pledge_sentiment
             question: 股权质押与舆情
+            required_aspects:
+              - 股权质押情况
+              - 舆情
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -240,6 +297,8 @@ sections:
         key_questions:
           - question_id: company_debt_credit
             question: 授信额度及已用规模；材料明显缺失无法核实时不生成对应偿债结论
+            required_aspects:
+              - 公司整体授信额度及使用情况
             priority: P0
             blocking_policy: [REPORT_BLOCKED]
             impact_scope: [solvency]
@@ -251,6 +310,9 @@ sections:
                 minimum_sources: 1
           - question_id: company_debt_guarantee
             question: 发债、金融机构借款和对外担保（结构化表格呈现）；材料明显缺失无法核实时不生成对应偿债结论
+            required_aspects:
+              - 公司整体对外担保余额
+              - 担保范围口径与报告期
             priority: P0
             blocking_policy: [REPORT_BLOCKED]
             impact_scope: [solvency]
@@ -266,6 +328,9 @@ sections:
         key_questions:
           - question_id: company_profit_quality
             question: 非主营损益（投资收益、公允价值变动、减值、营业外收支）及利润质量
+            required_aspects:
+              - 非主营损益构成
+              - 利润质量
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -280,6 +345,10 @@ sections:
         key_questions:
           - question_id: company_investment
             question: 重大投资、收并购、资产出售与定向增发等影响经营的事件
+            required_aspects:
+              - 重大投资与收并购
+              - 资产出售
+              - 定向增发
             priority: P2
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -294,6 +363,9 @@ sections:
         key_questions:
           - question_id: company_equity_incentive
             question: 股权激励计划及进展（无相关计划时为 NOT_APPLICABLE，不阻断）
+            required_aspects:
+              - 股权激励计划及进展
+              - 无计划时为不适用
             priority: P2
             blocking_policy: NONE
             missing_policy: not_applicable_no_plan
@@ -308,6 +380,10 @@ sections:
         key_questions:
           - question_id: company_credit_summary
             question: 公司核心信用优势、风险、偿债影响与未解决问题
+            required_aspects:
+              - 核心信用优势
+              - 核心风险
+              - 偿债影响与未解决问题
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -348,6 +424,12 @@ sections:
         key_questions:
           - question_id: fin_statements_availability
             question: 最新完整年度三张主表（资产负债表、利润表、现金流量表）与审计意见齐备；趋势原则上覆盖近三年；最新季度/半年可用则纳入，否则披露缺口；缺最新完整年度任一主表即阻断
+            required_aspects:
+              - 资产负债表齐备
+              - 利润表齐备
+              - 现金流量表齐备
+              - 审计意见
+              - 近三年趋势覆盖
             priority: P0
             blocking_policy: [SECTION_BLOCKED, REPORT_BLOCKED]
             impact_scope: [key_financial]
@@ -360,6 +442,12 @@ sections:
                 required_fields: [资产负债表, 利润表, 现金流量表]
           - question_id: fin_audit_opinion
             question: 审计意见、会计师事务所、报告期、合并范围与单位（不要求三份独立审计报告，可从历年年报/最新年报比较披露取得；报告期间/金额单位/合并或母公司口径无法确认即阻断）
+            required_aspects:
+              - 审计意见
+              - 会计师事务所
+              - 报告期
+              - 合并范围
+              - 金额单位
             priority: P1
             blocking_policy: [SECTION_BLOCKED, REPORT_BLOCKED]
             impact_scope: [key_financial]
@@ -376,6 +464,9 @@ sections:
         key_questions:
           - question_id: fin_consistency
             question: 三张报表及附注勾稽一致；多来源数字冲突时保留各来源值并生成 reconciliation issue，暂停受影响计算与 Claim
+            required_aspects:
+              - 三表勾稽一致性
+              - 多来源冲突保留各来源并生成 reconciliation
             priority: P0
             blocking_policy: [REPORT_BLOCKED]
             impact_scope: [key_financial, solvency]
@@ -391,6 +482,10 @@ sections:
         key_questions:
           - question_id: fin_balance_structure
             question: 资产负债结构与重大科目变化；科目占资产或负债 15% 以上强制分析，重点科目无论占比均分析
+            required_aspects:
+              - 资产负债结构
+              - 重大科目变化
+              - 15%以上科目强制分析
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -405,6 +500,11 @@ sections:
         key_questions:
           - question_id: fin_solvency
             question: 短期与长期偿债能力、净资产水平与刚性债务结构
+            required_aspects:
+              - 短期偿债能力
+              - 长期偿债能力
+              - 净资产水平
+              - 刚性债务结构
             priority: P0
             blocking_policy: NONE
             impact_scope: [solvency]
@@ -421,6 +521,12 @@ sections:
         key_questions:
           - question_id: fin_profitability
             question: 盈利能力与利润质量
+            required_aspects:
+              - 毛利率
+              - 净利率
+              - ROE
+              - ROA
+              - 利润质量
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -435,6 +541,10 @@ sections:
         key_questions:
           - question_id: fin_operating
             question: 营运效率（应收账款、存货、总资产周转）
+            required_aspects:
+              - 应收账款周转
+              - 存货周转
+              - 总资产周转
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -448,6 +558,9 @@ sections:
         key_questions:
           - question_id: fin_cashflow
             question: 现金流结构与现金保障程度（经营现金流能否覆盖债务与贷款偿付）
+            required_aspects:
+              - 现金流结构
+              - 经营现金流覆盖债务能力
             priority: P0
             blocking_policy: NONE
             impact_scope: [solvency]
@@ -461,6 +574,11 @@ sections:
         key_questions:
           - question_id: fin_growth
             question: 增长趋势、异常变动、可能原因与杜邦分析
+            required_aspects:
+              - 营收增长率
+              - 净利增长率
+              - 异常变动及原因
+              - 杜邦分析
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -474,6 +592,10 @@ sections:
         key_questions:
           - question_id: fin_asset_quality
             question: 非主营损益、减值、受限资产、商誉、开发支出对利润和资产质量的影响
+            required_aspects:
+              - 非主营损益与减值
+              - 受限资产
+              - 商誉与开发支出
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -488,6 +610,9 @@ sections:
         key_questions:
           - question_id: fin_risk_summary
             question: 财务风险结论及其对当前授信方案的影响
+            required_aspects:
+              - 财务风险结论
+              - 对授信方案的影响
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -503,6 +628,10 @@ sections:
         key_questions:
           - question_id: fin_working_capital_needs
             question: 流动资金需求测算（收入增长预测、营运资金周转、存货/应收/预付/预收/应付）
+            required_aspects:
+              - 收入增长预测
+              - 营运资金周转
+              - 存货应收预付预收应付
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -515,6 +644,9 @@ sections:
         key_questions:
           - question_id: fin_trade_finance_focus
             question: 贸易融资按业务类型选择关键科目（如应收账款、存货、预付）重点分析
+            required_aspects:
+              - 关键科目选择
+              - 应收账款存货预付重点分析
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -530,6 +662,9 @@ sections:
         key_questions:
           - question_id: fin_capital_capacity
             question: 固定资产/项目贷款：第一阶段仅从公司财务角度评价资本实力与现有项目现金流
+            required_aspects:
+              - 资本实力
+              - 现有项目现金流
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -570,6 +705,9 @@ sections:
         key_questions:
           - question_id: industry_definition
             question: 行业定义、边界与公司所属细分领域
+            required_aspects:
+              - 行业定义与边界
+              - 公司所属细分领域
             priority: P1
             blocking_policy: NONE
             impact_scope: [subject]
@@ -585,6 +723,11 @@ sections:
         key_questions:
           - question_id: industry_scale_cycle
             question: 行业规模、增速与当前周期位置（缺单一数字不阻断，可用代理指标）
+            required_aspects:
+              - 行业规模
+              - 增速
+              - 当前周期位置
+              - 数据截止日期与统计口径
             priority: P0
             blocking_policy: NONE
             missing_policy: proxy_allowed
@@ -600,6 +743,10 @@ sections:
         key_questions:
           - question_id: industry_supply_demand
             question: 供需关系、价格与成本驱动因素及对经营的影响
+            required_aspects:
+              - 供需关系
+              - 价格与成本驱动
+              - 对经营的影响
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -614,6 +761,9 @@ sections:
         key_questions:
           - question_id: industry_competition
             question: 竞争格局、集中度与主要参与者
+            required_aspects:
+              - 竞争格局与集中度
+              - 主要参与者
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -628,6 +778,10 @@ sections:
         key_questions:
           - question_id: industry_policy
             question: 政策、监管、技术替代与外部冲击
+            required_aspects:
+              - 政策与监管
+              - 技术替代
+              - 外部冲击
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -642,6 +796,9 @@ sections:
         key_questions:
           - question_id: industry_position
             question: 公司行业地位与相对竞争能力
+            required_aspects:
+              - 公司行业地位
+              - 相对竞争能力
             priority: P0
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -656,6 +813,9 @@ sections:
         key_questions:
           - question_id: industry_comparables
             question: 选择 3～5 家可比公司并做相对比较（3~5 家是目标不是门禁：1~2 家说明限制、无直接可比用相近、无合理可比说明不可比，不强行选不可比公司）
+            required_aspects:
+              - 可比公司选择
+              - 相对比较
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -670,6 +830,10 @@ sections:
         key_questions:
           - question_id: industry_risk_transmission
             question: 行业风险向借款人收入、成本、资本开支、现金流和偿债能力的传导
+            required_aspects:
+              - 对收入的传导
+              - 对成本与资本开支的传导
+              - 对现金流与偿债能力的传导
             priority: P0
             blocking_policy: NONE
             impact_scope: [solvency]
@@ -685,6 +849,9 @@ sections:
         key_questions:
           - question_id: industry_monitoring
             question: 行业结论有效期与监测指标
+            required_aspects:
+              - 结论有效期
+              - 监测指标
             priority: P2
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -737,6 +904,11 @@ sections:
         key_questions:
           - question_id: synth_scheme_overview
             question: 授信主体、授信类型与用户输入方案概览
+            required_aspects:
+              - 授信主体
+              - 授信类型
+              - 授信金额与期限
+              - 增信措施
             priority: P0
             blocking_policy: REPORT_BLOCKED
             impact_scope: [credit_scheme]
@@ -753,6 +925,8 @@ sections:
         key_questions:
           - question_id: synth_strengths
             question: 支持该方案的核心优势
+            required_aspects:
+              - 支持方案的核心优势
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -767,6 +941,9 @@ sections:
         key_questions:
           - question_id: synth_risks
             question: 该方案面临的核心风险及风险传导
+            required_aspects:
+              - 核心风险
+              - 风险传导
             priority: P0
             blocking_policy: REPORT_BLOCKED
             missing_policy: write_not_found
@@ -781,6 +958,9 @@ sections:
         key_questions:
           - question_id: synth_repayment
             question: 第一还款来源与现有增信措施的有效性
+            required_aspects:
+              - 第一还款来源
+              - 现有增信措施有效性
             priority: P0
             blocking_policy: REPORT_BLOCKED
             missing_policy: write_not_found
@@ -795,6 +975,10 @@ sections:
         key_questions:
           - question_id: synth_evaluation
             question: 授信方案的优点、缺点与综合评价
+            required_aspects:
+              - 方案优点
+              - 方案缺点
+              - 综合评价
             priority: P0
             blocking_policy: REPORT_BLOCKED
             missing_policy: write_not_found
@@ -809,6 +993,8 @@ sections:
         key_questions:
           - question_id: synth_mismatch
             question: 若方案明显不合理，指出具体不匹配项及依据；否则不主动改写额度、期限和增信措施
+            required_aspects:
+              - 明显不合理时的具体不匹配项及依据
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -823,6 +1009,9 @@ sections:
         key_questions:
           - question_id: synth_unresolved
             question: 仍未解决的信息缺口和需人工确认事项
+            required_aspects:
+              - 未解决信息缺口
+              - 需人工确认事项
             priority: P1
             blocking_policy: NONE
             missing_policy: write_not_found
@@ -837,6 +1026,8 @@ sections:
         key_questions:
           - question_id: synth_disclaimer
             question: 明确声明“本评价由 AI 生成，仅供参考”
+            required_aspects:
+              - AI生成声明
             priority: P0
             blocking_policy: REPORT_BLOCKED
             missing_policy: missing_material

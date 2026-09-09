@@ -39,6 +39,8 @@ def _all_text(contracts: list[S.SectionContract]) -> list[tuple[str, str]]:
             for q in topic.key_questions:
                 texts.append((f"{q.question_id}.question", q.question))
                 texts.append((f"{q.question_id}.analysis", " ".join(q.analysis_requirements)))
+                for i, asp in enumerate(q.required_aspects):
+                    texts.append((f"{q.question_id}.required_aspects[{i}]", asp))
         for cr in sec.completion_rules:
             texts.append((f"{cr.rule_id}.outcome", cr.outcome))
         for er in sec.evaluation_rules:
