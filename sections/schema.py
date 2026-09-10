@@ -95,6 +95,49 @@ def derive_section_result_id(section_version: str) -> str:
     return f"sr_{section_version}"
 
 
+def derive_issue_id(rule_id: str, location: str, detail: str, severity: str) -> str:
+    """issue_id 内容寻址（同规则 + 同定位 + 同详情 → 同 id，幂等）。"""
+    return f"iss_{sha256_json([rule_id, location, detail, severity])[:24]}"
+
+
+def derive_rework_target_id(target_kind: str, target_ref: str, reason: str) -> str:
+    """rework_target_id 内容寻址（同目标 + 同原因 → 同 id，幂等）。"""
+    return f"tgt_{sha256_json([target_kind, target_ref, reason])[:24]}"
+
+
+def derive_evaluation_id(section_result_id: str, decision: str, rules_version: str,
+                         evaluator_prompt_version: str, issues, rework_targets,
+                         llm_evaluator_calls: int) -> str:
+    """evaluation_id 内容寻址（同内容 → 同 id，幂等复用；任何决策/issue/target/调用次
+    数变化 → 新 id）。issues/rework_targets 就地序列化（自包含，避免依赖后文序列化函数）。
+    """
+    issues_sig = [{"issue_id": i.issue_id, "rule_id": i.rule_id, "severity": i.severity,
+                   "location": i.location, "detail": i.detail,
+                   "suggested_action": i.suggested_action} for i in issues]
+    targets_sig = [{"target_id": t.target_id, "target_kind": t.target_kind,
+                    "target_ref": t.target_ref, "reason": t.reason} for t in rework_targets]
+    digest = sha256_json([section_result_id, decision, rules_version,
+                          evaluator_prompt_version, issues_sig, targets_sig,
+                          llm_evaluator_calls])
+    return f"eval_{digest[:24]}"
+
+
+def derive_rework_run_id(from_section_result_id: str, section_result_id: str,
+                         batch_no: int) -> str:
+    """rework_run_id 内容寻址：父结果 + 返工后新结果 + 批次（本阶段恒 batch 0）。"""
+    digest = sha256_json([from_section_result_id, section_result_id, batch_no])
+    return f"rr_{digest[:24]}"
+
+
+def derive_manifest_id(job_id: str, run_id: str, code_fingerprint: str,
+                       phase3_closure_fingerprint: str, batch_versions: dict,
+                       frozen: dict) -> str:
+    """manifest_id 内容寻址：job + run + 代码指纹 + Phase 3 关闭指纹 + 批次版本 + 冻结输入。"""
+    digest = sha256_json([job_id, run_id, code_fingerprint,
+                          phase3_closure_fingerprint, batch_versions, frozen])
+    return f"manifest_{digest[:24]}"
+
+
 @dataclass(frozen=True)
 class CommitResult:
     """commit_plan 的返回（不可变）。"""
@@ -185,6 +228,8 @@ class SectionEvaluation:
     issues: tuple[SectionIssue, ...] = ()
     rework_targets: tuple[ReworkTarget, ...] = ()
     evaluated_at: str = ""
+    # 本评估步骤实际调用的 LLM Evaluator 次数，必须 ∈ {0,1}；>1 → fail-closed。
+    llm_evaluator_calls: int = 0
 
 
 @dataclass(frozen=True)
@@ -204,6 +249,70 @@ class SectionResult:
     source_question_ids: tuple[str, ...] = ()
     dependency_fingerprint: str = ""
     created_at: str = ""
+
+
+@dataclass(frozen=True)
+class SectionReworkRun:
+    """一次定向返工批次（任务书 §13.3；本阶段恒 batch_no=0，至多一批）。
+
+    Evaluation 是 SectionResult 的关联对象：本表记录「父结果 → 新结果」的返工事实，
+    不修改、不回写父 SectionResult 的不可变内容身份。
+    """
+
+    rework_run_id: str
+    job_id: str
+    section_result_id: str          # 返工后新 SectionResult（目标结果的 section_result_id）
+    from_section_result_id: str     # 被评估的父 SectionResult
+    evaluation_id: str              # 触发返工的那次评估
+    batch_no: int
+    llm_evaluator_calls: int        # 本 cycle 累计 LLM Evaluator 调用次数（∈ {0,1}）
+    targets: tuple[ReworkTarget, ...] = ()
+    created_at: str = ""
+
+
+@dataclass(frozen=True)
+class SectionRunManifest:
+    """一次运行的环境冻结清单（任务书 §14.3）。
+
+    manifest 历史不可变（append-only）；current_manifest 是独立可切换指针，不把
+    append-only 历史表本身当指针。frozen 冻结 contract/prompt/renderer/evaluator
+    rules/Harness/Evidence inventory/FinancialSnapshot/external policy/model/budget。
+    """
+
+    manifest_id: str
+    job_id: str
+    run_id: str
+    code_fingerprint: str
+    phase3_closure_fingerprint: str
+    batch_versions: dict = field(default_factory=dict)
+    frozen: dict = field(default_factory=dict)
+    created_at: str = ""
+
+
+@dataclass(frozen=True)
+class EvaluationCommitResult:
+    """commit_evaluation 的返回（不可变）。"""
+
+    evaluation_id: str
+    reused: bool
+    rework_target_count: int
+
+
+@dataclass(frozen=True)
+class ReworkRunCommitResult:
+    """commit_rework_run 的返回（不可变）。"""
+
+    rework_run_id: str
+    reused: bool
+
+
+@dataclass(frozen=True)
+class ManifestCommitResult:
+    """commit_manifest 的返回（不可变）。"""
+
+    manifest_id: str
+    reused: bool
+    current_switched: bool
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +437,7 @@ def evaluation_to_dict(e: SectionEvaluation) -> dict:
         "issues": [issue_to_dict(i) for i in e.issues],
         "rework_targets": [rework_target_to_dict(t) for t in e.rework_targets],
         "evaluated_at": e.evaluated_at,
+        "llm_evaluator_calls": e.llm_evaluator_calls,
     }
 
 
@@ -344,6 +454,61 @@ def evaluation_from_dict(d: dict) -> SectionEvaluation:
         rework_targets=tuple(rework_target_from_dict(t)
                              for t in (d.get("rework_targets") or [])),
         evaluated_at=d.get("evaluated_at") or "",
+        llm_evaluator_calls=int(d.get("llm_evaluator_calls") or 0),
+    )
+
+
+def rework_run_to_dict(r: SectionReworkRun) -> dict:
+    return {
+        "rework_run_id": r.rework_run_id,
+        "job_id": r.job_id,
+        "section_result_id": r.section_result_id,
+        "from_section_result_id": r.from_section_result_id,
+        "evaluation_id": r.evaluation_id,
+        "batch_no": r.batch_no,
+        "llm_evaluator_calls": r.llm_evaluator_calls,
+        "targets": [rework_target_to_dict(t) for t in r.targets],
+        "created_at": r.created_at,
+    }
+
+
+def rework_run_from_dict(d: dict) -> SectionReworkRun:
+    return SectionReworkRun(
+        rework_run_id=d["rework_run_id"],
+        job_id=d["job_id"],
+        section_result_id=d["section_result_id"],
+        from_section_result_id=d["from_section_result_id"],
+        evaluation_id=d["evaluation_id"],
+        batch_no=int(d["batch_no"]),
+        llm_evaluator_calls=int(d.get("llm_evaluator_calls") or 0),
+        targets=tuple(rework_target_from_dict(t) for t in (d.get("targets") or [])),
+        created_at=d.get("created_at") or "",
+    )
+
+
+def manifest_to_dict(m: SectionRunManifest) -> dict:
+    return {
+        "manifest_id": m.manifest_id,
+        "job_id": m.job_id,
+        "run_id": m.run_id,
+        "code_fingerprint": m.code_fingerprint,
+        "phase3_closure_fingerprint": m.phase3_closure_fingerprint,
+        "batch_versions": dict(m.batch_versions),
+        "frozen": dict(m.frozen),
+        "created_at": m.created_at,
+    }
+
+
+def manifest_from_dict(d: dict) -> SectionRunManifest:
+    return SectionRunManifest(
+        manifest_id=d["manifest_id"],
+        job_id=d["job_id"],
+        run_id=d["run_id"],
+        code_fingerprint=d["code_fingerprint"],
+        phase3_closure_fingerprint=d["phase3_closure_fingerprint"],
+        batch_versions=dict(d.get("batch_versions") or {}),
+        frozen=dict(d.get("frozen") or {}),
+        created_at=d.get("created_at") or "",
     )
 
 

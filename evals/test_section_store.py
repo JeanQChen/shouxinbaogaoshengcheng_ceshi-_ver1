@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from planning import schema as PS  # noqa: E402
+from harness.schema import CitationRef  # noqa: E402
+from sections import schema as SS  # noqa: E402
 from sections import store as ST  # noqa: E402
 
 _results = {"passed": 0, "failed": 0, "skipped": 0, "details": []}
@@ -63,6 +65,28 @@ def _plan(plan_id, job_id, input_fp, contract_fp="fp_c", company_id="300750"):
         ),
         created_at="2026-01-01T00:00:00Z",
     )
+
+
+def _result(task_id, section_id, status="DRAFT_READY"):
+    secver = SS.derive_section_version(task_id, (), (), renderer_version="rv", rules_version="rv")
+    srid = SS.derive_section_result_id(secver)
+    return SS.SectionResult(section_result_id=srid, section_version=secver,
+                            task_id=task_id, section_id=section_id, status=status,
+                            created_at="2026-01-01T00:00:00Z")
+
+
+def _result_with_claim(task_id, section_id):
+    ref = CitationRef(ref_type="evidence", evidence_id="ev1")
+    claim = SS.SectionClaim(claim_id="claim_x", section_id=section_id, topic_id="t1",
+                            question_ids=("q1",), text="text", claim_type="fact",
+                            citation_refs=(ref,))
+    secver = SS.derive_section_version(task_id, (claim,), (), renderer_version="rv",
+                                       rules_version="rv")
+    srid = SS.derive_section_result_id(secver)
+    return SS.SectionResult(section_result_id=srid, section_version=secver,
+                            task_id=task_id, section_id=section_id,
+                            status="COMPLETED_WITH_GAPS", claims=(claim,),
+                            created_at="2026-01-01T00:00:00Z")
 
 
 def main():
@@ -226,6 +250,151 @@ def main():
             "SELECT migration_id FROM schema_migrations ORDER BY migration_id")]
         check(ids == list(range(1, len(ST.MIGRATIONS) + 1)),
               f"schema_migrations 是合法前缀 [1..{len(ST.MIGRATIONS)}]")
+    finally:
+        conn.close()
+
+    # ---- Phase 4 Batch D：evaluation / rework / manifest 写读路径 ----
+
+    # 16. commit_section_result（financial）+ commit_evaluation + get_evaluation
+    # 注意：step 7 之后 _db_path 已切到 db2，故用 db2 上已提交的 plan_c2_v2 的任务。
+    fin_task = PS.derive_task_id("plan_c2_v2", "financial")
+    fin_result = _result(fin_task, "financial")
+    ST.commit_section_result(fin_result, run_id="run_eval")
+    iid = SS.derive_issue_id("rule_missing_citation", "claim_x", "关键 claim 缺引用", "yellow")
+    issue = SS.SectionIssue(issue_id=iid, rule_id="rule_missing_citation", severity="yellow",
+                            location="claim_x", detail="关键 claim 缺引用")
+    tid = SS.derive_rework_target_id("claim", "claim_x", "补引用")
+    target = SS.ReworkTarget(target_id=tid, target_kind="claim", target_ref="claim_x",
+                             reason="补引用")
+    eid = SS.derive_evaluation_id(fin_result.section_result_id, "REWORK", "rules_v1", "eval_v1",
+                                  (issue,), (target,), 0)
+    ev = SS.SectionEvaluation(evaluation_id=eid, section_result_id=fin_result.section_result_id,
+                              rules_version="rules_v1", evaluator_prompt_version="eval_v1",
+                              rules_passed=False, llm_passed=None, decision="REWORK",
+                              issues=(issue,), rework_targets=(target,),
+                              evaluated_at="2026-01-01T00:00:00Z", llm_evaluator_calls=0)
+    r_ev = ST.commit_evaluation(ev, run_id="run_eval")
+    check(r_ev.reused is False and r_ev.rework_target_count == 1, "commit_evaluation 首次写入")
+    got_ev = ST.get_evaluation(fin_result.section_result_id)
+    check(got_ev is not None and got_ev.decision == "REWORK" and len(got_ev.issues) == 1,
+          "get_evaluation 往返")
+    check(len(ST.list_evaluations(fin_result.section_result_id)) == 1, "list_evaluations 返回 1")
+
+    # 17. evaluation 幂等复用
+    check(ST.commit_evaluation(ev, run_id="run_eval2").reused is True,
+          "同 evaluation 重复提交 reuse")
+
+    # 18. evaluation_id 与内容派生不一致 → fail-closed（内容寻址自洽守卫）
+    ev_conflict = SS.SectionEvaluation(
+        evaluation_id=eid, section_result_id=fin_result.section_result_id,
+        rules_version="rules_v1", evaluator_prompt_version="eval_v1", rules_passed=True,
+        llm_passed=True, decision="PASS")
+    try:
+        ST.commit_evaluation(ev_conflict)
+        check(False, "evaluation_id 与内容派生不一致应抛错")
+    except ST.SectionStorageConflictError:
+        check(True, "evaluation_id 与内容派生不一致 fail-closed")
+
+    # 19. llm_evaluator_calls 上限：>1 fail-closed
+    ev_bad = SS.SectionEvaluation(
+        evaluation_id="eval_bad", section_result_id=fin_result.section_result_id,
+        rules_version="r", evaluator_prompt_version="e", rules_passed=True, llm_passed=True,
+        decision="PASS", llm_evaluator_calls=2)
+    try:
+        ST.commit_evaluation(ev_bad)
+        check(False, "llm_evaluator_calls>1 应抛错")
+    except ST.SectionStorageConflictError:
+        check(True, "llm_evaluator_calls>1 fail-closed")
+
+    # 20. Evaluation 是关联对象：get_section_result 不隐式 join，evaluation 仍为 None
+    got_result = ST.get_section_result(fin_result.section_result_id)
+    check(got_result is not None and got_result.evaluation is None,
+          "get_section_result 不隐式 join evaluation（内容身份不变）")
+
+    # 21. commit_rework_run：新的 section_result（有 claim，不同版本）作为返工后产物
+    new_result = _result_with_claim(fin_task, "financial")
+    ST.commit_section_result(new_result, run_id="run_rework")
+    rrid = SS.derive_rework_run_id(fin_result.section_result_id, new_result.section_result_id, 0)
+    rr = SS.SectionReworkRun(rework_run_id=rrid, job_id="job_1",
+                             section_result_id=new_result.section_result_id,
+                             from_section_result_id=fin_result.section_result_id,
+                             evaluation_id=eid, batch_no=0, llm_evaluator_calls=0,
+                             targets=(target,), created_at="2026-01-01T00:00:00Z")
+    r_rr = ST.commit_rework_run(rr, run_id="run_rework")
+    check(r_rr.reused is False, "commit_rework_run 首次写入")
+    runs = ST.get_rework_runs(fin_result.section_result_id)
+    check(len(runs) == 1 and runs[0].rework_run_id == rrid, "get_rework_runs 往返")
+
+    # 22. rework_run 幂等复用 + batch_no 守卫
+    check(ST.commit_rework_run(rr).reused is True, "同 rework_run 重复提交 reuse")
+    rr_bad = SS.SectionReworkRun(
+        rework_run_id="rr_bad", job_id="job_1", section_result_id=new_result.section_result_id,
+        from_section_result_id=fin_result.section_result_id, evaluation_id=eid,
+        batch_no=1, llm_evaluator_calls=0)
+    try:
+        ST.commit_rework_run(rr_bad)
+        check(False, "batch_no!=0 应抛错")
+    except ST.SectionStorageConflictError:
+        check(True, "batch_no!=0 fail-closed")
+
+    # 23. commit_manifest + current_manifest 指针 + 幂等 + 切换
+    mid = SS.derive_manifest_id("job_1", "run_eval", "cf", "p3cf", {"planner": "v1"},
+                                {"model": "x"})
+    mf = SS.SectionRunManifest(manifest_id=mid, job_id="job_1", run_id="run_eval",
+                               code_fingerprint="cf", phase3_closure_fingerprint="p3cf",
+                               batch_versions={"planner": "v1"}, frozen={"model": "x"},
+                               created_at="2026-01-01T00:00:00Z")
+    r_mf = ST.commit_manifest(mf)
+    check(r_mf.reused is False and r_mf.current_switched is True,
+          "commit_manifest 首次写入并切指针")
+    check(ST.current_manifest("job_1") == mid, "current_manifest 指向 mid")
+    check(ST.get_manifest(mid).run_id == "run_eval", "get_manifest 往返")
+    check(ST.commit_manifest(mf).reused is True, "同 manifest 重复提交 reuse")
+
+    mid2 = SS.derive_manifest_id("job_1", "run_eval2", "cf", "p3cf", {"planner": "v1"},
+                                 {"model": "x"})
+    mf2 = SS.SectionRunManifest(manifest_id=mid2, job_id="job_1", run_id="run_eval2",
+                                code_fingerprint="cf", phase3_closure_fingerprint="p3cf",
+                                batch_versions={"planner": "v1"}, frozen={"model": "x"},
+                                created_at="2026-01-01T00:00:00Z")
+    r_mf2 = ST.commit_manifest(mf2)
+    check(r_mf2.current_switched is True, "切换 manifest 切 current_manifest")
+    check(ST.current_manifest("job_1") == mid2, "current_manifest 切到 mid2")
+    check(ST.get_manifest(mid) is not None, "旧 manifest 仍可读（不可变历史）")
+
+    # 24. 新历史表不可变：section_evaluation / section_rework_run / section_run_manifest
+    conn = ST._get_conn()
+    try:
+        for table, where in [
+            ("section_evaluation", f"evaluation_id='{eid}'"),
+            ("section_rework_run", f"rework_run_id='{rrid}'"),
+            ("section_run_manifest", f"manifest_id='{mid}'"),
+        ]:
+            try:
+                conn.execute(f"UPDATE {table} SET payload_json='tampered' WHERE {where}")
+                check(False, f"{table} 应拒绝 UPDATE（不可变）")
+            except sqlite3.Error:
+                check(True, f"{table} 拒绝 UPDATE（不可变）")
+            try:
+                conn.execute(f"DELETE FROM {table} WHERE {where}")
+                check(False, f"{table} 应拒绝 DELETE（不可变）")
+            except sqlite3.Error:
+                check(True, f"{table} 拒绝 DELETE（不可变）")
+    finally:
+        conn.close()
+
+    # 25. current_manifest 外键：引用不存在的 manifest 被拒（fail-closed）
+    conn = ST._get_conn()
+    try:
+        conn.execute("BEGIN")
+        try:
+            conn.execute("INSERT INTO current_manifest (job_id, manifest_id, switched_at) "
+                         "VALUES ('job_ghost', 'manifest_ghost', '2026-01-01T00:00:00Z')")
+            conn.commit()
+            check(False, "current_manifest 引用不存在的 manifest 应被外键拒绝")
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            check(True, "current_manifest 外键拒绝非法 manifest_id")
     finally:
         conn.close()
 

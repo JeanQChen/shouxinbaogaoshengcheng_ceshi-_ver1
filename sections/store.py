@@ -276,10 +276,53 @@ def _migration_2_statements() -> list[str]:
     return stmts
 
 
+def _migration_3_statements() -> list[str]:
+    """migration 3：返工批次 + 运行清单 + current_manifest 指针（真正追加迁移）。
+
+    - section_rework_run / section_run_manifest 是 append-only 历史事实表（加不可变触发器）；
+    - current_manifest 是可切换指针（不加不可变触发器，引用 section_run_manifest 外键）。
+    """
+    stmts: list[str] = [
+        "CREATE TABLE section_rework_run ("
+        "rework_run_id TEXT PRIMARY KEY, "
+        "job_id TEXT NOT NULL, "
+        "section_result_id TEXT NOT NULL REFERENCES section_result(section_result_id), "
+        "from_section_result_id TEXT NOT NULL, "
+        "evaluation_id TEXT NOT NULL REFERENCES section_evaluation(evaluation_id), "
+        "batch_no INTEGER NOT NULL, "
+        "llm_evaluator_calls INTEGER NOT NULL, "
+        "targets_json TEXT NOT NULL, "
+        "payload_json TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)",
+        "CREATE INDEX idx_rework_run_from ON section_rework_run(from_section_result_id)",
+        "CREATE TABLE section_run_manifest ("
+        "manifest_id TEXT PRIMARY KEY, "
+        "job_id TEXT NOT NULL, "
+        "run_id TEXT NOT NULL, "
+        "code_fingerprint TEXT NOT NULL, "
+        "phase3_closure_fingerprint TEXT NOT NULL, "
+        "batch_versions_json TEXT NOT NULL, "
+        "frozen_json TEXT NOT NULL, "
+        "payload_json TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)",
+        "CREATE INDEX idx_run_manifest_job ON section_run_manifest(job_id)",
+        "CREATE TABLE current_manifest ("
+        "job_id TEXT PRIMARY KEY, "
+        "manifest_id TEXT NOT NULL REFERENCES section_run_manifest(manifest_id), "
+        "switched_at TEXT NOT NULL)",
+    ]
+    stmts.append(_no_update_trigger("section_rework_run"))
+    stmts.append(_no_delete_trigger("section_rework_run"))
+    stmts.append(_no_update_trigger("section_run_manifest"))
+    stmts.append(_no_delete_trigger("section_run_manifest"))
+    return stmts
+
+
 # 每个 migration 是「有序 SQL 语句列表」，在单事务内逐条执行；失败整体回滚（不留半迁移）。
 MIGRATIONS: list[list[str]] = [
     _split_statements(_MIGRATION_1_DDL),
     _migration_2_statements(),
+    _migration_3_statements(),
 ]
 
 # Store 应有表（§8.3），供 self-check / 测试断言
@@ -287,6 +330,7 @@ EXPECTED_TABLES = (
     "section_plan", "section_task", "current_plan",
     "section_result", "section_claim", "section_citation", "section_unresolved",
     "section_evaluation", "section_rework", "current_section", "progress",
+    "section_rework_run", "section_run_manifest", "current_manifest",
 )
 
 
@@ -704,6 +748,286 @@ def get_current_section(task_id: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# 章节产物写入：commit_evaluation / commit_rework_run（P4-D 接入）
+# ---------------------------------------------------------------------------
+
+def _job_id_for_result(conn: sqlite3.Connection, section_result_id: str) -> str:
+    row = conn.execute(
+        "SELECT p.job_id FROM section_result r "
+        "JOIN section_task t ON t.task_id = r.task_id "
+        "JOIN section_plan p ON p.plan_id = t.plan_id "
+        "WHERE r.section_result_id = ?", (section_result_id,)).fetchone()
+    return row["job_id"] if row is not None else ""
+
+
+def _rework_row_id(evaluation_id: str, target_id: str) -> str:
+    return "rw_" + SS.sha256_json([evaluation_id, target_id])[:24]
+
+
+def commit_evaluation(evaluation: SS.SectionEvaluation, *, run_id: str = "") -> SS.EvaluationCommitResult:
+    """原子提交一次章节评估：section_evaluation + section_rework（rework_targets 逐条），
+    失败整体回滚。
+
+    - 写入前必经：decision 白名单 + llm_evaluator_calls ∈ {0,1} + evaluation_id 内容寻址自洽
+      + 引用的 section_result 已存在（外键）。
+    - 幂等复用：同 evaluation_id → 深度比较 payload，一致 reuse。
+    - Evaluation 是 SectionResult 的关联对象：只写 section_evaluation/section_rework 表，
+      绝不回写 section_result，绝不改变 SectionResult 内容身份。
+    """
+    if evaluation.decision not in SS.EVALUATION_DECISIONS:
+        raise SectionStorageConflictError(
+            f"evaluation.decision 非法: {evaluation.decision!r}，允许 {SS.EVALUATION_DECISIONS}")
+    if evaluation.llm_evaluator_calls not in (0, 1):
+        raise SectionStorageConflictError(
+            f"llm_evaluator_calls 必须 ∈ {{0,1}}，收到 {evaluation.llm_evaluator_calls}（fail-closed）")
+    if SS.derive_evaluation_id(
+            evaluation.section_result_id, evaluation.decision, evaluation.rules_version,
+            evaluation.evaluator_prompt_version, evaluation.issues, evaluation.rework_targets,
+            evaluation.llm_evaluator_calls) != evaluation.evaluation_id:
+        raise SectionStorageConflictError("evaluation_id 与内容派生不一致（fail-closed）")
+
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        exists = conn.execute(
+            "SELECT 1 FROM section_result WHERE section_result_id = ?",
+            (evaluation.section_result_id,)).fetchone()
+        if exists is None:
+            conn.rollback()
+            raise SectionStorageConflictError(
+                f"evaluation 引用不存在的 section_result: {evaluation.section_result_id}（fail-closed）")
+
+        row = conn.execute(
+            "SELECT payload_json FROM section_evaluation WHERE evaluation_id = ?",
+            (evaluation.evaluation_id,)).fetchone()
+        if row is not None:
+            conn.rollback()
+            old = SS.evaluation_from_dict(json.loads(row["payload_json"]))
+            if SS.evaluation_to_dict(old) == SS.evaluation_to_dict(evaluation):
+                return SS.EvaluationCommitResult(
+                    evaluation_id=evaluation.evaluation_id, reused=True,
+                    rework_target_count=len(evaluation.rework_targets))
+            raise SectionStorageCorruptionError(
+                f"evaluation_id 冲突: {evaluation.evaluation_id} 已存在但内容不一致（fail-closed）")
+
+        conn.execute(
+            "INSERT INTO section_evaluation (evaluation_id, section_result_id, rules_version, "
+            "evaluator_prompt_version, rules_passed, llm_passed, decision, payload_json, "
+            "evaluated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (evaluation.evaluation_id, evaluation.section_result_id, evaluation.rules_version,
+             evaluation.evaluator_prompt_version, int(evaluation.rules_passed),
+             None if evaluation.llm_passed is None else int(evaluation.llm_passed),
+             evaluation.decision, json.dumps(SS.evaluation_to_dict(evaluation), ensure_ascii=False),
+             evaluation.evaluated_at or _utcnow()))
+
+        for t in evaluation.rework_targets:
+            conn.execute(
+                "INSERT INTO section_rework (rework_id, evaluation_id, target_kind, "
+                "target_ref, reason, payload_json) VALUES (?,?,?,?,?,?)",
+                (_rework_row_id(evaluation.evaluation_id, t.target_id),
+                 evaluation.evaluation_id, t.target_kind, t.target_ref, t.reason,
+                 json.dumps(SS.rework_target_to_dict(t), ensure_ascii=False)))
+
+        job_id = _job_id_for_result(conn, evaluation.section_result_id)
+        conn.execute(
+            "INSERT INTO progress (event_id, job_id, run_id, stage, status, detail, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (_event_id(), job_id, run_id, "evaluating", "EVALUATED",
+             f"evaluation_id={evaluation.evaluation_id} decision={evaluation.decision}",
+             evaluation.evaluated_at or _utcnow()))
+
+        conn.commit()
+        return SS.EvaluationCommitResult(
+            evaluation_id=evaluation.evaluation_id, reused=False,
+            rework_target_count=len(evaluation.rework_targets))
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_evaluation(section_result_id: str) -> SS.SectionEvaluation | None:
+    """读取某 section_result 的最新评估（独立关联对象，不 join 进 SectionResult）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT payload_json FROM section_evaluation WHERE section_result_id = ? "
+            "ORDER BY evaluated_at DESC, rowid DESC LIMIT 1",
+            (section_result_id,)).fetchone()
+        if row is None:
+            return None
+        return SS.evaluation_from_dict(json.loads(row["payload_json"]))
+    finally:
+        conn.close()
+
+
+def list_evaluations(section_result_id: str) -> list[SS.SectionEvaluation]:
+    """读取某 section_result 的全部评估（按时间升序）。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT payload_json FROM section_evaluation WHERE section_result_id = ? "
+            "ORDER BY evaluated_at ASC, rowid ASC",
+            (section_result_id,)).fetchall()
+        return [SS.evaluation_from_dict(json.loads(r["payload_json"])) for r in rows]
+    finally:
+        conn.close()
+
+
+def commit_rework_run(run: SS.SectionReworkRun, *, run_id: str = "") -> SS.ReworkRunCommitResult:
+    """原子提交一次返工批次（append-only 历史事实，不可变）。"""
+    if run.batch_no != 0:
+        raise SectionStorageConflictError(
+            f"返工批次必须为 0（本阶段至多一批），收到 {run.batch_no}（fail-closed）")
+    if SS.derive_rework_run_id(run.from_section_result_id, run.section_result_id,
+                               run.batch_no) != run.rework_run_id:
+        raise SectionStorageConflictError("rework_run_id 与内容派生不一致（fail-closed）")
+
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT payload_json FROM section_rework_run WHERE rework_run_id = ?",
+            (run.rework_run_id,)).fetchone()
+        if row is not None:
+            conn.rollback()
+            old = SS.rework_run_from_dict(json.loads(row["payload_json"]))
+            if SS.rework_run_to_dict(old) == SS.rework_run_to_dict(run):
+                return SS.ReworkRunCommitResult(rework_run_id=run.rework_run_id, reused=True)
+            raise SectionStorageCorruptionError(
+                f"rework_run_id 冲突: {run.rework_run_id} 已存在但内容不一致（fail-closed）")
+
+        conn.execute(
+            "INSERT INTO section_rework_run (rework_run_id, job_id, section_result_id, "
+            "from_section_result_id, evaluation_id, batch_no, llm_evaluator_calls, "
+            "targets_json, payload_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (run.rework_run_id, run.job_id, run.section_result_id, run.from_section_result_id,
+             run.evaluation_id, run.batch_no, run.llm_evaluator_calls,
+             json.dumps([SS.rework_target_to_dict(t) for t in run.targets], ensure_ascii=False),
+             json.dumps(SS.rework_run_to_dict(run), ensure_ascii=False),
+             run.created_at or _utcnow()))
+
+        conn.execute(
+            "INSERT INTO progress (event_id, job_id, run_id, stage, status, detail, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (_event_id(), run.job_id, run_id, "rework", "REWORKED",
+             f"rework_run_id={run.rework_run_id} from={run.from_section_result_id} "
+             f"to={run.section_result_id}", run.created_at or _utcnow()))
+
+        conn.commit()
+        return SS.ReworkRunCommitResult(rework_run_id=run.rework_run_id, reused=False)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_rework_runs(from_section_result_id: str) -> list[SS.SectionReworkRun]:
+    """读取某父 SectionResult 触发过的全部返工批次（按时间升序）。"""
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT payload_json FROM section_rework_run WHERE from_section_result_id = ? "
+            "ORDER BY created_at ASC, rowid ASC",
+            (from_section_result_id,)).fetchall()
+        return [SS.rework_run_from_dict(json.loads(r["payload_json"])) for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 运行清单写入：commit_manifest + current_manifest 指针
+# ---------------------------------------------------------------------------
+
+def commit_manifest(manifest: SS.SectionRunManifest) -> SS.ManifestCommitResult:
+    """原子提交运行清单 + current_manifest 指针切换。
+
+    - manifest 历史 append-only（不可变）；current_manifest 是独立可切换指针。
+    - 幂等复用：同 manifest_id → 深度比较 payload，一致 reuse 且不切指针。
+    """
+    if SS.derive_manifest_id(manifest.job_id, manifest.run_id, manifest.code_fingerprint,
+                             manifest.phase3_closure_fingerprint, manifest.batch_versions,
+                             manifest.frozen) != manifest.manifest_id:
+        raise SectionStorageConflictError("manifest_id 与内容派生不一致（fail-closed）")
+
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT payload_json FROM section_run_manifest WHERE manifest_id = ?",
+            (manifest.manifest_id,)).fetchone()
+        if row is not None:
+            conn.rollback()
+            old = SS.manifest_from_dict(json.loads(row["payload_json"]))
+            if SS.manifest_to_dict(old) == SS.manifest_to_dict(manifest):
+                return SS.ManifestCommitResult(
+                    manifest_id=manifest.manifest_id, reused=True, current_switched=False)
+            raise SectionStorageCorruptionError(
+                f"manifest_id 冲突: {manifest.manifest_id} 已存在但内容不一致（fail-closed）")
+
+        conn.execute(
+            "INSERT INTO section_run_manifest (manifest_id, job_id, run_id, code_fingerprint, "
+            "phase3_closure_fingerprint, batch_versions_json, frozen_json, payload_json, "
+            "created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (manifest.manifest_id, manifest.job_id, manifest.run_id, manifest.code_fingerprint,
+             manifest.phase3_closure_fingerprint,
+             json.dumps(manifest.batch_versions, ensure_ascii=False),
+             json.dumps(manifest.frozen, ensure_ascii=False),
+             json.dumps(SS.manifest_to_dict(manifest), ensure_ascii=False),
+             manifest.created_at or _utcnow()))
+
+        before = conn.execute("SELECT manifest_id FROM current_manifest WHERE job_id = ?",
+                              (manifest.job_id,)).fetchone()
+        conn.execute(
+            "INSERT INTO current_manifest (job_id, manifest_id, switched_at) "
+            "VALUES (?,?,?) ON CONFLICT(job_id) DO UPDATE SET "
+            "manifest_id=excluded.manifest_id, switched_at=excluded.switched_at",
+            (manifest.job_id, manifest.manifest_id, manifest.created_at or _utcnow()))
+
+        conn.execute(
+            "INSERT INTO progress (event_id, job_id, run_id, stage, status, detail, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (_event_id(), manifest.job_id, manifest.run_id, "manifest", "MANIFESTED",
+             f"manifest_id={manifest.manifest_id}", manifest.created_at or _utcnow()))
+
+        conn.commit()
+        switched = (before is None or before["manifest_id"] != manifest.manifest_id)
+        return SS.ManifestCommitResult(
+            manifest_id=manifest.manifest_id, reused=False, current_switched=switched)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def current_manifest(job_id: str) -> str | None:
+    """按 job_id 读取 current 运行清单指针（manifest_id）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute("SELECT manifest_id FROM current_manifest WHERE job_id = ?",
+                           (job_id,)).fetchone()
+        return None if row is None else row["manifest_id"]
+    finally:
+        conn.close()
+
+
+def get_manifest(manifest_id: str) -> SS.SectionRunManifest | None:
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT payload_json FROM section_run_manifest WHERE manifest_id = ?",
+            (manifest_id,)).fetchone()
+        if row is None:
+            return None
+        return SS.manifest_from_dict(json.loads(row["payload_json"]))
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # self-check / summary
 # ---------------------------------------------------------------------------
 
@@ -713,7 +1037,10 @@ def _summary() -> dict:
         tables = {r["name"] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
         counts = {}
-        for t in ("section_plan", "section_task", "current_plan", "progress"):
+        for t in ("section_plan", "section_task", "current_plan", "section_result",
+                  "section_claim", "section_unresolved", "section_evaluation",
+                  "section_rework", "section_rework_run", "section_run_manifest",
+                  "current_manifest", "progress"):
             counts[t] = conn.execute(f"SELECT COUNT(*) AS c FROM {t}").fetchone()["c"]
         return {
             "expected_tables_present": [t for t in EXPECTED_TABLES if t in tables],
