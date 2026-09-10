@@ -99,6 +99,7 @@ EVAL_MODULES = [
     "evals.test_section_research_workers",
     "evals.test_section_evaluator",
     "evals.test_section_llm_evaluator",
+    "evals.test_section_rework",
 ]
 
 
