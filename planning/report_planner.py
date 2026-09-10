@@ -53,11 +53,52 @@ def contract_file_fingerprint(contracts_path: str) -> str:
     return sha256_file(contracts_path)
 
 
+def _require_readonly_fin_db(fin_db: str) -> None:
+    """只读校验 financial_v2 库：文件存在 + schema 版本 + 必需表，不符 fail-closed。
+
+    复用 scripts.demo_preflight 的只读探测（mode=ro + schema 前缀校验 + 缺表探测），
+    不重复实现 schema 版本判断；恢复提示引导重建财务主链。
+    """
+    from scripts import demo_preflight as dp
+
+    conn = dp._ro_conn(fin_db)
+    try:
+        ok, detail = dp._check_schema_version(conn)
+        if not ok:
+            raise RuntimeError(
+                f"financial_v2 库不可用：{detail}（恢复：重建财务主链 / 执行迁移）")
+        missing = dp._missing_tables(conn, dp._FIN_TABLES)
+        if missing:
+            raise RuntimeError(
+                f"financial_v2 库缺表：{missing}（恢复：重建财务主链）")
+    finally:
+        conn.close()
+
+
+def _require_readonly_ev_db(ev_db: str) -> None:
+    """只读校验 evidence 库：文件存在 + documents/evidence_sets 表，不符 fail-closed。"""
+    from scripts import demo_preflight as dp
+
+    conn = dp._ro_conn(ev_db)
+    try:
+        missing = dp._missing_tables(conn, ("documents", "evidence_sets"))
+        if missing:
+            raise RuntimeError(
+                f"evidence 库缺表：{missing}（恢复：重建 Evidence current set）")
+    finally:
+        conn.close()
+
+
 def resolve_fingerprints(company_id: str, fin_db: str, ev_db: str, *,
                          scope: str = "consolidated", currency: str = "CNY",
                          as_of_date: str | None = None,
                          purpose: str = "credit_analysis") -> tuple[str, str | None]:
-    """解析 evidence inventory 指纹 + current snapshot_id（复用 Phase 3 固化逻辑）。
+    """解析 evidence inventory 指纹 + current snapshot_id（严格只读，复用 Phase 3 固化逻辑）。
+
+    只读保证（任务书 §9.2 / Phase 4 Batch A 收口）：
+    - 不调 init_db()，不建库 / 不建表 / 不迁移；
+    - 缺失文件 / 版本不符 / 缺表 / 损坏 → fail-closed 抛错（带恢复提示）；
+    - 健康但空（无证据 / 无快照）→ 空指纹 / None（合法空态，不抛错）。
 
     evidence 指纹镜像 run_actual_path_41._evidence_fingerprint：
     sha256(sorted([[document_id, current_document_version]]))，只计 status=current 文档。
@@ -68,8 +109,15 @@ def resolve_fingerprints(company_id: str, fin_db: str, ev_db: str, *,
     from financial_v2 import store as fstore
     from routing import context as rctx
 
-    fstore.init_db(fin_db)
-    estore.init_db(ev_db)
+    # 1) 只读校验（打开现有库，不创建、不迁移）。
+    _require_readonly_fin_db(fin_db)
+    _require_readonly_ev_db(ev_db)
+
+    # 2) 校验通过后，把 Store 的模块 _db_path 指向已验证路径（不触发 init/migration），
+    #    复用 Store 只读查询 + build_route_context 健康门（不重复实现健康判断）。
+    fstore._db_path = Path(fin_db)
+    estore._db_path = Path(ev_db)
+
     ctx = rctx.build_route_context(company_id, scope=scope, currency=currency,
                                    as_of_date=as_of_date, purpose=purpose)
 
