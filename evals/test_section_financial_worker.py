@@ -233,6 +233,51 @@ def _fake_bare(messages, system):  # noqa: ARG001
     ]})
 
 
+def _fake_company_id_marker(messages, system):  # noqa: ARG001
+    """证券代码用受信任 marker [[meta_company_id]]，不手写六位数字。"""
+    return json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_bal"],
+         "claim_type": "fact",
+         "text": "公司（证券代码 [[meta_company_id]]）总资产 "
+                 "[[item_TOTAL_ASSETS_2025-12-31]]。"},
+    ]})
+
+
+def _fake_raw_stock_code(messages, system):  # noqa: ARG001
+    """直接手写六位证券代码 300750 → 应被裸数字复核拒绝。"""
+    return json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_bal"],
+         "claim_type": "fact",
+         "text": "公司（证券代码 300750）总资产 [[item_TOTAL_ASSETS_2025-12-31]]。"},
+    ]})
+
+
+def _fake_six_digit_amount(messages, system):  # noqa: ARG001
+    """六位金额 300750万元 → 应被裸数字复核拒绝。"""
+    return json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_bal"],
+         "claim_type": "fact",
+         "text": "总资产 300750万元 [[item_TOTAL_ASSETS_2025-12-31]]。"},
+    ]})
+
+
+def _fake_six_digit_percent(messages, system):  # noqa: ARG001
+    """六位比例 300750% → 应被裸数字复核拒绝。"""
+    return json.dumps({"claims": [
+        {"topic_id": "fin_solvency", "question_ids": ["q_solv"], "claim_type": "fact",
+         "text": "占比 300750% [[metric_SOLV_DEBT_RATIO_2025-12-31]]。"},
+    ]})
+
+
+def _fake_meta_only(messages, system):  # noqa: ARG001
+    """只有 [[meta_company_id]]、无任何 [[fact_id]] → 整条 claim 拒绝（不满足引用要求）。"""
+    return json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_bal"],
+         "claim_type": "inference",
+         "text": "证券代码 [[meta_company_id]]。"},
+    ]})
+
+
 def main():
     # ---- A1. 展示格式化 ----
     check(SC.format_yuan_amount(Decimal("431015000000")) == "4,310.15亿元",
@@ -446,6 +491,58 @@ def main():
                          llm_generate=_fake_valid)
     check(wr_cur.section_result.section_result_id == wr1.section_result.section_result_id,
           "current 指针解析到 snap_test_1，与显式传入一致")
+
+    # ---- C9-C14. 公司标识受信任 marker（修复 P1：证券代码不误判为手写数字）----
+    check(SC.bare_number_tokens("证券代码 [[meta_company_id]]") == [],
+          "[[meta_company_id]] 不算裸数字")
+    check(SC.bare_number_tokens("证券代码 300750") != [],
+          "直接手写 300750 仍被裸数字复核捕获")
+
+    # C9. marker 形式证券代码通过 + 解析后正文正确
+    wr_meta = FW.run_task(task, company_id="300750", company_name="测试公司",
+                          snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                          llm_generate=_fake_company_id_marker)
+    meta_text = "".join(c.text for c in wr_meta.section_result.claims)
+    check(wr_meta.claim_count == 1, f"meta marker claim 通过（got {wr_meta.claim_count}）")
+    check("证券代码 300750" in meta_text,
+          "[[meta_company_id]] 解析为公司证券代码 300750")
+    check("[[meta_company_id]]" not in meta_text,
+          "marker 已替换，无残留占位")
+    check(wr_meta.section_result.status == "COMPLETED_WITH_GAPS"
+          or wr_meta.section_result.status == "COMPLETED",
+          "meta marker 未触发 fail-closed")
+
+    # C10. 直接手写六位证券代码 → fail-closed（不得因「数字附近有代码」放行）
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=_fake_raw_stock_code),
+                 FW.FinancialWorkerError, "直接手写证券代码 300750 fail-closed")
+
+    # C11. 六位金额 → fail-closed
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=_fake_six_digit_amount),
+                 FW.FinancialWorkerError, "六位金额 300750万元 fail-closed")
+
+    # C12. 六位比例 → fail-closed
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=_fake_six_digit_percent),
+                 FW.FinancialWorkerError, "六位比例 300750% fail-closed")
+
+    # C13. 只有 [[meta_company_id]] 无 [[fact_id]] → 整条拒绝（不满足引用要求）
+    wr_meta_only = FW.run_task(task, company_id="300750", company_name="测试公司",
+                               snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                               llm_generate=_fake_meta_only)
+    check(wr_meta_only.claim_count == 0, "仅 meta marker 无 fact_id 的 claim 被拒绝")
+    check(any("无 [[fact_id]] 引用" in r for r in wr_meta_only.verification["rejected"]),
+          "rejection 消息明确为「无 [[fact_id]] 引用」")
+
+    # C14. 证券代码 marker 不影响既有财务数字安全（回归：仍拒绝裸数字）
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=_fake_bare),
+                 FW.FinancialWorkerError, "既有裸数字 fail-closed 不回归")
 
     # ---- D. 依赖指纹进入 section_version（req 2）----
     # D1. 同输入幂等

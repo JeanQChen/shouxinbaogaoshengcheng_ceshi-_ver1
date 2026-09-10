@@ -522,6 +522,9 @@ def _resolve_claims(task: PS.SectionTask, pack: FinancialFactPack,
     qmap = _question_map(task)
     valid_topic_ids = set(task.topic_ids)
     display_map = {fid: f.display for fid, f in pack.by_id.items()}
+    # 受信任 meta 占位：公司标识（证券代码）值来自受信任输入 pack.company_id，非 LLM 生成。
+    # 它可被 resolve_markers 替换，但不作为 FinancialFact（不参与 citation 派生）。
+    display_map[SC.META_COMPANY_ID] = pack.company_id
     claims: list[SS.SectionClaim] = []
     verification: dict = {"bare_number_violations": [], "rejected": [],
                           "parsed": len(raw_claims)}
@@ -564,8 +567,11 @@ def _resolve_claims(task: PS.SectionTask, pack: FinancialFactPack,
             continue
 
         # marker 是唯一引用来源（req 5）：只认正文 [[fact_id]]，不认额外 fact_ids。
+        # [[meta_company_id]] 是公司标识占位，不算财务 fact —— 不满足「至少一个 [[fact_id]]」
+        # 的引用要求，也不参与 citation 派生（否则会把公司代码混进 fact 引用）。
         marker_fids = re.findall(r"\[\[([A-Za-z0-9_.\-]+)\]\]", text)
-        if not marker_fids:
+        fact_fids = [f for f in marker_fids if f != SC.META_COMPANY_ID]
+        if not fact_fids:
             verification["rejected"].append(f"[{i}] 无 [[fact_id]] 引用")
             continue
         resolved_text, marker_errors = SC.resolve_markers(text, display_map)
@@ -573,7 +579,7 @@ def _resolve_claims(task: PS.SectionTask, pack: FinancialFactPack,
             verification["rejected"].append(f"[{i}] 未知/未解析 fact_id: {marker_errors}")
             continue
 
-        uniq_fids = sorted(set(marker_fids))
+        uniq_fids = sorted(set(fact_fids))
         citation_refs = tuple(pack.by_id[f].citation for f in uniq_fids)
 
         impact_scope: tuple[str, ...] = ()
