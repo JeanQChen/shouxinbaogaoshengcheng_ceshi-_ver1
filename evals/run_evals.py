@@ -102,6 +102,7 @@ EVAL_MODULES = [
     "evals.test_section_rework",
     "evals.test_section_audit_opinion",
     "evals.test_section_service",
+    "evals.test_section_streamlit_ui",
 ]
 
 
