@@ -1,0 +1,181 @@
+[
+  {
+    "case_id": "fin-block-conflict",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "多来源口径冲突未解决（CONFLICT）→ 规则阻断 BLOCKED，不调 LLM Evaluator",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "总资产为 1,234.56万元", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [
+      {"unresolved_id": "u1", "topic_id": "t1", "question_id": "q1", "state": "CONFLICT", "reason_code": "conflict_pause", "detail": "审计口径与报表口径冲突"}
+    ],
+    "status": "SECTION_BLOCKED",
+    "expected": {"decision": "BLOCKED", "llm_evaluator_calls": 0, "rework_attempted": false, "final_check_passed": null}
+  },
+  {
+    "case_id": "fin-block-empty",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "空壳章节（无 claim/无 unresolved/无 markdown）→ 规则阻断 BLOCKED（blocking 优先于 coverage rework）",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "markdown": "",
+    "expected": {"decision": "BLOCKED", "llm_evaluator_calls": 0, "rework_attempted": false, "final_check_passed": null}
+  },
+  {
+    "case_id": "co-block-waiting-human",
+    "section_id": "company",
+    "title": "公司主体",
+    "scenario": "问题需客户经理确认（WAITING_HUMAN）→ 规则阻断 BLOCKED",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司实控人是否变更？", "priority": "P0", "topic_id": "t1", "blocking_policy": []}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "公司主营动力电池业务", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [
+      {"unresolved_id": "u1", "topic_id": "t1", "question_id": "q1", "state": "WAITING_HUMAN", "reason_code": "transfer_human", "detail": "需客户经理确认实控人信息"}
+    ],
+    "status": "SECTION_BLOCKED",
+    "expected": {"decision": "BLOCKED", "llm_evaluator_calls": 0, "rework_attempted": false, "final_check_passed": null}
+  },
+  {
+    "case_id": "fin-rework-missing-citation",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "fact claim 无 citation → 规则返工 REWORK（不调 LLM），返工后确定性最终检查通过",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "总资产为 1,234.56万元", "claim_type": "fact", "citation_refs": []}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "expected": {"decision": "REWORK", "llm_evaluator_calls": 0, "rework_attempted": true, "final_check_passed": true}
+  },
+  {
+    "case_id": "fin-rework-unfound",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "「未发现」写成事实断言 → 规则返工 REWORK（unfound_claimed_absent）",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司是否存在重大未决诉讼？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "未发现重大未决诉讼", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "expected": {"decision": "REWORK", "llm_evaluator_calls": 0, "rework_attempted": true, "final_check_passed": true}
+  },
+  {
+    "case_id": "fin-rework-self-scheme",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "自创授信方案（建议额度+期限）→ 规则返工 REWORK（self_invented_scheme，非关键词封杀）",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司授信情况如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "建议授信额度 3 亿元，期限 3 年", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "expected": {"decision": "REWORK", "llm_evaluator_calls": 0, "rework_attempted": true, "final_check_passed": true}
+  },
+  {
+    "case_id": "fin-pass-llm-pass",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "规则通过 → LLM Evaluator 一次（PASS），calls=1",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "总资产为 1,234.56万元", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "llm_response": {"decision": "PASS", "issues": [], "rework_targets": []},
+    "expected": {"decision": "PASS", "llm_evaluator_calls": 1, "rework_attempted": false, "final_check_passed": null}
+  },
+  {
+    "case_id": "fin-rework-llm-rework",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "规则通过 → LLM Evaluator REWORK（calls=1，至多一次），返工后确定性最终检查（无二次 LLM）",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "总资产为 1,234.56万元", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "llm_response": {"decision": "REWORK", "issues": [
+      {"rule_id": "aspect_gap", "severity": "rework", "location": "q1", "detail": "补充同比变化方面"}],
+      "rework_targets": [{"target_kind": "question", "target_ref": "q1", "reason": "补 aspect"}]},
+    "expected": {"decision": "REWORK", "llm_evaluator_calls": 1, "rework_attempted": true, "final_check_passed": true}
+  },
+  {
+    "case_id": "fin-block-llm-blocked",
+    "section_id": "financial",
+    "title": "财务分析",
+    "scenario": "规则通过 → LLM Evaluator BLOCKED（calls=1，不返工）",
+    "task": {
+      "topic_ids": ["t1"],
+      "questions": [
+        {"question_id": "q1", "question": "公司总资产规模如何？", "priority": "P0", "topic_id": "t1"}
+      ]
+    },
+    "claims": [
+      {"claim_id": "c1", "topic_id": "t1", "question_ids": ["q1"], "text": "总资产为 1,234.56万元", "claim_type": "fact",
+       "citation_refs": [{"ref_type": "structured", "snapshot_id": "S1", "item_code": "TOTAL_ASSETS", "period": "2025-12-31"}]}
+    ],
+    "unresolved": [],
+    "status": "COMPLETED",
+    "llm_response": {"decision": "BLOCKED", "issues": [
+      {"rule_id": "subject_error", "severity": "blocking", "location": "section", "detail": "主体错误"}],
+      "rework_targets": []},
+    "expected": {"decision": "BLOCKED", "llm_evaluator_calls": 1, "rework_attempted": false, "final_check_passed": null}
+  }
+]
