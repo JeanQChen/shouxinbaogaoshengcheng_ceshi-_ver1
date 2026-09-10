@@ -97,6 +97,7 @@ EVAL_MODULES = [
     "evals.test_section_store",
     "evals.test_section_financial_worker",
     "evals.test_section_research_workers",
+    "evals.test_section_evaluator",
 ]
 
 
