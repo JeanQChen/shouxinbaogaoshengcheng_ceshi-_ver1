@@ -1,6 +1,6 @@
 # 授信报告生成器 V2 TODO
 
-> 更新时间：2026-09-09
+> 更新时间：2026-09-10
 > 用途：记录 V2 已完成、正在进行和下一步工作。  
 > 上位依据：`DESIGN_V2.md`；阶段顺序：`V2_IMPLEMENTATION_PLAN.md`；具体实施以对应阶段开发任务书为准。
 
@@ -187,6 +187,17 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - 实现公司、财务、行业三个章节 Worker。
 - 实现 Rules + LLM Section Evaluator 和有预算上限的定向返工。
 - 建立章节级评测集；41 问检索基线不能代替章节质量评测。
+
+#### Batch B 财务章节 Worker 关闭 + Demo 数据缺口（2026-09-10）
+
+- [x] 财务章节 Worker（`sections/financial_worker.py`）+ 公共确定性助手（`sections/common.py`）+
+  prompt（`llm/prompts/section_financial.txt`）已实现并关闭：Snapshot 权威校验、依赖身份、
+  Contract 覆盖、required/relevant 公式分类、`[[fact_id]]` marker 唯一引用、Section Store 硬化；
+  专项 62 条 + 全量 eval 3130 passed 通过。
+- [ ] Demo 数据缺口：当前财务章节缺少「审计意见 + 会计师事务所」的可引用来源（财务快照不含审计意见与
+  事务所名称），因此真实 300750 结果 `fin_audit_opinion` 未覆盖 → 章节状态 `SECTION_BLOCKED`
+  （阻断规则未放宽，未默认写「标准无保留意见」）。后续由 Batch D 通过年报 Evidence 或已持久化
+  ResearchAnswer 定点补充，并绑定 Evidence Citation。
 
 ### [ ] Phase 5：综合评价 + Assurance + 1F-B
 
