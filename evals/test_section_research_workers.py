@@ -233,6 +233,170 @@ def _authority(*, evidence_get=None, external_get=None, snapshot_authority=None,
         metric_get=metric_get, item_list=item_list, formula_get=formula_get)
 
 
+def _check_ro_conn_regression():
+    """修复回归：``_ro_conn`` 相对路径只读兼容（含空格/中文）+ 三类引用相对路径通过权威。
+
+    覆盖 9 个场景：相对路径健康库可读；Evidence/Structured/External 三类相对路径引用
+    通过权威校验；空格/中文路径可读；相对缺失库 fail-closed 且调用前后文件均不存在；
+    只读调用前后文件 hash 不变；不修改三个 store 模块级 ``_db_path``；绝对路径不回归。
+    """
+    import hashlib
+    import os
+
+    from evidence import store as estore
+    from external_v2 import store as extstore
+    from financial_v2 import store as fstore
+
+    # 含空格 + 中文的临时目录（场景 5 目录部分）；chdir 后用纯相对路径访问。
+    tmp = Path(tempfile.mkdtemp(prefix="ro rel 路径_"))
+    old_cwd = os.getcwd()
+
+    # 场景 8：记录三个 store 模块级 _db_path（调用前后必须不变）。
+    ev_dbp_before = estore._db_path
+    fin_dbp_before = fstore._db_path
+    ext_dbp_before = extstore._db_path
+
+    # ---- 建三张真实（最小但列齐备）只读库，供三类引用权威校验 ----
+    _ev_db = tmp / "evidence.db"
+    _fin_db = tmp / "financial.db"
+    _ext_db = tmp / "external.db"
+
+    _evc = sqlite3.connect(str(_ev_db))
+    _evc.executescript("""
+        CREATE TABLE documents (company_id TEXT, document_id TEXT,
+            document_version TEXT, status TEXT);
+        CREATE TABLE evidence_sets (company_id TEXT, document_id TEXT,
+            document_version TEXT, evidence_set_version TEXT, status TEXT);
+        CREATE TABLE evidence_blocks (
+            evidence_id TEXT, schema_version TEXT, company_id TEXT, document_id TEXT,
+            document_version TEXT, evidence_set_version TEXT, source_name TEXT,
+            source_type TEXT, source_uri TEXT, page_number INTEGER, block_index INTEGER,
+            section_path TEXT, evidence_type TEXT, text TEXT, structured_payload TEXT,
+            report_period TEXT, published_at TEXT, entities TEXT, quality_flags TEXT,
+            content_hash TEXT, builder_version TEXT, created_at TEXT);
+    """)
+    _evc.execute("INSERT INTO documents VALUES (?,?,?,?)",
+                 ("300750", "doc_1", "dv1", "current"))
+    _evc.execute("INSERT INTO evidence_sets VALUES (?,?,?,?,?)",
+                 ("300750", "doc_1", "dv1", "sv1", "current"))
+    _evc.execute("INSERT INTO evidence_blocks VALUES "
+                 "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                 ("ev_1", "sv1", "300750", "doc_1", "dv1", "sv1", "年报", "pdf",
+                  None, 3, 0, None, "paragraph", "宁德时代 2025 年报正文……", None,
+                  "2025-12-31", "2026-03-01", None, None, "h1", "b1",
+                  "2026-01-01T00:00:00Z"))
+    _evc.commit()
+    _evc.close()
+
+    _finc = sqlite3.connect(str(_fin_db))
+    _finc.executescript("""
+        CREATE TABLE financial_snapshot (
+            snapshot_id TEXT, snapshot_version TEXT, company_id TEXT, as_of_date TEXT,
+            scope TEXT, currency TEXT, purpose TEXT, source_versions TEXT,
+            resolution_versions TEXT, record_set_ids TEXT, reconciliation_run_id TEXT,
+            restatement_selection TEXT, policy_adjustments TEXT,
+            required_formula_versions TEXT, snapshot_builder_version TEXT,
+            admission_rule_version TEXT, report_blocked INTEGER, created_at TEXT,
+            admission_dependencies TEXT);
+        CREATE TABLE snapshot_item (
+            snapshot_id TEXT, comparison_key TEXT, standard_item_code TEXT,
+            amount_text TEXT, amount REAL, unit TEXT, report_period TEXT,
+            period_type TEXT, statement_type TEXT, statement_scope TEXT, currency TEXT,
+            restatement_version TEXT, source_refs TEXT, resolution_id TEXT);
+        CREATE TABLE snapshot_validity (snapshot_id TEXT, status TEXT, event_at TEXT);
+        CREATE TABLE quarantine (object_type TEXT, object_id TEXT);
+    """)
+    _finc.execute("INSERT INTO financial_snapshot VALUES "
+                  "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  ("s1", "v1", "300750", "2026-03-31", "consolidated", "CNY",
+                   "credit_analysis", "[]", "[]", "[]", None, "{}", "[]", "{}",
+                   "b1", "r1", 0, "2026-01-01T00:00:00Z", "{}"))
+    _finc.execute("INSERT INTO snapshot_item VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  ("s1", "0", "TOTAL_ASSETS", "10000000000", 10000000000.0, "元",
+                   "2025-12-31", "annual", "balance_sheet", "consolidated", "CNY",
+                   "rv1", "[]", None))
+    _finc.execute("INSERT INTO snapshot_validity VALUES (?,?,?)",
+                  ("s1", "valid", "2026-01-01T00:00:00Z"))
+    _finc.commit()
+    _finc.close()
+
+    _extc = sqlite3.connect(str(_ext_db))
+    _extc.executescript(extstore.build_ddl())
+    _extc.execute(
+        "INSERT INTO source_snapshots (source_snapshot_id, company_id, canonical_url, "
+        "original_url, provider, query, title, snippet, published_at, fetched_at, "
+        "content_type, http_status, content_text, content_hash, source_grade, "
+        "content_version, status, error_code, retrieval_metadata, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        ("snap_1", "", "https://stats.gov.cn/x", "https://stats.gov.cn/x", "web", "q",
+         "某政府网", "摘要", "2025-01-01", "2025-06-01", "text/html", 200,
+         "正文内容，非 URL 非 snippet", XS.content_hash("正文内容，非 URL 非 snippet"),
+         "A", 1, "SNAPSHOTTED", None, "{}", "2025-01-01T00:00:00Z"))
+    _extc.commit()
+    _extc.close()
+
+    try:
+        os.chdir(tmp)
+
+        # 场景 1：相对路径健康库只读打开。
+        conn1 = CA._ro_conn(Path("evidence.db"))
+        v1 = conn1.execute(
+            "SELECT text FROM evidence_blocks WHERE evidence_id='ev_1'").fetchone()["text"]
+        conn1.close()
+        check(bool(v1), "相对路径健康库只读打开")
+
+        # 场景 5：含空格 + 中文的相对文件名只读打开。
+        _sp = tmp / "空格 中文 库.db"
+        _sp.write_bytes(_ev_db.read_bytes())
+        conn5 = CA._ro_conn(Path("空格 中文 库.db"))
+        v5 = conn5.execute(
+            "SELECT text FROM evidence_blocks WHERE evidence_id='ev_1'").fetchone()["text"]
+        conn5.close()
+        check(bool(v5), "含空格/中文相对路径只读打开")
+
+        # 场景 9：绝对路径行为不回归。
+        conn9 = CA._ro_conn(_ev_db)
+        v9 = conn9.execute(
+            "SELECT text FROM evidence_blocks WHERE evidence_id='ev_1'").fetchone()["text"]
+        conn9.close()
+        check(bool(v9), "绝对路径只读打开不回归")
+
+        # 场景 6：相对缺失库 fail-closed，调用前后文件均不存在。
+        _missing_rel = Path("nope_relative.db")
+        check(not _missing_rel.exists(), "相对缺失库调用前不存在")
+        expect_raise(lambda: CA._ro_conn(_missing_rel), FileNotFoundError,
+                     "相对缺失库只读连接 → FileNotFoundError")
+        check(not _missing_rel.exists(), "相对缺失库调用后仍未创建（不 init_db / 不迁移）")
+
+        # 场景 7：只读调用前后文件 hash 不变。
+        def _sha(p):
+            return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+        _h_before = _sha(_ev_db)
+        _conn7 = CA._ro_conn(Path("evidence.db"))
+        _conn7.execute("SELECT * FROM evidence_blocks").fetchall()
+        _conn7.close()
+        check(_sha(_ev_db) == _h_before, "只读调用前后文件 hash 不变")
+
+        # 场景 2/3/4：三类引用经 build_citation_authority 相对路径通过权威校验。
+        authority = CA.build_citation_authority(
+            "300750", _context(snapshot_id="s1"),
+            ev_db=Path("evidence.db"), fin_db=Path("financial.db"),
+            ext_db=Path("external.db"))
+        v_ev = authority.validate(EV)
+        v_str = authority.validate(STR)
+        v_ext = authority.validate(EXT)
+        check(v_ev.valid, f"相对路径 Evidence 引用通过权威（{v_ev.reason}）")
+        check(v_str.valid, f"相对路径 Structured 引用通过权威（{v_str.reason}）")
+        check(v_ext.valid, f"相对路径 External 引用通过权威（{v_ext.reason}）")
+    finally:
+        os.chdir(old_cwd)
+
+    # 场景 8：三个 store 模块级 _db_path 均未被修改。
+    check(estore._db_path == ev_dbp_before, "evidence.store._db_path 不变")
+    check(fstore._db_path == fin_dbp_before, "financial_v2.store._db_path 不变")
+    check(extstore._db_path == ext_dbp_before, "external_v2.store._db_path 不变")
+
+
 def main():
     task = _company_task()
     qmap = {q.question_id: q for q in task.questions}
@@ -999,6 +1163,9 @@ def main():
     r2 = ST.commit_section_result(wr1.section_result, run_id="run_r2")
     check(r2.reused is True and r2.current_switched is False,
           "重复 commit 复用且不切 current")
+
+    # ---- L. 只读 SQLite 相对路径兼容回归（_ro_conn 修复）----
+    _check_ro_conn_regression()
 
     return _results
 

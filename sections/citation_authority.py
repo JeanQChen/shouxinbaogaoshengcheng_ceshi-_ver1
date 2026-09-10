@@ -244,8 +244,11 @@ def _ro_conn(path: str | Path) -> sqlite3.Connection:
 
     复用 scripts.demo_preflight 的 ``sqlite3.connect(p.as_uri() + "?mode=ro", uri=True)``
     模式——通过 URI 显式只读打开，缺文件直接抛错（不建空库）。
+
+    相对路径/含空格或中文路径先经 ``expanduser().resolve()`` 规范化为绝对路径，否则
+    ``Path.as_uri()`` 对相对路径抛 ``ValueError``（Windows 与 Linux 行为一致）。
     """
-    p = Path(path)
+    p = Path(path).expanduser().resolve()
     if not p.is_file():
         raise FileNotFoundError(f"只读库不存在（不创建）: {p}")
     conn = sqlite3.connect(p.as_uri() + "?mode=ro", uri=True)
