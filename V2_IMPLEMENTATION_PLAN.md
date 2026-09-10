@@ -1,7 +1,7 @@
 # 授信报告生成器 V2 总实施路线图
 
 > 版本：v0.2 · 2026-09-06  
-> 状态：Phase 0A、0B、1、1F-A、2、3 已关闭；下一阶段 Phase 4 章节 Worker + Claim + Section Evaluator（未进入）
+> 状态：Phase 0A、0B、1、1F-A、2、3、4 已关闭（Phase 4 代码交付 + 完整 eval 完成，真实 300750 三章产物待人工触发 `scripts/run_phase4_demo` 验收）；下一阶段 Phase 5（未进入）
 > 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.4  
 > 工程规则：[AGENTS.md](./AGENTS.md)  
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -78,7 +78,7 @@
 | 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 已关闭 |
-| 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 未进入 |
+| 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 已关闭（真实 300750 运行待人工验收） |
 | 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 4、1F-A | 未进入 |
 | 6 | 全流程集成、演示稳定性与交付 | 5 与 1F-B 均通过 | 未进入 |
 
@@ -334,7 +334,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - [x] 2：Router/Hybrid 开发任务书就绪。
 - [x] 2：Router/Hybrid 对照评测通过。
 - [x] 3：真实工具与受预算约束的 Harness 通过。
-- [ ] 4：章节 Worker 与章节质量门通过。
+- [x] 4：章节 Worker 与章节质量门通过。
 - [ ] 5 与 1F-B：完整回检、财务确认闭环和正式导出门禁通过。
 - [ ] 6：端到端演示与交付验收通过。
 
@@ -348,6 +348,23 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
   - `python -m evals.run_evals` → 649 passed / 0 failed / 0 skipped（akshare 网络 ProxyError 为网络降级日志，不计入失败）。
 - **遗留问题与归属**：Evidence / Router / Harness 均未启动（分别属于 Phase 1 / 2 / 3）；行业来源分级、代理指标、`impact_scope` 仅为声明式字段，不实现自动评级与运行判断（留待对应阶段）。
 - **下一阶段入口条件**：Phase 1（Evidence 与最小运行基础）具备入口条件，0B 不阻塞其启动。
+
+### 4 关闭记录
+
+- **产物**：`sections/{schema,store,rules_evaluator,llm_evaluator,rework,audit_opinion,service,company_worker,financial_worker,industry_worker,common,citation_authority}.py`；`planning/{schema,report_planner}.py`；`evaluation/datasets/section_cases_v1.json` + `evaluation/run_section_eval.py`；`scripts/run_phase4_demo.py`；`evals/test_section_*`、`evals/test_phase4_demo.py`；`PHASE4_DEVELOPMENT_TASK.md`、`PHASE4_DELIVERY_REPORT.md`。
+- **代码/输入版本**：`service=p4-service-v1`、`planner=p4-planner-v1`、`rules_evaluator=p4-rules-v1`、`llm_evaluator=section_evaluator_v1`、`rework=p4-rework-v1`；Contract `standard_v2.yaml`（company 21 / financial 11 / industry 9 = 41 问）。
+- **验收命令与结果**：
+  - `python -m sections.service --self-check` → 全部离线自检通过；
+  - `python -m evaluation.run_section_eval` → 9 题状态机 expected-vs-actual 全通过；
+  - `python -m evals.test_phase4_demo` → 26 passed / 0 failed；
+  - `python -m scripts.run_phase4_demo --validate-only --company 300750 ...` → 真实 300750 规划成功（3 章节 41 问，指纹 + 快照已锁定）；
+  - `python -m evals.run_evals` → 0 failed（收口 commit 前全量记录见交付报告 §9）。
+- **遗留问题与归属**：真实 300750 三章产物生成（§21 第 10 项）待人工触发
+  `python -m scripts.run_phase4_demo --company 300750 --company-name 宁德时代 --credit-type other
+  --report-as-of 2026-03-31 --contracts templates/contracts/standard_v2.yaml` 后按 §20 12 项复核；
+  综合授信方案评价、跨章节综合 Claim、完整 Assurance、1F-B、正式导出门禁、Word 导出均属 Phase 5。
+- **下一阶段入口条件**：Phase 5（综合 + 完整 Assurance + 1F-B + 正式导出门禁）具备入口条件，4 的
+  代码交付不阻塞其启动。
 
 ## 8. 本路线图之外的后续范围
 

@@ -178,15 +178,15 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - [x] 已同步 `PHASE3_FROZEN_FINAL_REPORT.md`、`V2_IMPLEMENTATION_PLAN.md` 与本 TODO；无 P0，
   Phase 3 标记关闭。下一阶段为 Phase 4（未进入）。
 
-### [ ] Phase 4：章节 Worker + Claim + Section Evaluator
+### [x] Phase 4：章节 Worker + Claim + Section Evaluator
 
-- 编写并确认 Phase 4 开发任务书。
-- 由 Section Contracts 生成稳定的 ReportPlan 和 SectionTask。
-- 公司信用与行业研究使用受约束 Harness；财务分析使用 FinancialSnapshot + Python 结果的 Workflow。
-- 建立 Claim/Citation schema，区分事实、计算结果、判断和未解决项。
-- 实现公司、财务、行业三个章节 Worker。
-- 实现 Rules + LLM Section Evaluator 和有预算上限的定向返工。
-- 建立章节级评测集；41 问检索基线不能代替章节质量评测。
+- [x] 编写并确认 Phase 4 开发任务书。
+- [x] 由 Section Contracts 生成稳定的 ReportPlan 和 SectionTask。
+- [x] 公司信用与行业研究使用受约束 Harness；财务分析使用 FinancialSnapshot + Python 结果的 Workflow。
+- [x] 建立 Claim/Citation schema，区分事实、计算结果、判断和未解决项。
+- [x] 实现公司、财务、行业三个章节 Worker。
+- [x] 实现 Rules + LLM Section Evaluator 和有预算上限的定向返工。
+- [x] 建立章节级评测集；41 问检索基线不能代替章节质量评测。
 
 #### Batch B 财务章节 Worker 关闭 + Demo 数据缺口（2026-09-10）
 
@@ -194,10 +194,25 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
   prompt（`llm/prompts/section_financial.txt`）已实现并关闭：Snapshot 权威校验、依赖身份、
   Contract 覆盖、required/relevant 公式分类、`[[fact_id]]` marker 唯一引用、Section Store 硬化；
   专项 62 条 + 全量 eval 3130 passed 通过。
-- [ ] Demo 数据缺口：当前财务章节缺少「审计意见 + 会计师事务所」的可引用来源（财务快照不含审计意见与
-  事务所名称），因此真实 300750 结果 `fin_audit_opinion` 未覆盖 → 章节状态 `SECTION_BLOCKED`
-  （阻断规则未放宽，未默认写「标准无保留意见」）。后续由 Batch D 通过年报 Evidence 或已持久化
-  ResearchAnswer 定点补充，并绑定 Evidence Citation。
+- [x] Demo 数据缺口（审计意见 + 会计师事务所）已由 Batch D commit `8fbf9a9` 解决：多 Evidence
+  审计意见 enrichment（`sections/audit_opinion.py` + `audit_opinion_extract` prompt）从年报 Evidence
+  抽取审计意见/事务所派生文本事实，绑定 Evidence Citation，不写入 FinancialSnapshot、不默认
+  「标准无保留意见」。
+
+#### Batch D 章节 Evaluator + 定向返工 + 真实 300750 验收入口关闭（2026-09-10）
+
+- [x] Rules Evaluator（12 项规则，`sections/rules_evaluator.py`）+ LLM Evaluator（每章至多一次，
+  `sections/llm_evaluator.py`）+ 定向返工 runtime（至多一批、确定性最终检查、无二次 LLM，
+  `sections/rework.py`）。
+- [x] Evaluator 关联存储 + Store migration 3（append-only，`rework_run`/`run_manifest`/`current_manifest`）。
+- [x] Phase 4 服务入口（`sections/service.py`，RunManifest + 三章节 Preview DTO）+ Streamlit 薄预览。
+- [x] 章节级合成数据集 + 状态机 runner（`evaluation/datasets/section_cases_v1.json` +
+  `evaluation/run_section_eval.py`），9 题覆盖 BLOCKED/REWORK/PASS 三终态。
+- [x] 真实 300750 验收入口（`scripts/run_phase4_demo.py`）+ 专项测试（`evals/test_phase4_demo.py`）。
+- [ ] 真实 300750 三章产物生成与 §20 人工复核：待人工触发
+  `python -m scripts.run_phase4_demo --company 300750 --company-name 宁德时代 --credit-type other
+  --report-as-of 2026-03-31 --contracts templates/contracts/standard_v2.yaml`（代码与 `--validate-only`
+  已就绪，真实 LLM 运行留作人工验收）。
 
 ### [ ] Phase 5：综合评价 + Assurance + 1F-B
 
