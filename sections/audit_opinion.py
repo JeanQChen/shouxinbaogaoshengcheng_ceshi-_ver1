@@ -30,6 +30,8 @@ from typing import Callable
 
 from harness.schema import CitationRef
 from llm import client as llm
+from planning import schema as PS
+from sections import schema as SS
 
 logger = logging.getLogger("sections.audit_opinion")
 
@@ -381,6 +383,143 @@ def enrichment_to_dict(e: AuditOpinionEnrichment) -> dict:
         "unresolved": list(e.unresolved),
         "consulted_evidence_ids": list(e.consulted_evidence_ids),
     }
+
+
+# ---------------------------------------------------------------------------
+# SectionClaim / SectionResult 转换（供 service 层把 enrichment 并入财务章节）
+# ---------------------------------------------------------------------------
+
+_AUDIT_FIELD_LABELS: dict[str, str] = {
+    "audit_opinion": "审计意见",
+    "accounting_firm": "会计师事务所",
+    "report_period": "报告期",
+    "scope": "合并范围",
+    "unit": "金额单位",
+}
+
+
+def find_audit_question(task: PS.SectionTask) -> PS.PlannedQuestion | None:
+    """定位审计意见问题（fin_audit_opinion 或 id 含 audit_opinion 的问题）。"""
+    for q in task.questions:
+        if q.question_id == "fin_audit_opinion" or "audit_opinion" in q.question_id:
+            return q
+    return None
+
+
+def build_audit_claim(task: PS.SectionTask, enrichment: AuditOpinionEnrichment, *,
+                      section_id: str = "financial") -> tuple:
+    """把 AuditOpinionEnrichment 转为 fin_audit_opinion 问题的 (claim, unresolved)。
+
+    有直接证据支持的字段 → 一条 fact claim（多 Evidence 引用合并去重，每个字段都绑定
+    ≥1 个 evidence CitationRef）；未取得直接证据的字段 → 诚实 unresolved（绝不默认
+    「标准无保留意见」、绝不编造）。task 无审计意见问题时返回 (None, None)。
+    """
+    q = find_audit_question(task)
+    if q is None:
+        return None, None
+
+    parts: list[str] = []
+    refs: list[CitationRef] = []
+    for f in enrichment.fields:
+        label = _AUDIT_FIELD_LABELS.get(f.field, f.field)
+        parts.append(f"{label}：{f.value}")
+        refs.extend(f.evidence_refs)
+    unique_refs: list[CitationRef] = []
+    seen: set[str] = set()
+    for r in refs:
+        ident = SS.citation_identity(r)
+        if ident not in seen:
+            seen.add(ident)
+            unique_refs.append(r)
+
+    claim = None
+    if parts:
+        text = "；".join(parts) + "。"
+        claim_id = SS.derive_claim_id("fact", q.topic_id, (q.question_id,),
+                                      text, unique_refs)
+        claim = SS.SectionClaim(
+            claim_id=claim_id, section_id=section_id, topic_id=q.topic_id,
+            question_ids=(q.question_id,), text=text, claim_type="fact",
+            citation_refs=tuple(unique_refs),
+            confidence="high" if enrichment.method == "deterministic" else "low",
+            impact_scope=tuple(q.impact_scope))
+
+    unresolved = None
+    if enrichment.unresolved:
+        missing = "、".join(_AUDIT_FIELD_LABELS.get(m, m) for m in enrichment.unresolved)
+        detail = f"审计意见字段未取得直接证据支持：{missing}"
+        uid = "ur_" + SS.sha256_json([
+            section_id, q.topic_id, q.question_id, "audit_enrichment",
+            tuple(enrichment.unresolved)])[:24]
+        unresolved = SS.SectionUnresolved(
+            unresolved_id=uid, section_id=section_id, topic_id=q.topic_id,
+            question_id=q.question_id, state="NOT_FOUND_AFTER_SEARCH",
+            reason_code="audit_field_missing", detail=detail,
+            impact_scope=tuple(q.impact_scope),
+            blocking_effects=tuple(q.blocking_policy))
+    return claim, unresolved
+
+
+def _derive_status(unresolved) -> str:
+    """财务 Worker 同口径状态派生（SECTION_BLOCKED / JOB_BLOCKED → SECTION_BLOCKED）。"""
+    if not unresolved:
+        return "COMPLETED"
+    for u in unresolved:
+        if "SECTION_BLOCKED" in u.blocking_effects or "JOB_BLOCKED" in u.blocking_effects:
+            return "SECTION_BLOCKED"
+    return "COMPLETED_WITH_GAPS"
+
+
+def _append_audit_markdown(markdown: str, claim, unresolved) -> str:
+    block: list[str] = []
+    if claim is not None:
+        block.append("\n## 审计意见\n\n")
+        block.append(claim.text + "\n")
+    if unresolved is not None:
+        block.append(f"\n- [未取得] {unresolved.detail}\n")
+    if not block:
+        return markdown
+    return (markdown or "").rstrip() + "\n" + "".join(block)
+
+
+def enrich_section_result(result: SS.SectionResult, task: PS.SectionTask, *, claim,
+                          unresolved, renderer_version: str,
+                          rules_version: str) -> SS.SectionResult:
+    """把审计意见 (claim, unresolved) 并入财务 SectionResult，返回新结果（身份重新派生）。
+
+    - 移除旧的 fin_audit_opinion 覆盖缺口（该问题的旧 claim/unresolved 被取代）；
+    - 追加 audit claim / unresolved（若有）；
+    - status / section_version / section_result_id 由新内容确定性重派生；
+    - 不回写父结果（内容寻址派生新身份，父结果不可变）。
+    """
+    q = find_audit_question(task)
+    qid = q.question_id if q is not None else None
+
+    new_claims = tuple(c for c in result.claims
+                       if qid is None or qid not in c.question_ids)
+    new_unresolved = tuple(u for u in result.unresolved
+                           if qid is None or u.question_id != qid)
+    if claim is not None:
+        new_claims = new_claims + (claim,)
+    if unresolved is not None:
+        new_unresolved = new_unresolved + (unresolved,)
+
+    status = _derive_status(new_unresolved)
+    section_version = SS.derive_section_version(
+        result.task_id, new_claims, new_unresolved,
+        renderer_version=renderer_version, rules_version=rules_version,
+        dependency_fingerprint=result.dependency_fingerprint)
+    section_result_id = SS.derive_section_result_id(section_version)
+    markdown = _append_audit_markdown(result.markdown, claim, unresolved)
+
+    return SS.SectionResult(
+        section_result_id=section_result_id, section_version=section_version,
+        task_id=result.task_id, section_id=result.section_id, status=status,
+        claims=new_claims, unresolved=new_unresolved, markdown=markdown,
+        evaluation=None, source_run_ids=result.source_run_ids,
+        source_question_ids=result.source_question_ids,
+        dependency_fingerprint=result.dependency_fingerprint,
+        created_at=result.created_at)
 
 
 # ---------------------------------------------------------------------------

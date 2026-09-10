@@ -417,6 +417,28 @@ def build_fact_pack(snapshot: FS.FinancialSnapshot, *, company_name: str,
         by_id={f.fact_id: f for f in facts})
 
 
+def build_fact_pack_for_task(task: PS.SectionTask, *, company_id: str, company_name: str = "",
+                             snapshot_id: str | None = None,
+                             fin_db: str = "data/financial_v2.db",
+                             scope: str = "consolidated", currency: str = "CNY",
+                             purpose: str = "credit_analysis",
+                             as_of_date: str | None = None) -> FinancialFactPack:
+    """最小公共只读接口：为 Rules Evaluator / 返工最终检查重建事实包（不重跑 LLM）。
+
+    复用 ``_resolve_snapshot``（权威性 fail-closed）+ ``_required/_relevant_formula_ids`` +
+    ``build_fact_pack``（无 LLM）。供 service 层在评估财务章节时注入 fact_pack（规则 6
+    财务数值复核复用 Structured Citation → FinancialFact → display 安全链），不经
+    Financial Worker 内部，不重构 Worker（任务书三/实现时必须坚持第 10 条）。
+    """
+    task_locked = (task.dependency_versions or {}).get("financial_snapshot_id") or ""
+    snap = _resolve_snapshot(snapshot_id, company_id=company_id, scope=scope,
+                             currency=currency, as_of_date=as_of_date, purpose=purpose,
+                             fin_db=fin_db, task_locked_id=task_locked)
+    return build_fact_pack(snap, company_name=company_name,
+                           required_formula_ids=_required_formula_ids(task, snap),
+                           relevant_formula_ids=_relevant_formula_ids(task, snap))
+
+
 # ---------------------------------------------------------------------------
 # LLM 解读
 # ---------------------------------------------------------------------------
