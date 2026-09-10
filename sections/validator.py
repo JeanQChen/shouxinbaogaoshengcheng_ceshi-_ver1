@@ -87,12 +87,19 @@ def validate_section_result(result: SS.SectionResult) -> list[str]:
         errors.append("section_id 为空")
 
     seen_claim_ids: set[str] = set()
+    seen_citation_ids: set[str] = set()
     for c in result.claims:
         if c.claim_id in seen_claim_ids:
             errors.append(f"claim_id 重复: {c.claim_id}")
         seen_claim_ids.add(c.claim_id)
         if c.section_id != result.section_id:
             errors.append(f"claim {c.claim_id} 的 section_id 与 result 不一致")
+        # 同一结果内 citation_id 重复检测（内容身份；跨 SectionResult 合法，由复合归属键承载）。
+        for ref in c.citation_refs:
+            cid = SS.derive_citation_id(c.claim_id, ref)
+            if cid in seen_citation_ids:
+                errors.append(f"citation_id 重复: {cid}")
+            seen_citation_ids.add(cid)
         errors.extend(validate_claim(c))
 
     seen_unresolved_ids: set[str] = set()

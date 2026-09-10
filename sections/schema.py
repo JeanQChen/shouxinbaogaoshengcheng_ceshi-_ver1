@@ -70,6 +70,16 @@ def derive_claim_id(claim_type: str, topic_id: str, question_ids, text: str,
     return f"claim_{digest[:24]}"
 
 
+def derive_citation_id(claim_id: str, ref: CitationRef) -> str:
+    """citation_id 稳定派生：claim_id + 引用身份哈希（同内容幂等）。
+
+    用于 section_citation 落盘与 validator 的同一结果内重复检测。不把 section_result_id
+    混入（保持内容身份），跨 SectionResult 相同内容合法（Store 用复合归属键）。
+    """
+    digest = sha256_json([claim_id, citation_identity(ref)])
+    return f"cite_{digest[:24]}"
+
+
 def derive_section_version(task_id: str, claims, unresolved, *,
                            renderer_version: str, rules_version: str,
                            dependency_fingerprint: str = "") -> str:

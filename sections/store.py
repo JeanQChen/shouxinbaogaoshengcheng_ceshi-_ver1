@@ -318,11 +318,146 @@ def _migration_3_statements() -> list[str]:
     return stmts
 
 
+def _migration_4_statements() -> list[str]:
+    """migration 4：子对象改复合归属键 (section_result_id, 内容 id)，支持跨版本内容复用。
+
+    问题：section_claim.claim_id / section_citation.citation_id /
+    section_unresolved.unresolved_id 曾是全局 PRIMARY KEY 且同时绑定 section_result_id。
+    返工 merge() 复用父结果未触及的 claim（claim_id 不变）进新 section_result_id →
+    全局主键冲突（IntegrityError: UNIQUE constraint failed: section_claim.claim_id）。
+
+    修复（受控表交换）：
+    - section_claim / section_unresolved → 复合主键 (section_result_id, 内容 id)；
+    - section_citation → 复合主键 (section_result_id, citation_id) + 复合外键
+      (section_result_id, claim_id) → section_claim(section_result_id, claim_id)。
+    语义：同一 SectionResult 内重复 content_id → validator fail-closed（Store 不去重）；
+    不同 SectionResult 相同内容 → 合法，各行均能完整查询。
+
+    顺序（子表先删，父表后删，规避 SQLite DROP 父表时子表外键悬挂；不依赖 RENAME 外键
+    自动改写）：先交换 section_citation（临时去掉 claim 外键）→ 交换 section_claim →
+    交换 section_unresolved → 再交换 section_citation（加回复合外键）。任一步失败整体回滚。
+    """
+    stmts: list[str] = []
+
+    # 1) section_citation 首轮交换：复合主键 (section_result_id, citation_id)，
+    #    暂不含 claim 外键（先解除对 section_claim 的单列外键依赖）。
+    stmts.extend([
+        "CREATE TABLE section_citation_stage ("
+        "section_result_id TEXT NOT NULL REFERENCES section_result(section_result_id), "
+        "citation_id TEXT NOT NULL, "
+        "claim_id TEXT NOT NULL, "
+        "ref_type TEXT NOT NULL, "
+        "evidence_id TEXT, "
+        "snapshot_id TEXT, "
+        "item_code TEXT, "
+        "formula_id TEXT, "
+        "formula_version TEXT, "
+        "period TEXT, "
+        "source_snapshot_id TEXT, "
+        "page_number INTEGER, "
+        "payload_json TEXT NOT NULL, "
+        "PRIMARY KEY (section_result_id, citation_id))",
+        "INSERT INTO section_citation_stage (section_result_id, citation_id, claim_id, "
+        "ref_type, evidence_id, snapshot_id, item_code, formula_id, formula_version, period, "
+        "source_snapshot_id, page_number, payload_json) "
+        "SELECT section_result_id, citation_id, claim_id, ref_type, evidence_id, snapshot_id, "
+        "item_code, formula_id, formula_version, period, source_snapshot_id, page_number, "
+        "payload_json FROM section_citation",
+        "DROP TABLE section_citation",
+        "ALTER TABLE section_citation_stage RENAME TO section_citation",
+    ])
+
+    # 2) section_claim：复合主键 (section_result_id, claim_id)。
+    stmts.extend([
+        "CREATE TABLE section_claim_new ("
+        "section_result_id TEXT NOT NULL REFERENCES section_result(section_result_id), "
+        "claim_id TEXT NOT NULL, "
+        "section_id TEXT NOT NULL, "
+        "topic_id TEXT NOT NULL, "
+        "question_ids_json TEXT NOT NULL, "
+        "text TEXT NOT NULL, "
+        "claim_type TEXT NOT NULL, "
+        "citation_refs_json TEXT NOT NULL, "
+        "payload_json TEXT NOT NULL, "
+        "PRIMARY KEY (section_result_id, claim_id))",
+        "INSERT INTO section_claim_new (section_result_id, claim_id, section_id, topic_id, "
+        "question_ids_json, text, claim_type, citation_refs_json, payload_json) "
+        "SELECT section_result_id, claim_id, section_id, topic_id, question_ids_json, text, "
+        "claim_type, citation_refs_json, payload_json FROM section_claim",
+        "DROP TABLE section_claim",
+        "ALTER TABLE section_claim_new RENAME TO section_claim",
+        "CREATE INDEX idx_section_claim_result ON section_claim(section_result_id)",
+        _no_update_trigger("section_claim"),
+        _no_delete_trigger("section_claim"),
+    ])
+
+    # 3) section_unresolved：复合主键 (section_result_id, unresolved_id)。
+    stmts.extend([
+        "CREATE TABLE section_unresolved_new ("
+        "section_result_id TEXT NOT NULL REFERENCES section_result(section_result_id), "
+        "unresolved_id TEXT NOT NULL, "
+        "section_id TEXT NOT NULL, "
+        "topic_id TEXT NOT NULL, "
+        "question_id TEXT, "
+        "state TEXT NOT NULL, "
+        "reason_code TEXT NOT NULL, "
+        "detail TEXT NOT NULL, "
+        "payload_json TEXT NOT NULL, "
+        "PRIMARY KEY (section_result_id, unresolved_id))",
+        "INSERT INTO section_unresolved_new (section_result_id, unresolved_id, section_id, "
+        "topic_id, question_id, state, reason_code, detail, payload_json) "
+        "SELECT section_result_id, unresolved_id, section_id, topic_id, question_id, state, "
+        "reason_code, detail, payload_json FROM section_unresolved",
+        "DROP TABLE section_unresolved",
+        "ALTER TABLE section_unresolved_new RENAME TO section_unresolved",
+        "CREATE INDEX idx_section_unresolved_result ON section_unresolved(section_result_id)",
+        _no_update_trigger("section_unresolved"),
+        _no_delete_trigger("section_unresolved"),
+    ])
+
+    # 4) section_citation 二轮交换：加回复合外键
+    #    (section_result_id, claim_id) → section_claim(section_result_id, claim_id)。
+    stmts.extend([
+        "CREATE TABLE section_citation_new ("
+        "section_result_id TEXT NOT NULL REFERENCES section_result(section_result_id), "
+        "citation_id TEXT NOT NULL, "
+        "claim_id TEXT NOT NULL, "
+        "ref_type TEXT NOT NULL, "
+        "evidence_id TEXT, "
+        "snapshot_id TEXT, "
+        "item_code TEXT, "
+        "formula_id TEXT, "
+        "formula_version TEXT, "
+        "period TEXT, "
+        "source_snapshot_id TEXT, "
+        "page_number INTEGER, "
+        "payload_json TEXT NOT NULL, "
+        "PRIMARY KEY (section_result_id, citation_id), "
+        "FOREIGN KEY (section_result_id, claim_id) "
+        "REFERENCES section_claim(section_result_id, claim_id))",
+        "INSERT INTO section_citation_new (section_result_id, citation_id, claim_id, ref_type, "
+        "evidence_id, snapshot_id, item_code, formula_id, formula_version, period, "
+        "source_snapshot_id, page_number, payload_json) "
+        "SELECT section_result_id, citation_id, claim_id, ref_type, evidence_id, snapshot_id, "
+        "item_code, formula_id, formula_version, period, source_snapshot_id, page_number, "
+        "payload_json FROM section_citation",
+        "DROP TABLE section_citation",
+        "ALTER TABLE section_citation_new RENAME TO section_citation",
+        "CREATE INDEX idx_section_citation_claim ON section_citation(claim_id)",
+        "CREATE INDEX idx_section_citation_result ON section_citation(section_result_id)",
+        _no_update_trigger("section_citation"),
+        _no_delete_trigger("section_citation"),
+    ])
+
+    return stmts
+
+
 # 每个 migration 是「有序 SQL 语句列表」，在单事务内逐条执行；失败整体回滚（不留半迁移）。
 MIGRATIONS: list[list[str]] = [
     _split_statements(_MIGRATION_1_DDL),
     _migration_2_statements(),
     _migration_3_statements(),
+    _migration_4_statements(),
 ]
 
 # Store 应有表（§8.3），供 self-check / 测试断言
@@ -563,9 +698,8 @@ def list_plans(company_id: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _citation_id(claim_id: str, ref) -> str:
-    """citation_id 稳定派生：claim_id + 引用身份哈希（同内容幂等）。"""
-    digest = SS.sha256_json([claim_id, SS.citation_identity(ref)])
-    return f"cite_{digest[:24]}"
+    """citation_id 稳定派生（委托 schema.derive_citation_id，单一来源，避免二次硬编码）。"""
+    return SS.derive_citation_id(claim_id, ref)
 
 
 def _job_id_for_task(conn: sqlite3.Connection, task_id: str) -> str:

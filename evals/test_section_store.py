@@ -398,6 +398,205 @@ def main():
     finally:
         conn.close()
 
+    # ---- Phase 4 修复：migration 4 复合归属键 + 跨版本内容复用 ----
+
+    def _pre_mig4(db_path: Path) -> None:
+        """建一个只应用 migration 1-3 的历史库（模拟 migration 4 之前的旧 schema）。"""
+        ST._db_path = db_path
+        c = sqlite3.connect(str(db_path))
+        c.row_factory = sqlite3.Row
+        c.execute("PRAGMA foreign_keys = ON")
+        c.execute("CREATE TABLE schema_migrations "
+                  "(migration_id INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)")
+        c.commit()
+        for i in (1, 2, 3):
+            ST._apply_migration(c, i, ST.MIGRATIONS[i - 1])
+        c.close()
+
+    def _counts(db_path: Path) -> dict:
+        c = sqlite3.connect(str(db_path))
+        c.row_factory = sqlite3.Row
+        out = {t: c.execute(f"SELECT COUNT(*) AS n FROM {t}").fetchone()["n"]
+               for t in ("section_result", "section_claim", "section_citation",
+                         "section_unresolved")}
+        c.close()
+        return out
+
+    # 26. migration 3→4 保留全部历史数据（旧单列主键 → 复合归属键）
+    mig_db = tmpdir / "mig4.db"
+    _pre_mig4(mig_db)
+    p_mig = _plan("plan_mig", "job_mig", "fp_mig")
+    ST.commit_plan(p_mig, run_id="run_mig")
+    mig_task = PS.derive_task_id("plan_mig", "financial")
+    ref_mig = CitationRef(ref_type="evidence", evidence_id="ev_mig", page_number=3)
+    claim_mig = SS.SectionClaim(claim_id="claim_mig", section_id="financial", topic_id="t1",
+                                question_ids=("q1",), text="text", claim_type="fact",
+                                citation_refs=(ref_mig,))
+    ur_mig = SS.SectionUnresolved(unresolved_id="ur_mig", section_id="financial", topic_id="t1",
+                                  question_id="q1", state="NOT_FOUND_AFTER_SEARCH",
+                                  reason_code="r", detail="d")
+    secver_mig = SS.derive_section_version(mig_task, (claim_mig,), (ur_mig,),
+                                           renderer_version="rv", rules_version="rv")
+    res_mig = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_mig),
+                               section_version=secver_mig, task_id=mig_task,
+                               section_id="financial", status="COMPLETED_WITH_GAPS",
+                               claims=(claim_mig,), unresolved=(ur_mig,),
+                               created_at="2026-01-01T00:00:00Z")
+    ST.commit_section_result(res_mig, run_id="run_mig")
+    before = _counts(mig_db)
+    ST.init_db(mig_db)  # 触发 migration 4（表交换）
+    after = _counts(mig_db)
+    check(before["section_claim"] == 1 and before["section_citation"] == 1
+          and before["section_unresolved"] == 1, "迁移前各子对象表各有 1 行")
+    check(after == before, f"migration 3→4 保留全部历史行（before={before}, after={after}）")
+
+    # 26b. migration 4 复合主键 / 复合外键结构 + foreign_key_check 为空
+    conn = ST._get_conn()
+    try:
+        def _pk(table):
+            return {r["name"] for r in conn.execute(f"PRAGMA table_info({table})") if r["pk"] > 0}
+        def _fks(table):
+            return {(r["from"], r["table"]) for r in conn.execute(
+                f"PRAGMA foreign_key_list({table})")}
+        check(_pk("section_claim") == {"section_result_id", "claim_id"},
+              "section_claim 复合主键 (section_result_id, claim_id)")
+        check(_pk("section_citation") == {"section_result_id", "citation_id"},
+              "section_citation 复合主键 (section_result_id, citation_id)")
+        check(_pk("section_unresolved") == {"section_result_id", "unresolved_id"},
+              "section_unresolved 复合主键 (section_result_id, unresolved_id)")
+        cit_fks = _fks("section_citation")
+        check(("claim_id", "section_claim") in cit_fks
+              and ("section_result_id", "section_claim") in cit_fks,
+              "section_citation 复合外键 (section_result_id, claim_id) → section_claim")
+        check(len(conn.execute("PRAGMA foreign_key_check").fetchall()) == 0,
+              "migration 4 后 foreign_key_check 为空")
+    finally:
+        conn.close()
+
+    # 27. 跨版本内容复用：两个不同 section_result 复用同一 claim/citation 内容均能提交
+    reuse_db = tmpdir / "mig4_reuse.db"
+    ST.init_db(reuse_db)
+    p_ru = _plan("plan_reuse", "job_reuse", "fp_reuse")
+    ST.commit_plan(p_ru, run_id="run_reuse")
+    reuse_task = PS.derive_task_id("plan_reuse", "financial")
+    ref_shared = CitationRef(ref_type="evidence", evidence_id="ev_shared", page_number=1)
+    shared_claim = SS.SectionClaim(claim_id="claim_shared", section_id="financial",
+                                   topic_id="t1", question_ids=("q1",), text="same text",
+                                   claim_type="fact", citation_refs=(ref_shared,))
+    secver_a = SS.derive_section_version(reuse_task, (shared_claim,), (),
+                                         renderer_version="rv", rules_version="rv")
+    res_a = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_a),
+                             section_version=secver_a, task_id=reuse_task,
+                             section_id="financial", status="COMPLETED",
+                             claims=(shared_claim,), created_at="2026-01-01T00:00:00Z")
+    check(ST.commit_section_result(res_a, run_id="run_reuse").reused is False, "结果 A 提交成功")
+    new_claim = SS.SectionClaim(claim_id="claim_new", section_id="financial", topic_id="t1",
+                                question_ids=("q2",), text="new text", claim_type="inference",
+                                citation_refs=())
+    secver_b = SS.derive_section_version(reuse_task, (shared_claim, new_claim), (),
+                                         renderer_version="rv", rules_version="rv")
+    res_b = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_b),
+                             section_version=secver_b, task_id=reuse_task,
+                             section_id="financial", status="COMPLETED",
+                             claims=(shared_claim, new_claim),
+                             created_at="2026-01-01T00:00:00Z")
+    r_b = ST.commit_section_result(res_b, run_id="run_reuse")
+    check(r_b.reused is False, "结果 B 复用相同 claim 内容不冲突（复合归属键）")
+    conn = ST._get_conn()
+    try:
+        n_claim = conn.execute("SELECT COUNT(*) AS n FROM section_claim "
+                               "WHERE claim_id='claim_shared'").fetchone()["n"]
+        n_cite = conn.execute("SELECT COUNT(*) AS n FROM section_citation "
+                              "WHERE claim_id='claim_shared'").fetchone()["n"]
+        vios = conn.execute("PRAGMA foreign_key_check").fetchall()
+    finally:
+        conn.close()
+    check(n_claim == 2, f"同一 claim_id 在两个 result 各存一份（got {n_claim}）")
+    check(n_cite == 2, f"同一 citation 在两个 result 各存一份（got {n_cite}）")
+    check(len(vios) == 0, "跨结果复用后 foreign_key_check 为空")
+    check(ST.get_section_result(res_a.section_result_id) is not None, "结果 A 完整可读")
+    check(ST.get_section_result(res_b.section_result_id) is not None, "结果 B 完整可读")
+
+    # 28. 同一结果重复 claim_id → validator fail-closed（Store 不去重）
+    dup1 = SS.SectionClaim(claim_id="claim_dup", section_id="financial", topic_id="t1",
+                           question_ids=("q1",), text="a", claim_type="inference", citation_refs=())
+    dup2 = SS.SectionClaim(claim_id="claim_dup", section_id="financial", topic_id="t1",
+                           question_ids=("q2",), text="b", claim_type="inference", citation_refs=())
+    secver_dup = SS.derive_section_version(reuse_task, (dup1, dup2), (),
+                                           renderer_version="rv", rules_version="rv")
+    res_dup = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_dup),
+                               section_version=secver_dup, task_id=reuse_task,
+                               section_id="financial", status="COMPLETED",
+                               claims=(dup1, dup2), created_at="2026-01-01T00:00:00Z")
+    try:
+        ST.commit_section_result(res_dup, run_id="run_dup")
+        check(False, "同一结果重复 claim_id 应被 validator 拒绝")
+    except ST.SectionStorageConflictError:
+        check(True, "同一结果重复 claim_id fail-closed")
+
+    # 28b. 同一结果重复 citation_id（同 claim 两条相同引用）→ validator fail-closed
+    cite_dup_ref = CitationRef(ref_type="evidence", evidence_id="ev_dup", page_number=1)
+    cite_dup_claim = SS.SectionClaim(claim_id="claim_cdup", section_id="financial", topic_id="t1",
+                                     question_ids=("q1",), text="a", claim_type="fact",
+                                     citation_refs=(cite_dup_ref, cite_dup_ref))
+    secver_cdup = SS.derive_section_version(reuse_task, (cite_dup_claim,), (),
+                                            renderer_version="rv", rules_version="rv")
+    res_cdup = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_cdup),
+                                section_version=secver_cdup, task_id=reuse_task,
+                                section_id="financial", status="COMPLETED",
+                                claims=(cite_dup_claim,),
+                                created_at="2026-01-01T00:00:00Z")
+    try:
+        ST.commit_section_result(res_cdup, run_id="run_cdup")
+        check(False, "同一结果重复 citation_id 应被 validator 拒绝")
+    except ST.SectionStorageConflictError:
+        check(True, "同一结果重复 citation_id fail-closed")
+
+    # 29. migration 4 故障完整回滚（拷贝阶段复合外键违例 → 回滚，保留旧 schema/数据）
+    rb_db = tmpdir / "mig4_rollback.db"
+    _pre_mig4(rb_db)
+    p_rb = _plan("plan_rb", "job_rb", "fp_rb")
+    ST.commit_plan(p_rb, run_id="run_rb")
+    rb_task = PS.derive_task_id("plan_rb", "financial")
+    ref_a = CitationRef(ref_type="evidence", evidence_id="ev_a")
+    claim_a = SS.SectionClaim(claim_id="claim_a", section_id="financial", topic_id="t1",
+                              question_ids=("q1",), text="a", claim_type="fact",
+                              citation_refs=(ref_a,))
+    secver_rb = SS.derive_section_version(rb_task, (claim_a,), (), renderer_version="rv",
+                                          rules_version="rv")
+    res_rb = SS.SectionResult(section_result_id=SS.derive_section_result_id(secver_rb),
+                              section_version=secver_rb, task_id=rb_task,
+                              section_id="financial", status="COMPLETED", claims=(claim_a,),
+                              created_at="2026-01-01T00:00:00Z")
+    ST.commit_section_result(res_rb, run_id="run_rb")
+    res_rb_empty = _result(rb_task, "financial", status="COMPLETED")
+    ST.commit_section_result(res_rb_empty, run_id="run_rb")
+    # 手动插入悬挂 citation：claim_id 指向 res_rb 的 claim_a，但 section_result_id 指向另一结果
+    # （旧 schema 单列 claim_id 外键放行；新复合外键会违例 → migration 4 回滚）
+    c = sqlite3.connect(str(rb_db))
+    c.execute("PRAGMA foreign_keys = ON")
+    c.execute("INSERT INTO section_citation (citation_id, claim_id, section_result_id, "
+              "ref_type, evidence_id, payload_json) VALUES (?,?,?,?,?,?)",
+              ("cite_dangling", "claim_a", res_rb_empty.section_result_id,
+               "evidence", "ev_x", "{}"))
+    c.commit()
+    c.close()
+    try:
+        ST.init_db(rb_db)
+        check(False, "migration 4 遇复合外键违例应失败")
+    except sqlite3.IntegrityError:
+        check(True, "migration 4 复合外键违例失败")
+    c = sqlite3.connect(str(rb_db))
+    c.row_factory = sqlite3.Row
+    migs = [r["migration_id"] for r in c.execute(
+        "SELECT migration_id FROM schema_migrations ORDER BY migration_id")]
+    claim_n = c.execute("SELECT COUNT(*) AS n FROM section_claim").fetchone()["n"]
+    cite_n = c.execute("SELECT COUNT(*) AS n FROM section_citation").fetchone()["n"]
+    c.close()
+    check(migs == [1, 2, 3], f"migration 4 回滚后 schema_migrations 仍为 [1,2,3]（got {migs}）")
+    check(claim_n == 1, "回滚后旧 section_claim 数据保留")
+    check(cite_n == 2, f"回滚后旧 section_citation 数据保留（含悬挂行，got {cite_n}）")
+
     return _results
 
 
