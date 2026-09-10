@@ -1,7 +1,7 @@
 # 授信报告生成器 V2 总实施路线图
 
 > 版本：v0.2 · 2026-09-06  
-> 状态：Phase 0A、0B、1、1F-A、2 已关闭；正在进入 Phase 3 Tool Layer + Research Harness
+> 状态：Phase 0A、0B、1、1F-A、2、3 已关闭；下一阶段 Phase 4 章节 Worker + Claim + Section Evaluator（未进入）
 > 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.4  
 > 工程规则：[AGENTS.md](./AGENTS.md)  
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -77,7 +77,7 @@
 | 1 | Evidence 与最小可追溯运行基础 | 0B | 已关闭 |
 | 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
-| 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 未进入 |
+| 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 已关闭 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 未进入 |
 | 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 4、1F-A | 未进入 |
 | 6 | 全流程集成、演示稳定性与交付 | 5 与 1F-B 均通过 | 未进入 |
@@ -235,6 +235,15 @@ P0 覆盖 24.4%→43.7%、ZERO_RECALL@10 23→13，优于 V1；3 题轻微退步
 
 **留到本阶段任务书：** 工具适配器选择、单批预算、重试参数、恢复版本兼容和阶段内动作协议，不提前固定所有实现。
 
+**关闭状态（2026-09-09）：** Phase 3 已按一次性 frozen_final 正式评测关闭（run_id
+`frozen_final_20260909T151421Z`）。完成状态 FULL 2 / PARTIAL 13 / UNRESOLVED 1 /
+NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、无来源数字进正式答案、
+引用无法回查、Gold 泄漏进运行时均为 0）。完整 eval `python -m evals.run_evals`：
+2987 passed / 0 failed / 0 skipped。4 项非 P0 发现（2 实现 / 2 检索数据）记录于
+`evaluation/results/frozen_final_20260909T151421Z/problem_classification.json` 与
+`PHASE3_FROZEN_FINAL_REPORT.md`，不在同一次冻结后修改规则重跑。Phase 4 具备入口条件
+（代码/规则/prompt/split manifest 已冻结，frozen_final 结果归档，完整 eval 全绿）。
+
 ### 4：章节 Worker、Claim 与质量门
 
 **设计映射：** §4、§5.5、§9.4、§12.1、§16.3、§17 Phase 4。
@@ -323,8 +332,8 @@ P0 覆盖 24.4%→43.7%、ZERO_RECALL@10 23→13，优于 V1；3 题轻微退步
 - [x] 1：Evidence 与最小状态/恢复基础通过。
 - [x] 1F-A：财务基础可供下游依赖（不代表完整 1F 通过，1F-B 待 Phase 5）。
 - [x] 2：Router/Hybrid 开发任务书就绪。
-- [ ] 2：Router/Hybrid 对照评测通过。
-- [ ] 3：真实工具与受预算约束的 Harness 通过。
+- [x] 2：Router/Hybrid 对照评测通过。
+- [x] 3：真实工具与受预算约束的 Harness 通过。
 - [ ] 4：章节 Worker 与章节质量门通过。
 - [ ] 5 与 1F-B：完整回检、财务确认闭环和正式导出门禁通过。
 - [ ] 6：端到端演示与交付验收通过。

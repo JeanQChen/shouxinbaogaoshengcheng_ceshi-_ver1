@@ -25,6 +25,7 @@ env/
 
 # --- Evaluation run outputs (generated; acceptance stays in Markdown reports) ---
 evaluation/results/actual_path_41/
+evaluation/results/frozen_final_20260909T151421Z/
 
 # --- Generated data ---
 data/credit.db
