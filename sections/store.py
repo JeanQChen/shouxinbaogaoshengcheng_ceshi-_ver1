@@ -28,10 +28,19 @@ from pathlib import Path
 
 from planning import schema as PS
 from sections import schema as SS
+from sections import validator as svalidator
 
 DEFAULT_DB_PATH = Path("data/sections.db")
 
 _db_path: Path = DEFAULT_DB_PATH
+
+
+class SectionStorageConflictError(Exception):
+    """章节产物参数冲突：同 section_result_id 但内容/任务/章节不一致，显式报错（不覆盖、不切指针）。"""
+
+
+class SectionStorageCorruptionError(Exception):
+    """章节产物存储损坏：复用前规范化 payload 与自身 section_version/result_id 不一致。"""
 
 
 def _utcnow() -> str:
@@ -501,6 +510,195 @@ def list_plans(company_id: str) -> list[str]:
             "SELECT plan_id FROM section_plan WHERE company_id = ? ORDER BY created_at",
             (company_id,)).fetchall()
         return [r["plan_id"] for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 章节产物写入：commit_section_result（P4-B 接入，原子提交 + current_section 切换）
+# ---------------------------------------------------------------------------
+
+def _citation_id(claim_id: str, ref) -> str:
+    """citation_id 稳定派生：claim_id + 引用身份哈希（同内容幂等）。"""
+    digest = SS.sha256_json([claim_id, SS.citation_identity(ref)])
+    return f"cite_{digest[:24]}"
+
+
+def _job_id_for_task(conn: sqlite3.Connection, task_id: str) -> str:
+    row = conn.execute(
+        "SELECT p.job_id FROM section_task t "
+        "JOIN section_plan p ON p.plan_id = t.plan_id WHERE t.task_id = ?",
+        (task_id,)).fetchone()
+    return row["job_id"] if row is not None else ""
+
+
+def _normalized_payload(result: SS.SectionResult) -> dict:
+    """规范化 payload（复用深度比较用）：只比内容身份，不含 created_at 等易变字段。"""
+    return {
+        "section_version": result.section_version,
+        "task_id": result.task_id,
+        "section_id": result.section_id,
+        "status": result.status,
+        "markdown": result.markdown,
+        "dependency_fingerprint": result.dependency_fingerprint,
+        "claims": [SS.claim_to_dict(c) for c in result.claims],
+        "unresolved": [SS.unresolved_to_dict(u) for u in result.unresolved],
+        "source_run_ids": list(result.source_run_ids),
+        "source_question_ids": list(result.source_question_ids),
+    }
+
+
+def commit_section_result(result: SS.SectionResult, *, run_id: str = "") -> SS.SectionCommitResult:
+    """原子提交一个章节产物：section_result + claims + citations + unresolved +
+    current_section 指针 + progress，失败整体回滚。
+
+    - 写入/复用前必经：结构校验 + section_result_id 由 section_version 派生自洽 +
+      task 存在且 result.section_id == task.section_id。
+    - 幂等复用：同 section_result_id（由 section_version 派生）→ 深度比较规范化
+      payload + dependency_fingerprint（非只比 section_version）；不一致即报存储损坏。
+    - 冲突/损坏 fail-closed：任何失败都不切换 current_section 指针。
+    - current_section 指针只在完整校验并写入后原子切换（UPSERT）。
+    """
+    # 0. 结构校验（写入/复用前必经）。
+    errors = svalidator.validate_section_result(result)
+    if errors:
+        raise SectionStorageConflictError(
+            "章节结构校验失败:\n" + "\n".join(f"  - {e}" for e in errors))
+    # 1. section_result_id 必须由 section_version 稳定派生（身份自洽）。
+    if SS.derive_section_result_id(result.section_version) != result.section_result_id:
+        raise SectionStorageConflictError(
+            f"section_result_id 与 section_version 派生不一致: "
+            f"{result.section_result_id} != {SS.derive_section_result_id(result.section_version)}")
+
+    conn = _get_conn()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        # 2. task 必须存在且 result.section_id == task.section_id（写入/复用前）。
+        task_row = conn.execute(
+            "SELECT section_id FROM section_task WHERE task_id = ?",
+            (result.task_id,)).fetchone()
+        if task_row is None:
+            conn.rollback()
+            raise SectionStorageConflictError(f"task 不存在: {result.task_id}（fail-closed）")
+        if task_row["section_id"] != result.section_id:
+            conn.rollback()
+            raise SectionStorageConflictError(
+                f"result.section_id 与 task.section_id 不一致: "
+                f"{result.section_id} != {task_row['section_id']}（fail-closed）")
+
+        row = conn.execute(
+            "SELECT section_version, payload_json FROM section_result WHERE section_result_id = ?",
+            (result.section_result_id,)).fetchone()
+        if row is not None:
+            conn.rollback()
+            if row["section_version"] != result.section_version:
+                raise SectionStorageConflictError(
+                    f"section_result_id 冲突: {result.section_result_id} 已存在但版本不一致（fail-closed）")
+            existing = SS.section_result_from_dict(json.loads(row["payload_json"]))
+            if _normalized_payload(existing) != _normalized_payload(result):
+                raise SectionStorageCorruptionError(
+                    f"section_result 复用前规范化 payload 与自身身份不一致: {result.section_result_id}")
+            return SS.SectionCommitResult(
+                section_result_id=result.section_result_id, reused=True,
+                current_switched=False, claim_count=len(result.claims),
+                unresolved_count=len(result.unresolved))
+
+        section_ordinal = PS.PHASE4_SECTION_ORDER.index(result.section_id) \
+            if result.section_id in PS.PHASE4_SECTION_ORDER else 999
+
+        conn.execute(
+            "INSERT INTO section_result (section_result_id, section_version, task_id, "
+            "section_id, status, section_ordinal, payload_json, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (result.section_result_id, result.section_version, result.task_id,
+             result.section_id, result.status, section_ordinal,
+             json.dumps(SS.section_result_to_dict(result), ensure_ascii=False),
+             result.created_at or _utcnow()))
+
+        for c in result.claims:
+            conn.execute(
+                "INSERT INTO section_claim (claim_id, section_result_id, section_id, "
+                "topic_id, question_ids_json, text, claim_type, citation_refs_json, "
+                "payload_json) VALUES (?,?,?,?,?,?,?,?,?)",
+                (c.claim_id, result.section_result_id, c.section_id, c.topic_id,
+                 json.dumps(list(c.question_ids), ensure_ascii=False), c.text,
+                 c.claim_type,
+                 json.dumps([SS.citation_to_dict(r) for r in c.citation_refs],
+                            ensure_ascii=False),
+                 json.dumps(SS.claim_to_dict(c), ensure_ascii=False)))
+            for ref in c.citation_refs:
+                conn.execute(
+                    "INSERT INTO section_citation (citation_id, claim_id, section_result_id, "
+                    "ref_type, evidence_id, snapshot_id, item_code, formula_id, "
+                    "formula_version, period, source_snapshot_id, page_number, payload_json) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (_citation_id(c.claim_id, ref), c.claim_id, result.section_result_id,
+                     ref.ref_type, ref.evidence_id, ref.snapshot_id, ref.item_code,
+                     ref.formula_id, ref.formula_version, ref.period,
+                     ref.source_snapshot_id, ref.page_number,
+                     json.dumps(SS.citation_to_dict(ref), ensure_ascii=False)))
+
+        for u in result.unresolved:
+            conn.execute(
+                "INSERT INTO section_unresolved (unresolved_id, section_result_id, "
+                "section_id, topic_id, question_id, state, reason_code, detail, payload_json) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (u.unresolved_id, result.section_result_id, u.section_id, u.topic_id,
+                 u.question_id, u.state, u.reason_code, u.detail,
+                 json.dumps(SS.unresolved_to_dict(u), ensure_ascii=False)))
+
+        before = conn.execute("SELECT section_result_id FROM current_section WHERE task_id = ?",
+                              (result.task_id,)).fetchone()
+        conn.execute(
+            "INSERT INTO current_section (task_id, section_id, section_result_id, switched_at) "
+            "VALUES (?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET "
+            "section_id=excluded.section_id, section_result_id=excluded.section_result_id, "
+            "switched_at=excluded.switched_at",
+            (result.task_id, result.section_id, result.section_result_id,
+             result.created_at or _utcnow()))
+
+        job_id = _job_id_for_task(conn, result.task_id)
+        conn.execute(
+            "INSERT INTO progress (event_id, job_id, run_id, stage, status, detail, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (_event_id(), job_id, run_id, "writing", "SECTION_WRITTEN",
+             f"section_result_id={result.section_result_id} section_id={result.section_id}",
+             result.created_at or _utcnow()))
+
+        conn.commit()
+        switched = (before is None or before["section_result_id"] != result.section_result_id)
+        return SS.SectionCommitResult(
+            section_result_id=result.section_result_id, reused=False,
+            current_switched=switched, claim_count=len(result.claims),
+            unresolved_count=len(result.unresolved))
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def get_section_result(section_result_id: str) -> SS.SectionResult | None:
+    """按 section_result_id 读取完整章节产物（payload_json 往返）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute(
+            "SELECT payload_json FROM section_result WHERE section_result_id = ?",
+            (section_result_id,)).fetchone()
+        if row is None:
+            return None
+        return SS.section_result_from_dict(json.loads(row["payload_json"]))
+    finally:
+        conn.close()
+
+
+def get_current_section(task_id: str) -> str | None:
+    """按 task_id 读取 current 章节产物指针（section_result_id）。"""
+    conn = _get_conn()
+    try:
+        row = conn.execute("SELECT section_result_id FROM current_section WHERE task_id = ?",
+                           (task_id,)).fetchone()
+        return None if row is None else row["section_result_id"]
     finally:
         conn.close()
 
