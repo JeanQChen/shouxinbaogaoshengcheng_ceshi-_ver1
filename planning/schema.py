@@ -72,8 +72,14 @@ class ReportJobInput:
     financial_snapshot_id: str | None = None
 
     def canonical_input_dict(self) -> dict:
-        """内容输入规范形（不含 job_id —— job_id 是执行标签，非内容输入）。"""
+        """job 输入规范形（含 job_id —— job 是报告任务身份，进入 plan 身份）。
+
+        plan_id 表示一次具体报告任务的计划（任务书 §8.1），因此 job_id 纳入身份：
+        - 同一 job + 同输入 + 同 Contract + 同 Planner 版本 → 相同 plan_id（严格复用）；
+        - 不同 job 即使业务输入相同 → 不同 plan_id（一个 section_plan 只属于一个 job）。
+        """
         d = {
+            "job_id": self.job_id,
             "company_id": self.company_id,
             "company_name": self.company_name,
             "credit_type": self.credit_type,

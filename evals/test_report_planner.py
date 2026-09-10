@@ -7,7 +7,7 @@
 2. working_capital 追加 fin_working_capital_needs 主题；other 不追加。
 3. 确定性：同输入两次 → 同 plan_id / task_ids / 顺序（与 created_at 无关）。
 4. 不同授信类型 → 不同 plan_id（输入指纹变化）。
-5. job_id 不参与输入指纹（执行标签）。
+5. job_id 纳入 plan 身份：不同 job 同输入 → 不同 plan_id；同 job 同输入 → 相同。
 6. task_id 派生确定性。
 7. company 任务携带 company_subject_match 问题 / company_identity 主题。
 8. 契约指纹确定性（同文件字节）。
@@ -85,10 +85,13 @@ def main():
     p_wc2 = plan(_job("working_capital"), contracts, fp, now="2026-01-01T00:00:00Z")
     check(p.plan_id != p_wc2.plan_id, "不同 credit_type 应产生不同 plan_id")
 
-    # 5. job_id 不参与输入指纹
+    # 5. job_id 纳入 plan 身份：不同 job 同输入 → 不同 plan_id；同 job 同输入 → 相同
     p_jobA = plan(_job("other", job_id="job_A"), contracts, fp, now="2026-01-01T00:00:00Z")
     p_jobB = plan(_job("other", job_id="job_B"), contracts, fp, now="2026-01-01T00:00:00Z")
-    check(p_jobA.plan_id == p_jobB.plan_id, "job_id 不应影响 plan_id")
+    check(p_jobA.plan_id != p_jobB.plan_id, "不同 job 同输入应产生不同 plan_id")
+    check(p_jobA.task_ids() != p_jobB.task_ids(), "不同 job 同输入应产生不同 task_ids")
+    p_jobA2 = plan(_job("other", job_id="job_A"), contracts, fp, now="2026-02-02T00:00:00Z")
+    check(p_jobA.plan_id == p_jobA2.plan_id, "同 job 同输入应产生相同 plan_id（严格复用）")
 
     # 6. task_id 派生确定性
     t1 = next(t for t in p.section_tasks if t.section_id == "company")
