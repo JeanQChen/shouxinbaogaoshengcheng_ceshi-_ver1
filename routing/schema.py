@@ -150,7 +150,11 @@ class RoutingValidationError(ValueError):
 
 @dataclass
 class InformationNeed:
-    """一次信息需求（对应评测数据集一条 case 的检索侧投影）。"""
+    """一次信息需求（对应评测数据集一条 case 的检索侧投影）。
+
+    metadata 为最小向后兼容扩展（Phase 4 Batch C 定点修复四），承接 Contract 的
+    freshness_policy / required_fields 等结构化要求；缺省为空 dict，Router 规则不读取。
+    """
 
     need_id: str
     section_id: str
@@ -160,6 +164,7 @@ class InformationNeed:
     time_scope: str | None
     priority: str
     depends_on: list[str]
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
