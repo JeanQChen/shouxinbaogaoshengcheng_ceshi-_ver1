@@ -57,6 +57,7 @@ _FIN_TABLES = (
     "quarantine",
     "snapshot_item",
     "metric_result",
+    "formula_definition",
 )
 
 
@@ -80,7 +81,7 @@ class PreflightCheck:
 
 def _ro_conn(path: str) -> sqlite3.Connection:
     """以 SQLite 只读模式打开现有库；文件缺失 / 打不开即抛错（fail-closed）。"""
-    p = Path(path).resolve()
+    p = Path(path).expanduser().resolve()
     if not p.exists():
         raise FileNotFoundError(f"数据库文件不存在: {path}")
     conn = sqlite3.connect(p.as_uri() + "?mode=ro", uri=True)
@@ -251,8 +252,36 @@ def _check_financial(company: str, scope: str, currency: str,
             name="financial.metric_result_count", ok=n_metrics > 0, detail=f"{n_metrics}",
             recovery=None if n_metrics > 0 else "metric_result 为空：重建财务主链"))
 
+        # 公式注册表完整性：formula_definition 非空，且本快照每个 metric_result 的
+        # (formula_id, formula_version) 都能在 formula_definition 找到。缺失会令
+        # CitationAuthority 把真实指标判 formula_not_found（→ 批量重复 rework target）。
+        n_formulas = conn.execute(
+            "SELECT COUNT(*) AS c FROM formula_definition").fetchone()["c"]
+        checks.append(PreflightCheck(
+            name="financial.formula_definition_count", ok=n_formulas > 0,
+            detail=f"{n_formulas}",
+            recovery=(None if n_formulas > 0 else
+                      f"公式注册表为空：运行 `python -m financial_v2.formulas persist "
+                      f"--db {fin_db}`")))
+
+        missing_formula_rows = conn.execute(
+            "SELECT DISTINCT m.formula_id, m.formula_version FROM metric_result m "
+            "WHERE m.snapshot_id=? AND NOT EXISTS (SELECT 1 FROM formula_definition f "
+            "WHERE f.formula_id=m.formula_id AND f.formula_version=m.formula_version)",
+            (snapshot_id,)).fetchall()
+        missing_formulas = [f"{r['formula_id']}@{r['formula_version']}"
+                            for r in missing_formula_rows]
+        checks.append(PreflightCheck(
+            name="financial.metric_formula_versions_present", ok=not missing_formulas,
+            detail=("全部指标公式版本已注册" if not missing_formulas
+                    else f"缺失公式定义: {missing_formulas}"),
+            recovery=(None if not missing_formulas else
+                      f"运行 `python -m financial_v2.formulas persist --db {fin_db}` "
+                      f"补齐公式注册")))
+
         active_ok = (validity == "valid" and not blocked and q is None and dims_ok
-                     and n_items > 0 and n_metrics > 0)
+                     and n_items > 0 and n_metrics > 0
+                     and n_formulas > 0 and not missing_formulas)
         checks.append(PreflightCheck(
             name="financial.active_snapshot_id", ok=active_ok, detail=snapshot_id,
             recovery=None if active_ok else "存在缺陷：见上列具体检查"))

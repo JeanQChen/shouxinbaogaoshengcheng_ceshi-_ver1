@@ -243,6 +243,11 @@ def run_pipeline(request: snapshots.SnapshotBuildRequest,
                completed_units=len(built.items), total_units=len(built.items),
                recoverable=not built.report_blocked)
 
+        # 公式定义与 metric_result 必须同批落盘：metrics.compute_all 用内存 registry 计算，
+        # 但只读权威校验（CitationAuthority 的 formula_get）依赖 formula_definition 表。
+        # 幂等落盘（同 (formula_id, version) 已存在则忽略），不修改公式定义 / 业务口径。
+        if persist:
+            formulas.ensure_formulas_persisted()
         table = metrics.compute_all(snapshot_id, persist=persist)
         total = sum(table.status_counts.values())
         record(run_id, "CALCULATION", "completed", "COMPUTED_METRICS",
