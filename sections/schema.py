@@ -224,6 +224,29 @@ class ReworkTarget:
     reason: str
 
 
+def canonicalize_rework_targets(
+        targets: "tuple[ReworkTarget, ...] | list[ReworkTarget]") -> "tuple[tuple[ReworkTarget, ...], int]":
+    """按 ``target_id`` 稳定去重（保留首次出现顺序），返回 ``(去重后, 重复条数)``。
+
+    复用边界：Rules Evaluator 会对同一 claim 的多条失败引用各自 emit 相同
+    ``(target_kind, target_ref, reason)`` → 内容寻址 ``target_id`` 相同。若不去重，
+    ``commit_evaluation`` 逐条写 ``section_rework`` 会撞 ``rework_id`` 主键（
+    ``_rework_row_id`` 只按 ``(evaluation_id, target_id)`` 隔离，同一 Evaluation 内
+    target_id 重复即冲突）。本函数只折叠**完全相同**的 ReworkTarget，issues 明细由调用方
+    全量保留，不经此处。
+    """
+    seen: set[str] = set()
+    deduped: list[ReworkTarget] = []
+    duplicate_count = 0
+    for t in targets:
+        if t.target_id in seen:
+            duplicate_count += 1
+            continue
+        seen.add(t.target_id)
+        deduped.append(t)
+    return tuple(deduped), duplicate_count
+
+
 @dataclass(frozen=True)
 class SectionEvaluation:
     """章节评估结论（任务书 §7.8）。"""

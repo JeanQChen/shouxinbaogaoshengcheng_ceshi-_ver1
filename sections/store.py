@@ -920,6 +920,17 @@ def commit_evaluation(evaluation: SS.SectionEvaluation, *, run_id: str = "") -> 
             evaluation.llm_evaluator_calls) != evaluation.evaluation_id:
         raise SectionStorageConflictError("evaluation_id 与内容派生不一致（fail-closed）")
 
+    # 防线：同一 Evaluation 内 target_id 必须唯一（section_rework.rework_id 主键按
+    # (evaluation_id, target_id) 派生）。重复应在汇总边界经 canonicalize_rework_targets
+    # 去重；此处 fail-closed，绝不依赖 SQLite IntegrityError 兜底、绝不用 INSERT OR IGNORE 吞冲突。
+    seen_target_ids: set[str] = set()
+    for t in evaluation.rework_targets:
+        if t.target_id in seen_target_ids:
+            raise SectionStorageConflictError(
+                f"evaluation 内存在重复 rework_target_id: {t.target_id}（fail-closed；"
+                f"应在汇总边界经 canonicalize_rework_targets 去重）")
+        seen_target_ids.add(t.target_id)
+
     conn = _get_conn()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -937,7 +948,12 @@ def commit_evaluation(evaluation: SS.SectionEvaluation, *, run_id: str = "") -> 
         if row is not None:
             conn.rollback()
             old = SS.evaluation_from_dict(json.loads(row["payload_json"]))
-            if SS.evaluation_to_dict(old) == SS.evaluation_to_dict(evaluation):
+            # 复用深度比较只比内容身份，剔除 evaluated_at（时间戳非身份，重跑时必然变化）。
+            old_d = SS.evaluation_to_dict(old)
+            new_d = SS.evaluation_to_dict(evaluation)
+            old_d.pop("evaluated_at", None)
+            new_d.pop("evaluated_at", None)
+            if old_d == new_d:
                 return SS.EvaluationCommitResult(
                     evaluation_id=evaluation.evaluation_id, reused=True,
                     rework_target_count=len(evaluation.rework_targets))
@@ -1027,7 +1043,12 @@ def commit_rework_run(run: SS.SectionReworkRun, *, run_id: str = "") -> SS.Rewor
         if row is not None:
             conn.rollback()
             old = SS.rework_run_from_dict(json.loads(row["payload_json"]))
-            if SS.rework_run_to_dict(old) == SS.rework_run_to_dict(run):
+            # 复用深度比较只比内容身份，剔除 created_at（时间戳非身份，重跑时必然变化）。
+            old_d = SS.rework_run_to_dict(old)
+            new_d = SS.rework_run_to_dict(run)
+            old_d.pop("created_at", None)
+            new_d.pop("created_at", None)
+            if old_d == new_d:
                 return SS.ReworkRunCommitResult(rework_run_id=run.rework_run_id, reused=True)
             raise SectionStorageCorruptionError(
                 f"rework_run_id 冲突: {run.rework_run_id} 已存在但内容不一致（fail-closed）")
@@ -1095,7 +1116,12 @@ def commit_manifest(manifest: SS.SectionRunManifest) -> SS.ManifestCommitResult:
         if row is not None:
             conn.rollback()
             old = SS.manifest_from_dict(json.loads(row["payload_json"]))
-            if SS.manifest_to_dict(old) == SS.manifest_to_dict(manifest):
+            # 复用深度比较只比内容身份，剔除 created_at（时间戳非身份，重跑时必然变化）。
+            old_d = SS.manifest_to_dict(old)
+            new_d = SS.manifest_to_dict(manifest)
+            old_d.pop("created_at", None)
+            new_d.pop("created_at", None)
+            if old_d == new_d:
                 return SS.ManifestCommitResult(
                     manifest_id=manifest.manifest_id, reused=True, current_switched=False)
             raise SectionStorageCorruptionError(

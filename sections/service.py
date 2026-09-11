@@ -361,11 +361,16 @@ def evaluate_section_and_rework(result: SS.SectionResult, task: PS.SectionTask, 
 
     issues = tuple(rules_verdict.issues) + (llm_eval.issues if llm_eval is not None else ())
     if rules_verdict.rework_targets:
-        rework_targets = tuple(rules_verdict.rework_targets)
+        raw_targets = tuple(rules_verdict.rework_targets)
     elif llm_eval is not None:
-        rework_targets = tuple(llm_eval.rework_targets)
+        raw_targets = tuple(llm_eval.rework_targets)
     else:
-        rework_targets = ()
+        raw_targets = ()
+    # 汇总边界规范化：同一 claim 多条引用可能产生相同 (target_kind, target_ref, reason)
+    # → 相同 target_id。稳定去重（保留首次顺序），issues 全量保留不经此折叠。
+    # 去重后 target 同时流入 evaluation_id / SectionEvaluation / run_rework / commit_evaluation，
+    # 保证 section_rework.rework_id 不撞主键。
+    rework_targets, _duplicate_target_count = SS.canonicalize_rework_targets(raw_targets)
 
     evaluator_prompt_version = LE.PROMPT_VERSION
     evaluation_id = SS.derive_evaluation_id(
