@@ -141,6 +141,7 @@ def _render_preview(p, outcome) -> None:
             st.info(f"⚠️ `{u.reason_code}` — {u.detail}")
 
     st.markdown(p.markdown or "*（无正文）*")
+    _render_claim_citations(outcome)
     st.divider()
 
 
@@ -151,6 +152,142 @@ def _render_result(result) -> None:
     st.divider()
     for outcome, preview in zip(result.sections, result.previews()):
         _render_preview(preview, outcome)
+
+
+# ---------------------------------------------------------------------------
+# 只读产物加载（查看已生成报告模式；不触发 LLM / 网络 / Store 写入）
+# ---------------------------------------------------------------------------
+
+def _render_citation_ref(ref) -> None:
+    """只读展示一条引用（evidence/structured/external 各自的定位字段）。"""
+    if ref.ref_type == "evidence":
+        page = ref.page_number if ref.page_number is not None else "—"
+        st.caption(f"      📄 evidence · `{ref.evidence_id}` · 物理页 {page}")
+    elif ref.ref_type == "structured":
+        target = ref.formula_id or ref.item_code or "—"
+        ver = f" v{ref.formula_version}" if ref.formula_version else ""
+        st.caption(f"      🧮 structured · snapshot `{ref.snapshot_id}` · "
+                   f"`{target}`{ver} · period `{ref.period}`")
+    elif ref.ref_type == "external":
+        st.caption(f"      🌐 external · source_snapshot_id `{ref.source_snapshot_id}`")
+    else:
+        st.caption(f"      ⚪ {ref.ref_type}")
+
+
+def _render_claim_citations(outcome) -> None:
+    """展开显示章节 Claim 与 Citation（只读，不改动 DTO）。"""
+    if outcome is None or outcome.section_result is None:
+        return
+    claims = outcome.section_result.claims
+    if not claims:
+        return
+    with st.expander(f"📎 Claims 与引用（{len(claims)} 条）", expanded=False):
+        for c in claims:
+            st.markdown(f"**`{c.claim_id}`** · `{c.claim_type}` · confidence `{c.confidence}`")
+            st.markdown(c.text)
+            if c.citation_refs:
+                for ref in c.citation_refs:
+                    _render_citation_ref(ref)
+            else:
+                st.caption("      （无引用）")
+            st.divider()
+
+
+def _render_loaded_banner(result, summary) -> None:
+    """醒目标注：已保存的真实运行产物（非现场生成）+ 版本信息。"""
+    m = result.manifest
+    bv = m.batch_versions or {}
+    fin = bv.get("financial") or {}
+    st.success("✅ 已保存的真实运行产物（非本次现场生成）")
+    st.caption(
+        f"run_id `{result.run_id}` · manifest_id `{result.manifest_id}` · "
+        f"plan `{result.plan_id[:16]}…`"
+    )
+    st.caption(
+        f"code `{m.code_fingerprint[:12]}…` · service `{bv.get('service', '—')}` · "
+        f"financial.worker `{fin.get('worker', '—')}` · financial.prompt `{fin.get('prompt', '—')}`"
+    )
+
+
+def _render_summary_header(result) -> None:
+    """公司 / 报告时点 / Snapshot / Evidence / Manifest 摘要。"""
+    fz = result.manifest.frozen or {}
+    st.markdown("**公司 / 时点 / 快照 / 证据摘要**")
+    st.markdown(
+        f"- 公司：`{fz.get('company_name', '—')}`（`{fz.get('company_id', '—')}`）\n"
+        f"- 报告时点：`{fz.get('report_as_of', '—')}`\n"
+        f"- Financial Snapshot：`{fz.get('financial_snapshot_id', '—')}`\n"
+        f"- Evidence 指纹：`{fz.get('evidence_inventory_fingerprint', '—')}`\n"
+        f"- 模型：`{fz.get('model_id', '—')}`"
+    )
+    with st.expander("🔎 RunManifest / 冻结输入详情", expanded=False):
+        st.json({
+            "run_id": result.run_id,
+            "manifest_id": result.manifest_id,
+            "job_id": result.job_id,
+            "plan_id": result.plan_id,
+            "code_fingerprint": result.manifest.code_fingerprint,
+            "phase3_closure_fingerprint": result.manifest.phase3_closure_fingerprint,
+            "batch_versions": result.manifest.batch_versions,
+            "frozen": fz,
+        }, expanded=False)
+
+
+def _render_loaded_result(result, summary) -> None:
+    """把只读加载的 Phase4RunResult 渲染为三章节 Tab（复用现有 _render_preview）。"""
+    _render_loaded_banner(result, summary)
+    _render_summary_header(result)
+    st.divider()
+    tabs = st.tabs([(o.title or o.section_id) for o in result.sections])
+    for tab, outcome, preview in zip(tabs, result.sections, result.previews()):
+        with tab:
+            _render_preview(preview, outcome)
+
+
+def _render_view_mode() -> None:
+    """查看已生成报告（只读）：下拉选择 run → 只调 artifact_loader.load_phase4_run。"""
+    from sections import artifact_loader as AL  # noqa: N813
+
+    st.subheader("🕘 查看已生成报告（只读，不触发 LLM / 网络 / 数据库写入）")
+    try:
+        runs = AL.list_phase4_runs()
+    except Exception as e:  # noqa: BLE001 - 只读列表失败友好提示
+        st.error(f"读取产物列表失败：{e}")
+        return
+
+    complete = [r for r in runs if r.complete]
+    if not complete:
+        st.warning(
+            "当前没有可加载的完整产物 run。"
+            "请先运行 `python -m scripts.run_phase4_demo ...` 生成一次。"
+        )
+        if runs:
+            st.caption("发现以下不完整 run（不可加载）：")
+            for r in runs:
+                st.caption(f"- `{r.run_id}` — {r.note or '不完整'}")
+        return
+
+    by_id = {r.run_id: r for r in complete}
+    option = st.selectbox(
+        "选择已完成的 run",
+        options=[r.run_id for r in complete],
+        format_func=lambda rid: f"{rid}（{by_id[rid].company_name} · {by_id[rid].report_as_of}）",
+        key="artifact_run_select",
+    )
+
+    if st.button("📂 加载已生成报告", type="primary", use_container_width=True):
+        try:
+            loaded = AL.load_phase4_run(option)
+        except Exception as e:  # noqa: BLE001 - fail-closed 友好提示
+            logger.exception("只读产物加载失败")
+            st.error(f"加载失败（fail-closed）：{e}")
+            st.session_state.pop("phase4_loaded", None)
+        else:
+            st.session_state["phase4_loaded"] = (option, loaded)
+
+    loaded = st.session_state.get("phase4_loaded")
+    if loaded is not None and loaded[0] == option:
+        _render_loaded_result(loaded[1], by_id[option])
 
 
 # ---------------------------------------------------------------------------
@@ -385,7 +522,7 @@ def _generate_report(company_id: str, company_name: str, credit_type: str,
 
 def main() -> None:
     st.title("📊 授信报告生成器 — Phase 4 章节预览")
-    st.caption("薄展示：只调用 `sections.service`，不承担任何业务判断。")
+    st.caption("薄展示：只调用 `sections.service`（生成）/ `sections.artifact_loader`（只读加载），不承担任何业务判断。")
 
     # ── 输入（Sidebar） ──
     with st.sidebar:
@@ -462,30 +599,42 @@ def main() -> None:
             "数据缺失时只报错，不在此导入文件。"
         )
 
-    # ── Phase 4 生成 ──
-    if st.button("🚀 生成 Phase 4 报告", type="primary", use_container_width=True):
-        if not company_id:
-            st.error("请输入公司股票代码。")
-        elif not enabled:
-            st.error("请至少启用一个章节。")
-        elif not report_as_of:
-            st.error("请输入报告基准日。")
-        else:
-            try:
-                with st.spinner("正在规划 + 生成三章节（评估与定向返工）..."):
-                    result = _generate_report(
-                        company_id, company_name or company_id, credit_type,
-                        report_as_of, tuple(enabled), external_research)
-            except Exception as e:  # noqa: BLE001 - 顶层统一友好报错
-                logger.exception("Phase 4 生成失败")
-                st.error(_friendly_error(e))
-                st.session_state.pop("phase4_result", None)
-            else:
-                st.session_state["phase4_result"] = result
+    # ── Phase 4 模式选择 ──
+    mode = st.radio(
+        "Phase 4 报告模式",
+        options=["查看已生成报告（推荐演示）", "现场重新生成报告"],
+        index=0,
+        help="查看模式只读加载已落盘产物；生成模式会触发真实 LLM 与网络检索。",
+    )
 
-    result = st.session_state.get("phase4_result")
-    if result is not None:
-        _render_result(result)
+    if mode == "查看已生成报告（推荐演示）":
+        _render_view_mode()
+    else:
+        # ── 现场重新生成（触发真实 LLM / 网络） ──
+        st.caption("⚠️ 现场重新生成会触发真实 LLM 调用与网络检索。")
+        if st.button("🚀 现场重新生成报告", type="primary", use_container_width=True):
+            if not company_id:
+                st.error("请输入公司股票代码。")
+            elif not enabled:
+                st.error("请至少启用一个章节。")
+            elif not report_as_of:
+                st.error("请输入报告基准日。")
+            else:
+                try:
+                    with st.spinner("正在规划 + 生成三章节（评估与定向返工）..."):
+                        result = _generate_report(
+                            company_id, company_name or company_id, credit_type,
+                            report_as_of, tuple(enabled), external_research)
+                except Exception as e:  # noqa: BLE001 - 顶层统一友好报错
+                    logger.exception("Phase 4 生成失败")
+                    st.error(_friendly_error(e))
+                    st.session_state.pop("phase4_result", None)
+                else:
+                    st.session_state["phase4_result"] = result
+
+        result = st.session_state.get("phase4_result")
+        if result is not None:
+            _render_result(result)
 
     # ── V2 财务对账确认（实验性，独立于 Phase 4 主流程，默认不渲染）──
     if enable_v2:
