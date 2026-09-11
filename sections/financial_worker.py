@@ -495,18 +495,125 @@ def _build_prompt(pack: FinancialFactPack, task: PS.SectionTask) -> tuple[str, s
     return system, user
 
 
-def _parse_llm_json(text: str) -> dict:
-    s = text.strip()
+def _strip_markdown_fence(s: str) -> str:
+    s = s.strip()
     s = re.sub(r"^```(?:json)?\s*", "", s)
     s = re.sub(r"\s*```$", "", s)
+    return s
+
+
+def _extract_outer_json(s: str) -> str:
+    """提取最外层 JSON object（首个 ``{`` 到末个 ``}``），失败 fail-closed。"""
     start = s.find("{")
     end = s.rfind("}")
     if start == -1 or end == -1 or end <= start:
         raise FinancialWorkerError("LLM 输出不含 JSON 对象（fail-closed）")
+    return s[start:end + 1]
+
+
+def _repair_trailing_commas(text: str) -> tuple[str, int]:
+    """确定性删除「字符串外、紧邻 ``}`` / ``]`` 之前的逗号」，返回 (修复后文本, 删除条数)。
+
+    有限、可审计的状态机：跟踪 JSON 字符串与转义 —— 字符串内的逗号 / ``}`` / ``]`` /
+    转义引号一律原样保留；仅当逗号位于字符串外、其后（忽略空白）紧跟 ``}`` 或 ``]``
+    时才删除。不修改 key / value / 数字 / marker / 中文正文 / 数组内容（唯一改动是被删
+    的尾逗号）。
+    """
+    out: list[str] = []
+    repaired = 0
+    in_string = False
+    escaped = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if in_string:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == ",":
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if j < n and text[j] in "}]":
+                repaired += 1
+                i += 1
+                continue  # 丢弃尾逗号
+        out.append(ch)
+        i += 1
+    return "".join(out), repaired
+
+
+def _parse_llm_json(text: str) -> tuple[dict, dict]:
+    """解析 LLM JSON 输出：严格 ``json.loads`` → 一次确定性尾逗号规范化 → 严格。
+
+    返回 ``(payload, audit)``；audit 记录 ``parse_mode``（strict / trailing_comma_repaired）、
+    ``repaired_trailing_comma_count``、``first_error``（首次严格解析错误类型）。
+    仍无法解析 → fail-closed。严禁宽松 json_repair / eval / 单引号转换 / 自动补 key/value /
+    截断补全（这些会猜测语义，破坏 fail-closed 保证）。
+    """
+    s = _strip_markdown_fence(text)
+    outer = _extract_outer_json(s)
+    audit: dict = {"parse_mode": "strict", "repaired_trailing_comma_count": 0,
+                   "first_error": None}
     try:
-        return json.loads(s[start:end + 1])
+        return json.loads(outer), audit
     except json.JSONDecodeError as e:
-        raise FinancialWorkerError(f"LLM 输出 JSON 解析失败: {e}") from e
+        audit["first_error"] = f"{type(e).__name__}: {e}"
+
+    repaired_text, n = _repair_trailing_commas(outer)
+    if n > 0:
+        audit["parse_mode"] = "trailing_comma_repaired"
+        audit["repaired_trailing_comma_count"] = n
+        try:
+            return json.loads(repaired_text), audit
+        except json.JSONDecodeError as e:
+            raise FinancialWorkerError(
+                f"LLM 输出 JSON 解析失败（尾逗号规范化后仍失败）: {e}") from e
+    raise FinancialWorkerError(
+        f"LLM 输出 JSON 解析失败（无尾逗号可修复）: {audit['first_error']}")
+
+
+def _generate_and_parse(generate, messages, system) -> tuple[dict, dict]:
+    """LLM 生成 + 解析（同一 prompt），至多两次生成尝试，每次走「严格 → 尾逗号规范化」。
+
+    返回 ``(payload, audit)``。audit 记录 ``generation_attempts`` / ``parse_mode`` /
+    ``repaired_trailing_comma_count`` / ``first_parse_error`` / ``regenerated``。
+    两次都失败 → fail-closed 抛 ``FinancialWorkerError``（不产出、不落 Store）。
+    """
+    audit: dict = {"generation_attempts": 0, "parse_mode": None,
+                   "repaired_trailing_comma_count": 0,
+                   "first_parse_error": None, "regenerated": False}
+    last_error: FinancialWorkerError | None = None
+    for attempt in (1, 2):
+        audit["generation_attempts"] = attempt
+        raw_text = generate(messages, system)
+        try:
+            payload, p_audit = _parse_llm_json(raw_text)
+        except FinancialWorkerError as e:
+            last_error = e
+            if attempt == 1:
+                audit["first_parse_error"] = str(e)
+            continue
+        if attempt == 1:
+            audit["first_parse_error"] = p_audit["first_error"]
+        audit["parse_mode"] = p_audit["parse_mode"]
+        audit["repaired_trailing_comma_count"] = p_audit["repaired_trailing_comma_count"]
+        audit["regenerated"] = attempt == 2
+        return payload, audit
+    raise FinancialWorkerError(
+        f"LLM 输出 JSON 两次生成均无法解析（fail-closed）: {last_error}")
 
 
 # ---------------------------------------------------------------------------
@@ -816,8 +923,8 @@ def run_task(task: PS.SectionTask, *, company_id: str, company_name: str = "",
                            relevant_formula_ids=relevant_fids)
 
     system, user = _build_prompt(pack, task)
-    raw_text = generate([{"role": "user", "content": user}], system)
-    payload = _parse_llm_json(raw_text)
+    messages = [{"role": "user", "content": user}]
+    payload, generation_audit = _generate_and_parse(generate, messages, system)
     raw_claims = payload.get("claims", [])
     if not isinstance(raw_claims, list):
         raise FinancialWorkerError("LLM 输出 claims 不是数组（fail-closed）")
@@ -856,6 +963,7 @@ def run_task(task: PS.SectionTask, *, company_id: str, company_name: str = "",
     verification["claims_resolved"] = len(claims)
     verification["unresolved"] = len(unresolved)
     verification["facts"] = len(pack.facts)
+    verification["generation"] = generation_audit
     verification["required_gaps"] = len(pack.gaps)
     verification["diagnostic_gaps"] = len(pack.diagnostic_gaps)
     verification["required_formula_ids"] = sorted(required_fids)

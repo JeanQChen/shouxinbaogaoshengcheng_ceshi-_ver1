@@ -18,7 +18,7 @@ from financial_v2 import formulas, mapping
 RENDERER_VERSION = "p4-fin-renderer-v1"
 RULES_VERSION = "p4-fin-rules-v1"
 PROMPT_VERSION = "section_financial_v3"
-WORKER_VERSION = "p4-fin-worker-v1"
+WORKER_VERSION = "p4-fin-worker-v2"
 
 # 契约固化的政策常量（非财务计算值，LLM 可原文引用，不计入「LLM 算了数字」）。
 # 重大科目关注阈值 15%（contracts standard_v2.yaml），近三年观察窗口。
