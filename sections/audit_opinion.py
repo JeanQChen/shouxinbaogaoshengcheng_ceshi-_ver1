@@ -314,7 +314,7 @@ def extract(company_id: str, *, evidence_blocks,
 # ---------------------------------------------------------------------------
 
 def _ro_conn(path: str | Path) -> sqlite3.Connection:
-    p = Path(path)
+    p = Path(path).expanduser().resolve()
     if not p.is_file():
         raise FileNotFoundError(f"只读库不存在（不创建）: {p}")
     conn = sqlite3.connect(p.as_uri() + "?mode=ro", uri=True)
