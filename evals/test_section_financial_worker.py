@@ -278,6 +278,92 @@ def _fake_meta_only(messages, system):  # noqa: ARG001
     ]})
 
 
+# ---------------------------------------------------------------------------
+# JSON 解析健壮性 fakes（模拟 DeepSeek 真实失败形状：object 末字段后尾逗号）
+# ---------------------------------------------------------------------------
+
+def _inject_trailing_commas(s: str) -> str:
+    """在每个 object 末字段（字符串值）后的 ``}`` 前注入一个尾逗号。
+
+    只处理紧邻 ``}`` 且前一字符是 ``"``（字符串值结束）的闭合处；不触碰字符串内逗号。
+    产生 ``"text": "...", }`` 形非法 JSON，供「有限尾逗号规范化」修复验证。
+    """
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if in_string:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "}" and i > 0 and s[i - 1] == '"':
+            out.append(",")
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _fake_trailing_comma_valid(messages, system):  # noqa: ARG001
+    return _inject_trailing_commas(_fake_valid(messages, system))
+
+
+def _fake_trailing_comma_bad_marker(messages, system):  # noqa: ARG001
+    return _inject_trailing_commas(json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_bal"],
+         "claim_type": "fact", "text": "总资产 [[item_UNKNOWN_2025-12-31]]。"},
+    ]}))
+
+
+def _fake_trailing_comma_bare(messages, system):  # noqa: ARG001
+    return _inject_trailing_commas(json.dumps({"claims": [
+        {"topic_id": "fin_solvency", "question_ids": ["q_solv"], "claim_type": "fact",
+         "text": "资产负债率 60%，流动比率良好。"},
+    ]}))
+
+
+def _fake_trailing_comma_forged_qid(messages, system):  # noqa: ARG001
+    return _inject_trailing_commas(json.dumps({"claims": [
+        {"topic_id": "fin_balance_structure", "question_ids": ["q_ghost"],
+         "claim_type": "fact", "text": "总资产 [[item_TOTAL_ASSETS_2025-12-31]]。"},
+    ]}))
+
+
+def _fake_bad_then_good():
+    """第 1 次返回不可修复的非法 JSON（单引号），第 2 次返回合法 JSON。"""
+    def _llm(messages, system):  # noqa: ARG001
+        _llm.calls += 1
+        if _llm.calls == 1:
+            return "{'claims': []}"
+        return _fake_valid(messages, system)
+
+    _llm.calls = 0
+    return _llm
+
+
+def _fake_always_bad():
+    """恒返回不可修复的非法 JSON（单引号 + 截断）。"""
+    def _llm(messages, system):  # noqa: ARG001
+        _llm.calls += 1
+        return "{'claims': ["
+
+    _llm.calls = 0
+    return _llm
+
+
 def main():
     # ---- A1. 展示格式化 ----
     check(SC.format_yuan_amount(Decimal("431015000000")) == "4,310.15亿元",
@@ -614,6 +700,134 @@ def main():
     # E6. 失败后 current 不变（回滚）
     check(ST.get_current_section(task.task_id) == wr1.section_result.section_result_id,
           "全部失败后 current 不变（未切换）")
+
+    # ---- F. JSON 解析健壮性（严格 → 有限尾逗号规范化 → 至多一次 regeneration）----
+    # F1. 合法 JSON 严格解析，内容逐字段不变
+    valid_raw = _fake_valid(None, None)
+    payload_ok, aud_ok = FW._parse_llm_json(valid_raw)
+    check(payload_ok == json.loads(valid_raw), "合法 JSON 严格解析内容逐字段不变")
+    check(aud_ok["parse_mode"] == "strict", "合法 JSON parse_mode=strict")
+    check(aud_ok["repaired_trailing_comma_count"] == 0, "合法 JSON 零尾逗号修复")
+    check(aud_ok["first_error"] is None, "合法 JSON 无首次解析错误")
+
+    # F2. 真实失败形状：多个 claim object 末字段尾逗号 → 确定性修复
+    trailing_raw = _fake_trailing_comma_valid(None, None)
+    payload_tc, aud_tc = FW._parse_llm_json(trailing_raw)
+    check(payload_tc == json.loads(valid_raw), "尾逗号修复后内容与严格解析逐字段一致")
+    check(aud_tc["parse_mode"] == "trailing_comma_repaired",
+          "尾逗号 parse_mode=trailing_comma_repaired")
+    check(aud_tc["repaired_trailing_comma_count"] == 2,
+          f"恰好修复 2 个尾逗号（got {aud_tc['repaired_trailing_comma_count']}）")
+    check(aud_tc["first_error"] is not None and "Expecting" in aud_tc["first_error"],
+          "记录首次严格解析错误类型（JSONDecodeError）")
+
+    # F3. 字符串正文中的逗号 / } / ] / 转义引号不被修改（状态机）
+    emb = '{"a":"x,y","b":"p}q","c":"r]s","d":"esc\\"q"}'
+    out_emb, n_emb = FW._repair_trailing_commas(emb)
+    check(n_emb == 0 and out_emb == emb, "无尾逗号时字符串内逗号/括号/转义引号原样保留")
+    emb_tc = '{"a":"x,y}","b":"p}q","d":"esc\\"q",}'
+    out_emb_tc, n_emb_tc = FW._repair_trailing_commas(emb_tc)
+    check(n_emb_tc == 1 and out_emb_tc == '{"a":"x,y}","b":"p}q","d":"esc\\"q"}',
+          "仅删字符串外尾逗号，字符串内逗号/括号/转义引号不动")
+
+    # F4. 尾逗号修复 → 下游产物（含解析后的数字/百分比/marker/中文）与严格解析完全一致
+    _make_current(fin_db2, "snap_test_1")  # D3 把 current 切到了 snap_fv2，切回 snap_test_1
+    wr_tc = FW.run_task(task, company_id="300750", company_name="测试公司",
+                        snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                        llm_generate=_fake_trailing_comma_valid)
+    check(wr_tc.section_result.section_result_id == wr1.section_result.section_result_id,
+          "尾逗号修复后 section_result_id 与严格解析一致（数字/百分比/marker/中文全等）")
+    check(wr_tc.verification["generation"]["parse_mode"] == "trailing_comma_repaired",
+          "run_task 审计记录 parse_mode=trailing_comma_repaired")
+    check(wr_tc.verification["generation"]["generation_attempts"] == 1,
+          "尾逗号可修复 → 只调用一次生成（不重试）")
+    check(wr_tc.verification["generation"]["regenerated"] is False,
+          "尾逗号可修复 → regenerated=False")
+
+    # F5. 单引号 / 未加引号 key / 缺失 value / 截断 → 不得被本地修复（fail-closed）
+    expect_raise(lambda: FW._parse_llm_json("{'claims': []}"),
+                 FW.FinancialWorkerError, "单引号 JSON 不修复")
+    expect_raise(lambda: FW._parse_llm_json("{claims: []}"),
+                 FW.FinancialWorkerError, "未加引号 key 不修复")
+    expect_raise(lambda: FW._parse_llm_json('{"claims": [{"text": }]}'),
+                 FW.FinancialWorkerError, "缺失 value 不修复")
+    expect_raise(lambda: FW._parse_llm_json('{"claims": [{"topic_id": "fin_x", "text": "未完成'),
+                 FW.FinancialWorkerError, "截断 JSON 不修复")
+
+    # F6. 第一次不可修复、第二次合法 → 恰好两次生成并成功
+    bad_then_good = _fake_bad_then_good()
+    payload_btg, aud_btg = FW._generate_and_parse(
+        bad_then_good, [{"role": "user", "content": "x"}], "s")
+    check(aud_btg["generation_attempts"] == 2 and bad_then_good.calls == 2,
+          "第一次不可修复 → 恰好两次生成")
+    check(aud_btg["regenerated"] is True, "标记 regenerated=True")
+    check(aud_btg["parse_mode"] == "strict", "第二次严格解析成功")
+    check(payload_btg == json.loads(valid_raw), "第二次生成内容正确")
+
+    # F7. 第一次尾逗号可修复 → 只调用一次，不进行多余重试
+    trailing_once = _fake_trailing_comma_valid
+    # 用计数 wrapper 确保只调用一次（不重试）
+    def _once(messages, system):  # noqa: ARG001
+        _once.calls += 1
+        return trailing_once(messages, system)
+    _once.calls = 0
+    payload_once, aud_once = FW._generate_and_parse(
+        _once, [{"role": "user", "content": "x"}], "s")
+    check(aud_once["generation_attempts"] == 1 and _once.calls == 1,
+          "尾逗号可修复 → 只调用一次")
+    check(aud_once["parse_mode"] == "trailing_comma_repaired"
+          and aud_once["regenerated"] is False,
+          "尾逗号可修复 → 不重试")
+
+    # F8. 两次均非法 → 恰好两次后 fail-closed，不产出 SectionResult / 不切 current
+    always_bad = _fake_always_bad()
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=always_bad),
+                 FW.FinancialWorkerError, "两次均非法 → fail-closed")
+    check(always_bad.calls == 2, f"恰好两次生成后 fail-closed（got {always_bad.calls}）")
+    check(ST.get_current_section(task.task_id) == wr1.section_result.section_result_id,
+          "两次非法 fail-closed 后 current 不变（无 SectionResult 落地）")
+
+    # F9. 语法修复成功但非法 marker / 手写数字 / 非法 question_id → 仍被下游校验拒绝
+    wr_bad_marker = FW.run_task(task, company_id="300750", company_name="测试公司",
+                                snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                llm_generate=_fake_trailing_comma_bad_marker)
+    check(wr_bad_marker.claim_count == 0
+          and any("未知/未解析 fact_id" in r for r in wr_bad_marker.verification["rejected"]),
+          "尾逗号修复 + 非法 marker → claim 拒绝")
+    expect_raise(lambda: FW.run_task(task, company_id="300750", company_name="测试公司",
+                                     snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                     llm_generate=_fake_trailing_comma_bare),
+                 FW.FinancialWorkerError, "尾逗号修复 + 手写数字 → fail-closed")
+    wr_forged_qid = FW.run_task(task, company_id="300750", company_name="测试公司",
+                                snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                llm_generate=_fake_trailing_comma_forged_qid)
+    check(wr_forged_qid.claim_count == 0
+          and any("伪造 question_id" in r for r in wr_forged_qid.verification["rejected"]),
+          "尾逗号修复 + 非法 question_id → claim 拒绝")
+
+    # F10. Worker 版本变化 → 新 dependency fingerprint + 新 section_result_id
+    check(SC.WORKER_VERSION == "p4-fin-worker-v2",
+          f"Worker 版本已升级为 v2（got {SC.WORKER_VERSION}）")
+    snap_obj = FW._resolve_snapshot("snap_test_1", company_id="300750",
+                                    scope="consolidated", currency="CNY",
+                                    as_of_date="2025-12-31", purpose="credit_analysis",
+                                    fin_db=str(fin_db2))
+    fp_base = FW._dependency_fingerprint(snap_obj, task)
+    old_wv = SC.WORKER_VERSION
+    SC.WORKER_VERSION = old_wv + "-bumped"
+    try:
+        fp_bumped = FW._dependency_fingerprint(snap_obj, task)
+        wr_bumped = FW.run_task(task, company_id="300750", company_name="测试公司",
+                                snapshot_id="snap_test_1", fin_db=str(fin_db2),
+                                llm_generate=_fake_valid)
+        check(fp_bumped != fp_base, "Worker 版本进入 dependency fingerprint")
+        check(wr_bumped.section_result.section_result_id
+              != wr1.section_result.section_result_id,
+              "Worker 版本变化 → 新 section_result_id")
+    finally:
+        SC.WORKER_VERSION = old_wv
 
     return _results
 

@@ -237,6 +237,46 @@ def _fake_evaluator(messages, system):  # noqa: ARG001
     return json.dumps({"decision": "PASS", "issues": [], "rework_targets": []})
 
 
+def _inject_trailing_commas(s: str) -> str:
+    """在每个 object 末字段（字符串值）后的 ``}`` 前注入一个尾逗号。
+
+    产生 ``"text": "...", }`` 形非法 JSON（DeepSeek 真实失败形状），供 Financial Worker
+    的「有限尾逗号规范化」在完整编排路径中修复。
+    """
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if in_string:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "}" and i > 0 and s[i - 1] == '"':
+            out.append(",")
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _fake_financial_llm_trailing_comma(messages, system):
+    """财务 Worker LLM：与 _fake_financial_llm 同内容，但注入 object 末字段尾逗号。"""
+    return _inject_trailing_commas(_fake_financial_llm(messages, system))
+
+
 def _make_rework_financial_llm():
     """stateful 财务 LLM：fin_solvency 用两个 [[metric_*]] 占位（同 claim 两条结构化引用）。
 
@@ -479,6 +519,55 @@ def _run_rework_scenario(tmp: Path, contracts_abs: Path) -> None:
         os.chdir(old_cwd)
 
 
+def _run_trailing_comma_scenario(tmp: Path, contracts_abs: Path) -> None:
+    """注入一次与真实日志同形的尾逗号输出，验证完整财务章节继续进入 Evaluation/Store。
+
+    独立子目录；全程真实 ``run_phase4``（相对库路径 + chdir），仅替换财务 Worker LLM 为
+    尾逗号输出，其余（Rules Evaluator / Store / CitationAuthority / audit enrichment）真实。
+    """
+    sub = tmp / "trailing_comma"
+    sub.mkdir()
+    _seed_financial_db(sub / "fin.db", company_id="TESTCO")
+    _seed_evidence_db(sub / "ev.db", company_id="TESTCO")
+    _seed_external_db(sub / "ext.db")
+
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(str(sub))
+        cfg = SV.ServiceConfig(
+            contracts_path=str(contracts_abs),
+            fin_db="fin.db", ev_db="ev.db", ext_db="ext.db",
+            harness_db="harness.db", section_db="sections.db",
+            scope="consolidated", currency="CNY", purpose="credit_analysis",
+            model="offline-test", external_research_enabled=True,
+            audit_dir=None, checkpoint=False)
+        job = PS.ReportJobInput(
+            job_id="job_tc", company_id="TESTCO", company_name="测试公司",
+            credit_type="other", report_as_of="2025-12-31", template_id="standard_v2",
+            enabled_sections=("company", "financial", "industry"),
+            evidence_inventory_fingerprint="", financial_snapshot_id="snap_test_1")
+
+        harness_runtime.run_question = _make_fake_run_question()
+        res = SV.run_phase4(
+            job, service_cfg=cfg, run_id="run_tc",
+            llm_generate=_fake_financial_llm_trailing_comma,
+            llm_evaluator_generate=_fake_evaluator, audit_llm_extract=None)
+        fin = _sec(res, "financial") if res is not None else None
+
+        check(res is not None and fin is not None and fin.error is None,
+              "尾逗号场景：编排无异常（financial error=None）")
+        check(fin is not None and fin.section_result is not None
+              and len(fin.section_result.claims) > 0,
+              "尾逗号场景：财务章节 claim_count > 0（尾逗号修复后进入下游）")
+        check(fin is not None and fin.evaluation is not None
+              and fin.evaluation.decision in ("PASS", "PASS_WITH_GAPS"),
+              "尾逗号场景：财务章节进入 Evaluation 且决策通过")
+        check(_db_count(sub / "sections.db", "section_result") >= 3,
+              "尾逗号场景：Store 原子提交（section_result 行数≥3）")
+    finally:
+        os.chdir(old_cwd)
+
+
 def main() -> dict:
     global _results
     _results = {"passed": 0, "failed": 0, "skipped": 0, "details": []}
@@ -586,6 +675,9 @@ def main() -> dict:
 
         # --- REWORK 触发 / 去重 / 定向返工 / 幂等 / 公式补齐 场景（独立子目录）---
         _run_rework_scenario(tmp, contracts_abs)
+
+        # --- 尾逗号 JSON 输出（真实失败形状）经完整编排进入 Evaluation/Store ---
+        _run_trailing_comma_scenario(tmp, contracts_abs)
 
     except Exception as e:  # noqa: BLE001
         check(False, f"run_phase4 抛异常: {type(e).__name__}: {e}")
