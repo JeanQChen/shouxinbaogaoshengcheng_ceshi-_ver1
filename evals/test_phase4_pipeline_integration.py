@@ -36,6 +36,8 @@ sys.path.insert(0, str(ROOT))
 from evidence import store as estore  # noqa: E402
 from external_v2 import schema as XS  # noqa: E402
 from external_v2 import store as extstore  # noqa: E402
+from financial_v2 import formulas as fformulas  # noqa: E402
+from financial_v2 import metrics as fmetrics  # noqa: E402
 from financial_v2 import store as FST  # noqa: E402
 from harness import runtime as harness_runtime  # noqa: E402
 from harness import schema as HS  # noqa: E402
@@ -235,6 +237,72 @@ def _fake_evaluator(messages, system):  # noqa: ARG001
     return json.dumps({"decision": "PASS", "issues": [], "rework_targets": []})
 
 
+def _make_rework_financial_llm():
+    """stateful 财务 LLM：fin_solvency 用两个 [[metric_*]] 占位（同 claim 两条结构化引用）。
+
+    - 第 1 次调用（全量 Worker）：claim 正文「流动比率 [[metric_SOLV_CURRENT_RATIO_..]]，
+      资产负债率 [[metric_SOLV_DEBT_RATIO_..]]」→ 两条 formula 引用在 formula_definition 空时
+      各自 emit `citation:formula_not_found` → 同一 (claim, 原因) 重复 ReworkTarget。
+    - 第 2 次调用（定向返工重跑）：正文追加「（已复核）」→ 新 claim_id → 新 SectionResult。
+    每次调用返回全新闭包，保证同输入重复执行时序列确定性一致（供幂等断言）。
+    """
+    calls = {"n": 0}
+
+    def _llm(messages, system):  # noqa: ARG001
+        calls["n"] += 1
+        suffix = "" if calls["n"] == 1 else "（已复核）"
+        return json.dumps({"claims": [
+            {"topic_id": "fin_source_scope", "question_ids": ["fin_statements_availability"],
+             "claim_type": "fact",
+             "text": "最新年度三张主表齐备，总资产 [[item_TOTAL_ASSETS_2025-12-31]]。"},
+            {"topic_id": "fin_consistency", "question_ids": ["fin_consistency"],
+             "claim_type": "fact",
+             "text": "三张报表勾稽一致，总资产 [[item_TOTAL_ASSETS_2025-12-31]]，"
+                     "总负债 [[item_TOTAL_LIABILITIES_2025-12-31]]。"},
+            {"topic_id": "fin_balance_structure", "question_ids": ["fin_balance_structure"],
+             "claim_type": "fact",
+             "text": "资产规模 [[item_TOTAL_ASSETS_2025-12-31]]，"
+                     "负债 [[item_TOTAL_LIABILITIES_2025-12-31]]，"
+                     "净资产 [[item_TOTAL_EQUITY_2025-12-31]]。"},
+            {"topic_id": "fin_solvency", "question_ids": ["fin_solvency"],
+             "claim_type": "calculation",
+             "text": "偿债能力方面，流动比率 [[metric_SOLV_CURRENT_RATIO_2025-12-31]]，"
+                     "资产负债率 [[metric_SOLV_DEBT_RATIO_2025-12-31]]" + suffix + "。"},
+            {"topic_id": "fin_profitability", "question_ids": ["fin_profitability"],
+             "claim_type": "fact",
+             "text": "营业收入 [[item_TOTAL_REVENUE_2025-12-31]]，"
+                     "净利润 [[item_NET_PROFIT_2025-12-31]]。"},
+            {"topic_id": "fin_operating", "question_ids": ["fin_operating"],
+             "claim_type": "fact",
+             "text": "营运效率方面，总资产 [[item_TOTAL_ASSETS_2025-12-31]]，"
+                     "营业收入 [[item_TOTAL_REVENUE_2025-12-31]]。"},
+            {"topic_id": "fin_cashflow", "question_ids": ["fin_cashflow"],
+             "claim_type": "fact",
+             "text": "经营现金流净额 [[item_OPERATING_CASH_FLOW_2025-12-31]]，"
+                     "净利润 [[item_NET_PROFIT_2025-12-31]]。"},
+            {"topic_id": "fin_growth", "question_ids": ["fin_growth"],
+             "claim_type": "fact",
+             "text": "成长性方面，营业收入 [[item_TOTAL_REVENUE_2025-12-31]]。"},
+            {"topic_id": "fin_asset_quality", "question_ids": ["fin_asset_quality"],
+             "claim_type": "fact",
+             "text": "资产质量方面，总资产 [[item_TOTAL_ASSETS_2025-12-31]]，"
+                     "流动资产 [[item_CURRENT_ASSETS_2025-12-31]]。"},
+            {"topic_id": "fin_risk_summary", "question_ids": ["fin_risk_summary"],
+             "claim_type": "fact",
+             "text": "整体财务风险可控，净资产 [[item_TOTAL_EQUITY_2025-12-31]]。"},
+        ]})
+
+    return _llm
+
+
+def _db_count(db_path: Path, table: str) -> int:
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    finally:
+        conn.close()
+
+
 def _make_fake_run_question():
     """monkeypatch ``harness.runtime.run_question``：对任意公司/行业问题返回 COMPLETED。
 
@@ -294,6 +362,121 @@ def _make_fake_run_question():
 
 def _sec(res, sid: str):
     return next(o for o in res.sections if o.section_id == sid)
+
+
+def _run_rework_scenario(tmp: Path, contracts_abs: Path) -> None:
+    """REWORK 触发 + 去重 + 定向返工原子持久化 + 幂等 + 公式补齐后结构化引用通过的 dry-run。
+
+    独立子目录，避免与 happy-path 库串扰；全程真实 ``run_phase4``（相对库路径 + chdir）。
+    """
+    sub = tmp / "rework"
+    sub.mkdir()
+    _seed_financial_db(sub / "fin.db", company_id="TESTCO")   # 无 formula_definition（计数 0）
+    # 官方指标计算入口落盘 metric_result（不落 formula_definition）—— 真实 Demo 主链产物。
+    # 仅落 metric_result：场景 A 仍走 formula_not_found fail-closed；场景 C 补齐公式后
+    # metric_get + formula_get 双通过 → Structured Citation 权威。
+    fmetrics.compute_all("snap_test_1", periods=["2025-12-31"], persist=True)
+    _seed_evidence_db(sub / "ev.db", company_id="TESTCO")
+    _seed_external_db(sub / "ext.db")
+
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(str(sub))
+        cfg = SV.ServiceConfig(
+            contracts_path=str(contracts_abs),
+            fin_db="fin.db", ev_db="ev.db", ext_db="ext.db",
+            harness_db="harness.db", section_db="sections.db",
+            scope="consolidated", currency="CNY", purpose="credit_analysis",
+            model="offline-test", external_research_enabled=True,
+            audit_dir=None, checkpoint=False)
+        job = PS.ReportJobInput(
+            job_id="job_rework", company_id="TESTCO", company_name="测试公司",
+            credit_type="other", report_as_of="2025-12-31", template_id="standard_v2",
+            enabled_sections=("company", "financial", "industry"),
+            evidence_inventory_fingerprint="", financial_snapshot_id="snap_test_1")
+
+        # --- 场景 A：formula_definition 缺失 → REWORK，重复 target 稳定去重 ---
+        harness_runtime.run_question = _make_fake_run_question()
+        res = SV.run_phase4(
+            job, service_cfg=cfg, run_id="run_rework",
+            llm_generate=_make_rework_financial_llm(),
+            llm_evaluator_generate=_fake_evaluator, audit_llm_extract=None)
+        fin = _sec(res, "financial") if res is not None else None
+
+        check(res is not None and fin is not None, "REWORK 场景：编排返回 financial 章节")
+        check(fin is not None and fin.evaluation is not None
+              and fin.evaluation.decision == "REWORK",
+              "formula_definition 缺失 → 财务章节决策为 REWORK")
+        check(fin is not None and len(fin.evaluation.rework_targets) == 1
+              and fin.evaluation.rework_targets[0].reason == "citation:formula_not_found",
+              "重复 ReworkTarget（2 条同 claim 引用）稳定去重为 1 条")
+        check(fin is not None and sum(
+            1 for i in fin.evaluation.issues if i.rule_id == "citation_unresolvable") == 2,
+              "issues 全保留（2 条 formula_not_found 明细，去重不丢 issue）")
+        check(fin is not None and fin.rework_run is not None
+              and fin.rework_run.from_section_result_id != fin.section_result.section_result_id,
+              "定向返工产生新 SectionResult（from != 返工后）")
+        check(fin is not None and fin.final_rules_passed is False,
+              "返工确定性最终检查仍 fail（formula 未补齐）—— 至多一批，不循环")
+
+        check(_db_count(sub / "sections.db", "section_rework") == 1,
+              "commit_evaluation 原子落盘 section_rework=1（无 rework_id 主键冲突）")
+        check(_db_count(sub / "sections.db", "section_rework_run") == 1,
+              "定向返工原子落盘 section_rework_run=1")
+
+        n_result_a = _db_count(sub / "sections.db", "section_result")
+        n_rework_a = _db_count(sub / "sections.db", "section_rework")
+        n_rework_run_a = _db_count(sub / "sections.db", "section_rework_run")
+
+        # --- 场景 B：同输入重复执行严格幂等（无新行 / 无冲突 / 不抛异常）---
+        try:
+            SV.run_phase4(
+                job, service_cfg=cfg, run_id="run_rework",
+                llm_generate=_make_rework_financial_llm(),
+                llm_evaluator_generate=_fake_evaluator, audit_llm_extract=None)
+            idem_ok = True
+        except Exception as e:  # noqa: BLE001
+            idem_ok = False
+            check(False, f"幂等重跑抛异常: {type(e).__name__}: {e}")
+        check(idem_ok, "同输入重复执行不抛异常")
+        check(_db_count(sub / "sections.db", "section_result") == n_result_a,
+              "幂等：section_result 行数不变")
+        check(_db_count(sub / "sections.db", "section_rework") == n_rework_a,
+              "幂等：section_rework 行数不变（复用不重复写）")
+        check(_db_count(sub / "sections.db", "section_rework_run") == n_rework_run_a,
+              "幂等：section_rework_run 行数不变")
+
+        # --- 场景 C：官方入口补齐 formula_definition → Structured Citation 通过 ---
+        FST._db_path = (sub / "fin.db").resolve()
+        n_persisted = fformulas.ensure_formulas_persisted()
+        check(n_persisted > 0, f"官方入口 ensure_formulas_persisted 落盘 {n_persisted} 条公式")
+
+        # 独立 sections 库：公式补齐后是同输入不同 run_id 的新一次编排，不与场景 A/B 的
+        # section_result 内容身份串扰（source_run_ids 属 run 级 provenance，非内容身份）。
+        cfg_p = SV.ServiceConfig(
+            contracts_path=str(contracts_abs),
+            fin_db="fin.db", ev_db="ev.db", ext_db="ext.db",
+            harness_db="harness.db", section_db="sections_persisted.db",
+            scope="consolidated", currency="CNY", purpose="credit_analysis",
+            model="offline-test", external_research_enabled=True,
+            audit_dir=None, checkpoint=False)
+        res_p = SV.run_phase4(
+            job, service_cfg=cfg_p, run_id="run_rework_persisted",
+            llm_generate=_make_rework_financial_llm(),
+            llm_evaluator_generate=_fake_evaluator, audit_llm_extract=None)
+        fin_p = _sec(res_p, "financial") if res_p is not None else None
+
+        check(fin_p is not None and fin_p.evaluation is not None
+              and fin_p.evaluation.decision in ("PASS", "PASS_WITH_GAPS"),
+              "公式补齐后 → 财务章节决策通过（非 REWORK）")
+        check(fin_p is not None and fin_p.evaluation.llm_evaluator_calls == 1,
+              "公式补齐后 → 规则通过，走 LLM Evaluator 一次")
+        check(fin_p is not None and not any(
+            i.rule_id == "citation_unresolvable" for i in fin_p.evaluation.issues),
+              "公式补齐后 → 无 formula_not_found 引用失败")
+
+    finally:
+        os.chdir(old_cwd)
 
 
 def main() -> dict:
@@ -400,6 +583,9 @@ def main() -> dict:
                 conn.close()
         check(res is not None and bool(res.manifest_id) and res.manifest is not None
               and n_rows >= 3, "manifest 非空且 Store 已原子提交（section_result 行数≥3）")
+
+        # --- REWORK 触发 / 去重 / 定向返工 / 幂等 / 公式补齐 场景（独立子目录）---
+        _run_rework_scenario(tmp, contracts_abs)
 
     except Exception as e:  # noqa: BLE001
         check(False, f"run_phase4 抛异常: {type(e).__name__}: {e}")
