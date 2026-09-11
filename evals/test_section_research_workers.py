@@ -1167,6 +1167,85 @@ def main():
     # ---- L. 只读 SQLite 相对路径兼容回归（_ro_conn 修复）----
     _check_ro_conn_regression()
 
+    # ---- M. canonicalize_citation_refs（ResearchAnswer → SectionClaim 边界去重）----
+    from sections import validator as SV
+
+    # M1. 重复 Evidence 折叠
+    dup_ev, cnt_ev = RC.canonicalize_citation_refs((EV, EV))
+    check(len(dup_ev) == 1 and cnt_ev == 1, "重复 Evidence 折叠为 1 条（折叠数=1）")
+
+    # M2. 重复 Structured 折叠
+    dup_str, cnt_str = RC.canonicalize_citation_refs((STR, STR))
+    check(len(dup_str) == 1 and cnt_str == 1, "重复 Structured 折叠为 1 条")
+
+    # M3. 重复 External 折叠
+    dup_ext, cnt_ext = RC.canonicalize_citation_refs((EXT, EXT))
+    check(len(dup_ext) == 1 and cnt_ext == 1, "重复 External 折叠为 1 条")
+
+    # M4. 不同 Evidence 保留
+    EV2 = HS.CitationRef(ref_type="evidence", evidence_id="ev_2", page_number=3)
+    dup_mixed_ev, cnt_mixed_ev = RC.canonicalize_citation_refs((EV, EV2))
+    check(len(dup_mixed_ev) == 2 and cnt_mixed_ev == 0, "不同 Evidence 全部保留")
+
+    # M5. 不同 External 保留
+    EXT2 = HS.CitationRef(ref_type="external", source_snapshot_id="snap_2")
+    dup_mixed_ext, cnt_mixed_ext = RC.canonicalize_citation_refs((EXT, EXT2))
+    check(len(dup_mixed_ext) == 2 and cnt_mixed_ext == 0, "不同 External 全部保留")
+
+    # M6. 重复来源不能满足两个独立 C（去重后单一来源只派生 1 个 citation_id）
+    dup_c, cnt_c = RC.canonicalize_citation_refs((EXT, EXT))
+    check(len(dup_c) == 1 and cnt_c == 1, "同一 External 来源重复引用 → 折叠为单一来源")
+    cids_c = {SS.derive_citation_id("claim_x", r) for r in dup_c}
+    check(len(cids_c) == 1, "去重后单一来源只派生 1 个 citation_id（不满足两个独立 C）")
+
+    # M7. 去重前后语义相同的 Claim 派生相同 claim_id
+    refs_dup7, _ = RC.canonicalize_citation_refs((EV, EV))
+    check(SS.derive_claim_id("fact", "t", ("q",), "text", refs_dup7)
+          == SS.derive_claim_id("fact", "t", ("q",), "text", (EV,)),
+          "去重后 claim_id 与单一引用派生一致（canonicalize 先于 derive_claim_id）")
+
+    # M8. 非法 citation index 在 canonicalize 之前仍 fail-closed
+    check(RC.resolve_claim_refs(_claim("cx8", "越界", "fact", [9]), _answer([], [EV])) is None,
+          "非法 citation index 在 canonicalize 之前即返回 None（fail-closed）")
+
+    # M9. 手工构造重复 CitationRef 的 SectionResult 仍被 validator 拒绝
+    dup_claim9 = SS.SectionClaim(
+        claim_id="claim_dup9", section_id="company", topic_id="company_identity",
+        question_ids=("company_subject_match",), text="主体一致",
+        claim_type="fact", citation_refs=(EV, EV))
+    dup_result9 = SS.SectionResult(
+        section_result_id="sr_dup9", section_version="secver_dup9", task_id="task_1",
+        section_id="company", status="COMPLETED", claims=(dup_claim9,))
+    errs9 = SV.validate_section_result(dup_result9)
+    check(any("citation_id 重复" in e for e in errs9),
+          "手工构造重复 CitationRef 的 SectionResult 仍被 validator 拒绝")
+
+    # M10. 本次真实重复 Evidence 形状的回归 fixture（industry_position / industry_supply_demand）
+    EV_A = HS.CitationRef(ref_type="evidence",
+                          evidence_id="7ee5ea68d9df2ba4618c9af420f1849a", page_number=1)
+    EV_B = HS.CitationRef(ref_type="evidence",
+                          evidence_id="b2d68bb7d99951150e0a4ce40c6df3c7", page_number=2)
+    dup_a, cnt_a = RC.canonicalize_citation_refs((EV_A, EV_A))
+    check(len(dup_a) == 1 and cnt_a == 1,
+          "真实重复 Evidence A（industry_position）折叠")
+    dup_b, cnt_b = RC.canonicalize_citation_refs((EV_B, EV_B))
+    check(len(dup_b) == 1 and cnt_b == 1,
+          "真实重复 Evidence B（industry_supply_demand）折叠")
+    dup_ab, cnt_ab = RC.canonicalize_citation_refs((EV_A, EV_B))
+    check(len(dup_ab) == 2 and cnt_ab == 0, "真实两个不同 Evidence 全部保留")
+    claim10 = SS.SectionClaim(
+        claim_id=SS.derive_claim_id("fact", "industry_position", ("industry_position",),
+                                    "宁德时代在动力电池行业市占率领先", dup_a),
+        section_id="industry", topic_id="industry_position",
+        question_ids=("industry_position",), text="宁德时代在动力电池行业市占率领先",
+        claim_type="fact", citation_refs=dup_a)
+    result10 = SS.SectionResult(
+        section_result_id="sr_reg10", section_version="secver_reg10", task_id="task_ind",
+        section_id="industry", status="COMPLETED", claims=(claim10,))
+    errs10 = SV.validate_section_result(result10)
+    check(not any("citation_id 重复" in e for e in errs10),
+          "真实重复 Evidence 经折叠后 validator 通过（回归）")
+
     return _results
 
 

@@ -155,6 +155,28 @@ def resolve_claim_refs(claim: HS.Claim, answer: HS.ResearchAnswer) -> tuple[HS.C
     return tuple(refs)
 
 
+def canonicalize_citation_refs(refs: tuple[HS.CitationRef, ...]
+                               ) -> tuple[tuple[HS.CitationRef, ...], int]:
+    """折叠重复 CitationRef（ResearchAnswer → SectionClaim 边界，§11.2）。
+
+    同一引用（按 ``SS.citation_identity`` 内容身份）多次出现只保留首次，保持首次出现
+    顺序；不同身份全部保留。返回 ``(去重后引用, 折叠掉的重复条数)``。
+
+    - 不修改 External 引用语义（缺 ``source_snapshot_id`` 仍由 CitationAuthority 判非法）；
+    - 不引入位置/序号信息，纯内容身份折叠，幂等；
+    - 同一引用重复十次仍只算一个来源。
+    """
+    seen: dict[str, HS.CitationRef] = {}
+    duplicate_count = 0
+    for ref in refs:
+        key = SS.citation_identity(ref)
+        if key in seen:
+            duplicate_count += 1
+        else:
+            seen[key] = ref
+    return tuple(seen.values()), duplicate_count
+
+
 # ---------------------------------------------------------------------------
 # 状态派生
 # ---------------------------------------------------------------------------
@@ -270,6 +292,11 @@ def convert_question_outcome(task: PS.SectionTask, q: PS.PlannedQuestion,
             if refs is None:
                 notes.append(f"{qid}: claim {c.claim_id} 引用下标越界，丢弃")
                 continue
+            refs, duplicate_count = canonicalize_citation_refs(refs)
+            if duplicate_count:
+                notes.append(
+                    f"{qid}: claim {c.claim_id} 折叠 {duplicate_count} 条重复引用 "
+                    f"(duplicate_citation_collapsed)")
             claim_type = "fact" if c.kind == "fact" else "inference"
             text = (c.text or "").strip()
             if not text:
