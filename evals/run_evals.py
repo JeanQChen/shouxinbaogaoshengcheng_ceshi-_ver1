@@ -104,6 +104,7 @@ EVAL_MODULES = [
     "evals.test_section_service",
     "evals.test_section_streamlit_ui",
     "evals.test_section_eval_runner",
+    "evals.test_phase4_pipeline_integration",
     "evals.test_phase4_demo",
 ]
 
