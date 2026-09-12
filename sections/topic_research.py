@@ -226,9 +226,23 @@ class TopicResearchPack:
     usage: dict
     stop_reason: str
     created_at: str
+    rejected_sources: tuple[dict, ...] = ()  # 权威通过但来源政策拒绝的外部快照（含 rejection_reason）
+    funnel_trace: tuple[dict, ...] = ()      # 每候选 URL 的漏斗轨迹（query→fetch→snapshot→adopted/rejected）
 
     def obtained_aspect_ids(self) -> list[str]:
         return [c.aspect_id for c in self.matrix if c.obtained]
+
+    def adopted_fact_ids(self) -> list[str]:
+        """采纳事实 id = 全部 obtained MatrixCell 的 fact_ids 去重。
+
+        这是 adopted-facts 防火墙的事实白名单：只有这些 id 能进入 ChapterWriter
+        （写作 prompt、确定性表格都只能消费这些 id）。
+        """
+        ids: list[str] = []
+        for c in self.matrix:
+            if c.obtained:
+                ids.extend(c.fact_ids)
+        return list(dict.fromkeys(ids))
 
     def to_dict(self) -> dict:
         return {
@@ -247,6 +261,8 @@ class TopicResearchPack:
             "verified_facts": [f.as_dict() for f in self.verified_facts],
             "evidence_facts": list(self.evidence_facts),
             "external_sources": list(self.external_sources),
+            "rejected_sources": list(self.rejected_sources),
+            "funnel_trace": list(self.funnel_trace),
             "usage": dict(self.usage),
             "stop_reason": self.stop_reason,
             "created_at": self.created_at,
@@ -256,7 +272,9 @@ class TopicResearchPack:
 def derive_pack_id(*, topic_id: str, question_id: str, context: TopicResearchContext,
                    budget: TopicBudget, matrix: tuple[MatrixCell, ...],
                    funnel: ExternalFunnel, verified_facts: tuple[VerifiedFact, ...],
-                   evidence_facts: tuple[dict, ...]) -> str:
+                   evidence_facts: tuple[dict, ...],
+                   rejected_sources: tuple[dict, ...] = (),
+                   funnel_trace: tuple[dict, ...] = ()) -> str:
     """pack_id 内容寻址（同输入 → 同 id，可幂等复用 / 冲突检测）。"""
     digest = _sha256_json({
         "version": TOPIC_RESEARCH_VERSION,
@@ -273,6 +291,8 @@ def derive_pack_id(*, topic_id: str, question_id: str, context: TopicResearchCon
         "funnel": funnel.as_dict(),
         "verified_facts": [f.as_dict() for f in verified_facts],
         "evidence_facts": list(evidence_facts),
+        "rejected_sources": list(rejected_sources),
+        "funnel_trace": list(funnel_trace),
     })
     return f"pack_{digest[:32]}"
 
@@ -282,13 +302,26 @@ def derive_pack_id(*, topic_id: str, question_id: str, context: TopicResearchCon
 # ---------------------------------------------------------------------------
 
 def aspect_fact_categories(aspect_text: str) -> tuple[str, ...]:
-    """由 aspect 文本确定性派生期望的 fact 类别（revenue/cost，通用词汇非公司特定）。
+    """由 aspect 文本确定性派生期望的 fact 类别（revenue/cost/定性类别，通用词汇非公司特定）。
 
     A5 收入/成本语义：标「收入」的 aspect 必须由 revenue 事实背书，标「成本/毛利」的
-    必须由 cost 事实背书；两者都标则都需；均无标则不限。
+    必须由 cost 事实背书；两者都标则都需。
+
+    反虚假覆盖（Phase 4 纵向切片定点修复）：标「产品/服务/应用/下游」或
+    「产业链/上下游/供应链/定位」的 aspect 必须由对应类别的定性 Evidence 背书——
+    收入/成本结构化事实（``revenue_cost_category`` 只有 revenue/cost）不含这些类别，
+    因此不会被误判 obtained（表5-10/5-11 不能单独支撑「产品应用」「产业链位置」）。
+    均无标 → 不限。
     """
-    has_rev = "收入" in aspect_text
-    has_cost = ("成本" in aspect_text) or ("毛利" in aspect_text)
+    t = aspect_text
+    # supply_chain 必须先判（「上下游」含「下游」子串，先判产品/应用会把
+    # 「上下游关系及产业链位置」误判为 product_application）。
+    if any(k in t for k in ("产业链", "上下游", "供应链", "定位")):
+        return ("supply_chain",)
+    if any(k in t for k in ("产品", "服务", "应用", "下游", "功能", "场景")):
+        return ("product_application",)
+    has_rev = ("收入" in t) or ("营收" in t)
+    has_cost = ("成本" in t) or ("毛利" in t) or ("盈利" in t)
     if has_rev and has_cost:
         return ("revenue", "cost")
     if has_cost:
@@ -339,7 +372,12 @@ def assess_local_cell(*, aspect: AspectQuery, facts, authority) -> MatrixCell:
         if not facts:
             loss.append("no_facts_extracted")
         elif want and not matched:
-            loss.append("a5_revenue_cost_mismatch")
+            if want == ("product_application",):
+                loss.append("product_application_evidence_missing")
+            elif want == ("supply_chain",):
+                loss.append("supply_chain_evidence_missing")
+            else:
+                loss.append("a5_revenue_cost_mismatch")
         elif len(matched) < aspect.minimum_sources:
             loss.append("insufficient_validated_facts")
     status = "PASS" if obtained else ("PARTIAL" if matched else "NOT_FOUND")
@@ -350,18 +388,19 @@ def assess_local_cell(*, aspect: AspectQuery, facts, authority) -> MatrixCell:
         detail=f"matched={len(matched)} want_categories={want or 'any'}")
 
 
-def assess_external_cell(*, aspect: AspectQuery, sources, authority,
-                         topic_id: str) -> MatrixCell:
-    """外部 aspect 的 MatrixCell 判定（P3-B02 行业来源分级 + CitationAuthority）。
+def _partition_external(sources, authority, *, topic_id: str):
+    """外部来源 → (valid_sources, valid_refs, adopted_sources, rejected_sources)。
 
-    ``sources`` 为已采纳候选（元素暴露 source_grade / canonical_url / published_at /
-    source_snapshot_id）。obtained = 权威校验通过 + 关键行业结论来源充分（≥1 A/B 或
-    ≥2 独立 C）；非关键主题仅需 ≥1 通过校验的来源。
+    分区规则（规则五「D 级不入正文」+ P3-B02 关键行业结论来源充分性）：
+    - valid：CitationAuthority.validate 通过；
+    - adopted：valid 且可入正文 —— D/unknown 级一律拒绝；关键行业主题还需来源充分
+      （≥1 A/B 或 ≥2 独立 C），单一 C / 仅 D 时全部 valid 来源都不 adopted；
+    - rejected_sources：[(source, reason)] 权威通过但来源政策拒绝（含拒绝理由）。
     """
     from sections.industry_source_policy import assess_industry_sources
 
-    valid_refs: list[HS.CitationRef] = []
     valid_sources: list = []
+    valid_refs: list[HS.CitationRef] = []
     for s in sources:
         ref = HS.CitationRef(ref_type="external", source_snapshot_id=s.source_snapshot_id)
         try:
@@ -369,30 +408,84 @@ def assess_external_cell(*, aspect: AspectQuery, sources, authority,
         except Exception:
             verdict = None
         if verdict is not None and verdict.valid:
-            valid_refs.append(ref)
             valid_sources.append(s)
+            valid_refs.append(ref)
 
+    adopted: list = []
+    rejected: list = []  # (source, reason)
+    if topic_id in KEY_INDUSTRY_TOPICS:
+        assess = assess_industry_sources(valid_sources)
+        if not assess.key_conclusion_supported:
+            reason = f"insufficient_industry_sources:{assess.key_conclusion_reason}"
+            rejected = [(s, reason) for s in valid_sources]
+        else:
+            for s in valid_sources:
+                g = (s.source_grade or "unknown")
+                if g in ("D", "unknown"):
+                    rejected.append((s, "d_grade_not_in_body"))
+                else:
+                    adopted.append(s)
+    else:
+        for s in valid_sources:
+            g = (s.source_grade or "unknown")
+            if g in ("D", "unknown"):
+                rejected.append((s, "d_grade_not_in_body"))
+            else:
+                adopted.append(s)
+
+    return valid_sources, tuple(valid_refs), adopted, rejected
+
+
+def _cell_from_partition(*, aspect: AspectQuery, valid_sources, valid_refs,
+                         adopted_sources, rejected_sources,
+                         topic_id: str) -> MatrixCell:
+    """由分区结果构建 MatrixCell（fact_ids 只含 adopted 来源 = 防火墙白名单）。"""
     loss: list[str] = []
     if not valid_sources:
         obtained = False
-        loss.append("no_validated_external_source")
         status = "NOT_FOUND"
+        loss.append("no_validated_external_source")
+    elif not adopted_sources:
+        obtained = False
+        status = "FAIL"
+        for reason in dict.fromkeys(r for _, r in rejected_sources):
+            loss.append(reason)
     elif topic_id in KEY_INDUSTRY_TOPICS:
-        assess = assess_industry_sources(valid_sources)
-        obtained = assess.key_conclusion_supported
-        if not obtained:
-            loss.append(f"insufficient_industry_sources:{assess.key_conclusion_reason}")
-        status = "PASS" if obtained else "FAIL"
+        obtained = True
+        status = "PASS"
     else:
-        obtained = len(valid_sources) >= aspect.minimum_sources
+        obtained = len(adopted_sources) >= aspect.minimum_sources
         status = "PASS" if obtained else "FAIL"
+        if not obtained:
+            loss.append("insufficient_adopted_sources")
 
-    fact_ids = tuple(s.source_snapshot_id for s in valid_sources)
+    fact_ids = tuple(s.source_snapshot_id for s in adopted_sources) if obtained else ()
+    adopted_ids = {s.source_snapshot_id for s in adopted_sources}
+    adopted_refs = tuple(r for s, r in zip(valid_sources, valid_refs)
+                         if s.source_snapshot_id in adopted_ids)
     return MatrixCell(
         aspect_id=aspect.aspect_id, aspect_text=aspect.aspect_text, obtained=obtained,
-        fact_ids=fact_ids, citation_refs=tuple(valid_refs),
+        fact_ids=fact_ids, citation_refs=adopted_refs,
         validation_status=status, loss_reasons=tuple(loss),
-        detail=f"valid_sources={len(valid_sources)}")
+        detail=(f"valid_sources={len(valid_sources)} adopted={len(fact_ids)} "
+                f"rejected_policy={len(rejected_sources)}"))
+
+
+def assess_external_cell(*, aspect: AspectQuery, sources, authority,
+                         topic_id: str) -> MatrixCell:
+    """外部 aspect 的 MatrixCell 判定（P3-B02 行业来源分级 + CitationAuthority）。
+
+    ``sources`` 为已采纳候选（元素暴露 source_grade / canonical_url / published_at /
+    source_snapshot_id）。obtained = 权威校验通过 + 关键行业结论来源充分（≥1 A/B 或
+    ≥2 独立 C）；非关键主题需 ≥1 通过校验的 body-eligible 来源。D/unknown 级来源
+    不入 fact_ids（规则五「D 级不入正文」）。
+    """
+    valid_sources, valid_refs, adopted_sources, rejected_sources = _partition_external(
+        sources, authority, topic_id=topic_id)
+    return _cell_from_partition(
+        aspect=aspect, valid_sources=valid_sources, valid_refs=valid_refs,
+        adopted_sources=adopted_sources, rejected_sources=rejected_sources,
+        topic_id=topic_id)
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +533,7 @@ def run_topic(
     registry,
     subject: str | None = None,
     run_id: str | None = None,
+    source_intent: dict | None = None,
 ) -> TopicResearchPack:
     """把查询计划在有界预算下落为材料并校验，产出 TopicResearchPack。
 
@@ -458,6 +552,8 @@ def run_topic(
     verified: list[VerifiedFact] = []
     evidence_fact_dicts: list[dict] = []
     external_source_dicts: list[dict] = []
+    rejected_source_dicts: list[dict] = []
+    funnel_trace_entries: list[dict] = []
     funnel = ExternalFunnel()
 
     def _budget_exhausted() -> bool:
@@ -473,10 +569,12 @@ def run_topic(
 
         if aspect.external_query is not None:
             # ---- 外部路径 ----
-            cell, f, srcs = _run_external_aspect(
-                aspect, plan, budget, authority, registry, company_id, usage, funnel)
+            cell, f, srcs, rejs, trace = _run_external_aspect(
+                aspect, plan, budget, authority, registry, company_id, usage, funnel,
+                source_intent=source_intent)
             funnel = f
             matrix.append(cell)
+            funnel_trace_entries.extend(trace)
             if srcs:
                 external_source_dicts.extend(srcs)
                 for s in srcs:
@@ -487,6 +585,7 @@ def run_topic(
                             ref_type="external", source_snapshot_id=s["source_snapshot_id"]),),
                         source_grade=s.get("source_grade"),
                         published_at=s.get("published_at")))
+            rejected_source_dicts.extend(rejs)
         else:
             # ---- 本地路径 ----
             cell, facts, fdicts = _run_local_aspect(
@@ -508,14 +607,18 @@ def run_topic(
     pack_id = derive_pack_id(
         topic_id=plan.topic_id, question_id=question_id, context=plan.context,
         budget=budget, matrix=tuple(matrix), funnel=funnel,
-        verified_facts=tuple(verified), evidence_facts=tuple(evidence_fact_dicts))
+        verified_facts=tuple(verified), evidence_facts=tuple(evidence_fact_dicts),
+        rejected_sources=tuple(rejected_source_dicts),
+        funnel_trace=tuple(funnel_trace_entries))
 
     return TopicResearchPack(
         pack_id=pack_id, topic_id=plan.topic_id, question_id=question_id,
         context=plan.context, budget=budget, matrix=tuple(matrix), funnel=funnel,
         verified_facts=tuple(verified), evidence_facts=tuple(evidence_fact_dicts),
-        external_sources=tuple(external_source_dicts), usage=usage.as_dict(),
-        stop_reason=stop_reason, created_at=_utcnow())
+        external_sources=tuple(external_source_dicts),
+        rejected_sources=tuple(rejected_source_dicts),
+        funnel_trace=tuple(funnel_trace_entries),
+        usage=usage.as_dict(), stop_reason=stop_reason, created_at=_utcnow())
 
 
 def fact_text(fact) -> str:
@@ -574,15 +677,40 @@ def _run_local_aspect(aspect, budget, authority, registry, company_id, usage,
 
 
 def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
-                         usage, funnel) -> tuple[MatrixCell, ExternalFunnel, list]:
+                         usage, funnel, source_intent=None
+                         ) -> tuple[MatrixCell, ExternalFunnel, list, list, list]:
+    """外部 aspect 的完整漏斗：query → fetch → snapshot → 权威/来源政策分区 → cell。
+
+    返回 (cell, funnel, adopted_srcs, rejected_srcs, funnel_trace)：
+    - adopted_srcs：仅 cell.obtained 时非空（D/unknown 级不入正文，规则五）；
+    - rejected_srcs：权威通过但来源政策拒绝的快照（含 rejection_reason）；
+    - funnel_trace：每候选 URL 一条轨迹（query / fetch_failed / snapshot_failed /
+      adopted / rejected_policy / rejected_authority）。
+
+    ``source_intent``（可选）：{include, exclude} 博查站点限定（source-intent 配置，
+    政府/监管、交易所/法定披露等），透传 search_external_sources。
+    """
     from tools import contracts as TC
 
     query = aspect.external_query or aspect.aspect_text
     candidate_urls: list[dict] = []
+    trace: list[dict] = []
+
+    def _entry(stage, *, url="", source_grade=None, source_snapshot_id="",
+               reason="", title="") -> dict:
+        return {"stage": stage, "url": url, "source_grade": source_grade,
+                "source_snapshot_id": source_snapshot_id, "reason": reason,
+                "query": query, "title": title}
 
     if usage.external_queries < budget.max_external_queries:
+        search_args: dict = {"query": query, "limit": 5}
+        if source_intent:
+            if source_intent.get("include"):
+                search_args["include"] = source_intent["include"]
+            if source_intent.get("exclude"):
+                search_args["exclude"] = source_intent["exclude"]
         call = TC.ToolCall(call_id=uuid.uuid4().hex, tool_name="search_external_sources",
-                           arguments={"query": query, "limit": 5},
+                           arguments=search_args,
                            idempotency_key=uuid.uuid4().hex, need_id="topic", batch_id="topic")
         res = registry.execute(call, route="EXTERNAL_RESEARCH", run_id="topic_research")
         usage.tool_calls += 1
@@ -593,24 +721,33 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
                 candidate_urls.append(r)
         if not candidate_urls:
             funnel = funnel.record_loss("candidate_urls", "search_empty")
+            trace.append(_entry("query", reason="search_empty"))
     else:
         funnel = funnel.record_loss("external_queries", "budget_exhausted")
+        trace.append(_entry("query", reason="budget_exhausted"))
 
     funnel = funnel.with_counts(candidate_urls=funnel.candidate_urls + len(candidate_urls))
 
-    # 采集来源对象（供 assess_external_cell / 写入器使用）。
+    # 采集来源对象（供权威/来源政策分区使用）。
     gathered: list = []
 
     for cand in candidate_urls:
         url = cand.get("url")
+        title = cand.get("title") or ""
+        grade = cand.get("source_grade")
         if not url:
             funnel = funnel.record_loss("fetched", "no_url")
+            trace.append(_entry("fetch_failed", reason="no_url", title=title))
             continue
         if usage.tool_calls >= budget.max_tool_calls:
             funnel = funnel.record_loss("fetched", "budget_exhausted")
+            trace.append(_entry("fetch_failed", url=url, source_grade=grade,
+                                reason="budget_exhausted", title=title))
             break
         if usage.fetches >= budget.max_candidate_fetches:
             funnel = funnel.record_loss("fetched", "budget_fetch_cap")
+            trace.append(_entry("fetch_failed", url=url, source_grade=grade,
+                                reason="budget_fetch_cap", title=title))
             break
 
         call = TC.ToolCall(call_id=uuid.uuid4().hex, tool_name="fetch_external_content",
@@ -620,30 +757,37 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
         usage.tool_calls += 1
         usage.fetches += 1
         if res.status != "SUCCESS":
-            funnel = funnel.record_loss("fetched", res.error_code or "fetch_failed")
+            reason = res.error_code or "fetch_failed"
+            funnel = funnel.record_loss("fetched", reason)
+            trace.append(_entry("fetch_failed", url=url, source_grade=grade,
+                                reason=reason, title=title))
             continue
         funnel = funnel.with_counts(fetched=funnel.fetched + 1)
 
         content_text = (res.data or {}).get("content_text") or ""
         if not content_text.strip():
             funnel = funnel.record_loss("snapshotted", "empty_content")
+            trace.append(_entry("snapshot_failed", url=url, source_grade=grade,
+                                reason="empty_content", title=title))
             continue
         if usage.snapshots >= budget.max_snapshots:
             funnel = funnel.record_loss("snapshotted", "budget_snapshot_cap")
+            trace.append(_entry("snapshot_failed", url=url, source_grade=grade,
+                                reason="budget_snapshot_cap", title=title))
             break
 
         snap_args = {
             "company_id": company_id,
             "canonical_url": (res.data or {}).get("canonical_url") or url,
             "content_text": content_text,
-            "title": cand.get("title") or "",
+            "title": title,
             "snippet": cand.get("snippet") or "",
             "published_at": cand.get("published_at"),
             "provider": (res.data or {}).get("provider") or "bocha",
             "content_type": (res.data or {}).get("content_type"),
             "http_status": (res.data or {}).get("http_status"),
             "content_hash": (res.data or {}).get("content_hash"),
-            "source_grade": cand.get("source_grade"),
+            "source_grade": grade,
         }
         call = TC.ToolCall(call_id=uuid.uuid4().hex, tool_name="snapshot_external_source",
                            arguments=snap_args,
@@ -652,40 +796,74 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
         usage.tool_calls += 1
         usage.snapshots += 1
         if res.status != "SUCCESS":
-            funnel = funnel.record_loss("snapshotted", res.error_code or "snapshot_failed")
+            reason = res.error_code or "snapshot_failed"
+            funnel = funnel.record_loss("snapshotted", reason)
+            trace.append(_entry("snapshot_failed", url=url, source_grade=grade,
+                                reason=reason, title=title))
             continue
         funnel = funnel.with_counts(snapshotted=funnel.snapshotted + 1)
         sid = (res.data or {}).get("source_snapshot_id")
         if not sid:
             funnel = funnel.record_loss("extracted_facts", "no_snapshot_id")
+            trace.append(_entry("snapshot_failed", url=url, source_grade=grade,
+                                reason="no_snapshot_id", title=title))
             continue
         funnel = funnel.with_counts(extracted_facts=funnel.extracted_facts + 1)
         gathered.append(_SourceObj(
-            source_snapshot_id=sid, source_grade=cand.get("source_grade"),
+            source_snapshot_id=sid, source_grade=grade,
             canonical_url=url, published_at=cand.get("published_at"),
-            content_excerpt=content_text[:2000]))
+            content_excerpt=content_text[:2000], title=title,
+            snippet=cand.get("snippet") or ""))
 
-    cell = assess_external_cell(aspect=aspect, sources=gathered, authority=authority,
-                                topic_id=plan.topic_id)
+    # 权威 + 来源政策分区（一次 validate，不重复）。
+    valid_sources, valid_refs, adopted_sources, rejected_sources = _partition_external(
+        gathered, authority, topic_id=plan.topic_id)
+    cell = _cell_from_partition(
+        aspect=aspect, valid_sources=valid_sources, valid_refs=valid_refs,
+        adopted_sources=adopted_sources, rejected_sources=rejected_sources,
+        topic_id=plan.topic_id)
+
+    # 漏斗：validated = 权威通过数；adopted = obtained 时采纳数，否则逐原因记录 loss。
+    funnel = funnel.with_counts(validated_facts=funnel.validated_facts + len(valid_sources))
     if cell.obtained:
-        funnel = funnel.with_counts(validated_facts=len(cell.fact_ids),
-                                    adopted_facts=len(cell.fact_ids))
+        funnel = funnel.with_counts(adopted_facts=funnel.adopted_facts + len(cell.fact_ids))
+    else:
+        for reason in cell.loss_reasons:
+            funnel = funnel.record_loss("adopted", reason)
 
-    srcs = []
+    # 轨迹终态：snapshotted 来源按分区结果标注 adopted / rejected_policy / rejected_authority。
+    adopted_ids = {s.source_snapshot_id for s in adopted_sources}
+    rejected_by_sid = {s.source_snapshot_id: reason for s, reason in rejected_sources}
     for s in gathered:
-        if s.source_snapshot_id in cell.fact_ids:
-            srcs.append({
-                "source_snapshot_id": s.source_snapshot_id,
-                "source_grade": s.source_grade,
-                "canonical_url": s.canonical_url,
-                "published_at": s.published_at,
-                "title": next((c.get("title") for c in candidate_urls
-                               if c.get("url") == s.canonical_url), "") or "",
-                "snippet": next((c.get("snippet") for c in candidate_urls
-                                 if c.get("url") == s.canonical_url), "") or "",
-                "content_excerpt": s.content_excerpt,
-            })
-    return cell, funnel, srcs
+        sid = s.source_snapshot_id
+        if sid in adopted_ids:
+            trace.append(_entry("adopted", url=s.canonical_url, source_grade=s.source_grade,
+                                source_snapshot_id=sid, title=s.title))
+        elif sid in rejected_by_sid:
+            trace.append(_entry("rejected_policy", url=s.canonical_url,
+                                source_grade=s.source_grade, source_snapshot_id=sid,
+                                reason=rejected_by_sid[sid], title=s.title))
+        else:
+            trace.append(_entry("rejected_authority", url=s.canonical_url,
+                                source_grade=s.source_grade, source_snapshot_id=sid,
+                                reason="authority_validation_failed", title=s.title))
+
+    def _src_dict(s):
+        return {
+            "source_snapshot_id": s.source_snapshot_id,
+            "source_grade": s.source_grade,
+            "canonical_url": s.canonical_url,
+            "published_at": s.published_at,
+            "title": s.title,
+            "snippet": s.snippet,
+            "content_excerpt": s.content_excerpt,
+        }
+
+    adopted_srcs = [_src_dict(s) for s in adopted_sources] if cell.obtained else []
+    rejected_srcs = [
+        {**_src_dict(s), "rejection_reason": reason} for s, reason in rejected_sources]
+
+    return cell, funnel, adopted_srcs, rejected_srcs, trace
 
 
 @dataclass(frozen=True)
@@ -695,6 +873,8 @@ class _SourceObj:
     canonical_url: str
     published_at: str | None
     content_excerpt: str = ""
+    title: str = ""
+    snippet: str = ""
 
 
 # ---------------------------------------------------------------------------

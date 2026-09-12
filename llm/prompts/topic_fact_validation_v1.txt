@@ -22,7 +22,13 @@
       "fact_class": "scale",
       "value": "1.2 万亿元",
       "statement": "原文原句",
-      "period": "2025"
+      "period": "2025",
+      "support_verdict": "SUPPORTED"
     }
   ]
 }
+
+`support_verdict` 三选一（用于 adopted-facts 硬防火墙，只有 SUPPORTED 才能被采纳进正文）：
+- `SUPPORTED`：`statement` 直接、明确蕴含 `value`（数值/口径/报告期均来自原文）。
+- `PARTIAL`：原文只部分支持 `value`（如只给了方向、未给精确数值）。
+- `UNSUPPORTED`：`value` 无法从原文得到支撑（含推断、跨来源拼凑、换算）。
