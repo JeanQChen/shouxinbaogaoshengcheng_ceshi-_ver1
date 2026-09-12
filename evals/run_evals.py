@@ -100,6 +100,7 @@ EVAL_MODULES = [
     "evals.test_topic_research_sections",
     "evals.test_chapter_writer",
     "evals.test_phase4_vertical_slice",
+    "evals.test_phase4_guardfix",
     "evals.test_section_schema",
     "evals.test_section_material_bundle",
     "evals.test_section_store",
