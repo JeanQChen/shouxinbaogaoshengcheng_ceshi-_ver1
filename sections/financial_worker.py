@@ -32,7 +32,7 @@ import json
 import logging
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -195,7 +195,8 @@ class FinancialFactPack:
     gaps: tuple[dict, ...]           # required 指标缺口（→ SectionUnresolved）
     diagnostic_gaps: tuple[dict, ...]  # relevant 但非 required 指标缺口（仅诊断，不影响状态）
     statements_available: tuple[str, ...]  # 主表 statement_type 齐备情况
-    by_id: dict[str, FinancialFact]
+    period_note: dict = field(default_factory=dict)  # 年度主线覆盖范围说明（不足三年诚实声明）
+    by_id: dict[str, FinancialFact] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -283,17 +284,40 @@ def _item_codes_to_include() -> set[str]:
     return codes
 
 
-def _focus_periods(snapshot: FS.FinancialSnapshot) -> list[str]:
+def _select_focus_periods(scoped: list[FS.SnapshotItem], *,
+                          as_of_date: str) -> tuple[list[str], dict]:
+    """纯函数：从同口径条目计算焦点期间（§12 P1 修复）。
+
+    年度主线采用已取得的近三年（annual 最后三个）；最新季度/中报独立补充（单独列，
+    不与年度做同比趋势比较）；主报告期 as_of_date 始终纳入。不足三年 → note 诚实说明
+    实际年度范围（绝不编数）。
+    """
+    periods = sorted({it.report_period for it in scoped})
+    if not periods:
+        raise FinancialWorkerError("快照无任何条目（无法确定焦点期间）")
+    annual = sorted({it.report_period for it in scoped if it.period_type == "annual"})
+    sub_annual = sorted({it.report_period for it in scoped
+                         if it.period_type in ("quarterly", "interim")})
+    main = as_of_date if as_of_date in periods else periods[-1]
+    annual_mainline = annual[-3:] if len(annual) >= 3 else annual
+    focus = set(annual_mainline) | {main}
+    supplement = sub_annual[-1] if sub_annual else None
+    if supplement:
+        focus.add(supplement)
+    note = {
+        "annual_periods_available": annual,
+        "annual_years": len(annual),
+        "full_three_years": len(annual) >= 3,
+        "sub_annual_supplement": supplement,
+    }
+    return sorted(focus), note
+
+
+def _focus_periods(snapshot: FS.FinancialSnapshot) -> tuple[list[str], dict]:
     items = fstore.list_snapshot_items(snapshot.snapshot_id)
     scoped = [it for it in items
               if it.statement_scope == snapshot.scope and it.currency == snapshot.currency]
-    periods = sorted({it.report_period for it in scoped})
-    if not periods:
-        raise FinancialWorkerError(f"快照无任何条目: {snapshot.snapshot_id}")
-    annual = sorted({it.report_period for it in scoped if it.period_type == "annual"})
-    main = snapshot.as_of_date if snapshot.as_of_date in periods else periods[-1]
-    latest_annual = annual[-1] if annual else main
-    return sorted(set([main, latest_annual]))
+    return _select_focus_periods(scoped, as_of_date=snapshot.as_of_date)
 
 
 def _required_formula_ids(task: PS.SectionTask, snapshot: FS.FinancialSnapshot) -> set[str]:
@@ -341,7 +365,7 @@ def build_fact_pack(snapshot: FS.FinancialSnapshot, *, company_name: str,
     - relevant 但非 required 指标不可得 → diagnostic_gaps（仅诊断，不影响状态）。
     """
     items = fstore.list_snapshot_items(snapshot.snapshot_id)
-    periods = _focus_periods(snapshot)
+    periods, period_note = _focus_periods(snapshot)
     item_labels = SC.item_label_map()
     formula_names = SC.formula_name_map()
     include_codes = _item_codes_to_include()
@@ -414,6 +438,7 @@ def build_fact_pack(snapshot: FS.FinancialSnapshot, *, company_name: str,
         periods=periods, facts=tuple(facts), gaps=tuple(gaps),
         diagnostic_gaps=tuple(diagnostic_gaps),
         statements_available=tuple(sorted(statements)),
+        period_note=period_note,
         by_id={f.fact_id: f for f in facts})
 
 
@@ -812,6 +837,18 @@ def _render_markdown(task: PS.SectionTask, pack: FinancialFactPack,
     lines.append(f"- 公司：{pack.company_name}（{pack.company_id}）")
     lines.append(f"- 财务快照：`{pack.snapshot_id}`")
     lines.append(f"- 报告期：{pack.as_of_date}；覆盖期间：{', '.join(pack.periods)}")
+    if pack.period_note:
+        pn = pack.period_note
+        annual_avail = pn.get("annual_periods_available", [])
+        if pn.get("full_three_years"):
+            lines.append(f"- 年度主线：近三年（{', '.join(annual_avail[-3:])}）")
+        else:
+            lines.append(f"- 年度主线：已取得 {pn.get('annual_years', 0)} 个年度"
+                         + (f"（{', '.join(annual_avail)}）" if annual_avail else "")
+                         + "，不足三年，未取得部分不编数")
+        if pn.get("sub_annual_supplement"):
+            lines.append(f"- 季度/中报补充：{pn['sub_annual_supplement']}"
+                         "（独立展示，不与年度同比）")
     lines.append(f"- 口径：{pack.scope} / {pack.currency} / {pack.purpose}")
     lines.append(f"- 主表齐备：{', '.join(pack.statements_available) or '（未取得主表）'}")
     lines.append(f"- 金额单位：元（科目金额已归一化）；指标为 Python 计算值")

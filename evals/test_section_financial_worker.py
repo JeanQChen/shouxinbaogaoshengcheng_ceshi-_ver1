@@ -33,6 +33,7 @@ from planning import schema as PS  # noqa: E402
 from sections import common as SC  # noqa: E402
 from sections import financial_worker as FW  # noqa: E402
 from sections import store as ST  # noqa: E402
+from financial_v2 import schema as FS  # noqa: E402
 from financial_v2 import store as FST  # noqa: E402
 
 _results = {"passed": 0, "failed": 0, "skipped": 0, "details": []}
@@ -828,6 +829,52 @@ def main():
               "Worker 版本变化 → 新 section_result_id")
     finally:
         SC.WORKER_VERSION = old_wv
+
+    # ---- G. 近三年期间主线（§12 P1：_select_focus_periods，纯函数）----
+    def _item(report_period: str, period_type: str) -> FS.SnapshotItem:
+        return FS.SnapshotItem(
+            snapshot_id="s", comparison_key=f"ck_{report_period}_{period_type}",
+            standard_item_code="OPERATING_REVENUE", amount=Decimal("1"), unit="yuan",
+            report_period=report_period, period_type=period_type,
+            statement_type="income_statement", statement_scope="consolidated",
+            currency="CNY", restatement_version="0", source_refs=["rec_x"],
+            resolution_id=None)
+
+    # G1. 三年年度 + 一季 → 年度主线完整 + 季度独立补充
+    items = [
+        _item("2023-12-31", "annual"), _item("2024-12-31", "annual"),
+        _item("2025-12-31", "annual"), _item("2025-09-30", "quarterly"),
+    ]
+    per, note = FW._select_focus_periods(items, as_of_date="2025-12-31")
+    check(per == ["2023-12-31", "2024-12-31", "2025-09-30", "2025-12-31"],
+          "近三年年度 + 季度 → 4 期间（季度独立，不与年度同比）")
+    check(note["full_three_years"] is True and note["annual_years"] == 3,
+          "三年度 → full_three_years=True")
+    check(note["sub_annual_supplement"] == "2025-09-30", "季度独立补充标记")
+
+    # G2. 五年年度 → 取最近三年
+    items5 = [_item(f"{y}-12-31", "annual") for y in range(2021, 2026)]
+    per5, note5 = FW._select_focus_periods(items5, as_of_date="2025-12-31")
+    check(per5 == ["2023-12-31", "2024-12-31", "2025-12-31"],
+          "五年年度 → 取最近三年")
+    check(note5["full_three_years"] is True, "五年 → full_three_years=True")
+
+    # G3. 两年年度 → 不足三年诚实说明，不编数
+    items2 = [_item("2024-12-31", "annual"), _item("2025-12-31", "annual")]
+    per2, note2 = FW._select_focus_periods(items2, as_of_date="2025-12-31")
+    check(per2 == ["2024-12-31", "2025-12-31"], "两年年度 → 只取两年")
+    check(note2["full_three_years"] is False and note2["annual_years"] == 2,
+          "两年 → full_three_years=False（诚实声明不足三年，不编数）")
+
+    # G4. 主报告期为季度（as_of_date 非年度）→ 主报告期始终纳入
+    items_q = [_item("2024-12-31", "annual"), _item("2025-12-31", "annual"),
+               _item("2025-09-30", "quarterly")]
+    per_q, _ = FW._select_focus_periods(items_q, as_of_date="2025-09-30")
+    check("2025-09-30" in per_q, "主报告期（季度）纳入焦点期间")
+
+    # G5. 空条目 → fail-closed
+    expect_raise(lambda: FW._select_focus_periods([], as_of_date="2025-12-31"),
+                 FW.FinancialWorkerError, "无条目 → fail-closed")
 
     return _results
 
