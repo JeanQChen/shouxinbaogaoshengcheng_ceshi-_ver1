@@ -219,7 +219,7 @@ def _llm_draft_paragraphs(kind: str, title: str, fact_index: dict, calc_display:
     })
     raw = client.chat_with_usage(
         [{"role": "user", "content": prompt}], model=model, max_tokens=4096,
-        prompt_version=CW.PROMPT_VERSION).text
+        prompt_version=CW.PROMPT_VERSION, thinking={"type": "disabled"}).text
     payload = CW._parse_json(raw)
     return CW.paragraphs_from_payload(payload, topic_id=kind, question_id=kind)
 
@@ -230,16 +230,31 @@ def _llm_extract_facts(external_sources: tuple[dict, ...], *, model: str) -> tup
 
     if not external_sources:
         return ()
+    src_meta = {s["source_snapshot_id"]: s for s in external_sources}
     src_block = "\n\n".join(
         f"- id={s['source_snapshot_id']} 等级={s.get('source_grade')} "
-        f"日期={s.get('published_at')}\n  {s.get('title') or s.get('canonical_url')}"
+        f"日期={s.get('published_at')}\n  标题={s.get('title') or s.get('canonical_url')}\n"
+        f"  正文摘录={s.get('content_excerpt') or s.get('snippet') or ''}"
         for s in external_sources)
     prompt = CW.render_prompt("topic_fact_validation_v1", {"sources": src_block})
     raw = client.chat_with_usage(
         [{"role": "user", "content": prompt}], model=model, max_tokens=4096,
-        prompt_version=CW.FACT_VALIDATION_PROMPT_VERSION).text
+        prompt_version=CW.FACT_VALIDATION_PROMPT_VERSION,
+        thinking={"type": "disabled"}).text
     payload = CW._parse_json(raw)
-    return tuple(payload.get("facts") or [])
+    out: list[dict] = []
+    for i, f in enumerate(payload.get("facts") or []):
+        if not isinstance(f, dict):
+            continue
+        sid = f.get("source_snapshot_id") or ""
+        meta = src_meta.get(sid, {})
+        f = dict(f)
+        f["fact_id"] = f"extfact-{sid}-{i}"
+        f["source_grade"] = f.get("source_grade") or meta.get("source_grade")
+        f["published_at"] = f.get("published_at") or meta.get("published_at")
+        f["canonical_url"] = f.get("canonical_url") or meta.get("canonical_url")
+        out.append(f)
+    return tuple(out)
 
 
 # ---------------------------------------------------------------------------

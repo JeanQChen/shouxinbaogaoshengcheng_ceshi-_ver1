@@ -662,7 +662,8 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
         funnel = funnel.with_counts(extracted_facts=funnel.extracted_facts + 1)
         gathered.append(_SourceObj(
             source_snapshot_id=sid, source_grade=cand.get("source_grade"),
-            canonical_url=url, published_at=cand.get("published_at")))
+            canonical_url=url, published_at=cand.get("published_at"),
+            content_excerpt=content_text[:2000]))
 
     cell = assess_external_cell(aspect=aspect, sources=gathered, authority=authority,
                                 topic_id=plan.topic_id)
@@ -682,6 +683,7 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
                                if c.get("url") == s.canonical_url), "") or "",
                 "snippet": next((c.get("snippet") for c in candidate_urls
                                  if c.get("url") == s.canonical_url), "") or "",
+                "content_excerpt": s.content_excerpt,
             })
     return cell, funnel, srcs
 
@@ -692,6 +694,7 @@ class _SourceObj:
     source_grade: str | None
     canonical_url: str
     published_at: str | None
+    content_excerpt: str = ""
 
 
 # ---------------------------------------------------------------------------
