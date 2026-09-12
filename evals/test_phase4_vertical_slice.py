@@ -1,14 +1,15 @@
-"""Eval: Phase 4 纵向切片验收 Runner（三样本契约 + 纯组装自检）。
+"""Eval: Phase 4 纵向研究 Runner 契约派生接线（影子契约已移除）。
 
 用法: python -m evals.test_phase4_vertical_slice
 
-纯组装（无 I/O / LLM）。真实 300750 落地由
-`python -m evaluation.run_phase4_vertical_slice`（缺库 skip，见下方）。覆盖：
-- 三样本 SectionTask 契约与 standard_v2.yaml 一致（aspect / evidence_kind /
-  source_classes / blocking / missing_policy）；
-- derive_topic_queries 查询分工（business 纯本地 / scale 纯外部 / transmission 两者）；
-- _self_check 纯组装产出（business 表格 + 段落校验 / industry 来源表 + 周期推断）；
-- 预算三样本冻结默认值。
+纯组装（无 DB / LLM / 博查）。覆盖：
+- 正式契约加载（load_formal）→ contract_sha256；
+- plan_dry 派生正式 ReportPlan（company/industry 顺序 + 字段完整）；
+- select_slice 漂移校验 + 三种 scope 身份；
+- SectionTask 保留全部正式字段（purpose/output_requirements/evaluation_rule_ids/
+  allowed_capabilities/blocking_rules/dependency_versions）；
+- _self_check 纯组装产出；
+- dry-run manifest 记录契约 hash + 任务身份。
 """
 
 from __future__ import annotations
@@ -20,10 +21,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evaluation.run_phase4_vertical_slice import (
-    SAMPLES, SAMPLE_TOPIC, build_sample_tasks, _self_check,
+    _self_check, dry_run, load_formal, plan_dry, select_slice,
 )
-from planning.topic_research import TopicResearchContext, derive_topic_queries
-from sections.topic_research import budget_for
+from evaluation import contract_slice as CSL
 
 
 def main() -> dict:
@@ -41,62 +41,68 @@ def main() -> dict:
             failed += 1
             details.append(f"FAIL: {msg}")
 
-    # 1) 三样本契约
-    tasks = build_sample_tasks()
-    check(set(tasks) == set(SAMPLES) and len(tasks) == 3, "三样本 task 齐全")
+    # 正式契约加载 + 计划
+    contracts, sha = load_formal()
+    check(len(sha) == 64 and sha, "load_formal 派生 contract_sha256")
+    check(len(contracts) >= 3, "load_formal 加载 ≥3 正式章节契约")
 
-    business = tasks["company_business_main"]
-    bq = business.questions[0]
-    check(len(bq.required_aspects) == 5 and bq.evidence_requirements[0]["evidence_kind"] == "table"
-          and bq.evidence_requirements[0]["source_classes"] == ["company_industry"],
-          "business 契约：5 aspect / table / company_industry")
-    check(bq.blocking_policy == ("SECTION_BLOCKED",) and bq.impact_scope == ("subject",),
-          "business 契约：SECTION_BLOCKED / subject")
+    plan = plan_dry(job_id="j", company_id="C", company_name="测试", credit_type="other",
+                    report_as_of="2026-03-31", enabled_sections=("company", "industry"),
+                    contracts=contracts, contract_sha=sha)
+    check(plan.section_ids() == ["company", "industry"], "正式 plan 章节顺序")
+    check(plan.planner_version == "p4-planner-v1", "plan 记录 planner_version")
 
-    scale = tasks["industry_scale_cycle"].questions[0]
-    check(len(scale.required_aspects) == 4 and scale.evidence_requirements[0]["evidence_kind"] == "web"
-          and scale.evidence_requirements[0]["source_classes"] == ["external"]
-          and scale.missing_policy == "proxy_allowed",
-          "scale 契约：4 aspect / web / external / proxy_allowed")
+    # 漂移校验 + 选择
+    comp_task, comp_id = select_slice(plan, contracts, scope="topic_preview",
+                                      section_id="company", topic_id="company_business")
+    check(comp_id["artifact_scope"] == "topic_preview"
+          and comp_id["chapter_complete"] is False,
+          "company_business topic_preview 不 chapter_complete")
+    check(comp_id["total_contract_questions"] == len(comp_task.questions)
+          and comp_id["total_contract_topics"] == len(comp_task.topic_ids),
+          "topic_preview 总量 = 章节契约总量")
 
-    trans = tasks["industry_risk_transmission"].questions[0]
-    check(len(trans.required_aspects) == 3
-          and trans.evidence_requirements[0]["source_classes"] == ["company_industry", "external"]
-          and trans.impact_scope == ("solvency",),
-          "transmission 契约：3 aspect / 本地+外部 / solvency")
+    ind_task, ind_id = select_slice(plan, contracts, scope="section_preview",
+                                    section_id="industry")
+    check(ind_id["chapter_complete"] is True
+          and ind_id["covered_questions"] == ind_task.question_ids(),
+          "industry section_preview 全量 chapter_complete")
 
-    # 2) 查询分工
-    ctx = TopicResearchContext(company_id="300750", company_name="宁德时代",
-                               industry_names=("动力电池",), report_as_of="2026-03-31")
-    plans = {s: derive_topic_queries(tasks[s], SAMPLE_TOPIC[s], ctx) for s in SAMPLES}
-    check(all(a.local_query and not a.external_query
-              for a in plans["company_business_main"].aspects),
-          "business 纯本地查询")
-    check(all(a.external_query and not a.local_query
-              for a in plans["industry_scale_cycle"].aspects),
-          "scale 纯外部查询")
-    check(all(a.local_query and a.external_query
-              for a in plans["industry_risk_transmission"].aspects),
-          "transmission 本地+外部查询")
+    q_task, q_id = select_slice(plan, contracts, scope="question_slice",
+                                section_id="company", question_id="company_business_main")
+    check(q_id["selected_question_ids"] == ["company_business_main"]
+          and q_id["chapter_complete"] is False,
+          "question_slice 单问题不 chapter_complete")
 
-    # 3) 三样本冻结预算
-    check((budget_for("company_business_main").max_tool_calls,
-           budget_for("industry_scale_cycle").max_tool_calls,
-           budget_for("industry_risk_transmission").max_tool_calls) == (12, 12, 16),
-          "三样本预算 max_tool_calls 冻结")
+    # SectionTask 保留全部正式字段（不再空）
+    for t in (comp_task, ind_task):
+        check(bool(t.title) and bool(t.purpose) and bool(t.research_policy)
+              and t.output_requirements and t.evaluation_rule_ids
+              and t.allowed_capabilities and t.blocking_rules
+              and t.dependency_versions,
+              f"SectionTask[{t.section_id}] 保留全部正式字段（非空）")
 
-    # 4) 纯组装自检
+    # 自检
     sc = _self_check()
-    check(sc["aspect_counts"] == {"company_business_main": 5,
-                                  "industry_scale_cycle": 4,
-                                  "industry_risk_transmission": 3},
-          "自检 aspect 计数")
-    check(sc["business_chapter_ok"] and sc["business_table_rows"] >= 1,
-          "自检 business 表格 + 校验通过")
-    check(sc["industry_chapter_ok"] and sc["industry_source_table_rows"] == 2
-          and sc["industry_cycle_judgment_present"],
-          "自检 industry 来源表 + 周期推断")
-    check(sc["markdown_rendered"], "自检 Markdown 渲染")
+    check(sc["shadow_contract_removed"], "_self_check 确认影子契约已删除")
+    check(sc["drift_clean"] and sc["drift_tamper_raises"], "_self_check 漂移校验")
+    check(sc["business_chapter_ok"], "_self_check business 渲染")
+    check(sc["supply_chain_not_fake_obtained"], "_self_check 反虚假覆盖")
+    check(sc["table_text_consistent"], "_self_check 表文一致")
+    check(sc["company_business_question_ids"] == [
+        "company_business_main", "company_business_model",
+        "company_customer_concentration", "company_supplier_concentration"],
+        "_self_check company_business 4 正式问题")
+
+    # dry-run manifest
+    m = dry_run(company_id="C", company_name="测试", industry_names=("测试行业",))
+    check(m["contract_sha256"] == sha and m["report_plan_id"]
+          and m["contract_version"] == "v1"
+          and m["previews"]["company_business_topic_preview"]["task_canonical_fingerprint"],
+          "dry-run manifest 记录契约 hash/version/plan_id/任务指纹")
+    check(m["query_plan"]["industry_topic_query_plans"].keys()
+          == set(ind_task.topic_ids),
+          "dry-run 为 industry 全部 9 主题派生 TopicQueryPlan")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

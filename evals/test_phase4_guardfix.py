@@ -1,12 +1,12 @@
-"""Eval: Phase 4 纵向切片 guardfix 回归 — adopted-facts 硬防火墙 / 反虚假覆盖 / 双支撑。
+"""Eval: Phase 4 纵向研究 guardfix 回归 — adopted-facts 硬防火墙 / 反虚假覆盖 / 双支撑。
 
 用法: python -m evals.test_phase4_guardfix
 
-纯函数回归（无 I/O / LLM），覆盖用户最终约束 §二～§五 的 11 个失效形态：
+纯函数回归（无 I/O / LLM），覆盖用户最终约束 §二～§五 的失效形态（本轮回接正式契约后保留）：
  1. D 级来源全部拒绝 → 行业章 DATA_GAP（0 adopted 不产正文）；
  2. 0 adopted → build_chapter 不产伪完整章节（content_ok=False / chapter_ok=False）；
- 3. 反虚假覆盖：收入/成本事实不得让「产品应用」「产业链位置」obtained；
- 4. aspect_fact_categories sentinel 正确（「上下游」含「下游」子串不误判）；
+ 3. 反虚假覆盖：收入/成本事实不得让「产业链位置」obtained（正式 company_business_main aspect）；
+ 4. aspect_fact_categories sentinel 正确（正式契约 aspect 文本）；
  5. support_verdict 防火墙：非 SUPPORTED / 白名单外 → rejected；
  6. D/unknown 级来源 → rejected（不入正文，d_grade_not_in_body）；
  7. transmission 双支撑：缺公司暴露事实 → DATA_GAP；
@@ -27,9 +27,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sections import chapter_writer as CW
 from sections.topic_research import assess_external_cell, assess_local_cell, aspect_fact_categories
 from evaluation.run_phase4_vertical_slice import (
-    BUSINESS_ASPECTS, _filter_evidence_to_adopted, _partition_extracted_facts,
+    _filter_evidence_to_adopted, _partition_extracted_facts,
     _render_business_chapter, _render_industry_chapter, _render_transmission_chapter,
-    _source_intent_for, build_sample_tasks,
+    _source_intent_for, load_formal, plan_dry, select_slice,
 )
 from planning.topic_research import TopicResearchContext, derive_topic_queries
 
@@ -80,6 +80,20 @@ def _ext_fact(fid, sid, verdict, fact_class="scale", value="1.2 万亿元"):
             "canonical_url": f"https://x/{sid}", "support_verdict": verdict}
 
 
+def _company_business_main_aspects():
+    """从正式契约派生 company_business_main 的 5 个 AspectQuery。"""
+    contracts, sha = load_formal()
+    plan = plan_dry(job_id="j", company_id="C", company_name="测试", credit_type="other",
+                    report_as_of="2026-03-31", enabled_sections=("company", "industry"),
+                    contracts=contracts, contract_sha=sha)
+    comp_task, _ = select_slice(plan, contracts, scope="topic_preview",
+                                section_id="company", topic_id="company_business")
+    ctx = TopicResearchContext(company_id="C", company_name="测试",
+                               industry_names=("测试行业",), report_as_of="2026-03-31")
+    qp = derive_topic_queries(comp_task, "company_business", ctx)
+    return tuple(a for a in qp.aspects if a.question_id == "company_business_main")
+
+
 def main() -> dict:
     passed = 0
     failed = 0
@@ -108,31 +122,29 @@ def main() -> dict:
     check((not chb.chapter_ok) and "DATA_GAP" in chb.markdown,
           "0 adopted → business 章 DATA_GAP")
 
-    # 3) 反虚假覆盖：收入/成本事实不得让「产品应用」「产业链位置」obtained
-    ctx = TopicResearchContext(company_id="300750", company_name="宁德时代",
-                               industry_names=("动力电池",), report_as_of="2026-03-31")
-    tasks = build_sample_tasks()
-    plan = derive_topic_queries(tasks["company_business_main"], "company_business", ctx)
+    # 3) 反虚假覆盖：收入/成本事实不得让「产业链位置」obtained（正式 aspect）
+    main_aspects = _company_business_main_aspects()
+    check({a.aspect_text for a in main_aspects} == {
+        "主营业务构成", "各业务收入及收入占比", "各业务成本与毛利构成",
+        "产业链位置", "对应报告期与口径"},
+        "company_business_main 正式 5 aspect")
     facts = (_Fact("ef-r1", "e1", "revenue", "动力电池系统", "2025-12-31", "316506369000.0"),
              _Fact("ef-c1", "e2", "cost", "动力电池系统", "2025-12-31", "241064397000.0"))
     by_text = {c.aspect_text: assess_local_cell(aspect=c, facts=facts, authority=auth)
-               for c in plan.aspects}
-    check(by_text["业务构成"].obtained and by_text["收入规模与占比"].obtained
-          and by_text["成本与盈利"].obtained,
-          "业务构成/收入/成本 aspect 由收入/成本事实 obtained")
-    check((not by_text["产品、服务与应用场景"].obtained)
-          and (not by_text["上下游关系及产业链位置"].obtained),
-          "产品应用/产业链位置 aspect 不因收入/成本事实 obtained（反虚假覆盖）")
+               for c in main_aspects}
+    check(by_text["主营业务构成"].obtained and by_text["各业务收入及收入占比"].obtained
+          and by_text["各业务成本与毛利构成"].obtained,
+          "主营业务构成/收入占比/成本毛利 aspect 由收入/成本事实 obtained")
+    check(not by_text["产业链位置"].obtained,
+          "产业链位置 aspect 不因收入/成本事实 obtained（反虚假覆盖）")
 
-    # 4) aspect_fact_categories sentinel（「上下游」含「下游」子串不误判）
-    check(aspect_fact_categories("上下游关系及产业链位置") == ("supply_chain",),
-          "「上下游关系及产业链位置」→ supply_chain（不误判 product_application）")
-    check(aspect_fact_categories("产品、服务与应用场景") == ("product_application",),
-          "「产品、服务与应用场景」→ product_application")
-    check(aspect_fact_categories("收入规模与占比") == ("revenue",),
-          "「收入规模与占比」→ revenue")
-    check(aspect_fact_categories("成本与盈利") == ("cost",),
-          "「成本与盈利」→ cost")
+    # 4) aspect_fact_categories sentinel（正式契约 aspect 文本）
+    check(aspect_fact_categories("产业链位置") == ("supply_chain",),
+          "「产业链位置」→ supply_chain（不误判 product_application）")
+    check(aspect_fact_categories("各业务收入及收入占比") == ("revenue",),
+          "「各业务收入及收入占比」→ revenue")
+    check(aspect_fact_categories("各业务成本与毛利构成") == ("cost",),
+          "「各业务成本与毛利构成」→ cost")
 
     # 5) support_verdict 防火墙：非 SUPPORTED / 白名单外 → rejected
     extracted = (_ext_fact("f1", "s1", "SUPPORTED"),
@@ -212,7 +224,7 @@ def main() -> dict:
           "scale source-intent include 政府/监管域名")
     check(trans_intent and "cninfo.com.cn" in trans_intent["include"],
           "transmission source-intent include 交易所/法定披露域名")
-    check(_source_intent_for("company_business_main") is None,
+    check(_source_intent_for("company_business") is None,
           "business 无 source-intent（本地确定性路径）")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,

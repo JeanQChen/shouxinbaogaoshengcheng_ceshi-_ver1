@@ -211,6 +211,163 @@ def _resolved_blocking_rules(sec: CS.SectionContract,
     )
 
 
+# ---------------------------------------------------------------------------
+# 规范形 + 指纹 + 任务构建 + 来源校验（公开接口，planner.plan 与 Contract 漂移校验共用）
+# ---------------------------------------------------------------------------
+
+def _blocking_rule_dicts(task: PS.SectionTask) -> list[dict]:
+    """ResolvedBlockingRule → 规范形 dict（进入 canonical_section_task）。"""
+    return [{"rule_id": b.rule_id, "scope_id": b.scope_id,
+             "outcome": b.outcome, "applies": b.applies}
+            for b in task.blocking_rules]
+
+
+def canonical_question(q: PS.PlannedQuestion) -> dict:
+    """PlannedQuestion → 规范形 dict（键排序稳定，供身份指纹与漂移比对）。
+
+    这是「问题」的单一规范形实现：契约派生（planner）与漂移校验（evaluation）共用，
+    不得各自复制。
+    """
+    return {
+        "question_id": q.question_id,
+        "question": q.question,
+        "priority": q.priority,
+        "topic_id": q.topic_id,
+        "required_aspects": list(q.required_aspects),
+        "evidence_requirements": [
+            dict(sorted(
+                {k: (list(v) if isinstance(v, tuple) else v) for k, v in er.items()}
+                .items()))
+            for er in q.evidence_requirements
+        ],
+        "calculation_requirements": list(q.calculation_requirements),
+        "analysis_requirements": list(q.analysis_requirements),
+        "missing_policy": q.missing_policy,
+        "blocking_policy": list(q.blocking_policy),
+        "impact_scope": list(q.impact_scope),
+    }
+
+
+def canonical_section_task(task: PS.SectionTask) -> dict:
+    """SectionTask → 规范形 dict（task_id/plan_id/created 等派生字段按值比对，
+    不进入身份）。
+    """
+    return {
+        "section_id": task.section_id,
+        "title": task.title,
+        "purpose": task.purpose,
+        "research_policy": task.research_policy,
+        "topic_ids": list(task.topic_ids),
+        "questions": [canonical_question(q) for q in task.questions],
+        "output_requirements": [dict(sorted(o.items())) for o in task.output_requirements],
+        "evaluation_rule_ids": list(task.evaluation_rule_ids),
+        "allowed_capabilities": list(task.allowed_capabilities),
+        "blocking_rules": [dict(sorted(b.items())) for b in _blocking_rule_dicts(task)],
+        "dependency_versions": dict(sorted(task.dependency_versions.items())),
+    }
+
+
+def section_task_fingerprint(task: PS.SectionTask) -> str:
+    """任务规范形身份指纹（进入 RunManifest / 漂移比对）。"""
+    return PS.sha256_json(canonical_section_task(task))
+
+
+def question_fingerprint(q: PS.PlannedQuestion) -> str:
+    """问题规范形身份指纹。"""
+    return PS.sha256_json(canonical_question(q))
+
+
+def build_section_task(sec: CS.SectionContract, credit_type: str, *,
+                       plan_id: str,
+                       dependency_versions: dict | None = None,
+                       contract_sha256: str = "") -> PS.SectionTask:
+    """按 SectionContract 确定性构建一个章节任务（唯一实现，planner.plan 与漂移校验共用）。
+
+    - 只按契约 + credit_type 派生：``required_topics`` 过滤 ``applies_when``，questions
+      原样携带契约字段，output/eval/capability/blocking 由契约解析；
+    - ``task_id`` 由 ``plan_id + section_id`` 确定性派生（同 plan 同 section → 同 task）；
+    - ``dependency_versions`` 由调用方提供；``contract_sha256`` 非空时写入
+      ``dependency_versions["contract_sha256"]``（来源可验证，见
+      :func:`validate_section_task_provenance`）。
+    """
+    applied_topic_ids: list[str] = []
+    questions: list[PS.PlannedQuestion] = []
+    for t in sec.required_topics:
+        applies = t.applies_when is None or t.applies_when.matches(credit_type)
+        if not applies:
+            continue
+        applied_topic_ids.append(t.topic_id)
+        questions.extend(_planned_questions(t, t.key_questions))
+
+    deps = dict(dependency_versions or {})
+    if contract_sha256:
+        deps.setdefault("contract_sha256", contract_sha256)
+
+    return PS.SectionTask(
+        task_id=PS.derive_task_id(plan_id, sec.section_id),
+        plan_id=plan_id,
+        section_id=sec.section_id,
+        title=sec.title,
+        purpose=sec.purpose,
+        research_policy=sec.research_policy,
+        topic_ids=tuple(applied_topic_ids),
+        questions=tuple(questions),
+        output_requirements=_output_requirement_dicts(sec),
+        evaluation_rule_ids=tuple(er.rule_id for er in sec.evaluation_rules),
+        allowed_capabilities=tuple(sec.allowed_capabilities),
+        blocking_rules=_resolved_blocking_rules(sec, credit_type),
+        dependency_versions=deps,
+    )
+
+
+def validate_section_task_provenance(
+        task: PS.SectionTask, sec: CS.SectionContract, credit_type: str, *,
+        contract_version: str | None = None,
+        contract_sha256: str | None = None,
+        plan_id: str | None = None) -> tuple[bool, tuple[str, ...]]:
+    """校验任务来源（provenance）与内容契约一致性，fail-closed。
+
+    返回 ``(ok, diffs)``；``ok=False`` 时 ``diffs`` 为差异描述。以下任一即 fail：
+
+    - 篡改 question / required_aspects / evidence_requirements / blocking_rules /
+      output_requirements / 任一正式字段 → 内容漂移；
+    - ``plan_id`` / ``contract_version`` / ``contract_sha256`` 来源不一致。
+
+    与 ``planner.plan`` 共用 :func:`build_section_task` + :func:`canonical_section_task`
+    同一实现，不复制 Planner 逻辑。evaluation 层只消费本接口，不得调用任何
+    ``_planned_questions`` 等私有函数。
+    """
+    diffs: list[str] = []
+
+    # 来源一致性。
+    if plan_id is not None and task.plan_id != plan_id:
+        diffs.append(f"plan_id 不一致: 期望 {plan_id!r} 实际 {task.plan_id!r}")
+    if contract_version is not None:
+        actual_cv = task.dependency_versions.get("contract_version")
+        if actual_cv != contract_version:
+            diffs.append(
+                f"contract_version 不一致: 期望 {contract_version!r} 实际 {actual_cv!r}")
+    if contract_sha256 is not None:
+        actual_sha = task.dependency_versions.get("contract_sha256")
+        if actual_sha not in (None, "", contract_sha256):
+            diffs.append(
+                f"contract_sha256 不一致: 期望 {contract_sha256!r} 实际 {actual_sha!r}")
+
+    # 内容一致性：以契约重新派生期望任务，规范形逐字段比对。
+    expected = build_section_task(sec, credit_type, plan_id=task.plan_id,
+                                  dependency_versions=task.dependency_versions)
+    exp = canonical_section_task(expected)
+    act = canonical_section_task(task)
+    for key in exp:
+        if exp[key] != act.get(key):
+            diffs.append(f"字段 {key} 漂移：期望 {exp[key]!r} 实际 {act.get(key)!r}")
+    for key in act:
+        if key not in exp:
+            diffs.append(f"任务含契约未定义字段 {key}: {act[key]!r}")
+
+    return (not diffs, tuple(diffs))
+
+
 def plan(job: PS.ReportJobInput, contracts: list[CS.SectionContract],
          contract_fingerprint: str, *, now: str | None = None) -> PS.ReportPlan:
     """确定性规划（纯函数，无 I/O、无 LLM、无检索）。"""
@@ -247,43 +404,24 @@ def plan(job: PS.ReportJobInput, contracts: list[CS.SectionContract],
     input_fingerprint = job.input_fingerprint()
     plan_id = PS.derive_plan_id(input_fingerprint, contract_fingerprint)
 
+    dependency_versions = {
+        "contract_version": job.contract_version,
+        "planner_version": PS.PLANNER_VERSION,
+        "task_schema_version": PS.TASK_SCHEMA_VERSION,
+        "evidence_inventory_fingerprint": job.evidence_inventory_fingerprint,
+        "financial_snapshot_id": job.financial_snapshot_id or "",
+        "credit_type": job.credit_type,
+    }
+
     tasks: list[PS.SectionTask] = []
     for sid in PS.PHASE4_SECTION_ORDER:
         if sid not in job.enabled_sections:
             continue
         sec = by_section[sid]
-
-        applied_topic_ids: list[str] = []
-        questions: list[PS.PlannedQuestion] = []
-        for t in sec.required_topics:
-            applies = t.applies_when is None or t.applies_when.matches(job.credit_type)
-            if not applies:
-                continue
-            applied_topic_ids.append(t.topic_id)
-            questions.extend(_planned_questions(t, t.key_questions))
-
-        task_id = PS.derive_task_id(plan_id, sid)
-        tasks.append(PS.SectionTask(
-            task_id=task_id,
-            plan_id=plan_id,
-            section_id=sid,
-            title=sec.title,
-            purpose=sec.purpose,
-            research_policy=sec.research_policy,
-            topic_ids=tuple(applied_topic_ids),
-            questions=tuple(questions),
-            output_requirements=_output_requirement_dicts(sec),
-            evaluation_rule_ids=tuple(er.rule_id for er in sec.evaluation_rules),
-            allowed_capabilities=tuple(sec.allowed_capabilities),
-            blocking_rules=_resolved_blocking_rules(sec, job.credit_type),
-            dependency_versions={
-                "contract_version": job.contract_version,
-                "planner_version": PS.PLANNER_VERSION,
-                "task_schema_version": PS.TASK_SCHEMA_VERSION,
-                "evidence_inventory_fingerprint": job.evidence_inventory_fingerprint,
-                "financial_snapshot_id": job.financial_snapshot_id or "",
-                "credit_type": job.credit_type,
-            },
+        tasks.append(build_section_task(
+            sec, job.credit_type, plan_id=plan_id,
+            dependency_versions=dependency_versions,
+            contract_sha256=contract_fingerprint,
         ))
 
     if not tasks:
