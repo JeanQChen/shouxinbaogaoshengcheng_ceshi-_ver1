@@ -96,6 +96,7 @@ class DraftVerdict:
     ok: bool
     issues: tuple[SentenceIssue, ...]
     rendered_sentences: int = 0
+    content_ok: bool = True              # 内容资格：是否有 adopted 事实支撑正文
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,12 @@ class ChapterDraft:
     verdict: DraftVerdict
     markdown: str = ""
     version: str = CHAPTER_WRITER_VERSION
+    adopted_fact_ids: tuple[str, ...] = ()  # 采纳事实白名单（防火墙）
+
+    @property
+    def chapter_ok(self) -> bool:
+        """章节合格 = 句子校验通过 AND 内容资格（adopted_facts > 0）。"""
+        return self.verdict.ok and self.verdict.content_ok
 
     def as_dict(self) -> dict:
         return {
@@ -121,8 +128,11 @@ class ChapterDraft:
             "calc_display": dict(self.calc_display),
             "fact_display": dict(self.fact_display),
             "verdict": {"ok": self.verdict.ok,
+                        "content_ok": self.verdict.content_ok,
                         "issues": [asdict(i) for i in self.verdict.issues],
                         "rendered_sentences": self.verdict.rendered_sentences},
+            "adopted_fact_ids": list(self.adopted_fact_ids),
+            "chapter_ok": self.chapter_ok,
             "markdown": self.markdown, "version": self.version,
         }
 
@@ -429,19 +439,60 @@ def render_markdown(chapter: "ChapterDraft") -> str:
 # 组装
 # ---------------------------------------------------------------------------
 
+def render_gap_markdown(chapter: "ChapterDraft") -> str:
+    """adopted_facts=0 → 显式 DATA_GAP 正文（不产伪完整章节）。"""
+    parts = [f"# {chapter.title}", "",
+             "> 本章节无可采纳事实（adopted_facts=0），未生成正式正文。",
+             "",
+             "**数据缺口（DATA_GAP）**：本章节缺少通过权威性与来源政策校验的事实，"
+             "无法支撑任何正式结论。本章不得视为完整章节，需补齐来源后重新生成。",
+             ""]
+    return "\n".join(parts).rstrip() + "\n"
+
+
+def build_gap_chapter(*, topic_id: str, question_id: str, kind: str,
+                      fact_display: dict | None = None,
+                      calc_display: dict | None = None) -> ChapterDraft:
+    """构建 DATA_GAP 章节（0 adopted → content_ok=False → chapter_ok=False）。"""
+    verdict = DraftVerdict(ok=True, issues=(), rendered_sentences=0, content_ok=False)
+    draft = ChapterDraft(
+        topic_id=topic_id, question_id=question_id, kind=kind,
+        title=TITLE_BY_KIND.get(kind, question_id), tables=(), paragraphs=(),
+        calc_display=calc_display or {}, fact_display=fact_display or {},
+        verdict=verdict, adopted_fact_ids=())
+    return replace(draft, markdown=render_gap_markdown(draft))
+
+
 def build_chapter(*, topic_id: str, question_id: str, kind: str,
                   paragraphs: tuple[ParagraphDraft, ...],
                   tables: tuple[TableDraft, ...],
                   fact_display: dict, calc_display: dict,
-                  authority, fact_index: dict) -> ChapterDraft:
+                  authority, fact_index: dict,
+                  adopted_fact_ids: tuple[str, ...] | None = None) -> ChapterDraft:
+    """组装章节并做内容资格判定。
+
+    ``adopted_fact_ids`` 为防火墙白名单（None = 不启用内容资格，向后兼容）：
+    - 显式传空 tuple → content_ok=False，渲染为 DATA_GAP 正文（chapter_ok=False）；
+    - 传非空 → content_ok=True。
+    """
     verdict = validate_draft(paragraphs, fact_index, tuple(calc_display), authority)
+    content_ok = bool(adopted_fact_ids) if adopted_fact_ids is not None else True
+    verdict = replace(verdict, content_ok=content_ok)
     draft = ChapterDraft(
         topic_id=topic_id, question_id=question_id, kind=kind,
         title=TITLE_BY_KIND.get(kind, question_id),
         tables=tables, paragraphs=paragraphs,
         calc_display=calc_display, fact_display=fact_display,
-        verdict=verdict)
-    md = render_markdown(draft)
+        verdict=verdict, adopted_fact_ids=tuple(adopted_fact_ids or ()))
+    if not content_ok:
+        md = render_gap_markdown(draft)
+    elif verdict.ok:
+        md = render_markdown(draft)
+    else:
+        # 段落校验失败（裸数字/未解析事实/权威失败）→ 只保留确定性表格，不产出无效段落正文。
+        md = render_markdown(replace(draft, paragraphs=()))
+        md = (md.rstrip() + "\n\n> 说明：分析段落未通过确定性校验（含裸数字/未解析事实等），"
+              "已从正文剔除；仅保留上方确定性数据表格，请补正事实后重新生成分析段落。\n")
     return replace(draft, markdown=md)
 
 
