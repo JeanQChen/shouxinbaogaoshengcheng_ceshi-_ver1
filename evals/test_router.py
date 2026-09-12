@@ -252,6 +252,20 @@ def main() -> dict:
     check(r.status == "DECIDED" and r.decision.route == "EXTERNAL_RESEARCH",
           "显式 web/external（无比较词）→ EXTERNAL_RESEARCH")
 
+    # 显式外部 + 本地来源类（company_industry）→ 混合需求识别。
+    mix_need = _need("行业风险向借款人收入、成本、现金流的传导",
+                     need_id="industry_risk_transmission",
+                     required_evidence_types=["paragraph"],
+                     required_source_types=["company_industry", "external"])
+    check(R.is_mixed_need(mix_need, _context()) is True,
+          "外部 + 本地来源类 → is_mixed_need=True")
+    check(R.is_mixed_need(cmp_need, _context()) is True,
+          "外部 + 比较深信号 → is_mixed_need=True")
+    pure_ext = _need("公司当前市值是多少？", need_id="mcap",
+                     required_evidence_types=["web"],
+                     required_source_types=["external"])
+    check(R.is_mixed_need(pure_ext, _context()) is False,
+          "纯外部（无本地来源/深信号）→ is_mixed_need=False")
     check(R.requires_external_source(cmp_need) is True,
           "requires_external_source 识别 web/external")
 

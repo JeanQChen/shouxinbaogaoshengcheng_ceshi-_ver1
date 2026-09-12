@@ -341,6 +341,7 @@ class ResearchState:
     rejected_duplicate_actions: list = field(default_factory=list)  # 被拒绝的重复动作记录
     structured_subneeds: list = field(default_factory=list)  # 结构化子 need 记录（§三，父路由不变）
     semantic_mismatches_rejected: list = field(default_factory=list)  # 数值方面无法精确表达（§三）
+    local_subneeds: list = field(default_factory=list)  # 混合需求本地子 need 记录（A3，父子来源链）
     stop_reason: str | None = None
     usage: UsageLedger = field(default_factory=UsageLedger)
     checkpoint_id: str | None = None

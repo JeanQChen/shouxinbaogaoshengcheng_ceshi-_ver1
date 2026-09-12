@@ -27,6 +27,7 @@ from typing import Protocol
 from harness import actions as A
 from harness import aspects as ASP
 from harness import entailment as E
+from harness import mixed_needs as MN
 from harness import policies as P
 from harness import schema as H
 from harness import state as S
@@ -718,6 +719,121 @@ def _run_structured_subneeds(state: H.ResearchState, context: RS.RouteContext,
 
 
 # ---------------------------------------------------------------------------
+# 混合需求本地子 need（A3：外部优先 + 本地部分有界补检）
+# ---------------------------------------------------------------------------
+
+# 本地子 need 有界检索：1 次 search_evidence + 至多 3 次 inspect_evidence。
+_LOCAL_SUBNEED_MAX_INSPECT = 3
+
+
+def _run_local_subneeds(state: H.ResearchState, context: RS.RouteContext,
+                        registry: R.ToolRegistry, budget: P.ResearchBudget,
+                        run_id: str, trace_enabled: bool) -> None:
+    """混合需求 → 本地子 need → 路由本地通道 → 有界本地检索 → 汇入父 state（A3）。
+
+    - 仅当 is_mixed_need 时运行（父路由保持 EXTERNAL_RESEARCH，不篡改 Track B）；
+    - 子 need 剥离 external 来源类后单独路由（本地通道），来源权限门控由 Registry 保持，
+      不把外部工具对本地路由开放；
+    - 有界：1 次 search_evidence + 至多 _LOCAL_SUBNEED_MAX_INSPECT 次 inspect_evidence，
+      且逐次经 can_afford_tool_call 硬上限（不越过 max_tool_calls）；
+    - 结果（evidence_ids / inspected_evidence）并入父 state，供父答案同时引用本地+外部；
+    - 记录到 state.local_subneeds（父子链、路由、预算、合并），并落盘 trace 事件。
+    """
+    sub = MN.derive_local_subneed(state.need, context)
+    if sub is None:
+        return
+    local_need = MN.build_local_need(sub, state.need)
+    rec = {
+        "sub_need_id": sub.sub_need_id,
+        "parent_need_id": sub.parent_need_id,
+        "trigger": sub.trigger,
+        "local_source_classes": list(sub.local_source_classes),
+        "query": state.original_question,
+        "route": None, "reason_code": None, "status": "NOT_ROUTED",
+        "n_evidence": 0, "n_inspected": 0, "error_code": None,
+    }
+    try:
+        rr = router_mod.route(local_need, context)
+    except Exception as e:  # noqa: BLE001 — 路由审计落盘失败，诚实标记不 crash
+        rec["status"] = "ROUTE_FAILED"
+        rec["error_code"] = f"ROUTER_FAILED:{type(e).__name__}"
+        state.local_subneeds.append(rec)
+        return
+    if rr.status != "DECIDED" or rr.decision is None:
+        rec["status"] = "ROUTE_FAILED"
+        rec["error_code"] = rr.error_code or rr.status
+        state.local_subneeds.append(rec)
+        return
+    local_route = rr.decision.route
+    rec["route"] = local_route
+    rec["reason_code"] = rr.decision.reason_code
+
+    # DB_LOOKUP：财务值走 §三 structured_subneeds，本地子 need 不重复查 DB。
+    if local_route == "DB_LOOKUP":
+        rec["status"] = "DB_ROUTED_SKIPPED"
+        state.local_subneeds.append(rec)
+        return
+
+    # 有界本地检索：1 次 search + 至多 _LOCAL_SUBNEED_MAX_INSPECT 次 inspect。
+    search_args = {"company_id": state.company_id, "query": state.original_question,
+                   "k": _LOCAL_SUBNEED_MAX_INSPECT}
+    search_call = TC.ToolCall(
+        call_id=uuid.uuid4().hex, tool_name="search_evidence", arguments=search_args,
+        idempotency_key=P.dedup_key(TC.ToolCall(
+            call_id="", tool_name="search_evidence", arguments=search_args,
+            idempotency_key="", need_id=sub.sub_need_id, batch_id=state.run_id)),
+        need_id=sub.sub_need_id, batch_id=state.run_id)
+    search_result = registry.execute(search_call, route=local_route,
+                                     run_id=state.run_id,
+                                     max_retries=budget.max_retries_per_call)
+    state.tool_history.append(H.ToolCallRecord(
+        call=search_call, result=search_result, elapsed_ms=search_result.latency_ms,
+        auto=True))
+    _apply_tool_result(state, search_result, budget)
+    E.capture_inspected(state, search_result)
+    rec["n_evidence"] = len(search_result.evidence_ids or [])
+    if trace_enabled:
+        T.emit(run_id, state.question_id, "LOCAL_SUBNEED_SEARCH",
+               {"sub_need_id": sub.sub_need_id, "route": local_route,
+                "status": search_result.status, "n_evidence": rec["n_evidence"],
+                "error_code": search_result.error_code})
+
+    if search_result.status == "SUCCESS" and search_result.evidence_ids:
+        inspected = 0
+        for eid in search_result.evidence_ids[:_LOCAL_SUBNEED_MAX_INSPECT]:
+            if P.can_afford_tool_call(state, budget, tool_name="inspect_evidence") is not None:
+                break
+            iargs = {"evidence_id": eid}
+            icall = TC.ToolCall(
+                call_id=uuid.uuid4().hex, tool_name="inspect_evidence", arguments=iargs,
+                idempotency_key=P.dedup_key(TC.ToolCall(
+                    call_id="", tool_name="inspect_evidence", arguments=iargs,
+                    idempotency_key="", need_id=sub.sub_need_id, batch_id=state.run_id)),
+                need_id=sub.sub_need_id, batch_id=state.run_id)
+            iresult = registry.execute(icall, route=local_route, run_id=state.run_id,
+                                       max_retries=0)
+            state.tool_history.append(H.ToolCallRecord(
+                call=icall, result=iresult, elapsed_ms=iresult.latency_ms, auto=True))
+            _apply_tool_result(state, iresult, budget)
+            E.capture_inspected(state, iresult)
+            if iresult.status == "SUCCESS":
+                inspected += 1
+        rec["n_inspected"] = inspected
+        if trace_enabled:
+            T.emit(run_id, state.question_id, "LOCAL_SUBNEED_INSPECT",
+                   {"sub_need_id": sub.sub_need_id, "n_inspected": inspected})
+
+    if search_result.is_error():
+        rec["status"] = "SEARCH_FAILED"
+        rec["error_code"] = search_result.error_code
+    elif rec["n_evidence"]:
+        rec["status"] = "RESOLVED"
+    else:
+        rec["status"] = "NO_LOCAL_MATERIAL"
+    state.local_subneeds.append(rec)
+
+
+# ---------------------------------------------------------------------------
 # 主循环
 # ---------------------------------------------------------------------------
 
@@ -752,6 +868,8 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
     # 仅在注入 RouteContext（真实快照路径）时运行；父路由判定保持 Phase 2 原样。
     if context is not None:
         _run_structured_subneeds(state, context, registry, budget, run_id, trace_enabled)
+        # A3：混合需求本地子 need（外部优先 + 本地部分有界补检，汇入父 state）。
+        _run_local_subneeds(state, context, registry, budget, run_id, trace_enabled)
 
     answer: H.ResearchAnswer | None = None
     stop_reason: str | None = None

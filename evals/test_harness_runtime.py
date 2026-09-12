@@ -725,6 +725,64 @@ def main() -> dict:
           and o.stop_reason == "COMPLETED",
           "A1：连续无新证据（有材料）→ 最终收敛 COMPLETED（非 CONSECUTIVE 提前终止）")
 
+    # ---- A3：混合需求 → 本地子 need（有界本地检索汇入父 state）----
+    from harness import mixed_needs as MN
+
+    def _mixed_need():
+        return RS.InformationNeed(
+            need_id="industry_risk_transmission", section_id="industry",
+            question="行业风险向借款人收入、成本、现金流的传导",
+            required_evidence_types=["paragraph"],
+            required_source_types=["company_industry", "external"],
+            time_scope=None, priority="P0", depends_on=[])
+
+    def _mixed_context():
+        return RS.RouteContext(
+            company_id="300750", report_as_of="2025-06-30",
+            available_document_ids=["NDSD_2025_year"],
+            available_source_types=["annual_report", "company_industry"],
+            supported_db_fields=["TOTAL_ASSETS"], supported_metric_ids=["PROF_ROE"],
+            available_db_fields=["TOTAL_ASSETS"], available_metric_ids=["PROF_ROE"],
+            external_research_enabled=True)
+
+    sub = MN.derive_local_subneed(_mixed_need(), _mixed_context())
+    check(sub is not None and sub.sub_need_id == "industry_risk_transmission__local"
+          and sub.parent_need_id == "industry_risk_transmission"
+          and sub.trigger == "explicit_local_source",
+          "A3：混合需求派生出本地子 need（父子链 + explicit_local_source）")
+    local_need = MN.build_local_need(sub, _mixed_need())
+    check(local_need.required_source_types == ["company_industry"]
+          and "external" not in local_need.required_source_types
+          and local_need.depends_on == ["industry_risk_transmission"],
+          "A3：build_local_need 剥离 external，仅保留本地来源类 + depends_on 父链")
+
+    st_mix = H.ResearchState(run_id="r", case_id="c",
+                             question_id="industry_risk_transmission", company_id="300750",
+                             section_id="industry",
+                             original_question="行业风险向借款人收入、成本、现金流的传导",
+                             need=_mixed_need())
+    st_mix.route_result = _router_result("EXTERNAL_RESEARCH")
+    RT._run_local_subneeds(st_mix, _mixed_context(), _fake_registry(),
+                           P.DEFAULT_BUDGET, "r", False)
+    check(len(st_mix.local_subneeds) == 1, "A3：混合需求派生 1 个本地子 need")
+    rec = st_mix.local_subneeds[0]
+    check(rec["route"] in ("STANDARD_RAG", "DIRECT_EVIDENCE", "DEEP_RETRIEVAL")
+          and rec["route"] != "EXTERNAL_RESEARCH",
+          "A3：本地子 need 路由到本地通道（非 EXTERNAL）")
+    check(rec["status"] == "RESOLVED" and rec["n_evidence"] == 1
+          and rec["n_inspected"] == 1,
+          "A3：本地子 need 有界检索 RESOLVED（search + inspect）")
+    check(st_mix.evidence_ids == ["e1"] and "e1" in st_mix.inspected_evidence,
+          "A3：本地子 need 检索结果汇入父 state（evidence_ids + inspected_evidence）")
+
+    # 非混合需求（纯本地或纯外部）→ 不派生本地子 need。
+    st_pure = H.ResearchState(run_id="r", case_id="c", question_id="q1", company_id="300750",
+                              section_id="company", original_question="q", need=_need())
+    st_pure.route_result = _router_result("STANDARD_RAG")
+    RT._run_local_subneeds(st_pure, _mixed_context(), _fake_registry(),
+                           P.DEFAULT_BUDGET, "r", False)
+    check(st_pure.local_subneeds == [], "A3：非混合需求不派生本地子 need")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

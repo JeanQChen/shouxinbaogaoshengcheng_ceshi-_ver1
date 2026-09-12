@@ -114,6 +114,11 @@ _AUDIT_TERMS = (
 # 联网调用为零。
 EXTERNAL_EVIDENCE_KINDS = ("web",)
 EXTERNAL_SOURCE_CLASSES = ("external",)
+# 显式本地来源类：即使同时要求 external，本地部分仍须本地检索（混合需求，§12 P0/A3）。
+LOCAL_SOURCE_CLASSES = (
+    "annual_report", "company_industry", "prospectus", "announcement", "structured_db",
+)
+
 
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(t in text for t in terms)
@@ -182,6 +187,22 @@ def requires_external_source(need: S.InformationNeed) -> bool:
     """
     return ("web" in (need.required_evidence_types or [])
             or "external" in (need.required_source_types or []))
+
+
+def _requires_local_retrieval(need: S.InformationNeed) -> bool:
+    """本地检索要求：显式本地来源类，或跨期/变化/比较深信号。"""
+    if any(sc in LOCAL_SOURCE_CLASSES for sc in (need.required_source_types or [])):
+        return True
+    return _has_deep_signal(need)
+
+
+def is_mixed_need(need: S.InformationNeed, context: S.RouteContext) -> bool:
+    """混合需求：显式外部来源要求 + 本地检索要求（本地来源类或深信号）。
+
+    父 need 路由 EXTERNAL_RESEARCH（外部优先），本地部分由 harness 拆成有界本地子 need
+    补齐（§12 P0/A3），保留父子来源链、权限、预算、合并与冲突校验。
+    """
+    return requires_external_source(need) and _requires_local_retrieval(need)
 
 
 # ---------------------------------------------------------------------------
