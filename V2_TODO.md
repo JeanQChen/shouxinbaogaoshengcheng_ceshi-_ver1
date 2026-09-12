@@ -213,7 +213,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ### [ ] P3R/P4R：Topic Research 与章节内容完整性重整（当前）
 
-- [ ] R0：人工审查并按职责提交当前“正式唯一主链”收敛改动；保留 `test_phase4_formal_chain` 与完整 eval 4040/0/0 作为护栏，明确它尚未解决内容完整性。
+- [x] R0：正式唯一主链收敛改动已按职责提交（`a4322c0` 契约溯源 / `cd645f1` harness 只读投影 / `81a487c` 唯一主链护栏 + 实验标记）；`test_phase4_formal_chain` 26 项与完整 eval 4040/0/0 全绿作为护栏，尚未解决内容完整性（不进入 R1）。
 - [ ] R1：完成 52 问 aspect/evidence/display 审计；发布不覆盖 v1 的 Contract v2、完整 P3-B02 来源 policy 与 search/fetch capability 语义；在 Harness 内确立唯一 `TopicResearchPack` schema/Store/checkpoint，并定义唯一机器可读 WritingSpec/PresentationProfile 资产、loader、validator 与版本。
 - [ ] R2：实现本地命中后的材料构建与受控上下文扩读，覆盖同章节相邻块、跨页续文、表题/单位/表头/续表和明确交叉引用，并记录边界、去重与未读范围。
 - [ ] R3：实现 aspect 待办调度、Harness Topic runtime 与复杂度动态有界预算；宽查询可覆盖多个 aspect，仅对缺口补检；原子 ANSWER 不提前结束 Topic，预算耗尽形成可恢复 Partial Pack。
@@ -262,14 +262,18 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-1. **正式主链收敛待人工提交（2026-09-12）**：Claude Code 已把正式运行链固定为
-   `sections.service → Worker → research_common → Router → harness.runtime → ToolRegistry`，并新增
-   `test_phase4_formal_chain`；完整离线 eval 报告为 4040 passed / 0 failed。该工作当前未 commit，
-   必须先 review 并分责提交；不得把它描述为 TopicResearchPack 或内容完整性已完成。
-2. **P3R/P4R 文档治理已完成、尚待独立提交**：`AGENTS.md`、`DESIGN_V2.md` v0.6、本路线图、
+1. **正式唯一主链 R0 已收口并分责提交（2026-09-13）**：正式运行链固定为
+   `sections.service → Worker → research_common → Router → harness.runtime → ToolRegistry`，
+   `test_phase4_formal_chain` 26 项、`test_phase4_contract_slice` 24 项等专项与完整离线
+   eval 4040 passed / 0 failed / 0 skipped 全绿；实验 `run_topic` 正式链调用数为 0。分责 commit：
+   `a4322c0`（Contract 派生 SectionTask 公共溯源接口 + 切片漂移 fail-closed）、
+   `cd645f1`（AspectCoverage/ExternalFunnel 只读状态投影）、`81a487c`（正式唯一主链护栏 +
+   平行模块实验标记）。R0 只锁定唯一链与回归，不实现 TopicResearchPack/Contract v2/预算，
+   不进入 R1。
+2. **P3R/P4R 文档治理已独立提交（2026-09-13）**：`AGENTS.md`、`DESIGN_V2.md` v0.6、本路线图、
    `DOCUMENTATION_INDEX.md` 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 已统一规定唯一 Pack、
-   aspect 调度、受控扩读、动态有界预算及 Claims→NarrativeParagraphs 写作分层。进入 R0 前须先将这批
-   治理文档作为独立 docs-only commit 落入 HEAD，不能只依赖本地未提交文件。
+   aspect 调度、受控扩读、动态有界预算及 Claims→NarrativeParagraphs 写作分层；已作为独立
+   docs-only commit `846887d` 落入 HEAD。
 3. **R1 不是可选复核**：必须发布兼容的新 Contract v2（含完整 aspect/evidence/source-policy 与
    search/fetch 能力语义），同时冻结 canonical、机器可读的 SectionWritingSpec / ReportPresentationProfile
    载体、schema、loader、validator、版本和指纹。推荐载体是 `templates/contracts/standard_v3.yaml`
