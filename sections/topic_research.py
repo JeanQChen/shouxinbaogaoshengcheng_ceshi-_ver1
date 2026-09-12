@@ -1,8 +1,13 @@
 """Phase 4 纵向切片 — 主题研究编排（Evidence Matrix + 外部漏斗 + 预算 + Pack）。
 
-这是上层研究重构的核心模块：把 ``planning.topic_research`` 的查询计划在**有界预算**下
-落地为真实材料，再经权威性校验形成「Evidence Matrix」与「ExternalFunnel」，产出
-内容寻址的 ``TopicResearchPack``。
+.. warning::
+    **EXPERIMENTAL / NOT_A_FORMAL_RUNTIME_PATH**：本模块是纵向预览的并行研究循环，
+    **不是**正式 Phase 4 运行链。正式唯一运行链是
+    ``sections.service.run_phase4 → company/industry worker → research_common
+    → Router → harness.run_question → ToolRegistry``；正式 service/worker/新 Runner
+    **不得依赖本模块**。本模块保留用于架构对照，不删除历史，不重写 git 历史（§四/§九）。
+
+把 ``planning.topic_research`` 的查询计划在**有界预算**下落地的并行实现。
 
 架构边界（用户最终约束，绝不违反）：
 - **不调 ``harness.runtime.run_question``** 作为 aspect 补检动作（避免嵌套研究循环 +
@@ -33,6 +38,10 @@ from harness import schema as HS
 from planning.topic_research import AspectQuery, TopicQueryPlan, TopicResearchContext
 
 log = logging.getLogger("sections.topic_research")
+
+# 实验性并行研究循环（非正式运行链，§四/§九）。
+EXPERIMENTAL_TOPIC_RESEARCH = True
+NOT_A_FORMAL_RUNTIME_PATH = True
 
 # 版本（进入 pack_id 内容寻址；预算/矩阵/漏斗/来源规则变化需递增）。
 TOPIC_RESEARCH_VERSION = "topic-research-v1"

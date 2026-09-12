@@ -1,14 +1,18 @@
 """Phase 4 纵向切片 — 主题研究查询规划（确定性，无 LLM、无 I/O）。
 
+.. warning::
+    **EXPERIMENTAL**（P3 Harness 内部查询规划候选，本轮仅做接口设计 + 弃用标记）。
+    非正式 Phase 4 运行链：正式链的查询规划在 ``sections.research_common`` /
+    ``routing.router`` 内，不由本模块承载。
+
 把 ``SectionTask`` 中某个 ``topic_id`` 的必答问题（PlannedQuestion）拆解为
 「方面级查询计划」：每个 ``required_aspect`` 派生一条 ``AspectQuery``，明确本地
 Evidence 检索查询（search_evidence / search_tables）与外部检索查询
-（search_external_sources），供 ``sections.topic_research`` 的缺口驱动补检直接消费。
+（search_external_sources），供纵向预览的缺口驱动补检直接消费。
 
-与既有 harness 路由层的关系：本模块**不做路由、不做补检、不调 run_question**，
-只输出确定性的查询计划。查询词由 ``TopicResearchContext``（公司名 / 行业名 / 报告时点）
-与契约字段（aspect / evidence_kind / source_classes）确定性拼接，不写死任何公司、
-行业或股票代码，也不引入 query-planner LLM prompt。
+本模块**不做路由、不做补检、不调 run_question**，只输出确定性的查询计划。查询词由
+``TopicResearchContext``（公司名 / 行业名 / 报告时点）与契约字段确定性拼接，不写死
+任何公司、行业或股票代码，也不引入 query-planner LLM prompt。
 
 CLI: python -m planning.topic_research --self-check
 """
@@ -20,6 +24,9 @@ import json
 from dataclasses import asdict, dataclass, field
 
 from planning import schema as PS
+
+# 实验性主题查询规划（非正式运行链，§四/§九）。
+EXPERIMENTAL_TOPIC_QUERY_PLAN = True
 
 # 版本常量（查询计划派生规则变更需递增，进入 aspect_id / query_id 内容寻址）。
 QUERY_PLAN_VERSION = "topic-query-plan-v1"

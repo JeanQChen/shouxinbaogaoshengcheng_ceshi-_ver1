@@ -101,6 +101,8 @@ EVAL_MODULES = [
     "evals.test_chapter_writer",
     "evals.test_phase4_vertical_slice",
     "evals.test_phase4_guardfix",
+    "evals.test_phase4_contract_slice",
+    "evals.test_phase4_formal_chain",
     "evals.test_section_schema",
     "evals.test_section_material_bundle",
     "evals.test_section_store",

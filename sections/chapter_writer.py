@@ -1,6 +1,12 @@
 """Phase 4 纵向切片 — 章节写入器（结构化段落 + 数字标记替换 + 确定性渲染）。
 
-把 ``sections.topic_research.TopicResearchPack`` 的已验证事实渲染为三样本之一的章节：
+.. note::
+    本模块是**纯渲染候选**（§四）：只接受 ``SectionResult`` / ``SectionClaim`` /
+    ``SectionUnresolved`` / 已验证 ``FactPack`` 作为输入；**不做检索、不调 Router /
+    ToolRegistry、不重新权威判定、不产生新事实**；输出严格绑定原始 SectionClaim 与
+    CitationRef。不是研究循环（与 ``sections.topic_research`` 的并行研究循环无关）。
+
+把已验证事实渲染为章节：
 
 - **LLM 只输出结构化 ParagraphDraft**（每条句打标 fact/calculation/inference/limitation，
   绑定 fact_ids；数字一律用 ``{{fact:<id>}}`` / ``{{calc:<key>}}`` 占位符，**绝不写裸数字**）；
@@ -25,6 +31,9 @@ from decimal import Decimal, InvalidOperation
 from harness import schema as HS
 
 log = logging.getLogger("sections.chapter_writer")
+
+# 纯渲染候选（非研究循环，§四）。
+PURE_RENDER_CANDIDATE = True
 
 CHAPTER_WRITER_VERSION = "chapter-writer-v1"
 PROMPT_VERSION = "topic-chapter-writer-v1"
