@@ -282,6 +282,26 @@ def _inject_args(action: str, args: dict, state: H.ResearchState,
 # 外部 fetch 成功 → Rules 自动 snapshot
 # ---------------------------------------------------------------------------
 
+def _capture_external(state: H.ResearchState, source_snapshot_id: str,
+                      snap_args: dict) -> None:
+    """把已固化外部快照的正文与元数据写入 state.external_material（A4 修复）。
+
+    快照存在 ≠ 模型读到正文。此前外部材料只记 source_snapshot_id，答案输入
+    （_available_material）与支撑校验上下文（entailment_prompt_vars）都拿不到正文，
+    「成功 fetch+snapshot」却无法形成可引用事实。此处把正文与元数据一并落 state，
+    供答案/校验上下文注入，并经 checkpoint 序列化（terminal outcome JSON）持久化。
+    """
+    state.external_material[source_snapshot_id] = H.ExternalMaterial(
+        source_snapshot_id=source_snapshot_id,
+        title=snap_args.get("title", "") or "",
+        canonical_url=snap_args.get("canonical_url", "") or "",
+        content_text=snap_args.get("content_text", "") or "",
+        published_at=snap_args.get("published_at", "") or "",
+        source_grade=snap_args.get("source_grade", "") or "",
+        content_hash=snap_args.get("content_hash", "") or "",
+    )
+
+
 def _auto_snapshot(state: H.ResearchState, fetch_action: H.ActionCall,
                    fetch_result: TC.ToolResult, registry: R.ToolRegistry,
                    route: str, budget: P.ResearchBudget) -> None:
@@ -318,9 +338,12 @@ def _auto_snapshot(state: H.ResearchState, fetch_action: H.ActionCall,
     state.tool_history.append(H.ToolCallRecord(
         call=snap_call, result=snap_result, elapsed_ms=snap_result.latency_ms, auto=True))
     _apply_tool_result(state, snap_result, budget)
+    snap_ids = snap_result.external_snapshot_ids or []
+    if snap_ids:
+        _capture_external(state, snap_ids[0], snap_args)
     T.emit(state.run_id, state.question_id, "SNAPSHOT_AUTO",
            {"status": snap_result.status, "source_snapshot_id":
-            (snap_result.external_snapshot_ids or [None])[0]})
+            (snap_ids or [None])[0]})
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +464,20 @@ def _available_material(state: H.ResearchState) -> str:
                 f"{E.bounded_text(mat.text)}")
         parts.append("已取得正文/摘要（数字只能逐字抄这里，或抄上面结构化 value）：\n"
                      + "\n".join(ev_lines))
-    if state.external_snapshot_ids:
+    if state.external_material:
+        ext_lines: list[str] = []
+        for sid, mat in state.external_material.items():
+            meta = f"### external source_snapshot_id={sid}"
+            if mat.title:
+                meta += f" title={mat.title}"
+            if mat.published_at:
+                meta += f" published_at={mat.published_at}"
+            if mat.source_grade:
+                meta += f" source_grade={mat.source_grade}"
+            ext_lines.append(f"{meta}\n{E.bounded_text(mat.content_text)}")
+        parts.append("外部快照正文（数字只能逐字抄这里，搜索摘要不作事实引用）：\n"
+                     + "\n".join(ext_lines))
+    elif state.external_snapshot_ids:
         parts.append("外部快照 source_snapshot_id：" + ", ".join(state.external_snapshot_ids))
     return "\n\n".join(parts) if parts else "（无）"
 

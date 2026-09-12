@@ -217,6 +217,25 @@ class InspectedMaterial:
 
 
 @dataclass
+class ExternalMaterial:
+    """已固化的外部快照正文（fetch + snapshot 成功后写入 state.external_material）。
+
+    source_snapshot_id 由外部快照工具返回；正文与元数据来自 fetch 结果，供
+    _available_material（答案输入）、entailment_prompt_vars（支撑校验上下文）与
+    _describe_citation（引用可读描述）注入。搜索摘要（search_external_sources 的
+    snippet）不进入本结构——搜索摘要只导航，不作关键事实引用。
+    """
+
+    source_snapshot_id: str
+    title: str = ""
+    canonical_url: str = ""
+    content_text: str = ""
+    published_at: str = ""
+    source_grade: str = ""
+    content_hash: str = ""
+
+
+@dataclass
 class EntailmentVerdict:
     """批量 entailment（只读法官）对单个 claim 的判定。
 
@@ -328,6 +347,7 @@ class ResearchState:
     evidence_ids: list[str] = field(default_factory=list)
     structured_refs: list[RS.StructuredResultRef] = field(default_factory=list)
     external_snapshot_ids: list[str] = field(default_factory=list)
+    external_material: dict = field(default_factory=dict)  # source_snapshot_id -> ExternalMaterial（已固化外部正文）
     answered_claims: list[Claim] = field(default_factory=list)
     unresolved_items: list[str] = field(default_factory=list)
     required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict

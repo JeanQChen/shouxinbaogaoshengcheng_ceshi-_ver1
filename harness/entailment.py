@@ -806,6 +806,12 @@ def _describe_citation(cit: H.CitationRef, state: H.ResearchState) -> str:
                 break
         return f"structured {kind}={key} snapshot={cit.snapshot_id} period={cit.period}{val}"
     if cit.ref_type == "external":
+        mat = (state.external_material or {}).get(cit.source_snapshot_id or "")
+        if mat is not None:
+            meta = f" title={mat.title}" if mat.title else ""
+            snippet = (f"\n    {_bounded_text(mat.content_text, head=300, tail=120)}"
+                       if mat.content_text else "")
+            return f"external source_snapshot_id={cit.source_snapshot_id}{meta}{snippet}"
         return f"external source_snapshot_id={cit.source_snapshot_id}"
     return f"ref_type={cit.ref_type}"
 
@@ -849,6 +855,15 @@ def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
             f"### evidence_id={eid} [{kind}] doc={mat.document_id or '-'} "
             f"page={mat.page_number} period={mat.report_period or '-'} "
             f"source={mat.source_name}\n{_bounded_text(mat.text)}")
+    # 外部快照正文（fetch+snapshot 后写入 state.external_material）进入法官上下文：
+    # 快照存在 ≠ 模型读到正文，须把正文一并注入，external 引用才可被支撑校验。
+    for sid, mat in (state.external_material or {}).items():
+        meta = f"### external source_snapshot_id={sid}"
+        if mat.title:
+            meta += f" title={mat.title}"
+        if mat.source_grade:
+            meta += f" source_grade={mat.source_grade}"
+        evidence_lines.append(f"{meta}\n{_bounded_text(mat.content_text)}")
     aspects = "\n".join(f"- {a.get('aspect_id')}: {a.get('text')}"
                         for a in state.required_aspects) or "（无）"
     return {

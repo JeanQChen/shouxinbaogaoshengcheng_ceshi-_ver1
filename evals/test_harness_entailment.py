@@ -416,6 +416,26 @@ def main() -> dict:
     check(g.triggered and g.verdict == "UNSUPPORTED" and g.reason == "total_mismatch",
           "F2 证据显式总数不等 → UNSUPPORTED total_mismatch")
 
+    # ---- A4：外部快照正文进入 entailment 上下文 + 引用可读描述 ----
+    # 审计根因：快照存在 ≠ 模型读到正文。external 引用此前无正文进入法官上下文，
+    # 外部事实无法被支撑校验。修复后正文注入 evidence + 引用描述。
+    st_ext = _state()
+    st_ext.external_material["snap1"] = H.ExternalMaterial(
+        source_snapshot_id="snap1", title="行业风险传导分析",
+        content_text="外部正文：行业风险向公司传导，需关注下游需求")
+    ans_ext = H.ResearchAnswer(
+        question_id="q1", answer_text="行业风险传导",
+        claims=[H.Claim(claim_id="c1", text="行业风险向公司传导", kind="fact",
+                        citation_refs=[0])],
+        citations=[H.CitationRef(ref_type="external", source_snapshot_id="snap1")])
+    vars_ext = E.entailment_prompt_vars(
+        st_ext, ans_ext, E.deterministic_prechecks(st_ext, ans_ext))
+    check("external source_snapshot_id=snap1" in vars_ext["evidence"]
+          and "外部正文：行业风险向公司传导" in vars_ext["evidence"],
+          "A4：entailment 上下文注入外部快照正文")
+    check("外部正文：行业风险向公司传导" in vars_ext["citations"],
+          "A4：_describe_citation 对外部引用附正文片段")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

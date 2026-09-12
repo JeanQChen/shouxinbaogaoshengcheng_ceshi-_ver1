@@ -725,6 +725,22 @@ def main() -> dict:
           and o.stop_reason == "COMPLETED",
           "A1：连续无新证据（有材料）→ 最终收敛 COMPLETED（非 CONSECUTIVE 提前终止）")
 
+    # ---- A4：外部快照正文写入 state.external_material 并注入答案输入 ----
+    llm = MockLLM(
+        ['{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://x.com/n"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = _run("EXTERNAL_RESEARCH", llm)
+    check(o.success is True and "snap1" in o.state.external_material,
+          "A4：fetch+snapshot 后 external_material 含 snap1")
+    mat = o.state.external_material.get("snap1")
+    check(mat is not None and mat.content_text == "正文内容"
+          and mat.content_hash == "h1" and mat.canonical_url == "https://x.com/n",
+          "A4：外部正文/哈希/URL 落 state.external_material")
+    avail = RT._available_material(o.state)
+    check("正文内容" in avail and "external source_snapshot_id=snap1" in avail,
+          "A4：_available_material 注入外部快照正文")
+
     # ---- A3：混合需求 → 本地子 need（有界本地检索汇入父 state）----
     from harness import mixed_needs as MN
 
