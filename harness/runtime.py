@@ -24,6 +24,7 @@ import uuid
 from functools import partial
 from typing import Protocol
 
+from financial_v2 import evidence_facts as EF
 from harness import actions as A
 from harness import aspects as ASP
 from harness import entailment as E
@@ -983,6 +984,14 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 break
             # 回填 evidence 引用页码（只补空，不重写）。
             E.backfill_page_numbers(answer, state)
+            # Evidence 背书的结构化事实：从已 inspect 证据确定性派生（附注构成表 → fact），
+            # 并把 answer 的 evidence 引用绑定 evidence_fact_id（无歧义时）。LLM 不生成/修改。
+            state.evidence_structured_facts = EF.build_evidence_facts(
+                list(state.inspected_evidence.values()),
+                subject=company_id,
+                scope=(context.scope if context is not None else "consolidated"),
+                currency=(context.currency if context is not None else "CNY"))
+            E.bind_evidence_facts(answer, state.evidence_structured_facts)
             # G3 确定性预检 + 结构化权威判定 + G4 批量 entailment（每问 1 次，fail-closed）。
             prechecks = E.deterministic_prechecks(state, answer)
             # 结构化权威判定（仅结构化引用 fact claim，确定性）：SUPPORTED 排除出 LLM，

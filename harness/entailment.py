@@ -668,6 +668,17 @@ def _claim_evidence_ids(claim: H.Claim, answer: H.ResearchAnswer) -> list[str]:
     return ids
 
 
+def _claim_evidence_fact_ids(claim: H.Claim, answer: H.ResearchAnswer) -> list[str]:
+    """claim 引用到的 evidence_fact_id（仅 ref_type=evidence 且 evidence_fact_id 非空）。"""
+    ids: list[str] = []
+    for idx in claim.citation_refs:
+        if 0 <= idx < len(answer.citations):
+            cit = answer.citations[idx]
+            if cit.ref_type == "evidence" and cit.evidence_fact_id:
+                ids.append(cit.evidence_fact_id)
+    return ids
+
+
 # ---------------------------------------------------------------------------
 # A5：收入/成本类别（§17.1 成本不能被采纳为收入）
 # ---------------------------------------------------------------------------
@@ -708,10 +719,32 @@ def _claim_structured_item_codes(claim: H.Claim, answer: H.ResearchAnswer) -> li
     return codes
 
 
-def revenue_cost_precheck(claim: H.Claim, answer: H.ResearchAnswer) -> dict:
-    """claim 收入/成本标签 vs 结构化引用科目代码类别的确定性判定。
+def bind_evidence_facts(answer: H.ResearchAnswer, evidence_facts: list) -> None:
+    """把 answer 的 evidence 引用确定性绑定到 EvidenceStructuredFact（evidence_fact_id）。
+
+    仅当某 evidence_id 恰好派生出一个 fact 时绑定（无歧义）；多 fact（多板块/多期间）不
+    绑特定坐标，交由 revenue_cost_precheck 的 evidence_id 兜底聚合类别判定。evidence_fact_id
+    是内部确定性坐标，LLM 不生成也不修改本字段。
+    """
+    if not evidence_facts:
+        return
+    by_eid: dict[str, list] = {}
+    for f in evidence_facts:
+        by_eid.setdefault(f.evidence_id, []).append(f)
+    for cit in answer.citations:
+        if cit.ref_type == "evidence" and cit.evidence_id and not cit.evidence_fact_id:
+            fs = by_eid.get(cit.evidence_id, [])
+            if len(fs) == 1:
+                cit.evidence_fact_id = fs[0].evidence_fact_id
+
+
+def revenue_cost_precheck(claim: H.Claim, answer: H.ResearchAnswer,
+                          evidence_facts: list | None = None) -> dict:
+    """claim 收入/成本标签 vs 结构化引用科目代码类别 + Evidence 背书事实类别的确定性判定。
 
     - 结构化引用 item_code → classify_revenue_cost 派生类别（revenue/cost/other/None）；
+    - Evidence 背书事实：经 evidence_fact_id 绑定（specific）或 evidence_id 兜底（同表全
+      事实聚合，附注构成表单一收入/成本语义）→ revenue_cost_category；
     - claim 文本 → 保守 hint（收入 iff 收入/营收 且非 成本/费用）；
     - hint 与类别都是 revenue/cost 且不一致 → mismatch（成本被采纳为收入/反之）；
     - 任一缺失/含混/多类别并存 → 不 mismatch（保守，交结构化权威/LLM 法官）。
@@ -721,6 +754,22 @@ def revenue_cost_precheck(claim: H.Claim, answer: H.ResearchAnswer) -> dict:
     hint = _claim_revenue_cost_hint(claim.text)
     cats = {classify_revenue_cost(item_code=c)
             for c in _claim_structured_item_codes(claim, answer)}
+    if evidence_facts:
+        by_fact = {f.evidence_fact_id: f for f in evidence_facts}
+        by_eid: dict[str, list] = {}
+        for f in evidence_facts:
+            by_eid.setdefault(f.evidence_id, []).append(f)
+        # 1) 绑定到 specific evidence_fact_id 的类别
+        for fid in _claim_evidence_fact_ids(claim, answer):
+            f = by_fact.get(fid)
+            if f is not None and f.revenue_cost_category:
+                cats.add(f.revenue_cost_category)
+        # 2) 兜底：引用 evidence_id 派生出的全部事实类别（附注构成表语义单一）
+        if not (cats & {"revenue", "cost"}):
+            for eid in _claim_evidence_ids(claim, answer):
+                for f in by_eid.get(eid, []):
+                    if f.revenue_cost_category:
+                        cats.add(f.revenue_cost_category)
     rc = {c for c in cats if c in ("revenue", "cost")}
     mismatch = bool(hint in ("revenue", "cost") and rc and hint not in rc)
     return {"hint": hint, "categories": sorted(c for c in cats if c),
@@ -743,7 +792,8 @@ def deterministic_prechecks(state: H.ResearchState,
         ev_ids = _claim_evidence_ids(claim, answer)
         if not ev_ids:
             continue
-        rc = revenue_cost_precheck(claim, answer)
+        rc = revenue_cost_precheck(claim, answer,
+                                   evidence_facts=state.evidence_structured_facts)
         materials = [state.inspected_evidence[e] for e in ev_ids
                      if e in state.inspected_evidence]
         not_inspected = bool(len(materials) < len(set(ev_ids)))
