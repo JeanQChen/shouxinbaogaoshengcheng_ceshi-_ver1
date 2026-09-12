@@ -601,13 +601,16 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
     # 采集来源对象（供 assess_external_cell / 写入器使用）。
     gathered: list = []
 
-    for cand in candidate_urls[:budget.max_candidate_fetches]:
+    for cand in candidate_urls:
         url = cand.get("url")
         if not url:
             funnel = funnel.record_loss("fetched", "no_url")
             continue
         if usage.tool_calls >= budget.max_tool_calls:
             funnel = funnel.record_loss("fetched", "budget_exhausted")
+            break
+        if usage.fetches >= budget.max_candidate_fetches:
+            funnel = funnel.record_loss("fetched", "budget_fetch_cap")
             break
 
         call = TC.ToolCall(call_id=uuid.uuid4().hex, tool_name="fetch_external_content",
@@ -625,6 +628,9 @@ def _run_external_aspect(aspect, plan, budget, authority, registry, company_id,
         if not content_text.strip():
             funnel = funnel.record_loss("snapshotted", "empty_content")
             continue
+        if usage.snapshots >= budget.max_snapshots:
+            funnel = funnel.record_loss("snapshotted", "budget_snapshot_cap")
+            break
 
         snap_args = {
             "company_id": company_id,
