@@ -136,6 +136,23 @@ def classify_revenue_cost(*, item_code: str | None = None,
     return None
 
 
+def item_code_from_title(table_title: str | None) -> str | None:
+    """表题 → 标准科目代码 hint（仅明确单一收入/成本语义时返回，不猜）。
+
+    - 含「收入/营收」且不含「成本/费用」→ OPERATING_REVENUE；
+    - 含「成本/费用」且不含「收入/营收」→ OPERATING_COST；
+    - 同时含两者或均不含 → None（交 classify_revenue_cost 的上游结构化绑定决定）。
+    """
+    t = table_title or ""
+    has_revenue = ("收入" in t) or ("营收" in t)
+    has_cost = ("成本" in t) or ("费用" in t)
+    if has_revenue and not has_cost:
+        return "OPERATING_REVENUE"
+    if has_cost and not has_revenue:
+        return "OPERATING_COST"
+    return None
+
+
 def check_revenue_cost_label(identity: FinancialNumberIdentity,
                              claimed_label: str | None) -> str:
     """claim 的收入/成本标签 与 数字身份类别 的确定性判定。
