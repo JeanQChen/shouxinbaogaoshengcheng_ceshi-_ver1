@@ -319,6 +319,7 @@ def compute_business_calculations(evidence_facts: tuple[dict, ...],
         calc[f"share_{i}"] = share
         calc[f"margin_{i}"] = margin
         calc[f"revenue_{i}"] = rev
+        calc[f"segment_{i}"] = seg
         rows.append({"segment": seg, "revenue": rev, "cost": cost,
                      "share": share, "margin": margin})
     return calc, rows
@@ -525,8 +526,35 @@ def fact_context_lines(fact_index: dict) -> str:
 
 
 def calc_context_lines(calc_display: dict) -> str:
-    """calc 占位符 → 一行（供 prompt 的 calc_context）。"""
-    return "\n".join(f"- {k}" for k in calc_display) or "（无）"
+    """calc 占位符 → 带板块名与值的描述行（供 prompt，LLM 据此正确归因）。
+
+    之前只列 `- share_0` 等裸键，LLM 无法把 share_3 映射到「其他业务」，导致段落里
+    板块名与占比/毛利率张冠李戴。现在每个占位符都带板块名与数值（数值仅供语境，
+    LLM 仍需用 {{calc:<key>}} 引用，不写裸数字）。
+    """
+    lines: list[str] = []
+    total = calc_display.get("total_revenue")
+    if total:
+        lines.append(f"- 主营业务收入合计 {{calc:total_revenue}} = {total}")
+    seg_by_idx: dict[int, str] = {}
+    val_by_idx: dict[int, dict[str, str]] = {}
+    for k, v in calc_display.items():
+        prefix, _, idxs = k.rpartition("_")
+        if not idxs.isdigit():
+            continue
+        idx = int(idxs)
+        if prefix == "segment":
+            seg_by_idx[idx] = str(v)
+        else:
+            val_by_idx.setdefault(idx, {})[prefix] = str(v)
+    for idx in sorted(seg_by_idx):
+        seg = seg_by_idx[idx]
+        vals = val_by_idx.get(idx, {})
+        lines.append(
+            f"- {seg}：营业收入 {{calc:revenue_{idx}}} = {vals.get('revenue', '')}；"
+            f"收入占比 {{calc:share_{idx}}} = {vals.get('share', '')}；"
+            f"毛利率 {{calc:margin_{idx}}} = {vals.get('margin', '')}")
+    return "\n".join(lines) or "（无）"
 
 
 # ---------------------------------------------------------------------------
