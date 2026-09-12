@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from financial_v2.evidence_facts import EvidenceStructuredFact
 from routing import schema as RS
 from tools import contracts as TC
 
@@ -153,6 +154,7 @@ class CitationRef:
 
     ref_type: str                            # CITATION_TYPES 之一
     evidence_id: str | None = None
+    evidence_fact_id: str | None = None      # evidence 背书的结构化事实（内部确定性坐标）
     snapshot_id: str | None = None           # structured
     item_code: str | None = None             # structured: financial_field
     formula_id: str | None = None            # structured: financial_metric
@@ -353,6 +355,7 @@ class ResearchState:
     required_aspects: list = field(default_factory=list)  # list[dict] = Aspect.asdict
     aspect_source: str = ""                                # SECTION_CONTRACT/DATASET_MAPPING/TEXT_FALLBACK
     inspected_evidence: dict = field(default_factory=dict)  # evidence_id -> InspectedMaterial
+    evidence_structured_facts: list[EvidenceStructuredFact] = field(default_factory=list)  # Evidence 背书的结构化事实（答案派生）
     entailment_verdicts: list = field(default_factory=list)  # list[EntailmentVerdict]（仅最新答案版本）
     unsupported_claims: list = field(default_factory=list)   # entailment UNSUPPORTED 描述（仅最新答案版本）
     entailment_evaluator_failed: bool = False                # evaluator 调用/解析异常（仅最新答案版本）
