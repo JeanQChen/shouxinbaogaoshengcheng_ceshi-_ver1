@@ -97,6 +97,7 @@ EVAL_MODULES = [
     "evals.test_report_planner",
     "evals.test_planner_readonly",
     "evals.test_topic_research",
+    "evals.test_topic_research_sections",
     "evals.test_section_schema",
     "evals.test_section_material_bundle",
     "evals.test_section_store",
