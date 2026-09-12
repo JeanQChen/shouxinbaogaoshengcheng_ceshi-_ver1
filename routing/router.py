@@ -107,6 +107,13 @@ _AUDIT_TERMS = (
     "强调事项", "关键审计事项", "会计师事务所", "审计结论",
 )
 
+# 显式来源要求（InformationNeed.required_evidence_types / required_source_types）。
+# 任务书 §12 P0：可比题 need 携带 required_evidence_types=[web]、
+# required_source_types=[external]，但旧 _has_external_subject 只看问题文字与时间，
+# 未把明确的来源要求落实为路径约束，导致被「比较」deep 信号抢先路由到 DEEP_RETRIEVAL、
+# 联网调用为零。
+EXTERNAL_EVIDENCE_KINDS = ("web",)
+EXTERNAL_SOURCE_CLASSES = ("external",)
 
 def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(t in text for t in terms)
@@ -165,6 +172,16 @@ def _has_audit_signal(need: S.InformationNeed) -> bool:
     也不应因 time_scope 区间无法解析而拒绝作答。
     """
     return _contains_any(need.question, _AUDIT_TERMS)
+
+
+def requires_external_source(need: S.InformationNeed) -> bool:
+    """显式外部来源要求：required_evidence_types 含 web，或 required_source_types 含 external。
+
+    任务书 §12 P0：把明确的来源要求落实为路径约束——外部来源词/时间窗口之外，显式
+    web/external 要求同样构成外部信号，且优先于 DEEP（含「比较」不能覆盖外部来源约束）。
+    """
+    return ("web" in (need.required_evidence_types or [])
+            or "external" in (need.required_source_types or []))
 
 
 # ---------------------------------------------------------------------------
@@ -308,7 +325,7 @@ def _route(need: S.InformationNeed, context: S.RouteContext,
         return _resolve_fallback(need, context, fallback, trace_id,
                                  reason="TIME_SCOPE_UNPARSEABLE")
 
-    external_subject = _has_external_subject(need, context)
+    external_subject = _has_external_subject(need, context) or requires_external_source(need)
     recency = _has_recency(need)
 
     # 2. DB 目标 + 外部来源/时效 → 冲突，交 fallback。

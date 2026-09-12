@@ -233,6 +233,35 @@ def main() -> dict:
     r = route_of("公司的财务情况如何？")
     check(r.decision.route != "DB_LOOKUP", "「财务」二字不触发 DB")
 
+    # ---- A2：显式外部来源要求（required_evidence_types=[web] / required_source_types=[external]）
+    # 进入路由；含「比较」不能覆盖外部来源约束（§12 P0：可比题被 deep 抢先路由、联网为零）----
+    cmp_need = _need("选择 3～5 家可比公司并做相对比较",
+                     need_id="industry_comparables",
+                     required_evidence_types=["web"],
+                     required_source_types=["external"])
+    r = R.route(cmp_need, _context())
+    check(r.status == "DECIDED" and r.decision.route == "EXTERNAL_RESEARCH",
+          "可比题（web/external + 比较）→ EXTERNAL_RESEARCH，不被 deep 覆盖")
+    check(r.decision.reason_code == "EXPLICIT_EXTERNAL_RECENCY",
+          "可比题 reason_code = EXPLICIT_EXTERNAL_RECENCY")
+
+    # 显式外部要求，无「比较」词 → 仍 EXTERNAL。
+    r = R.route(_need("可比公司有哪些？", need_id="cmp-plain",
+                      required_evidence_types=["web"],
+                      required_source_types=["external"]), _context())
+    check(r.status == "DECIDED" and r.decision.route == "EXTERNAL_RESEARCH",
+          "显式 web/external（无比较词）→ EXTERNAL_RESEARCH")
+
+    check(R.requires_external_source(cmp_need) is True,
+          "requires_external_source 识别 web/external")
+
+    # 公司无关（不硬编码宁德时代）：换 company_id 同样路由外部。
+    r = R.route(_need("选择 3～5 家可比公司并做相对比较", need_id="cmp-other",
+                      required_evidence_types=["web"],
+                      required_source_types=["external"]), _context(company_id="600000"))
+    check(r.status == "DECIDED" and r.decision.route == "EXTERNAL_RESEARCH",
+          "可比题公司无关表达同样 EXTERNAL（无硬编码）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 
 
