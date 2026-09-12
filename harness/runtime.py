@@ -177,6 +177,29 @@ def _same_ref(a: RS.StructuredResultRef, b: RS.StructuredResultRef) -> bool:
             and a.period == b.period)
 
 
+def _inspect_adds_material(state: H.ResearchState, result: TC.ToolResult) -> bool:
+    """inspect_evidence 是否带来「新可引用正文」进展（A1 修复：读正文≠无进展）。
+
+    - 首次全文捕获（此前无记录或仅 search 摘要）→ 进展；
+    - 已全文但内容变化（同 evidence_id 重读且正文不同）→ 进展；
+    - 已全文且内容相同（重复 inspect 同一 block）→ 不进展（不延长循环）。
+
+    审计根因：search 已登记 evidence_id，后续 inspect 把摘要升级为全文时 ID 不变，
+    旧逻辑按「新增 ID」计数 → 误判为无进展，触发 CONSECUTIVE_NO_NEW_EVIDENCE 提前终止。
+    """
+    if result.tool_name != "inspect_evidence" or result.status != "SUCCESS":
+        return False
+    data = result.data or {}
+    eid = data.get("evidence_id", "")
+    text = data.get("text", "") or ""
+    if not eid or not text:
+        return False
+    prev = (state.inspected_evidence or {}).get(eid)
+    if prev is None or prev.is_snippet:
+        return True
+    return (prev.text or "") != text
+
+
 def _apply_tool_result(state: H.ResearchState, result: TC.ToolResult,
                        budget: P.ResearchBudget) -> None:
     u = state.usage
@@ -204,7 +227,8 @@ def _apply_tool_result(state: H.ResearchState, result: TC.ToolResult,
             state.external_snapshot_ids.append(sid)
             added += 1
 
-    if added > 0:
+    # 有效进展 = 新增可引用 ID（evidence/structured/external）+ inspect 正文升级/首次捕获。
+    if added > 0 or _inspect_adds_material(state, result):
         u.consecutive_no_new_evidence = 0
     else:
         u.consecutive_no_new_evidence += 1

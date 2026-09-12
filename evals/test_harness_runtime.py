@@ -678,6 +678,53 @@ def main() -> dict:
     check(e3.entailment_calls == 1,
           "entailment 超预算后当前判定已落盘、未再发起新 LLM 调用")
 
+    # ---- A1：inspect 摘要→全文升级 计为进展（修复「读正文误判无进展」）----
+    def _tool_res(tool_name, data, evidence_ids=None):
+        return TC.ToolResult(call_id="", tool_name=tool_name, tool_version="v1",
+                             status="SUCCESS", data=data, evidence_ids=evidence_ids or [])
+
+    st_a1 = H.ResearchState(run_id="r", case_id="c", question_id="q1", company_id="300750",
+                            section_id="company", original_question="q", need=_need())
+    st_a1.evidence_ids = ["e1"]
+    st_a1.inspected_evidence["e1"] = H.InspectedMaterial(
+        evidence_id="e1", text="检索摘要", is_snippet=True)
+    RT._apply_tool_result(st_a1, _tool_res("inspect_evidence", {
+        "evidence_id": "e1", "text": "实际控制人为曾毓群，持股比例…"}), P.DEFAULT_BUDGET)
+    check(st_a1.usage.consecutive_no_new_evidence == 0,
+          "A1：inspect 摘要→全文升级 计为进展（consecutive 归零，不再误判停滞）")
+
+    st_a1b = H.ResearchState(run_id="r", case_id="c", question_id="q1", company_id="300750",
+                             section_id="company", original_question="q", need=_need())
+    st_a1b.evidence_ids = ["e1"]
+    st_a1b.inspected_evidence["e1"] = H.InspectedMaterial(
+        evidence_id="e1", text="实际控制人为曾毓群，持股比例…", is_snippet=False)
+    RT._apply_tool_result(st_a1b, _tool_res("inspect_evidence", {
+        "evidence_id": "e1", "text": "实际控制人为曾毓群，持股比例…"}), P.DEFAULT_BUDGET)
+    check(st_a1b.usage.consecutive_no_new_evidence == 1,
+          "A1：重复 inspect 同一 block 相同正文 → 不进展（consecutive +1，不延长循环）")
+
+    # ---- A1：连续无新证据（有可引用材料）→ 给最终收敛机会，非提前 BLOCKED ----
+    # 审计根因：company_business_main 一次 search + 三次 inspect 后以 CONSECUTIVE_NO_NEW_EVIDENCE
+    # 提前终止，没有 ANSWER。修复后连续无新证据且已有材料 → 仍给一次最终收敛（ANSWER）。
+    bc = P.ResearchBudget(
+        max_rounds=8, max_tool_calls=8, max_local_searches=3, max_external_searches=2,
+        max_fetches=2, max_action_repairs=1, max_added_needs=2,
+        max_consecutive_no_new_evidence=1, max_tokens=8000, max_elapsed_ms=120000,
+        max_retries_per_call=1)
+    llm = MockLLM(
+        ['{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "SEARCH_LOCAL", "arguments": {"query": "实际控制人"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EVIDENCE])
+    o = RT.run_question(need=_need(), route_result=_router_result("DIRECT_EVIDENCE"),
+                        registry=_fake_registry(), llm=llm, run_id="r", case_id="c",
+                        company_id="300750", section_id="company", budget=bc,
+                        trace_enabled=False)
+    check(o.answer is not None and o.completion_status == "COMPLETED"
+          and o.stop_reason == "COMPLETED",
+          "A1：连续无新证据（有材料）→ 最终收敛 COMPLETED（非 CONSECUTIVE 提前终止）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

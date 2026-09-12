@@ -244,10 +244,17 @@ def check_budget(state: H.ResearchState, budget: ResearchBudget) -> str | None:
     return None
 
 
-# 强制收敛停止原因：工具/回合预算耗尽后，若已有可引用材料，仍给（且只给）一次最终收敛
-# 机会（ANSWER/STOP_WITH_GAP/REQUEST_HUMAN），不立即终止研究循环。tokens/elapsed/
-# consecutive 属资源/停滞类，不在此列（耗尽即停，不强制收敛）。
-FORCE_CONVERGE_REASONS = ("BUDGET_TOOL_CALLS", "BUDGET_ITERATIONS", "BUDGET_EXTERNAL")
+# 强制收敛停止原因：工具/回合/外部预算耗尽，或停滞（连续无新证据）后，若已有可引用材料，
+# 仍给（且只给）一次最终收敛机会（ANSWER/STOP_WITH_GAP/REQUEST_HUMAN），不立即终止研究循环。
+# 连续无新证据此前属「耗尽即停」停滞类：审计证实 inspect「摘要→全文」升级曾被误判为无进展，
+# 导致「主营业务未确认」实为流程提前终止而非材料缺失。现修正进度语义（runtime._apply_tool_result
+# 已把首次全文捕获/内容升级计入进展），并把停滞也纳入最终收敛：已有可引用材料却连续无进展时，
+# 仍给一次带引用答案机会，避免有材料却被 CONSECUTIVE_NO_NEW_EVIDENCE 直接腰斩。
+# tokens/elapsed 仍属资源类，不在此列（耗尽即停，不强制收敛）。
+FORCE_CONVERGE_REASONS = (
+    "BUDGET_TOOL_CALLS", "BUDGET_ITERATIONS", "BUDGET_EXTERNAL",
+    "CONSECUTIVE_NO_NEW_EVIDENCE",
+)
 
 
 def can_afford_tool_call(state: H.ResearchState, budget: ResearchBudget, *,
