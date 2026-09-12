@@ -27,6 +27,7 @@ env/
 evaluation/results/actual_path_41/
 evaluation/results/frozen_final_20260909T151421Z/
 evaluation/results/phase4_demo_run_*/
+evaluation/results/intermediate_preview_*/
 
 # --- Generated data ---
 data/credit.db
