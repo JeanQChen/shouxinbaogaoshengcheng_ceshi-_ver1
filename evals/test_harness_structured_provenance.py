@@ -587,6 +587,60 @@ def main() -> dict:
           and ("c3", "evidence_deterministic") in evals,
           "entailment_summary：合并三 evaluator")
 
+    # ===================== A5：收入/成本类别（成本不能被采纳为收入） =====================
+    # 原始事故（§17.1）：NDSD_KCZ_2026 表5-11「主营业务成本构成表」2025 动力电池成本
+    # 24,106,439.7 万元被 Claim 错写为「收入」；旧 entailment 只做数值存在校验（找到同一
+    # 数字即 SUPPORTED）而误判通过。此处确定性阻断：结构化引用 item_code=OPERATING_COST
+    # （成本）→ 类别 cost，claim 标「收入」→ UNSUPPORTED / revenue_cost_mismatch。
+
+    def field_ref(item_code: str, display: str = "100") -> RS.StructuredResultRef:
+        return _ref(formula_id=None, item_code=item_code, display=display,
+                    unit="元", status="available")
+
+    # 成本字段（OPERATING_COST）被 claim 标「收入」→ UNSUPPORTED revenue_cost_mismatch
+    state_rc = _state(refs=[field_ref("OPERATING_COST")])
+    v, r = verdict_of(state_rc,
+                      _answer(text="2025年营业收入为100元", formula_id=None,
+                              item_code="OPERATING_COST"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "revenue_cost_mismatch",
+          f"成本被采纳为收入 → UNSUPPORTED revenue_cost_mismatch（实际 {v}/{r}）")
+
+    # 原始事故实数值：表5-11 动力电池 2025 成本 24,106,439.7 万元 = 241,064,397,000 元，
+    # 被 claim 标「营业收入」→ 必须 UNSUPPORTED（不能因数字存在而通过）。claim 与引用同
+    # 数值、同单位（元），先过逐值匹配，再命中收入/成本类别 mismatch（成本被当收入）。
+    state_rc = _state(refs=[field_ref("OPERATING_COST", display="241064397000")])
+    v, r = verdict_of(state_rc,
+                      _answer(text="2025年营业收入为241064397000元", formula_id=None,
+                              item_code="OPERATING_COST"),
+                      _valid_auth())
+    check(v == "UNSUPPORTED" and r == "revenue_cost_mismatch",
+          f"表5-11 成本实数值被当收入 → UNSUPPORTED revenue_cost_mismatch（实际 {v}/{r}）")
+
+    # 收入字段（OPERATING_REVENUE）+ claim 标「收入」→ SUPPORTED
+    state_rc = _state(refs=[field_ref("OPERATING_REVENUE")])
+    v, r = verdict_of(state_rc,
+                      _answer(text="2025年营业收入为100元", formula_id=None,
+                              item_code="OPERATING_REVENUE"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"收入字段 + claim 标收入 → SUPPORTED（实际 {v}/{r}）")
+
+    # 成本字段 + claim 标「成本」→ SUPPORTED
+    state_rc = _state(refs=[field_ref("OPERATING_COST")])
+    v, r = verdict_of(state_rc,
+                      _answer(text="2025年营业成本为100元", formula_id=None,
+                              item_code="OPERATING_COST"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"成本字段 + claim 标成本 → SUPPORTED（实际 {v}/{r}）")
+
+    # 非收入/成本字段（TOTAL_ASSETS）+ claim 标「收入」→ 不判 mismatch（类别 other）
+    state_rc = _state(refs=[field_ref("TOTAL_ASSETS")])
+    v, r = verdict_of(state_rc,
+                      _answer(text="2025年营业收入为100元", formula_id=None,
+                              item_code="TOTAL_ASSETS"),
+                      _valid_auth())
+    check(v == "SUPPORTED", f"非收入成本字段 → 不判 mismatch（实际 {v}/{r}）")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

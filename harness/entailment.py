@@ -9,6 +9,10 @@
   比较 claim 与证据的口径标记，产出 severity=high|low 的风险标记。**只标风险，
   不据单一关键字单独定论**；终局口径一致性由批量 entailment 判定。
 - 引用可验证（硬）：claim 引用的 evidence_id 必须已被 capture_inspected 捕获。
+- 收入/成本类别（标记，A5）：结构化引用 item_code → classify_revenue_cost 派生类别，
+  claim 文本保守 hint（收入 iff 收入/营收 且非 成本/费用）；两者都是 revenue/cost 且
+  不一致 → revenue_cost_mismatch（成本不能被采纳为收入）。终局阻断由
+  structured_provenance._evaluate_claim 确定性判定（UNSUPPORTED revenue_cost_mismatch）。
 
 gold 不进入本模块；本模块不读证据身份规则之外的任何 gold 内容。
 
@@ -25,6 +29,7 @@ import sys
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
+from financial_v2.number_identity import classify_revenue_cost
 from harness import schema as H
 
 
@@ -663,6 +668,65 @@ def _claim_evidence_ids(claim: H.Claim, answer: H.ResearchAnswer) -> list[str]:
     return ids
 
 
+# ---------------------------------------------------------------------------
+# A5：收入/成本类别（§17.1 成本不能被采纳为收入）
+# ---------------------------------------------------------------------------
+
+def _claim_revenue_cost_hint(text: str) -> str | None:
+    """claim 文本的收入/成本语义提示（保守，仅在明确时返回）。
+
+    - "revenue"：含 收入/营收 且不含 成本/费用；
+    - "cost"：含 成本/费用 且不含 收入/营收；
+    - 同时含两者或均不含 → None（不猜）。
+
+    结构化绑定（CitationRef.item_code → classify_revenue_cost）优先于本提示；本提示仅作
+    claim 侧弱信号，供「成本不能被采纳为收入」的确定性判定使用（非自由文本语义抽取）。
+    """
+    t = text or ""
+    has_revenue = ("收入" in t) or ("营收" in t)
+    has_cost = ("成本" in t) or ("费用" in t)
+    if has_revenue and not has_cost:
+        return "revenue"
+    if has_cost and not has_revenue:
+        return "cost"
+    return None
+
+
+def claim_revenue_cost_hint(text: str) -> str | None:
+    """公开别名（structured_provenance 复用同一保守口径）。"""
+    return _claim_revenue_cost_hint(text)
+
+
+def _claim_structured_item_codes(claim: H.Claim, answer: H.ResearchAnswer) -> list[str]:
+    """claim 结构化引用中的 item_code（仅 ref_type=structured 且 item_code 非空）。"""
+    codes: list[str] = []
+    for i in claim.citation_refs:
+        if 0 <= i < len(answer.citations):
+            cit = answer.citations[i]
+            if cit.ref_type == "structured" and cit.item_code:
+                codes.append(cit.item_code)
+    return codes
+
+
+def revenue_cost_precheck(claim: H.Claim, answer: H.ResearchAnswer) -> dict:
+    """claim 收入/成本标签 vs 结构化引用科目代码类别的确定性判定。
+
+    - 结构化引用 item_code → classify_revenue_cost 派生类别（revenue/cost/other/None）；
+    - claim 文本 → 保守 hint（收入 iff 收入/营收 且非 成本/费用）；
+    - hint 与类别都是 revenue/cost 且不一致 → mismatch（成本被采纳为收入/反之）；
+    - 任一缺失/含混/多类别并存 → 不 mismatch（保守，交结构化权威/LLM 法官）。
+
+    返回 {"hint", "categories", "mismatch"}。
+    """
+    hint = _claim_revenue_cost_hint(claim.text)
+    cats = {classify_revenue_cost(item_code=c)
+            for c in _claim_structured_item_codes(claim, answer)}
+    rc = {c for c in cats if c in ("revenue", "cost")}
+    mismatch = bool(hint in ("revenue", "cost") and rc and hint not in rc)
+    return {"hint": hint, "categories": sorted(c for c in cats if c),
+            "mismatch": mismatch}
+
+
 def deterministic_prechecks(state: H.ResearchState,
                             answer: H.ResearchAnswer | None) -> dict[str, dict]:
     """逐 fact claim 的确定性数值/口径预检（仅 evidence 引用）。
@@ -679,6 +743,7 @@ def deterministic_prechecks(state: H.ResearchState,
         ev_ids = _claim_evidence_ids(claim, answer)
         if not ev_ids:
             continue
+        rc = revenue_cost_precheck(claim, answer)
         materials = [state.inspected_evidence[e] for e in ev_ids
                      if e in state.inspected_evidence]
         not_inspected = bool(len(materials) < len(set(ev_ids)))
@@ -690,6 +755,8 @@ def deterministic_prechecks(state: H.ResearchState,
                 "value_missing_tokens": [],
                 "scope_risks": [],
                 "high_risk_scope": False,
+                "revenue_cost_mismatch": rc["mismatch"],
+                "revenue_cost": rc,
                 "closed_set": dataclasses_asdict(csg),
             }
             continue
@@ -701,6 +768,8 @@ def deterministic_prechecks(state: H.ResearchState,
             "value_missing_tokens": list(vc.missing),
             "scope_risks": [dataclasses_asdict(r) for r in risks],
             "high_risk_scope": any(r.severity == "high" for r in risks),
+            "revenue_cost_mismatch": rc["mismatch"],
+            "revenue_cost": rc,
             "closed_set": dataclasses_asdict(csg),
         }
     return out
@@ -842,6 +911,8 @@ def entailment_prompt_vars(state: H.ResearchState, answer: H.ResearchAnswer,
             markers.append("value_missing(" + ",".join(pc.get("value_missing_tokens", [])) + ")")
         if pc.get("high_risk_scope"):
             markers.append("high_risk_scope")
+        if pc.get("revenue_cost_mismatch"):
+            markers.append("revenue_cost_mismatch")
         marker = " | ".join(markers) or "-"
         claim_lines.append(
             f"- {c.claim_id} [{c.kind}] cites={c.citation_refs}: {c.text}\n"

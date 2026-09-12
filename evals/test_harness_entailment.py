@@ -436,6 +436,62 @@ def main() -> dict:
     check("外部正文：行业风险向公司传导" in vars_ext["citations"],
           "A4：_describe_citation 对外部引用附正文片段")
 
+    # ---- A5：收入/成本类别（成本不能被采纳为收入）----
+    check(E.claim_revenue_cost_hint("2025年营业收入3165.06亿元") == "revenue",
+          "A5 hint：营业收入 → revenue")
+    check(E.claim_revenue_cost_hint("2025年营业成本2410.64亿元") == "cost",
+          "A5 hint：营业成本 → cost")
+    check(E.claim_revenue_cost_hint("营业收入3165亿、营业成本2410亿") is None,
+          "A5 hint：同时含收入成本 → None（不猜）")
+    check(E.claim_revenue_cost_hint("宁德时代") is None,
+          "A5 hint：不含收入成本 → None")
+
+    def _rc_answer(text: str, item_code: str) -> H.ResearchAnswer:
+        return H.ResearchAnswer(
+            question_id="q1", answer_text=text,
+            claims=[H.Claim(claim_id="c1", text=text, kind="fact",
+                            citation_refs=[0])],
+            citations=[H.CitationRef(ref_type="structured", item_code=item_code,
+                                     snapshot_id="S1", period="2025-12-31")])
+
+    # 成本 item + claim 标收入 → mismatch。
+    ans = _rc_answer("2025年营业收入2410.64亿元", "OPERATING_COST")
+    rc = E.revenue_cost_precheck(ans.claims[0], ans)
+    check(rc["mismatch"] is True and rc["hint"] == "revenue"
+          and rc["categories"] == ["cost"],
+          "A5 precheck：成本 item + claim 标收入 → mismatch")
+    # 收入 item + claim 标收入 → match。
+    ans = _rc_answer("2025年营业收入2410.64亿元", "OPERATING_REVENUE")
+    rc = E.revenue_cost_precheck(ans.claims[0], ans)
+    check(rc["mismatch"] is False and rc["hint"] == "revenue",
+          "A5 precheck：收入 item + claim 标收入 → match")
+    # 成本 item + claim 标成本 → match。
+    ans = _rc_answer("2025年营业成本2410.64亿元", "OPERATING_COST")
+    rc = E.revenue_cost_precheck(ans.claims[0], ans)
+    check(rc["mismatch"] is False and rc["hint"] == "cost",
+          "A5 precheck：成本 item + claim 标成本 → match")
+    # 非收入/成本 item + claim 标收入 → categories=[other]，不 mismatch。
+    ans = _rc_answer("2025年营业收入2410.64亿元", "TOTAL_ASSETS")
+    rc = E.revenue_cost_precheck(ans.claims[0], ans)
+    check(rc["mismatch"] is False and rc["categories"] == ["other"],
+          "A5 precheck：非收入成本 item → [other]，不 mismatch")
+
+    # deterministic_prechecks：混合引用（evidence + structured 成本）→ revenue_cost_mismatch 标记。
+    st_rc = _state(inspected={"e1": _mat("营业收入2410.64亿元", page=3)})
+    mixed = H.ResearchAnswer(
+        question_id="q1", answer_text="2025年营业收入2410.64亿元",
+        claims=[H.Claim(claim_id="c1", text="2025年营业收入2410.64亿元",
+                        kind="fact", citation_refs=[0, 1])],
+        citations=[H.CitationRef(ref_type="evidence", evidence_id="e1", page_number=3),
+                   H.CitationRef(ref_type="structured", item_code="OPERATING_COST",
+                                 snapshot_id="S1", period="2025-12-31")])
+    pc_rc = E.deterministic_prechecks(st_rc, mixed)
+    check(pc_rc["c1"]["revenue_cost_mismatch"] is True,
+          "deterministic_prechecks：混合引用成本 item → revenue_cost_mismatch")
+    vars_rc = E.entailment_prompt_vars(st_rc, mixed, pc_rc)
+    check("revenue_cost_mismatch" in vars_rc["claims"],
+          "entailment_prompt_vars：revenue_cost_mismatch 进入法官标记")
+
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}
 

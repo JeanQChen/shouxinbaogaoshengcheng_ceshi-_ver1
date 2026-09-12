@@ -46,6 +46,7 @@ from decimal import Decimal
 from functools import partial
 
 from financial_v2 import store as fstore
+from financial_v2.number_identity import classify_revenue_cost
 from harness import entailment as E
 from harness import schema as H
 from routing import schema as RS
@@ -434,6 +435,19 @@ def _evaluate_claim(claim: H.Claim, scits: list[H.CitationRef], state: H.Researc
             return fail
         matched.append(f"{r.snapshot_id}:{r.formula_id or r.item_code}:{r.period}")
 
+    # A5：收入/成本类别语义校验（§17.1 成本不能被采纳为收入）。
+    # 结构化引用 item_code → classify_revenue_cost 派生类别，claim 文本 → 保守 hint；
+    # hint 与类别都是 revenue/cost 且无任一类别匹配 hint（即全为反向）→ UNSUPPORTED。
+    # 多类别并存（同时引用收入与成本字段）→ 不判 mismatch（保守，交 LLM 法官）。
+    hint = E.claim_revenue_cost_hint(claim.text)
+    cats = {classify_revenue_cost(item_code=r.item_code) for r in refs}
+    rc = {c for c in cats if c in ("revenue", "cost")}
+    if hint in ("revenue", "cost") and rc and hint not in rc:
+        return _verdict(claim.claim_id, "UNSUPPORTED", "revenue_cost_mismatch",
+                        matched_refs=matched, snapshot_valid=True, company_match=True,
+                        scope_currency_purpose_match=True, item_formula_match=True,
+                        value_match=True, period_match=True)
+
     # 单期 period 匹配（claim 唯一年份 → ref.period == "YYYY-12-31"）。
     cp = _claim_period(claim.text)
     period_match = cp is None or all(r.period == cp for r in refs)
@@ -564,6 +578,12 @@ def entailment_summary(state: H.ResearchState, prechecks: dict) -> list[dict]:
                             "verdict": "UNSUPPORTED",
                             "reason": "value_missing:"
                                       + ",".join(pc.get("value_missing_tokens", []))})
+        elif pc.get("revenue_cost_mismatch"):
+            rc = pc.get("revenue_cost") or {}
+            summary.append({"claim_id": cid, "evaluator": "evidence_deterministic",
+                            "verdict": "UNSUPPORTED",
+                            "reason": "revenue_cost_mismatch:hint=" + str(rc.get("hint"))
+                                      + ",categories=" + ",".join(rc.get("categories", []))})
         elif pc.get("high_risk_scope"):
             summary.append({"claim_id": cid, "evaluator": "evidence_deterministic",
                             "verdict": "PARTIAL", "reason": "high_risk_scope"})
