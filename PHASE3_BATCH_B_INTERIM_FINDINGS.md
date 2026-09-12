@@ -1,5 +1,7 @@
 # Phase 3 Batch B 中间发现 — 受限研究循环 + 41 问实际路径 + 章节预览
 
+> **HISTORICAL PHASE 3 v1 EVIDENCE / NON-EXECUTABLE。** 本文是中间人工门记录；其中“Phase 4 直接消费 ResearchOutcome”等接口已失效，不能作为当前编码依据。
+
 > 编制日期：2026-09-08
 > 上位依据：`PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md` §7（Batch B）
 > 本文件记录 Batch B（commit 8～12，即本仓 Batch B commit 1～7）交付与**中间**发现。

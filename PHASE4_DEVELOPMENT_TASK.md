@@ -1,16 +1,18 @@
 # Phase 4 开发任务书：章节 Worker、Claim 与章节质量门
 
+> **HISTORICAL / NON-EXECUTABLE（2026-09-12）**：本文保留 Phase 4 基础模块的历史实施与验收要求；其中“P4 直接消费单题 `ResearchOutcome`/`ResearchAnswer`，归并 `answer.claims` 后由 Renderer 输出正文”的内容生产接口已被替代。现行接口与关闭条件以 `DESIGN_V2.md` v0.6 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 为准：公司/行业 Worker 消费与 SectionTask 完全匹配的 `TopicResearchPack` 集，财务 Worker 消费 `FinancialFactPack` 与经验证的 Evidence 附注事实；章节同时产出可审计 Claim 和多 Claim 支撑的 `NarrativeParagraph`/表格。本文正文不得重新执行，历史代码与测试不等于产品内容已关闭。
+
 > 面向执行者：Claude Code  
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`templates/contracts/standard_v2.yaml`  
 > 前置阶段：Phase 0B、Phase 1、Phase 1F-A、Phase 2、Phase 3  
-> 文档性质：可执行开发任务书，不是设计讨论稿，也不是报告内容 Evidence  
+> 历史编制时性质：当时的可执行开发任务书；现为历史记录，不是当前任务书，也不是报告内容 Evidence
 > 当前目标：面试 Demo；演示稳定 > 亮点突出 > 功能全面 > 工程严谨
 
 ---
 
 ## 0. 一句话范围
 
-把已冻结的 Section Contract 和 Phase 3 `ResearchOutcome` 转换为稳定、可追溯、可评价的三个正式章节：
+把已冻结的 Section Contract、Phase 3 `TopicResearchPack` 与财务事实包转换为稳定、可追溯、内容充分且可评价的三个正式章节：
 
 ```text
 ReportJob
@@ -18,7 +20,7 @@ ReportJob
   → company Worker（受约束 Harness）
   → financial Worker（FinancialSnapshot + Python Workflow）
   → industry Worker（受约束 Harness）
-  → SectionResult（Claim + Citation + Unresolved + Markdown）
+  → SectionResult（Claim + Citation + NarrativeParagraph + Table + Unresolved + Markdown）
   → Rules + LLM Section Evaluator
   → 最多一次定向返工
   → 网页章节预览
@@ -79,7 +81,7 @@ Phase 3 最后一轮预算/preflight 定点修复可以与本任务书编写并�
 2. `templates/contracts/standard_v2.yaml` 与 `contracts/`：章节目录、问题、阻断和研究策略的机器可读权威；
 3. `DESIGN_V2.md`：产品与架构边界；
 4. `V2_IMPLEMENTATION_PLAN.md`：阶段范围与关闭条件；
-5. Phase 3 已持久化的 `ResearchOutcome`、RunManifest、Trace 和引用对象；
+5. Phase 3 已持久化的 `TopicResearchPack`（包含原子 `ResearchOutcome` 引用）、RunManifest、Trace 和引用对象；
 6. current、valid、未 quarantine、`report_blocked=false` 的 FinancialSnapshot；
 7. current Evidence set 与不可变 external source snapshot。
 
@@ -146,9 +148,10 @@ Planner、Worker、Evaluator 都读取同一份 resolved Section Contract。不�
 
 ### 5.2 研究与写作分离
 
-- Phase 3 Harness 负责查找、查看、补检并产生 `ResearchOutcome`；
-- Phase 4 Worker 负责把合格 Outcome/结构化结果变成章节 Claim 和正文；
+- Phase 3 Harness 负责按正式 aspect 查找、查看、受控扩读、补检并产生 `TopicResearchPack`；单题 `ResearchOutcome` 只是 Pack 的原子输入；
+- Phase 4 Worker 负责把 Pack/结构化结果变成章节 Claim、表格和多 Claim 支撑的 `NarrativeParagraph`；
 - Worker 不得静默绕过 Harness 直接调用 Retriever、ChromaDB、博查或 Financial Store 私有接口。
+- Worker 不得把“遍历 `answer.claims`”当成完整材料消费；未进入简短答案但已在 Pack 中验证的相关材料/事实仍必须可用于章节。
 
 ### 5.3 财务确定性
 
@@ -157,6 +160,8 @@ Planner、Worker、Evaluator 都读取同一份 resolved Section Contract。不�
 ### 5.4 Claim-first rendering
 
 正式章节先形成结构化 Claim，再由 Renderer 生成 Markdown。Markdown 不是权威事实容器；修改 Markdown 不得反向改变 Claim。
+
+Claim-first 不等于 Claim-list。Claim 是审计单元；正文的最小人读单元是 `NarrativeParagraph`，可引用多条 Claim 并形成定义—构成—变化—原因—授信影响的连贯表达。Renderer 负责确定性结构和引用展示，受限 Writer 负责在不新增事实/数字的前提下组织段落。
 
 ### 5.5 Evaluator 与 Assurance 分工
 
@@ -551,16 +556,18 @@ python -m sections.financial_worker ... --store
 ### 11.1 共用流程
 
 ```text
-SectionTask.questions
-  → 对每个 question 构造 InformationNeed
-  → Phase 3 Router + Harness
-  → ResearchOutcome（FULL/PARTIAL/UNRESOLVED/...）
-  → 仅消费合法 ResearchAnswer、Citation 与 unresolved
-  → 章节 Claim 归并/去重
-  → Renderer 生成 Markdown
+SectionTask.topics / questions / required_aspects
+  → Phase 3 Topic Runtime（内部派生并执行 InformationNeed）
+  → TopicResearchPack（材料、事实、逐 aspect 覆盖、原子 outcomes、缺口）
+  → 只消费通过权威与支持校验的 materials/facts/citations
+  → 章节 Claim 原子化、归并/去重
+  → 多 Claim 组织 NarrativeParagraph 与表格
+  → Renderer 生成 Markdown + 审计附录
 ```
 
 Worker 必须使用 Phase 3 公共入口，不复制 Harness loop，不在章节 Prompt 中隐藏工具调用。
+
+旧的逐 question `ResearchOutcome` 状态映射仍可用于兼容和诊断，但不能再作为正式章节的唯一内容源。Topic 是否完成由全部 required aspect 的状态决定；一个问题的简短 answer 没有复述全部材料，不得导致已验证内容丢失。
 
 ### 11.2 Outcome 进入章节的规则
 
@@ -637,7 +644,7 @@ CLI 必须支持 `--validate-only`、临时 DB 路径和固定预算配置。
 
 ## 12. Renderer
 
-Renderer 是确定性的：输入 SectionResult 的结构化 Claims/Unresolved，输出 Markdown。
+Renderer 的结构、引用和数字替换是确定性的：输入 SectionResult 的结构化 Claims、NarrativeParagraphs、Tables 与 Unresolved，输出 Markdown。段落草拟可以使用受限 LLM，但其输入只能是当前 Pack/Claims，输出中的事实与数字必须映射回已有 Claim；校验失败时保留可读的确定性降级稿，不得退回逐 Claim 碎片列表冒充正式报告。
 
 ### 12.1 表达顺序
 
@@ -1001,7 +1008,9 @@ evaluation/results/phase4_demo_<run_id>/
 
 ---
 
-## 21. Phase 4 严格关闭条件
+## 21. Phase 4 历史基础关闭条件（不能单独关闭产品内容）
+
+本节保留 P4-A～D 当时的工程验收门，现行关闭还必须同时满足 §25。若两节冲突，以 §25 和 P3R/P4R 任务书为准。
 
 必须全部满足：
 
@@ -1020,7 +1029,7 @@ evaluation/results/phase4_demo_<run_id>/
 13. 未进入综合评价、完整 Assurance、1F-B 和 Word 导出；
 14. `PHASE4_DELIVERY_REPORT.md`、`V2_TODO.md`、`V2_IMPLEMENTATION_PLAN.md` 已同步。
 
-Phase 4 允许真实章节存在 `COMPLETED_WITH_GAPS`，但必须诚实展示；阶段关闭评价的是章节生产与质量门是否正确，不要求所有外部事实都能取得。
+历史基础验收允许真实章节存在 `COMPLETED_WITH_GAPS`，但必须诚实展示；这只能证明章节生产与质量门按既定规则工作。现行产品内容关闭不要求所有外部事实都能取得，但要求全部必需 aspect 有明确结果、已取得材料没有系统性丢失、缺口具体可解释，并满足 §25 的内容完整性门。
 
 ---
 
@@ -1081,3 +1090,18 @@ Phase 4 允许真实章节存在 `COMPLETED_WITH_GAPS`，但必须诚实展示�
 15. 明确声明未进入 Phase 5。
 
 完成后停止，等待人工验收。
+
+---
+
+## 25. P4R 内容关闭补充门（2026-09-12，现行）
+
+Phase 4 的基础模块和历史验收继续保留，但恢复“产品严格关闭”前还必须满足：
+
+1. 公司/行业正式 Worker 从 `TopicResearchPack` 获取内容，集成测试证明正式路径不再只遍历 `ResearchAnswer.claims`。
+2. 每个正式 Topic 的全部 required aspects 均有 `covered/partial/not_found/blocked/not_applicable` 明确状态；任何单一命中或单一 Claim 不得虚报 Topic 完成。
+3. 章节包含面向授信报告的 `NarrativeParagraph` 与必要表格，正文与审计附录分层；不以 Q&A、状态码或逐 Claim 碎片代替章节。
+4. 主营业务、行业情况、重大投资/收并购、处罚/诉讼等只是验收样例，不得形成专用分支；相同机制必须适用于所有 Contract Topic。
+5. 无法计算的非必需财务指标是否展示由版本化 Contract/展示 policy 决定；Writer 不得私自删除必需项，也不得为凑完整度编造。
+6. 至少一份真实三章 Demo 通过人工内容复核：材料有用信息未被系统性遗漏，互联网研究产生可见价值或诚实说明具体来源缺口，正文达到可截图/讲解状态。
+
+具体实施不再追加在本文历史批次中，统一执行 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md`。

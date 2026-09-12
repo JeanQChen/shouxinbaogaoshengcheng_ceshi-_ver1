@@ -1,5 +1,7 @@
 # Phase 4 真实 Demo 关闭 — Financial Worker 结构化 JSON 输出健壮性
 
+> **HISTORICAL AVAILABILITY FIX EVIDENCE / NON-EXECUTABLE。** 本文只证明当时 Financial JSON 可用性缺口被处理、三章技术产物可生成；不证明研究材料、章节内容或 Phase 4 产品质量已关闭。
+
 > 范围：Phase 4 真实 Demo 的最后一个可用性缺口（Financial Worker 的 LLM JSON 解析健壮性）。
 > 交付日期：2026-09-11。
 > 定级：**P1 可用性问题**（非 P0 安全）—— 系统始终 fail-closed，无错误事实进入报告；

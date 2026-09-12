@@ -1,5 +1,7 @@
 # Phase 3 Batch B — 冒烟报告（修订版 v2）
 
+> **HISTORICAL PHASE 3 v1 EVIDENCE / NON-EXECUTABLE。** 保留当次修订和人工门事实；不证明完整 Topic 研究，不是当前任务书。
+
 > 状态：**STOP at human gate（新版 smoke 人工门）**。本文档为上一版
 > [`PHASE3_BATCH_B_SMOKE_REPORT.md`](./PHASE3_BATCH_B_SMOKE_REPORT.md)（已标 REJECTED）的修订版，
 > 报告 4 项定点修复后的 5 问真实冒烟 + 原始 41 问 DB 路径冒烟。**未**运行完整 41 问，**未**进入 Batch C / Phase 4。

@@ -1,9 +1,10 @@
 # 授信报告生成器 V2 总实施路线图
 
-> 版本：v0.2 · 2026-09-06  
-> 状态：Phase 0A、0B、1、1F-A、2、3、4 已关闭（Phase 4 代码交付 + 完整 eval 完成，真实 300750 三章产物待人工触发 `scripts/run_phase4_demo` 验收）；下一阶段 Phase 5（未进入）
-> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.4  
-> 工程规则：[AGENTS.md](./AGENTS.md)  
+> 版本：v0.4 · 2026-09-13
+> 状态：Phase 0A～3 的历史关闭记录保留；Phase 4 基础设施已交付，但 P3→P4 内容完整性门未通过，现重开 P3R/P4R 全局重整。Phase 5 暂不进入。
+> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.6
+> 工程规则：[AGENTS.md](./AGENTS.md)
+> 文档索引：[DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
 
 ## 1. 文档分工与维护规则
@@ -62,9 +63,9 @@
 
 ### 2.3 尚未完成的工作
 
-当前已存在 `evaluation` 和 Baseline 测试；未发现机器可读 V2 Section Contracts，以及 `contracts`、`evidence`、`planning`、`routing`、`harness`、`assurance` 等目标层的完整实现。不能将“基线可用”视为设计 Phase 0 的所有产物均已完成。
+机器可读 Section Contracts、Evidence、Financial V2、Router、Tool Layer、单题 Research Harness、章节 Worker/Evaluator/Store 和只读 UI 基础均已实现。当前缺口不再是“有没有模块”，而是正式生产链的信息吞吐：P3 仍以单题简短 `ResearchOutcome` 为主要交付，P4 又主要遍历 `answer.claims`，导致宽主题的连续正文、表格上下文、跨来源事实与外部研究结果在进入章节前被压缩。
 
-因此将设计 Phase 0 拆成 **0A 基线归档（已接纳）** 与 **0B 报告契约固化（下一阶段）**。这是对现有进度的细化，不改变设计要求。
+因此新增 **P3R/P4R 内容完整性重整**，不是重跑或推翻 Phase 0A～3 历史验收。R0 先独立复验并收口正式 Contract→Planner→Worker→Router→Harness→ToolRegistry 主链，具体工作区和测试数只记录在 `V2_TODO.md`。即使调用链全绿，也不证明 TopicResearchPack、覆盖调度或完整章节已经实现。
 
 ## 3. 阶段总览与默认顺序
 
@@ -78,16 +79,17 @@
 | 1F-A | 财务来源、核准快照、计算与集中确认基础 | 1 的来源定位能力 | 已关闭（基础出口） |
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 已关闭 |
-| 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 已关闭（真实 300750 运行待人工验收） |
-| 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 4、1F-A | 未进入 |
+| 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 基础能力已交付；内容完整性关闭撤回 |
+| 3R/4R | TopicResearchPack、覆盖驱动研究与章节表达重整 | 3、4 的正式唯一主链 | **任务书就绪，待实施** |
+| 5 + 1F-B | 综合、完整 Assurance、正式导出门禁及财务交互闭环 | 3R/4R、1F-A | 未进入 |
 | 6 | 全流程集成、演示稳定性与交付 | 5 与 1F-B 均通过 | 未进入 |
 
 依赖主线：
 
 ```text
 0A 已接纳基线 → 0B 报告契约 → 1 Evidence/运行基础 → 1F-A 财务基础
-    → 2 Router/Hybrid → 3 工具与 Harness → 4 章节质量门
-    → 5 综合/Assurance + 1F-B 财务闭环 → 6 演示交付
+    → 2 Router/Hybrid → 3 工具与 Harness → 4 章节基础
+    → 3R/4R 内容完整性重整 → 5 综合/Assurance + 1F-B 财务闭环 → 6 演示交付
 ```
 
 阶段出口分为两种：**基础可供依赖**与**该阶段完整验收**。只有 1F 明确使用分段出口；1F-A 通过可支持下游开发，但不得将整个 1F 标为完成或提前开放正式导出。
@@ -244,6 +246,8 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 `PHASE3_FROZEN_FINAL_REPORT.md`，不在同一次冻结后修改规则重跑。Phase 4 具备入口条件
 （代码/规则/prompt/split manifest 已冻结，frozen_final 结果归档，完整 eval 全绿）。
 
+**2026-09-12 生产接口补充说明：** 上述关闭只证明单题运行时的安全、可追溯、预算和停止语义，不再作为“完整 Topic 已可直接供 P4 写作”的证明。历史结果与分母保持冻结；新增生产接口在 P3R 中以新版本实现和独立验收。
+
 ### 4：章节 Worker、Claim 与质量门
 
 **设计映射：** §4、§5.5、§9.4、§12.1、§16.3、§17 Phase 4。
@@ -260,11 +264,31 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 **留到本阶段任务书：** 计划器具体接口、各 Worker 迁移顺序、Claim 输出格式及 rubric。仅此阶段冻结章节生产流程的细节。
 
+**当前状态（2026-09-12）：** ReportPlan/SectionTask、三类 Worker、Claim/Citation、Store、Evaluator、定向返工与只读 UI 等基础能力保留；但真实纵向样本显示主营业务、行业、收并购/处罚等宽主题在 `ResearchOutcome → answer.claims → SectionClaim` 边界被系统性压缩。安全防火墙正常工作，却不能替代材料完整性与章节表达。因此 Phase 4 的“代码基础交付”不撤销，“产品内容严格关闭”撤回，进入 P3R/P4R。
+
+### 3R/4R：Topic Research 与章节内容完整性重整
+
+**权威任务书：** `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md`。
+
+**交付范围：** 在现有唯一正式主链内新增 Harness 所有的 `TopicResearchPack`；按 Contract aspect 调度研究；命中后受控扩读上下文并归拢材料/事实；按 Topic 复杂度使用动态有界预算；P4 校验与 `SectionTask.topic_ids` 完全匹配的 Pack 集，再按版本化 `SectionWritingSpec` / `ReportPresentationProfile` 从 Pack 生成原子 Claim、连贯 `NarrativeParagraph` 与表格。不得启用另一套 `sections.topic_research` 研究循环，也不得让旧 Prompt/Markdown 模板成为影子 Contract。
+
+**先决基线：** R0 的正式主链收敛及对应集成测试先独立 review、复验和 commit。它只锁定调用链和实验路径零调用，不算 P3R/P4R 完成；实际工作区状态见 `V2_TODO.md`。
+
+**验收出口：**
+
+- 全部正式 Topic 的 `required_aspects ↔ evidence_requirements` 映射审计完成；发布兼容 Contract v2、完整 P3-B02 来源 policy 及版本化 WritingSpec/Profile 资产，不修改 v1。
+- 主营业务、采购/生产/销售、诉讼/处罚/违约/失信、重大投资/收并购和行业风险传导等宽主题不再因局部命中提前完成；来源角色与 P3-B02 门形成版本化规则。
+- 本地连续叙述、跨页/续表、结构化财务、外部时效、事件与负面核验至少五类样本通过材料归拢和逐 aspect 完成判断。
+- P3 Pack 保留所有已验证且相关的材料/事实，不因简短答案未提及而丢失；snippet、未 inspect 命中和不合格来源不进入正式事实。
+- P4 不再只消费 `answer.claims`；Section 完整 Pack 集经身份校验后，多个研究 Topic 可按 WritingSpec 合并为人读小节，并以多条 Claim 形成连贯段落和表格，所有事实/数字仍可回查。
+- 动态预算有硬上限、累计不重置；预算不足产生明确 Partial Pack，不产生伪完整章节。
+- 通用/未见 Topic 与少量真实纵向切片通过后，才恢复 Phase 4 产品关闭评审并允许进入 Phase 5。
+
 ### 5：综合、完整 Assurance 与正式导出门禁
 
 **设计映射：** §4.6、§10～§11、§13.3、§16.7、§17 Phase 5；同时关闭 1F-B。
 
-**交付范围：** 确定性章节组装、基于合格 Claim 的综合评价、六类 Assurance、问题回流与正式导出判定、报告版本与审计包。复用并迁移现有回检和 Word 导出能力。
+**交付范围：** 确定性章节组装、基于合格 Claim 的综合评价、六类 Assurance、问题回流与正式发布状态判定、报告版本与审计包；优先交付 Markdown/网页可查看产物。现有 Word 代码保留，但本阶段不迁移、不作为关闭门。
 
 **验收出口：**
 
@@ -273,7 +297,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - blocking 阻止正式文件生成，预览可查看问题；门禁在服务/导出层执行，不能只靠 UI 隐藏按钮。
 - 自动修正、章节返工或财务人工处理后运行完整 Assurance，核验结果绑定具体报告版本，旧版本通过不能放行新稿。
 - 1F-B 集中确认闭环通过；原始来源、采用版本、规则/提示词、工具及人工处理可从 Audit Package 回查。
-- 报告生成/回检/导出 CLI、集成案例和现有 eval 通过。
+- 报告生成/回检/发布状态 CLI、Markdown/审计包产物、集成案例和现有 eval 通过。
 
 **留到本阶段任务书：** 六类检查的实现顺序、确定性规则与模型判断边界、回流方式和导出版本绑定。
 
@@ -285,7 +309,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 **验收出口：**
 
-- 合格电子 PDF/Excel 输入可完成四段报告、来源追溯和正式交付；Word 排版及引用可读。
+- 合格电子 PDF/Excel 输入可完成四段报告、来源追溯和网页演示；已保存产物可加载、Markdown 可复制、关键引用可展开。现有 Word 能力保留，但不作为本次面试版本的 Phase 6 阻断门，正式 Word 交付验收后置。
 - 无冲突正常流程零新增确认；冲突、缺资料、网络失败和预算停止均能明确展示问题，并能按规则处理或继续。
 - 检查重启恢复、材料替换、缓存清理和 Evidence 保留，验证五天中间态策略与最终报告长期引用不冲突。
 - 一键 Demo 的 LLM、编排与回检真实运行；准备数据允许复用解析缓存。V1 回退保持可用，V1 导出不能冒充 V2 Assurance 已通过。
@@ -316,9 +340,9 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 | 验收案例与出口 | 哪些输出证明完成，哪些情况不得进入下一阶段 |
 | 未决项和决策时点 | 当前必须解决什么，什么可以继续后置 |
 
-新模块先按 `AGENTS.md` 完成编码前计划，再写代码；一个 commit 只改一个模块。已有未提交文件不得覆盖，不能把历史工作一并提交为本阶段成果。
+新模块先按 `AGENTS.md` 完成编码前计划，再写代码；一个 commit 只承担一个可审查职责，相关实现与回归测试可同属该职责。已有未提交文件不得覆盖，不能把历史工作一并提交为本阶段成果。
 
-0B任务书已经生成：[SECTION_CONTRACTS_DEVELOPMENT_TASK.md](./SECTION_CONTRACTS_DEVELOPMENT_TASK.md)。Phase 1 任务书已经生成：[EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md](./EVIDENCE_ARCHITECTURE_DEVELOPMENT_TASK.md)。进入实施前仍须按任务书提交编码计划；后续阶段任务书继续遵守“进入该阶段时才生成”的原则。
+0B、Phase 1 及后续已完成阶段的任务书均为历史实施记录，不得重新执行。当前唯一任务书为 [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md)；未来 Phase 5/6 仍遵守“真正进入该阶段时才生成任务书”的原则。
 
 ## 7. 进度更新与阶段关闭
 
@@ -334,7 +358,8 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - [x] 2：Router/Hybrid 开发任务书就绪。
 - [x] 2：Router/Hybrid 对照评测通过。
 - [x] 3：真实工具与受预算约束的 Harness 通过。
-- [x] 4：章节 Worker 与章节质量门通过。
+- [x] 4：章节 Worker、Evaluator、Store 与 UI 基础代码通过历史验收。
+- [ ] 3R/4R：TopicResearchPack、覆盖驱动研究与章节内容完整性通过。
 - [ ] 5 与 1F-B：完整回检、财务确认闭环和正式导出门禁通过。
 - [ ] 6：端到端演示与交付验收通过。
 
@@ -349,7 +374,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - **遗留问题与归属**：Evidence / Router / Harness 均未启动（分别属于 Phase 1 / 2 / 3）；行业来源分级、代理指标、`impact_scope` 仅为声明式字段，不实现自动评级与运行判断（留待对应阶段）。
 - **下一阶段入口条件**：Phase 1（Evidence 与最小运行基础）具备入口条件，0B 不阻塞其启动。
 
-### 4 关闭记录
+### 4 历史基础交付记录（产品内容关闭已撤回）
 
 - **产物**：`sections/{schema,store,rules_evaluator,llm_evaluator,rework,audit_opinion,service,company_worker,financial_worker,industry_worker,common,citation_authority}.py`；`planning/{schema,report_planner}.py`；`evaluation/datasets/section_cases_v1.json` + `evaluation/run_section_eval.py`；`scripts/run_phase4_demo.py`；`evals/test_section_*`、`evals/test_phase4_demo.py`；`PHASE4_DEVELOPMENT_TASK.md`、`PHASE4_DELIVERY_REPORT.md`。
 - **代码/输入版本**：`service=p4-service-v1`、`planner=p4-planner-v1`、`rules_evaluator=p4-rules-v1`、`llm_evaluator=section_evaluator_v1`、`rework=p4-rework-v1`；Contract `standard_v2.yaml`（company 21 / financial 11 / industry 9 = 41 问）。
@@ -359,12 +384,8 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
   - `python -m evals.test_phase4_demo` → 26 passed / 0 failed；
   - `python -m scripts.run_phase4_demo --validate-only --company 300750 ...` → 真实 300750 规划成功（3 章节 41 问，指纹 + 快照已锁定）；
   - `python -m evals.run_evals` → 0 failed（收口 commit 前全量记录见交付报告 §9）。
-- **遗留问题与归属**：真实 300750 三章产物生成（§21 第 10 项）待人工触发
-  `python -m scripts.run_phase4_demo --company 300750 --company-name 宁德时代 --credit-type other
-  --report-as-of 2026-03-31 --contracts templates/contracts/standard_v2.yaml` 后按 §20 12 项复核；
-  综合授信方案评价、跨章节综合 Claim、完整 Assurance、1F-B、正式导出门禁、Word 导出均属 Phase 5。
-- **下一阶段入口条件**：Phase 5（综合 + 完整 Assurance + 1F-B + 正式导出门禁）具备入口条件，4 的
-  代码交付不阻塞其启动。
+- **后续真实发现**：真实三章和纵向样本已证明安全门、引用与 Store 可工作，但宽主题材料在单题 `ResearchOutcome` 到 `answer.claims` 的边界被压缩，章节存在“有材料却只剩少量结论”、互联网候选无法形成可用正文、原子 Claim 列表难以成为授信报告等系统性问题。该问题归入 P3R/P4R，不以逐题 Prompt 或公司特例修补。
+- **下一阶段入口条件**：Phase 5 暂不具备入口条件。必须先按 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 通过内容完整性门，再恢复 Phase 4 产品关闭评审。
 
 ## 8. 本路线图之外的后续范围
 
@@ -374,6 +395,6 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 ## 9. 本次编制依据
 
-- 当前工作区 `DESIGN_V2.md` v0.4、`AGENTS.md`、既有 Baseline 任务书及已实现目录。
+- 当前工作区 `DESIGN_V2.md` v0.6、`AGENTS.md`、`DOCUMENTATION_INDEX.md`、历史 Baseline 记录及已实现目录。
 - `v1_baseline_final` 的报告、指标、运行 manifest、数据质量文件，以及其引用的原运行 manifest。
 - 用户关于“基线可用、RequiredPageCoverage 为总体主分、上位设计优先、总路线图管理阶段、逐阶段生成任务书”的明确确认。

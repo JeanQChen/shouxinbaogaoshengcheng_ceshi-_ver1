@@ -1,6 +1,6 @@
 # 待优化清单
 
-> 2026-05-24 项目全量审计结果
+> **HISTORICAL V1 AUDIT / NON-EXECUTABLE。** 这是 2026-05-24 对 V1 的审计快照，其中 DuckDuckGo、旧 Agent、旧 UI 和执行顺序已不代表当前实现；不得据此跳过 P3R/P4R 任务或重新启用旧链。当前 TODO 只认 `V2_TODO.md`。
 
 ---
 

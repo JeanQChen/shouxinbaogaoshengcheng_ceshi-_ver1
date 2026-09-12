@@ -1,8 +1,9 @@
 # Phase 1F-A6～A7 核准财务快照、版本化公式与集成关闭开发任务书
 
+> **HISTORICAL / NON-EXECUTABLE。** A6/A7 与 Phase 1F-A 基础已交付关闭；本文只保留当时实施要求。公式业务口径仍以 `FORMULA_REVIEW.md` 为准。
 > 版本：v1.0  
 > 编制日期：2026-09-07  
-> 状态：可进入编码前实施计划；尚未开始 A6/A7 编码  
+> 历史状态：可进入编码前实施计划；尚未开始 A6/A7 编码
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md` §4.3/§6.1/§11/§17 Phase 1F、
 > `V2_IMPLEMENTATION_PLAN.md` Phase 1F、`FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md`  
 > 已冻结业务依据：`FORMULA_REVIEW.md`（2026-09-07，`BUSINESS_CONFIRMED`）  

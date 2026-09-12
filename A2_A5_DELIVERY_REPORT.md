@@ -1,5 +1,7 @@
 # Phase 1F-A2～A5 统一交付报告
 
+> **HISTORICAL ACCEPTANCE EVIDENCE / NON-EXECUTABLE。** 保留当时财务抽取、对账和确认的交付事实；当前实现不得以本报告代替 `FORMULA_REVIEW.md`、现行设计或当前任务书。
+
 > 交付时间：2026-09-07（含最后一次定点修复）
 > 范围：财务抽取（A2/A3）→ 确定性映射/标准化/勾稽/对账（A4）→ 集中确认（A5）
 > 状态：**A2～A5 已验收关闭；真实 Excel/PDF 主链与三张主表坐标已验收；

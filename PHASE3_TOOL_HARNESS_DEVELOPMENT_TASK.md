@@ -1,10 +1,12 @@
 # Phase 3 Tool Layer + Research Harness 开发任务书
 
+> **HISTORICAL / NON-EXECUTABLE（2026-09-12）**：本文记录 Phase 3 v1 的工具层、单题 Research Harness 与 frozen 评测要求，历史验收继续有效；但本文中“单个 InformationNeed → 简短 `ResearchOutcome` → Phase 4 直接消费”、统一单题短预算以及“预览反馈只留给 P4”的条款，已不能作为正式内容生产接口。现行 P3R/P4R 以 `DESIGN_V2.md` v0.6 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 为准：`ResearchOutcome` 降为原子运行记录，Harness 所有的 `TopicResearchPack` 才是 P3→P4 唯一正式交付物。不得执行本文正文或据此重新启用平行 topic research 链。
+
 > 面向执行者：Claude Code  
 > 编制日期：2026-09-08  
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`  
 > 前置状态：Phase 0A、0B、1、1F-A、2 已关闭  
-> 本轮状态：仅任务书就绪；尚未开始 Phase 3 编码  
+> 历史编制时状态：仅任务书就绪；尚未开始 Phase 3 编码（现已完成并冻结，当前状态见 `V2_TODO.md`）
 > 交付期限：2026-09-26 前完成 V2、网页展示和项目讲解准备
 
 > **修订（2026-09-08，Batch A 交付）**：Phase 3 当前唯一启用的搜索提供方为博查。Tavily 不参与运行时、fallback 或验收，也不需要 TAVILY_API_KEY。
@@ -97,9 +99,9 @@ Phase 2 冻结资产不得修改或覆盖：
 
 ---
 
-## 5. 核心边界：Phase 3 与 Phase 4
+## 5. 历史 v1 核心边界：Phase 3 与 Phase 4（已被 §16 取代）
 
-Phase 3 的输出粒度是 **单个 Information Need 的研究结果**：
+下述内容仅记录 Phase 3 v1 当时的交付边界。它仍适用于 frozen 评测重放，但不再适用于正式内容生产。Phase 3 v1 的输出粒度是 **单个 Information Need 的研究结果**：
 
 ```text
 InformationNeed
@@ -124,7 +126,7 @@ SectionContract
 - 宣称通过 Section Contract 或质量门；
 - 自行新增超出输入 Outcome 的事实和数字；
 - 与 Phase 4 Worker 共用一个冒充正式章节的入口；
-- 迫使 Phase 4 重写 Tool/Harness。Phase 4 应直接消费本阶段稳定的 `ResearchOutcome`。
+- 迫使当时的 Phase 4 重写 Tool/Harness。**该句“Phase 4 直接消费 ResearchOutcome”已废止；现行正式接口见 §16 的 TopicResearchPack。**
 
 建议接口：
 
@@ -822,7 +824,7 @@ trace_inventory.json
 - 外部正文按content hash形成不可变快照；相同内容复用，内容变化新版本。
 - Harness单题首批预算采用§7.5；41问后只基于真实数据调整并记录policy版本。
 - 简单路径确定性优先，LLM集中用于Deep补检动作和简短答案；所有Prompt文件化。
-- 公司信用研究作为第一份preview；Phase 4直接消费ResearchOutcome，不复用preview正文作为正式章节。
+- `[历史 v1，已废止]` 公司信用研究作为第一份 preview；当时约定 Phase 4 直接消费 ResearchOutcome。现行 P4 只消费 TopicResearchPack/FinancialFactPack，不复用 preview 正文。
 - Phase 3不实现正式Evaluator，`max_repair_rounds=0`。
 
 ### 13.2 影响报告含义、需要用户确认的事项
@@ -891,3 +893,15 @@ Phase 3完成后至少报告：
 9. 是否修改Phase 2/V1冻结行为。
 10. 已知限制、后移事项与Phase 4入口条件。
 
+---
+
+## 16. P3R 生产内容接口补充门（2026-09-12，现行）
+
+Phase 3 v1 的关闭不撤销，但在 P4 正式内容生产中增加以下门：
+
+1. 正式入口必须以 `SectionTask.topic_ids/questions/required_aspects/evidence_requirements` 派生 Topic 研究计划。
+2. `run_question(...) -> ResearchOutcome` 保留给原子执行、历史评测和兼容；新增 `run_topic(...) -> TopicResearchPack` 作为正式交付。
+3. Pack 必须保留逐 aspect 覆盖、受控扩读后的材料、已验证原子事实、所有原子 outcome 引用、外部漏斗、冲突、缺口、预算与依赖指纹。
+4. 单题 ANSWER、找到任意 Evidence、返回任意 URL 或一条 Claim 都不能提前完成 Topic。
+5. 现有工具、Router、Retriever、权威校验、预算账本和 checkpoint 必须复用；不得复制第二套循环。
+6. 具体 schema、迁移批次、测试矩阵、真实样本和停止边界全部转由 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 管理。

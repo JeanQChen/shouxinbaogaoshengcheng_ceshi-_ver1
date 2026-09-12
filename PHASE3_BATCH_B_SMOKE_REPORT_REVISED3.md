@@ -1,5 +1,7 @@
 # Phase 3 Batch B — 冒烟报告（第三版修订 / v4 重新验收）
 
+> **HISTORICAL PHASE 3 v1 EVIDENCE / NON-EXECUTABLE。** 保留重新验收事实；Phase 3 v1 的安全/单题结论不证明 P3R Topic Pack 或 P4 内容完整。
+
 > 状态：**REACCEPTANCE / STOP at human gate（重新验收人工门）**。本文档针对 v3
 > [`PHASE3_BATCH_B_SMOKE_REPORT_REVISED2.md`](./PHASE3_BATCH_B_SMOKE_REPORT_REVISED2.md)
 > 被人工门驳回后下达的 **6 项收口（§一~§六）** 逐项落地 + 重跑代表性 smoke（7 问真实 LLM）

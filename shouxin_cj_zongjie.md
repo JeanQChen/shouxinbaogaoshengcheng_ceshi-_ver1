@@ -1,6 +1,7 @@
 # 授信报告生成器 — 项目全量总结
 
-> 写给 AI 复现者：读这份文档即可复刻此项目，包含架构、数据流、模块契约、设计决策、已知问题和改进方向。
+> **HISTORICAL V1 SUMMARY / NON-EXECUTABLE。** 本文是 V1 阶段总结，不能据此复刻当前 V2，也不能作为编码指令。财务强制 Excel、旧三 Agent/Synthesizer、旧 Web Search、Word 和“当前状态”等内容均只代表当时。
+> 当前复现和实施入口见 `README.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` 与当前权威任务书。
 
 ---
 

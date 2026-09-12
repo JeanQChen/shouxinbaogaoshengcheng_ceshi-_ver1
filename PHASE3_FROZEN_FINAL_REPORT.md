@@ -1,5 +1,7 @@
 # Phase 3 frozen_final 正式评测报告（一次性，冻结后）
 
+> **HISTORICAL PHASE 3 v1 FROZEN EVALUATION / NON-EXECUTABLE。** 本文“Phase 3 关闭”只指当时单题运行时、安全、引用、预算和 frozen 评测关闭；不证明完整 Topic 研究，也不满足现行 P3R→P4 内容接口。原结果不得回写或重跑调优。
+
 > run_id: `frozen_final_20260909T151421Z`
 > 生成时间：2026-09-09
 > 结论：**无 P0 安全缺陷（错误事实进入 FULL / 无来源数字进入正式答案 / 引用无法回查 / Gold 泄漏进运行时均为 0）**。按用户门禁，Phase 3 可标记关闭；不进入 Phase 4。

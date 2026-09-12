@@ -1,5 +1,7 @@
 # Phase 3 — POST_UNSEEN_REGRESSION 三题定点回归报告
 
+> **HISTORICAL PHASE 3 v1 REGRESSION EVIDENCE / NON-EXECUTABLE。** 保留当次回归事实；当前数据环境和 P3R 内容能力不得由本文推断。
+
 > 本轮定点回归只重跑 3 题（COMP-BD1 / FIN-AUD1 / COMP-SW1），用**新 run_id** 记录，
 > 不重算 unseen FULL 率、不重新标记为 unseen。原 unseen_validation 结果
 > （run_id `unseen_validation_20260909T105105Z`，0 FULL / 7 PARTIAL / 1 UNRESOLVED /

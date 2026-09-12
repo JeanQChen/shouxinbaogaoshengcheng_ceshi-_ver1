@@ -1,6 +1,7 @@
 # Section Contracts（0B）开发任务书
 
-> 状态：任务书 v0.1，允许进入“契约初稿与业务复核材料”实施；业务复核通过前不得关闭0B  
+> **HISTORICAL / NON-EXECUTABLE。** Phase 0B Contract v1 已关闭；本文只保留当时实施要求。P3R 需要新的 aspect/evidence/display 审计并在必要时发布兼容 Contract 新版本，不得重新执行本文或原地覆盖 v1。
+> 历史状态：任务书 v0.1，允许进入“契约初稿与业务复核材料”实施；业务复核通过前不得关闭0B
 > 所属阶段：`V2_IMPLEMENTATION_PLAN.md` Phase 0B  
 > 上位依据：`DESIGN_V2.md` §4、§5.1、§5.3、§16.1、§17 Phase 0  
 > 工程约束：`AGENTS.md`

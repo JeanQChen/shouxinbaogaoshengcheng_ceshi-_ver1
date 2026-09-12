@@ -1,5 +1,7 @@
 # Phase 3 — unseen_validation 结果重新分类补充说明（F5）
 
+> **HISTORICAL FROZEN EVALUATION SUPPLEMENT / NON-EXECUTABLE。** 只补充原 frozen 结果分类，不定义当前 P3R/P4R 任务或成功门。
+
 > 本文件是对 `PHASE3_UNSEEN_VALIDATION_REPORT.md` 的**补充**，不覆盖、不改写原报告。
 > 原报告是冻结后的一次性泛化评测记录；本文件只做「发现项重分类」与「修复映射」，
 > 便于在进入 frozen_final 前把已暴露的通用问题对齐到对应修复。

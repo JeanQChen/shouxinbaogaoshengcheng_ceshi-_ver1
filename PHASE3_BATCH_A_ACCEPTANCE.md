@@ -1,5 +1,7 @@
 # Phase 3 Batch A 验收 — Tool Layer + 外部来源闭环（博查）
 
+> **HISTORICAL PHASE 3 v1 ACCEPTANCE EVIDENCE / NON-EXECUTABLE。** 本文证明当时工具层与外部闭环，不证明 Topic 研究或 Phase 4 内容完整；当前实施只认 P3R/P4R 权威任务书。
+
 > 编制日期：2026-09-08
 > 上位依据：`PHASE3_TOOL_HARNESS_DEVELOPMENT_TASK.md` §6（Batch A）
 > 本文件记录 Batch A（commit 1～7）交付与验收结果，为 Batch B Harness 提供可回查事实。

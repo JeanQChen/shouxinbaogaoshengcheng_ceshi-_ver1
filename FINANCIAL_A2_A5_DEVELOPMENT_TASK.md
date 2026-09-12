@@ -1,7 +1,8 @@
 # Phase 1F-A2～A5 财务抽取、标准化、对账与集中确认开发任务书
 
+> **HISTORICAL / NON-EXECUTABLE。** A2～A5 已交付关闭；本文只保留当时实施与验收细节，不得据此重跑、改变权威来源或覆盖现行 P3R/P4R。
 > 版本：v0.1 · 2026-09-06  
-> 状态：开发任务书已编制；A1 正式关闭后可连续实施 A2～A5  
+> 历史状态：开发任务书已编制；A1 正式关闭后可连续实施 A2～A5
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`FINANCIAL_PROVENANCE_RECONCILIATION_DEVELOPMENT_TASK.md`  
 > 前置：Phase 1 Evidence 已关闭；Phase 1F-A1 必须完成迁移、Store、来源登记与原子 Record Set 提交验收
 

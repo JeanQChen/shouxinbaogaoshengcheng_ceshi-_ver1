@@ -1,6 +1,6 @@
 # Section Contract 业务复核表（Phase 0B）
 
-> 状态：SC-01～SC-05 全部已确认，Phase 0B 关闭。
+> 状态：**CONFIRMED_V1_REVIEW / HISTORICAL_SCOPE。** SC-01～SC-05 全部已确认，Phase 0B 关闭；本文只证明 Contract v1 当时的业务复核，不证明 P3R 的 aspect/evidence/display 粒度或完整 Topic 内容已通过。
 > 说明：本表面向业务复核，不要求审查 Python 字段或 YAML 语法。
 
 ## 覆盖概览

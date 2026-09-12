@@ -1,5 +1,7 @@
 # Phase 3 — Demo 数据环境恢复与最终验收准备
 
+> **HISTORICAL ENVIRONMENT ACCEPTANCE EVIDENCE / NON-EXECUTABLE。** 数据数量和环境状态只代表当次运行；当前环境必须重新通过只读 preflight。
+
 > 更新：2026-09-09
 > 目的：恢复 Demo 财务数据环境、新增只读 preflight、定点重验 F4 外部链路，
 > 为 `frozen_final` 24 题提供数据环境就绪判定。本轮**不运行 frozen_final、不进 Phase 4**。

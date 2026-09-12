@@ -1,9 +1,10 @@
 # 授信报告生成器 V2 设计文档
 
-> 状态：讨论稿 v0.4（已吸收 2026-09-06 确认：完整页码映射参评、41问证据为且、财务冲突集中处理及明确问题后继续生成）  
-> 基线：当前 V1 `DESIGN.md` 与现有代码  
+> 状态：实施纲领 v0.6（2026-09-13：文档治理、TopicResearchPack、覆盖驱动研究与版本化写作规格）
+> 基线：历史 V1 `DESIGN.md`、已交付的 V2 基础能力与当前代码
 > 目的：定义 V2 的产品边界、报告契约、Evidence 架构、检索、Research Harness、评测与全报告质量保障。本文首先用于确认设计，不代表所有模块已经实现。
-> 实现状态：Phase 1F-A（A1～A7：财务来源/对账/集中确认/核准快照/公式计算/V1 只读适配）已实现并关闭，见 `A6_A7_DELIVERY_REPORT.md`；§4.3 财务分析涉及的指标口径以 `FORMULA_REVIEW.md` 为准。Phase 2～6 尚未进入。
+> 实现状态：Phase 0A～3 的历史验收和冻结结果原样保留；Phase 3 frozen_final 是安全性、路由与单题实际路径基线，不等于已经满足完整主题研究。Phase 4 的规划、Worker、Evaluator、Store 与 UI 基础已实现，但因 P3→P4 信息吞吐和内容完整性不足，于 2026-09-12 重开 P3R/P4R 内容能力门；Phase 5 暂不进入。§4.3 财务指标口径仍以 `FORMULA_REVIEW.md` 为准。
+> 文档治理：权威顺序、历史资料和运行时资产的角色见 `DOCUMENTATION_INDEX.md`；语义冲突必须 fail-closed 修正文档/发布新版本，不能靠“挑一份喜欢的文档”继续实现。
 
 ---
 
@@ -44,6 +45,8 @@
 | O-06 | 重资产 70%、轻资产 40% 为关注提示 | 不作为自动否决线 |
 | O-07 | Evidence 长期保留并允许主动删除 | 按公司/任务删除时先检查最终报告引用关系 |
 | O-08 | 第一轮 Retrieval baseline 先评正确页码命中 | 保留 gold answer，答案质量评测后置 |
+| O-09 | `report_as_of` 是正式结论截止日 | 晚于该日期的信息只能列为期后事项；发布日期未知的内容不得支持强时点结论 |
+| O-10 | 外部来源按 P3-B02 分级充分性规则使用 | A/B 级可单独支持一般事实；关键负面、主体重大变化、重大风险及关键行业规模/份额结论，至少需要 1 个直接支持的 A/B 级来源，或 2 个相互独立且内容一致的 C 级来源；单一 C 级只作线索或带限制的非关键说明，D 级不得作为关键结论唯一依据 |
 
 ### 0.3 Baseline Runner 已确认口径
 
@@ -60,6 +63,26 @@
 - `[已确认 F-05]` 财务冲突必须选择来源并说明理由，或补充更正材料；自动重算并通过完整回检后方可正式导出，不提供“忽略冲突”放行。
 - `[已确认 F-06]` 尽量减少中途交互。`[建议默认]` 使用一个集中待确认面板，批量处理已发现问题；独立工作继续，只有受影响的计算与结论等待确认，交互细则见 §4.3.1。
 - `[已确认 H-04]` 达到预算后保留已有结果；用户点击“继续生成”才追加有限预算，只处理未完成问题。必须明确告诉客户当前问题、停止原因、影响以及下一步动作；等待人工确认的问题不能靠追加预算绕过。
+
+### 0.5 2026-09-12 P3→P4 内容完整性架构修订（现行）
+
+本节是对本文原 Phase 3/4 接口的权威修订。历史 `ResearchOutcome`、评测结果和冻结产物继续保留，但以下规则优先于本文后续仍保留的旧式“单题短答直接进入章节”描述：
+
+| ID | 现行规则 | 实施含义 |
+|---|---|---|
+| G-01 | `TopicResearchPack` 是公司/行业等开放研究 Topic 从 P3 向 P4 的唯一正式内容交付物 | `ResearchOutcome` 只作为一次原子研究运行记录和兼容评测对象；P4 不得再只遍历 `answer.claims` 生成章节。财务确定性 Workflow 继续交付独立权威的 `FinancialFactPack` |
+| G-02 | `required_aspects` 是研究调度和完成判断的最小业务单元 | 一个宽问题必须在内部形成 aspect 待办，不因找到一条相关 Evidence 或写出一句答案而提前结束 |
+| G-03 | 命中后执行受控上下文扩读 | 同文档版本内按章节路径、相邻块/页、表题—表头—续表、明确交叉引用扩读；到章节边界、主题无关或预算上限即停止，禁止无界“往后读” |
+| G-04 | 预算按 Topic 复杂度动态分档且始终有硬上限 | 预算不足时保存已取得材料并明确未覆盖 aspect；不得只把统一单题预算调大，也不得无限循环 |
+| G-05 | 只有一条正式研究主链 | `SectionContract/Task → Worker编排外壳 → Harness Topic runtime → (Router → ToolRegistry)* → TopicResearchPack → Worker writer`；实验 topic research 可作为算法候选，但不得形成第二套运行时 |
+| G-06 | P4 同时保留原子事实和连贯表达 | `SectionClaim` 用于审计，`NarrativeParagraph`/表格用于人读；一个段落可由多条 Claim 支撑，但不得创造 Pack 中不存在的事实或数字 |
+| G-07 | 历史冻结结果不可回写 | Phase 2/3 gold、split、历史 run 和验收报告不修改；重整使用新 schema/policy/prompt 版本和新 run_id 独立评测 |
+| G-08 | Contract 与写作规格分责 | Contract 决定“研究什么、最低证据和缺口语义”；版本化 `SectionWritingSpec` / `ReportPresentationProfile` 决定“如何把 Topic 组合成小节、段落和表格”。禁止继续让 Prompt 或旧 Markdown 模板充当影子 Contract |
+| G-09 | Section 必须消费完整 Pack 集 | 每个 Section 只能消费与 `SectionTask.topic_ids`、任务/公司/时点/依赖指纹完全匹配的一组 Pack；缺失、重复、错配或 stale Pack 必须显式 gap/block，不能挑一个 Pack 写整章 |
+
+当前相近对象必须收敛而不能再新造第四套：Harness 拥有正式 `TopicResearchPack`；`ResearchOutcome` 是其原子输入；既有 `sections.material_bundle.TopicEvidenceBundle` 迁移为 Pack 内部材料视图或兼容适配器；实验 `sections.topic_research.TopicResearchPack` 不直接升格；`AspectCoverageResult` 与 `ExternalFunnelProjection` 只是 Pack 的审计投影，不是调度器或正式交付物。
+
+本轮具体实施、迁移和验收以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 为唯一任务书。
 
 ---
 
@@ -92,20 +115,20 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
 - 不把所有章节都改造成无限循环 Agent。
 - 不在第一阶段追求生产级多用户、权限、加密和高并发。
 
-### 1.4 当前代码基线中与 V2 直接相关的事实
+### 1.4 V2 启动时的历史 V1 代码基线（非当前实现状态）
 
-- 当前标准模板实际包含公司主体、财务、行业和综合授信建议，尚无项目分析。
-- 当前 PDF 索引已经保留页码、节段标题和文档类型，可作为 Evidence 迁移起点。
-- 当前检索为 Dense Retrieval + 文档类型加权 + 多查询去重，尚无 BM25、Router 和标准 EvidencePack。
-- 当前公司主体 Agent 使用预设的多组固定查询，研究目标和循环状态尚未显式化。
-- 当前 Synthesizer 会根据三份素材重写完整报告，V2 需要限制其只能基于 Claim 做综合。
-- 当前 Verifier 已实现数值、实体和时效检查，可拆分后纳入 Report Assurance。
-- 当前 `evals/` 主要验证代码行为，尚缺带 gold Evidence 和业务 rubric 的质量数据集。
-- 当前 `agents.ingest.run()` 仍为占位实现；V2 编排不应继续依赖这个未实现入口。
-- 当前 `financial.db.query_metric()` 对同公司、期间和科目的匹配记录求和，未按来源版本或合并/母公司口径隔离；多来源接入前必须迁移至已核准财务快照查询。
-- 当前 `external.web_search` 实际使用 DuckDuckGo Instant Answer 返回摘要，尚未提供正文快照与结构化发布日期；V2 外部研究需要独立适配和验收。
+- V1 标准模板包含公司主体、财务、行业和综合授信建议，当时尚无项目分析。
+- V1 PDF 索引已保留页码、节段标题和文档类型，后来成为 Evidence 迁移起点。
+- V1 检索是 Dense Retrieval + 文档类型加权 + 多查询去重，当时尚无 BM25、Router 和标准 EvidencePack；这些能力已在后续 V2 阶段实现。
+- V1 公司主体 Agent 使用预设查询，研究目标和循环状态尚未显式化。
+- V1 Synthesizer 根据三份素材重写全文；V2 已改为基于权威事实/Claim 的受约束生产方向。
+- V1 Verifier 只有数值、实体和时效检查，作为后续 Report Assurance 的迁移起点。
+- V1 `evals/` 主要验证代码行为；后续已增加 gold、Router、Harness、章节状态机等评测，但当前仍缺 P3R Topic Pack 与段落内容完整性评测。
+- V1 `agents.ingest.run()` 为占位实现；现行 V2 编排不得回退依赖它。
+- V1 `financial.db.query_metric()` 缺少来源版本与口径隔离；现行 Financial V2 已改用核准快照，V1 查询只作兼容能力。
+- V1 `external.web_search` 使用 DuckDuckGo 摘要；现行外部链已改为博查搜索、正文获取和不可变快照。
 
-这些是迁移基线，不表示必须立即重写所有现有模块。
+以上只解释 V2 为什么这样设计，不描述当前运行状态。当前状态以 `V2_TODO.md` 为准。
 
 ---
 
@@ -148,16 +171,26 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
       Report Planner / Section Tasks
                  │
                  ▼
-     Information Needs + Completion Rules
+          P4 Worker 编排外壳
+                 │
+       ┌─────────┴──────────┐
+       ▼                    ▼
+公司/行业 Harness       财务 Workflow
+ Topic Runtime          Python/SQL Rules
+       │                    │
+       ▼                    │
+Topic + Aspect 待办          │
+       │                    │
+       ▼                    │
+(Router → Tool Registry → Evidence/Structured/Web)*
+       │                    │
+       └─────────┬──────────┘
+                 ▼
+ TopicResearchPack / FinancialFactPack
                  │
                  ▼
-      Router → Unified Retrieval → Evidence Pack
-                 │
-       ┌─────────┼──────────┐
-       ▼         ▼          ▼
-  公司信用研究  财务分析    行业研究
-  Harness       Workflow   Harness
-       └─────────┴──────────┘
+       Worker writer 阶段
+  → Claims + NarrativeParagraphs + Tables
                  │
                  ▼
           Section Quality Gates
@@ -194,6 +227,14 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
 6. **综合不是重写。** Synthesizer 可建立跨章节关系，但不得创造新事实或新数字。
 7. **借款主体与实际控制人不得混同。** 借款主体是申请授信的法人；实际控制人用于识别控制权、治理和关联风险，不称为“真正借款人”。
 8. **页面状态不暴露模型思维链。** UI 展示阶段、工具、次数、耗时、错误和停止原因；内部 Trace 保存结构化动作和结果，不保存或展示隐藏推理过程。
+9. **先完成研究覆盖，再组织文字。** P3 负责把 Topic 的必答 aspect、材料、事实、冲突和缺口归拢成 Pack；P4 不得用写作 Prompt 弥补上游未研究的内容。
+10. **原子事实与完整叙述并存。** 小粒度 Claim 保证可验证，多 Claim 段落和表格保证可读性；禁止把“一条 Claim 一句话”的审计结构直接当成最终报告。
+11. **宽问题可以内部拆解，但不得产生影子 Contract。** 子 need 必须从正式 question/aspect/evidence requirement 派生并保留 parent identity，不得由样例公司、gold 页或手工 case 表决定。
+12. **安全门不等于研究能力。** fail-closed 负责阻止错误内容进入报告，但不能把缺少研究、上下文或来源的状态包装成“系统已完成”；内容完整性必须独立评测。
+13. **期间语言必须匹配事实类型。** 经营流量/事件使用“2025年度”“2025年内”或明确检索截止日；余额使用“截至2025年12月31日/2026年3月末”。除非章首已定义，不用含义模糊的“报告期内”替代具体期间。
+14. **篇幅服从内容，不设 8,000 字符硬上限。** 完整授信报告可按 2～3 万中文字符作为人工参考，但阶段验收看 Contract 覆盖、信息密度、可读性和引用，不靠压缩或凑字数过关。
+
+调用栈上，公司/行业 Worker 是 P4 编排外壳：它先调用 Harness Topic runtime，取得 `TopicResearchPack` 后再进入自身 writer 阶段。数据语义图将 Pack 画在“研究→写作”边界，不表示要新增第二个 Worker，也不允许 writer 绕过 Pack 直接检索、查私有库或联网。
 
 ### 3.2 页面输入与章节调度
 
@@ -227,30 +268,30 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
 
 ## 4. 报告结构与 Section Contracts
 
-这是 V2 最先需要冻结的产品层设计。已确认主题可作为实现依据；具体机器可读 CompletionRule 和 blocking 配置仍需形成首版后复核。
+机器可读 `SectionContract` v1 已存在并保留历史兼容，但真实纵向样本已证明其部分 aspect、来源角色、展示语义和 `not_found` 门槛不足以支持完整 Topic 研究。P3R 的 R1 必须发布兼容的 Contract v2，并对新增/变更业务语义做聚焦复核；禁止原地覆盖 v1 或让 Prompt/代码补出影子 Contract。
 
 ### 4.1 通用 Section Contract Schema
 
 ```python
 @dataclass
 class SectionContract:
+    contract_version: str
     section_id: str
     title: str
     purpose: str
-    required_topics: list[str]
-    key_questions: list[KeyQuestion]
-    evidence_requirements: list[EvidenceRequirement]
-    calculation_requirements: list[str]
-    analysis_requirements: list[str]
-    output_schema: str
+    required_topics: list[TopicContract]
+    output_requirements: list[OutputRequirement]
     completion_rules: list[CompletionRule]
-    evaluation_rules: list[str]
-    allowed_tools: list[str]
+    evaluation_rules: list[EvaluationRule]
+    allowed_capabilities: list[str]
     research_policy: str  # workflow | harness | conditional_harness
+    missing_policies: list[MissingPolicy]
 ```
 
-`[已确认]` 第一阶段目录和章节主题按本节执行。具体缺失项的 blocking 等级仍需通过 Section Contract 配置逐项落地。
-  
+`[已确认]` 第一阶段目录和章节主题按本节执行；SC-01～SC-05 的 blocking 业务语义已固化。R1 的 Contract v2 要细化 aspect/evidence/source/display/not_found，不重开已经确认的章节范围。
+
+外部能力在 Contract v2 中必须显式区分：`search_external_sources` 授权候选搜索，`fetch_external_content` 授权模型从允许候选中选择正文获取；fetch 成功后的 `snapshot_external_source` 仍是 Rules-internal 原子步骤，不暴露为模型动作，但必须受 fetch 授权、Registry、预算和审计约束。v1 当前只列 search，是已知兼容缺口，R1 必须迁移 schema/validator/Contract 后，R4 才可依此闭环。
+
 ### 4.2 公司信用研究
 
 **目的**：确认申请授信的法人主体是否合法存续、控制权是否清晰、经营是否有效，以及其业务和经营能力能否支持还款。最终回答“这是一家什么样的企业、靠什么挣钱、主要信用风险是什么”。实际控制人用于判断控制权和治理风险，不等同于借款主体。
@@ -281,8 +322,8 @@ class SectionContract:
 - 重大风险检查必须覆盖破产/失信、重大诉讼、逾期/违约、处罚、退市风险以及所属行业是否为淘汰/禁止类；即使无发现也要记录检索范围和截止日期。
 - 每个关键事实绑定 Evidence ID；每个风险判断回指支持事实。
 
-`[已确认 C-01/C-02]` 上述十二个主题构成第一版公司信用研究 Contract；客户/供应商集中度、关联交易、债务和担保均为必答。  
-`[已确认 O-03/O-04]` 企业信息 MCP 不可用时允许降级至交易所、国家企业信用信息公示系统等公开来源并提示；主体或控制关系异常时保留已有结果、阻止正式版并转人工确认。  
+`[已确认 C-01/C-02]` 上述十二个主题构成第一版公司信用研究 Contract；客户/供应商集中度、关联交易、债务和担保均为必答。
+`[已确认 O-03/O-04]` 企业信息 MCP 不可用时允许降级至交易所、国家企业信用信息公示系统等公开来源并提示；主体或控制关系异常时保留已有结果、阻止正式版并转人工确认。
 `[待技术细化]` “未发现重大风险”仍需转化为可执行搜索清单、来源优先级、回溯期限和完成规则，仅列风险名称还不足以证明检索覆盖。
 
 ### 4.3 财务分析
@@ -327,10 +368,10 @@ Excel/PDF → 表格与附注抽取 → 标准科目/结构化明细 → SQLite
 - 贸易融资：按业务类型选择关键科目；例如国内保理重点分析应收账款和销售收入。
 - 固定资产贷款/项目贷款：第一阶段仅从公司财务角度分析资本实力和现有项目现金流；第二阶段再运行独立项目分析。
 
-`[已确认 F-01]` 保留 V1 指标，并增加有息负债、EBITDA、自由现金流、盈利质量和杜邦分析；正式实现前需逐项冻结公式与源科目。  
-`[已确认 F-02]` 统一重大科目阈值由 20% 调整为 15%。  
-`[已确认 F-03]` 雪人股份样例仅作为分析深度参考，稳定结构为资产负债表、利润表、现金流量表和综合结论。  
-`[已确认 F-04]` 第一阶段不做完整同行业财务对标。重资产 70%、轻资产 40% 的资产负债率暂作为关注提示，是否为否决线见 O-06。  
+`[已确认 F-01]` 保留 V1 指标，并增加有息负债、EBITDA、自由现金流、盈利质量和杜邦分析；正式实现前需逐项冻结公式与源科目。公式注册表支持某指标或明确返回 unavailable，不等于该指标必须出现在每份正文；required/optional/diagnostic/not_applicable 及展示位置由版本化 Contract/display policy 决定。
+`[已确认 F-02]` 统一重大科目阈值由 20% 调整为 15%。
+`[已确认 F-03]` 雪人股份样例仅作为分析深度参考，稳定结构为资产负债表、利润表、现金流量表和综合结论。
+`[已确认 F-04]` 第一阶段不做完整同行业财务对标。重资产 70%、轻资产 40% 的资产负债率暂作为关注提示，是否为否决线见 O-06。
 `[已确认 O-01/O-02]` 第一阶段只处理电子财务 PDF；多来源数字冲突时保留各来源值，生成 reconciliation issue 并转人工确认，不自动猜测口径。
 
 #### 4.3.1 财务冲突的集中处理与最少交互
@@ -371,9 +412,9 @@ Excel/PDF → 表格与附注抽取 → 标准科目/结构化明细 → SQLite
 - 结论必须落到借款人的收入、成本、资本开支或现金流。
 - 事实与分析判断分开表达。
 
-`[已确认 I-01]` 行业研究必须落到最相关的细分行业。多主营企业采用“整体行业 + 核心细分行业”；聚焦型企业以最细分产品为主体，同时保留必要的上位行业背景。  
-`[已确认 I-02]` 强制选择 3～5 家可比公司；可比口径、规模和竞争数据以核心细分行业为主。  
-`[已确认 I-03]` 用户材料优先，其他公开互联网信息可补充；仍需在实现前形成来源优先级和禁用来源规则。  
+`[已确认 I-01]` 行业研究必须落到最相关的细分行业。多主营企业采用“整体行业 + 核心细分行业”；聚焦型企业以最细分产品为主体，同时保留必要的上位行业背景。
+`[已确认 I-02]` 选择 3～5 家可比公司是研究目标而非完成门禁；不足 3 家时须说明限制并使用合理相近样本，无合理可比时明确不可比，禁止为凑数量选择不相关公司。可比口径、规模和竞争数据以核心细分行业为主。
+`[已确认 I-03/O-10]` 用户材料优先，其他公开互联网信息可补充；外部来源优先级、关键结论最低来源和强时点日期门按 §0.2 O-09/O-10 与 §19.5 SC-03 执行，R1 将其固化为唯一版本化机器 policy。
 `[已确认 I-04/O-05]` 新闻与行业规模数据默认使用近 2 年信息；2 年是默认检索回溯窗口，不是历史事实的硬失效线。
 
 ### 4.5 项目分析
@@ -543,6 +584,127 @@ class EvidencePack:
     retrieval_trace_id: str
 ```
 
+### 5.4.1 TopicResearchPack（P3→P4 正式交付）
+
+`EvidencePack` 回答“一次 InformationNeed 找到了什么”；`TopicResearchPack` 回答“一个正式 Topic 为写成完整章节已经研究了什么、还缺什么”。它由 Harness 所有并持久化，是 P4 公司/行业 Worker 的正式内容输入。
+
+```python
+@dataclass
+class AspectResearchResult:
+    aspect_id: str
+    question_ids: list[str]
+    requirement_text: str
+    priority: str
+    evidence_requirements: list[str]
+    status: str                 # covered | partial | not_found | blocked | not_applicable
+    supported_fact_ids: list[str]
+    material_ids: list[str]
+    attempted_need_ids: list[str]
+    unresolved_ids: list[str]
+    not_found_audit_id: str | None
+
+@dataclass
+class ResearchMaterial:
+    material_id: str
+    material_type: str          # evidence_span | table_context | structured | external_snapshot
+    source_identity: str
+    locator: dict
+    content_or_payload_ref: str
+    context_parent_id: str | None
+    content_hash: str
+    authority_status: str
+
+@dataclass
+class SupportedFact:
+    fact_id: str
+    text: str
+    fact_type: str
+    aspect_ids: list[str]
+    citation_refs: list[CitationRef]
+    source_authority: str       # evidence | financial_snapshot | external_snapshot
+    value_identity: dict | None # Decimal字符串、单位、指标/科目、期间、scope、值类别
+    semantic_tags: list[str]
+    period: str | None
+    scope: str | None
+    confidence: str
+
+@dataclass
+class ResearchConflict:
+    conflict_id: str
+    fact_ids: list[str]
+    category: str
+    detail: str
+    status: str
+
+@dataclass
+class NotFoundAudit:
+    audit_id: str
+    aspect_ids: list[str]
+    policy_version: str
+    required_source_scope: list[str]
+    attempted_source_types: list[str]
+    valid_attempt_count: int
+    searched_need_ids: list[str]
+    context_expansion_attempted: bool
+    alternative_candidate_ids: list[str]
+    alternative_sources_attempted: list[str]
+    time_window: dict
+    unattempted_candidate_ids: list[str]
+    budget_exhausted: bool
+    qualification_reasons: list[str]
+    qualified: bool
+
+@dataclass
+class ResearchGap:
+    unresolved_id: str
+    aspect_ids: list[str]
+    reason_code: str
+    detail: str
+    attempted_need_ids: list[str]
+    blocking: list[str]
+    impact: str
+    not_found_audit_id: str | None
+
+@dataclass
+class TopicResearchPack:
+    schema_version: str
+    pack_id: str
+    run_id: str
+    task_id: str
+    company_id: str
+    report_as_of: str
+    contract_version: str
+    contract_fingerprint: str
+    source_policy_version: str
+    section_id: str
+    topic_id: str
+    question_ids: list[str]
+    aspect_results: list[AspectResearchResult]
+    materials: list[ResearchMaterial]
+    facts: list[SupportedFact]
+    outcome_refs: list[str]
+    external_funnel: dict
+    conflicts: list[ResearchConflict]
+    not_found_audits: list[NotFoundAudit]
+    unresolved: list[ResearchGap]
+    budget_policy: dict
+    cumulative_usage: dict
+    stop_reason: str | None
+    dependency_fingerprint: str
+```
+
+硬规则：
+
+- `pack_id` 由规范化业务内容和依赖指纹派生，不含时间戳、call_id 或模型隐藏推理；同输入同内容幂等复用，内容或依赖变化产生新版本。
+- `schema_version/company_id/report_as_of/contract_version/contract_fingerprint/source_policy_version/task_id/topic_id` 是显式身份，不得只藏在不透明的 dependency hash 中；P4 必须逐字段校验后再消费。
+- 搜索结果的 title/URL/snippet 仅是候选导航；只有经过 inspect 或 fetch→snapshot、并通过权威校验的正文/结构化记录才能进入 `materials` 和 `facts`。
+- 一个材料可以支持多个 aspect，一个 aspect 也可以由多个材料共同支持；不得把“一条命中”机械等同于整个 aspect covered。
+- 本地文本命中后允许受控扩读同版本相邻块、同章节和表格上下文；扩读范围、停止原因与未读范围必须进入审计字段。
+- 财务 `FinancialFactPack` 保持独立权威来源，但对 P4 暴露与 `TopicResearchPack` 可组合的只读事实视图；PDF 附注 Evidence 事实不得伪装成 FinancialSnapshot 事实。
+- 所有可能进入报告的数字统一投影为可查询的 `SupportedFact.value_identity`/财务事实只读视图，供各 Topic 复用；这是一层统一 Fact Registry 读模型，不是把 FinancialSnapshot、Evidence 附注、授信/担保/研发和外部数据强行写进同一权威表。来源类型、原始定位、期间、单位、scope 与语义类别必须保留，LLM 不能把不同权威或口径的同值互换。
+- `AspectCoverageResult` 和 `ExternalFunnelProjection` 可以从 Pack 派生或作为其审计字段，但不能替代 Pack 的材料、事实、预算和未解决项。
+- aspect 级 `not_found` 只有在对应 `NotFoundAudit.qualified=true` 时成立，并向历史 KeyQuestion 状态投影为 `NOT_FOUND_AFTER_SEARCH`；不得机械继承原子 outcome。预算耗尽、存在未合理尝试候选或未达到来源/扩读/替代策略时只能是 `partial + ResearchGap`。
+
 ### 5.5 Claim 与 Citation
 
 ```python
@@ -567,6 +729,59 @@ class Citation:
     snippet: str
 ```
 
+```python
+@dataclass
+class NarrativeParagraph:
+    paragraph_id: str
+    section_id: str
+    topic_id: str
+    paragraph_role: str        # overview | fact_pattern | analysis | risk_implication | limitation
+    text: str
+    supporting_claim_ids: list[str]
+    citation_ids: list[str]
+```
+
+`Claim` 是最小可审计断言，`NarrativeParagraph` 是面向客户经理的表达单元。段落可合并多条已支持 Claim 并增加不创造事实的衔接与分析，但每个事实句和数字仍必须能回指 Claim/Citation；Renderer 不得直接把 Claim 列表逐条打印成报告。
+
+研究 Topic 是调度与审计单元，不等于最终报告小节。P4 必须增加版本化、公司无关的写作与展示规格：
+
+```python
+@dataclass(frozen=True)
+class SectionWritingSpec:
+    spec_version: str
+    section_kind: str
+    subsection_specs: tuple[SubsectionWritingSpec, ...]
+    display_policy_version: str
+    period_language_policy: dict
+    citation_style: str
+    soft_length_guidance: dict
+
+@dataclass(frozen=True)
+class SubsectionWritingSpec:
+    subsection_id: str
+    title: str
+    topic_ids: tuple[str, ...]
+    paragraph_roles: tuple[str, ...]
+    table_specs: tuple[str, ...]
+    required_content_roles: tuple[str, ...]
+    optional_content_roles: tuple[str, ...]
+
+@dataclass(frozen=True)
+class ReportPresentationProfile:
+    profile_version: str
+    section_order: tuple[str, ...]
+    section_writing_spec_versions: dict[str, str]
+    front_matter_policy: dict
+    reference_policy: dict
+    appendix_policy: dict
+```
+
+- Contract 决定 Topic/aspect、证据、计算和缺口语义；WritingSpec 决定多个 Topic 如何合并成业务所需的小节（不与 Topic 数机械一一对应）、每个小节采用何种段落/表格和哪些内容必须展示；PresentationProfile 决定整份报告的章节顺序、前言、引用与附录。
+- WritingSpec/PresentationProfile 必须版本化并进入 Section/report dependency fingerprint；不得包含公司名称、证券代码、固定事实、固定页码或 gold。
+- P4 对一个 Section 的输入是与 `SectionTask.topic_ids` 完全匹配的一组 current Pack，而不是任意一个 Pack。缺少、重复、stale 或任务/公司/时点/Contract 指纹错配的 Pack 必须显式 `gap/block`。
+- Prompt 只能执行已冻结的 WritingSpec，不能自行发明目录；旧 `templates/standard.md`、`templates/simple.md` 和 `publication_editor.txt` 不得成为 V2 影子 Contract/写作规格。
+- 软篇幅用于控制信息密度，不作为截断或通过门；不得为了达成字数删除 required aspect 或关键风险。
+
 `[已确认 C-04]` 关键主张强制引用；背景性描述允许段落级引用。
 
 ### 5.6 ResearchState
@@ -589,6 +804,8 @@ class ResearchState:
     stop_reason: str | None
     checkpoint_version: int
 ```
+
+`ResearchState` 继续作为单个原子 ResearchOutcome 的兼容状态，但正式 Topic 研究必须增加由同一 Harness 管理的 `TopicResearchState`：保存正式 aspect 待办队列、已取得材料/事实、子 need 关系、每 aspect 尝试、Topic 级累计预算与 Pack checkpoint。它不是新的 Agent，也不得绕过现有 Router、ToolRegistry、Retriever、外部快照或引用权威校验。单题结束不代表 Topic 结束；只有全部必需 aspect 达到 `covered/not_found/blocked/not_applicable` 等可解释终态，或 Topic 硬预算用尽，才可提交 `TopicResearchPack`。
 
 ### 5.7 ProgressEvent 与 Checkpoint
 
@@ -653,7 +870,9 @@ class VerificationIssue:
 | `InformationNeed` | 内部 ID、依赖表示、优先级实现 | 从真实报告要求拆出的标准问题集 |
 | `RouteDecision` | 路由字段、reason code、fallback 实现 | 通常不需要逐字段确认；只需确认外部研究边界和成本限制 |
 | `EvidencePack` | 排序、去重、压缩和 trace 字段 | 关键结论所需的最低来源数量/类型 |
+| `TopicResearchPack` | 稳定 ID、材料/事实结构、持久化、预算和审计字段 | required aspect 的业务含义、最低证据与可接受缺口 |
 | `Claim/Citation` | ID、图谱关系和渲染方式 | 哪些陈述强制引用、引用显示粒度 |
+| `NarrativeParagraph` | Claim 映射、段落身份和渲染实现 | 章节表达深度、哪些风险判断必须显式呈现 |
 | `ResearchState` | 状态字段、checkpoint 和恢复机制 | 最大研究轮数、预算、是否允许动态追加问题 |
 | `ProgressEvent/Checkpoint` | 状态枚举、事件存储、恢复和幂等实现 | 用户可见阶段名称、哪些异常必须等待人工处理 |
 | `ToolResult` | 错误码、状态值和通用返回封装 | 通常无需确认；工具可访问的外部数据边界需确认 |
@@ -859,49 +1078,59 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 5. 管理迭代、token、时间和外部搜索预算。
 6. 分类错误、重试、降级和失败终止。
 7. 保存 checkpoint，支持从最近状态恢复。
-8. 执行完成规则和章节 Evaluator。
+8. 执行 Topic completion 与 Pack quality gate；章节正文生成后的 Section Evaluator 属于 P4。
 9. 保存完整 trace 与 stop reason。
 
 ### 9.2 Loop
 
 ```text
-初始化 ResearchState
+初始化 TopicResearchState 与正式 aspect 待办
       ↓
-选择当前 Information Need
+选择仍未终态的最高优先级 aspect
       ↓
-检查已有 Evidence 是否满足要求
-      ├─ 满足 → 形成 Claim
-      └─ 不满足 → 模型选择工具
+检查已验证材料/事实是否满足该 aspect 的证据要求
+      ├─ 满足 → 标记 covered，保留全部相关材料与原子事实
+      └─ 不满足 → 从正式要求派生 InformationNeed
                        ↓
-                  执行并校验结果
+              Router → ToolRegistry 执行
                        ↓
-                  更新 State/错误/预算
+          命中后按边界 inspect / 扩读 / 表格恢复
                        ↓
-            Completion Rules 是否满足？
-              ├─ 否 → 下一轮
-              └─ 是 → Section Evaluator
-                           ├─ 具体缺口 → 定向补查
-                           └─ 合格/预算终止 → 输出
+            抽取并校验事实，更新覆盖与预算
+                       ↓
+              Topic Completion 是否满足？
+              ├─ 否 → 下一未覆盖 aspect 或补检
+              └─ 是/硬预算停止 → 提交 TopicResearchPack
+                                      ↓
+                          P4 Section Worker / Evaluator
 ```
+
+宽问题的初始查询可以同时覆盖多个 aspect；系统应把一次结果映射回所有被支持的 aspect，而不是机械地“每个 aspect 必搜一次”。只有未覆盖 aspect 才触发定向查询。命中一页后，Harness 应在明确边界内扩读上下文，以恢复定义、列表、业务过程、原因、表头/单位和续表；扩读不是新建平行检索器，仍经既有 Evidence/工具接口并落 Trace。
+
+外部研究按“查询意图 → 候选排序 → fetch → snapshot → 事实采纳”执行。候选是否值得抓取按来源等级、日期、域名独立性和目标 aspect 判断；低价值未抓候选不得永久阻断为另一未覆盖 aspect 发起新查询。单一 URL、snippet 或 D 级来源不能让 aspect 完成。
 
 ### 9.3 停止条件
 
 至少包括：
 
-- 所有必答 Information Need 已完成或显式标为 unresolved。
+- 所有 required aspect 已进入有证据支持的 `covered`，或进入可解释的 `partial/not_found/blocked/not_applicable` 终态；完成一个 Information Need 不能代替 Topic 完成。
 - 关键 Claim 达到最低证据数量和来源要求。
 - 无新的高价值检索动作。
 - 达到最大轮数、token、时间或外部搜索预算。
 - 连续两轮无新增 Evidence。
 - 出现不可恢复错误或必须人工确认事项。
 
-`[已确认 H-01]` 最大研究轮数：公司 6、行业 6；第二阶段项目材料内研究最多 4 轮。  
+`[已确认 H-01，2026-09-12 修订]` 历史单题公司/行业 6 轮作为 Phase 3 frozen 评测基线保留；正式内容生产改为版本化的 Topic 复杂度预算。简单字段题可沿用小预算，多 aspect 本地题、混合结构化题和外部研究题分别提高上限，但每档必须同时限制 rounds、tool calls、local/external searches、fetch/snapshot、tokens 和 elapsed time。预算由 aspect 数、来源类型和未覆盖缺口确定，不由公司名称、case_id 或 gold 决定。
 `[已确认 H-02]` 模型可以追加 Information Need，但必须受章节边界、允许工具和预算约束。  
 `[已确认 H-03]` UI 提供“继续生成”。未完成任务的中间产物最长保留 5 天；报告导出后及时清理可再生的运行中间态。最终报告、版本、Evidence 和引用长期保留。
 
 `[建议默认]` 一轮定义为一次规划动作及其有上限的工具执行批次，可以覆盖多个 Need，不等于完成一个主题。每批 policy 必须冻结 max_iterations、max_tool_calls、max_tokens、max_elapsed_ms、max_external_calls、max_retries 和 max_repair_rounds；重试、定向返工和 Evaluator 消耗均计入预算。正式运行不接受无限值；具体数值由小规模运行校准后版本化。
 
 `[已确认 H-04]` 达到任一预算上限即保存 checkpoint，状态为 paused，不能标记为质量通过。点击“继续生成”才追加一批有限预算，默认沿用对应章节单批上限；保存 batch_id、追加记录、每批及全任务累计用量，累计值不得重置。只处理 unresolved Need 及其失效下游，不重做仍有效的已完成工作。
+
+以下情形一律不能视为研究充分：任意相关 Evidence 命中、任意一个 Claim 生成、任意一条外部搜索结果返回、或模型主动选择 ANSWER。完成判断必须逐 required aspect 使用已验证事实与引用；预算耗尽时可以交付 `PARTIAL` Pack，但必须保留已取得材料，并列明具体缺口、已查范围、未读范围和下一步建议。
+
+`not_found` 不是“没看到结果”的默认状态。只有执行了 Contract 规定的来源范围、最低有效尝试、必要的上下文扩读与替代来源/候选策略后，才允许标为 `not_found`；检索尚未真正执行、候选尚未合理尝试、fetch 全被低价值候选挤占或仅因预算耗尽时，必须标为 `partial` 并记录具体 gap，不能提前关门。
 
 继续之前必须展示：当前缺什么、已查哪些材料/来源、为何停止、影响哪些结论或导出、下一批拟做什么、追加预算及其时间/调用上限。时间上限不是完成时间承诺。资料不足时明确提示需补充的材料；waiting_user 状态提供“处理待确认事项/补充材料”入口，追加预算不能解除该阻断。独立章节仍可按各自状态继续。
 
@@ -1055,6 +1284,13 @@ V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告�
 | Section | Coverage、Faithfulness、Citation Correctness、信用相关性 | 章节 rubric + 参考证据 |
 | Full Report | 数值准确、实体准确、时效、跨章节一致、决策充分性 | 报告级 case + 专家 rubric |
 
+P3R/P4R 必须在原六层之间增加可定位的内容吞吐指标，而不是只看最终 FULL 或 `eval 0 failed`：
+
+- **研究完整性**：required aspect 终态率、supported aspect coverage、Pack 事实保留率、命中后上下文扩读有效率、材料跨来源多样性。
+- **外部研究价值**：每 aspect 候选/fetch/snapshot/adopt 数、A/B/C/D 分布、日期合格率、失败发生在 query/provider/fetch/snapshot/policy 的具体层。
+- **章节表达**：Pack fact→Claim 保留率、Claim→NarrativeParagraph 覆盖率、表文一致率、宽 Topic 的结构完整性和人工可读性 rubric。
+- **安全正确性**：错误事实、无来源数字、引用不可回查、期间/单位/主体错配进入正式正文必须为 0；安全正确性和研究完整性分别报告，不能互相替代。
+
 ### 12.2 在线运行指标
 
 - 每阶段 latency 和总 latency。
@@ -1062,6 +1298,9 @@ V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告�
 - 每工具调用成功、空结果、重试和降级次数。
 - 每章节迭代轮数和 stop reason。
 - Evidence 数量、引用覆盖率和 unresolved 数量。
+- Topic 的 aspect covered/partial/not_found 分布、Pack material/fact 数、上下文扩读范围及预算利用率。
+- 外部漏斗的候选、抓取、快照、采纳和拒绝原因分布。
+- Pack→Claim→Paragraph 各层保留率；高优先级事实被 Writer 丢弃须形成 issue。
 - Evaluator 返工率、返工后改善率。
 - Assurance 问题数量、blocking 数量和人工确认数量。
 
@@ -1477,7 +1716,7 @@ def load_contracts(path: str) -> list[SectionContract]: ...
 CLI：
 
 ```bash
-python -m contracts.loader templates/contracts/standard.yaml
+python -m contracts.loader templates/contracts/standard_v2.yaml
 ```
 
 依赖：仅 schema 和配置文件。
@@ -1505,7 +1744,7 @@ def plan(job: ReportJob, contracts: list[SectionContract]) -> ReportPlan: ...
 CLI：
 
 ```bash
-python -m planning.report_planner --job data/cache/job.json --contracts templates/contracts/standard.yaml
+python -m planning.report_planner --job data/cache/job.json --contracts templates/contracts/standard_v2.yaml
 ```
 
 ### 16.4 `routing.router`
@@ -1532,18 +1771,25 @@ CLI：
 python -m retrieval.retriever_v2 --company 300750 --need evaluation/datasets/retrieval/sample.json
 ```
 
-### 16.6 `harness.runtime`
+### 16.6 `harness.runtime` 与 `harness.topic_runtime`
 
 ```python
-def run(task: SectionTask, policy: ResearchPolicy) -> SectionResult: ...
-def resume(run_id: str) -> SectionResult: ...
+# harness.runtime：历史原子执行与兼容评测入口
+def run_question(need: InformationNeed, policy: ResearchPolicy) -> ResearchOutcome: ...
+
+# harness.topic_runtime：P3R 正式生产入口
+def run_topic(task: SectionTask, topic_id: str, policy: TopicResearchPolicy) -> TopicResearchPack: ...
+def resume_topic(pack_run_id: str) -> TopicResearchPack: ...
 ```
+
+`harness.runtime.run_question` 是历史评测和原子动作兼容入口；`harness.topic_runtime.run_topic` 是 P3R 正式生产入口。Topic runtime 可以调用原子执行器，但两者必须复用同一 Router、ToolRegistry、动作执行、证据权威校验和 Trace，不允许 `sections.topic_research` 再实现平行搜索循环。`resume_topic` 只处理仍未终态的 aspect，并保留累计预算。若为兼容性在 `harness.runtime` re-export Topic API，必须只做薄转发且由测试证明不存在第二份实现。
 
 CLI：
 
 ```bash
-python -m harness.runtime --task data/cache/tasks/company_subject.json
-python -m harness.runtime --resume <run_id>
+python -m harness.runtime --need data/cache/needs/company_subject.json
+python -m harness.topic_runtime --task data/cache/tasks/company.json --topic company_business --out data/cache/packs/
+python -m harness.topic_runtime --resume <pack_run_id>
 ```
 
 ### 16.7 `assurance`
@@ -1642,16 +1888,20 @@ python -m evaluation.run_baseline \
 - ResearchState、Loop、预算、错误和 checkpoint。
 - 公司与行业 Policy。
 - 可真实调用的外部搜索/正文/快照适配器，包含访问失败与空结果区分。
+- 单题 ResearchOutcome 兼容评测与 TopicResearchPack 正式交付。
+- 由 required aspects 驱动的缺口调度、受控上下文扩读、Topic 级动态有界预算和材料/事实持久化。
 - Harness eval。
 
-退出条件：Agent 能在固定预算内停止，失败可恢复，trace 可回放；停止页面明确当前问题及后续动作，点击继续后仅追加有限批次且累计预算保留，waiting_user 不被继续按钮绕过。
+历史退出条件（固定预算停止、恢复、trace、安全门）继续有效。生产内容能力追加退出条件：至少用本地叙述、本地表格/附注、结构化财务、外部时效、事件/负面核验五类 Topic 验证 Pack；命中后扩读、跨 Evidence 归拢、逐 aspect 覆盖和缺口均可审计；P4 不再依赖单题简短答案补全内容。
 
 ### Phase 4：第一阶段章节契约化
 
 产出：
 
-- 公司、财务、行业 Worker 按 Contract 输出 Claim。
+- 公司、财务、行业 Worker 按 Contract 消费 TopicResearchPack/FinancialFactPack，输出 Claim、NarrativeParagraph、表格和 Unresolved。
 - Section Evaluator 和质量门。
+
+章节关闭必须同时满足安全正确性与内容完整性：必需 aspect 有明确覆盖或缺口；正文不是 Q&A/Claim 清单；主营业务、行业情况、重大事项等宽主题应体现 Pack 中已验证的构成、过程、变化、原因和风险传导。不能用“没有错误事实”替代“完成了该主题研究”。
 
 项目分析作为产品第二阶段单独排期，在固定资产贷款/项目贷款分支中实施，不阻塞 V2 第一阶段。
 
@@ -1698,7 +1948,7 @@ python -m evaluation.run_baseline \
 - [x] D-01～D-08：阶段范围、报告目录、综合评价边界、输入类型和导出门禁。
 - [x] C-01/C-02/C-04：公司研究主题、必答项和引用粒度。
 - [x] F-01～F-04：财务结构、指标扩充、15% 重大性阈值、暂不做完整同业对标。
-- [x] I-01～I-04：细分行业深度、强制可比公司、公开来源和 2 年时效设置。
+- [x] I-01～I-04：细分行业深度、可比公司目标与不足时降级、公开来源和 2 年时效设置。
 - [x] P-01～P-05：第二阶段项目材料、预测 Excel、IRR/盈亏平衡点、压力情景和触发条件。
 - [x] S-01～S-03：只评价用户方案，不主动设计新方案，不自创评级。
 - [x] E-01～E-03：表格结构、网页快照和 Evidence 本地长期版本化保存。
@@ -1708,7 +1958,7 @@ python -m evaluation.run_baseline \
 - [x] V-01～V-03：blocking、视觉提示和修复后完整复检。
 - [x] EV-01/EV-02/EV-04：已提供 41 问及页码，不安排第二人工评审。
 - [x] A-01：接受新增 V2 一级目录。
-- [x] O-01～O-08：电子 PDF 边界、冲突处理、外部核验降级、异常门禁、时效窗口、风险阈值、Evidence 删除和首轮 Retrieval 评测范围。
+- [x] O-01～O-10：电子 PDF 边界、冲突处理、外部核验降级、异常门禁、时效窗口、风险阈值、Evidence 删除、首轮 Retrieval 评测范围、正式结论截止日及外部来源充分性。
 - [x] SC-01～SC-05：Section Contract 阻断边界、财务最低分析基础、行业来源/代理/可比公司、综合影响范围、other 授信类型处理，全部正式确认（规则与确认状态固化于 `contracts/sc_decisions.yaml`，见 §19.5）。
 
 ### 19.2 Baseline 已确认事项与后续 Contract 复核
@@ -1717,25 +1967,23 @@ python -m evaluation.run_baseline \
 - [x] B-02：external-only 排除出本地 Retrieval 总分，混合题只评价本地部分。
 - [x] B-03：`Macro RequiredPageCoverage@10` 等权，不按 P0/P1 人为加权；同时强制展示 P0 `RequiredPageCoverage@10` 独立关键指标。
 - [x] B-04/B-05：全部必需本地页可靠映射后整题参评；41问全部页码为且关系。
-- 后续在形成第一版 `SectionContract` 后，需要你按实际授信报告使用习惯复核必答问题、阻断条件和允许“待补充”的边界。
+- Phase 0B 的 `SectionContract` v1 及 SC-01～SC-05 已完成业务复核。P3R 的 R1 必须基于真实内容缺口重新审计全部 52 问的 aspect/evidence/source/display/not_found 语义，发布兼容 Contract v2，并对新增/变更语义进行一次聚焦业务复核；不覆盖 v1 或历史指纹。
 
-### 19.3 技术方下一步需要细化但无需你先设计字段
+### 19.3 历史技术拆分（已落地，不是当前待办）
 
-- 将公司研究十二个主题拆成可执行 KeyQuestion 和 CompletionRule。
-- 冻结新增财务指标的公式、科目依赖、口径和缺失值规则。
-- 建立财务 `SourceFinancialRecord` 和 reconciliation schema。
-- 将 41 问页码规范化，并完成 V2 route 标签映射。
-- 建立企业核验来源适配层和工具错误码。
-- 将 §9.5 的页面阶段、状态事件和 checkpoint 落成接口及存储设计。
+- 公司/行业主题已拆为 KeyQuestion 和 CompletionRule；P3R R1 只做粒度与来源充分性审计，不重新创建一套 Contract 系统。
+- Financial V2 的公式、科目依赖、来源、对账、核准快照和缺失值规则已落地；现行口径继续以 `FORMULA_REVIEW.md` 为准。
+- 41 问页码、route 标签、Router、Evidence、工具错误码、状态事件和 checkpoint 已形成历史冻结基线；P3R 在其上扩展 Topic 级调度，不回写 frozen 结果。
+- 当前尚未落地的对象、顺序和验收只看 §20、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md` 与 P3R/P4R 权威任务书。
 
-### 19.4 技术方可以自行决定
+### 19.4 技术实现自由度（受当前任务书与冻结边界约束）
 
 - dataclass 的字段拆分和内部命名。
 - BM25 的本地实现方式。
-- RRF 的具体参数，先通过 eval 调整。
+- 新增算法参数可通过独立 eval 决定；已经冻结的 RRF/Router 参数不得借本条重新调优。
 - Trace 文件格式和 span ID 生成方式。
 - checkpoint 的序列化实现。
-- V1 适配器的具体代码组织。
+- V1 兼容适配器的内部组织，但不得让 V1 路径重新成为 V2 正式内容主链。
 
 ### 19.5 SC-01～SC-05 最终规则（Phase 0B 固化）
 
@@ -1744,7 +1992,7 @@ python -m evaluation.run_baseline \
 
 - **SC-01 公司信用**：主体/股票代码/材料主体无法一致确认 → `JOB_BLOCKED`；主营业务完全无法确认 → `SECTION_BLOCKED`；控股股东或实际控制关系无法确认、重大债务/金融机构借款/对外担保因材料明显缺失无法核实 → `REPORT_BLOCKED`；合法无实际控制人 → `SATISFIED`+`NONE`；已执行检索未发现 → `NOT_FOUND_AFTER_SEARCH`+`NONE`（记录检索范围/来源/截止日期，不得写“确定不存在”）；客户/供应商名称依法未披露但集中度已披露 → `SATISFIED`+`NONE`；股权激励不适用 → `NOT_APPLICABLE`+`NONE`；研发/新业务/管理层履历等非核心不足 → 缺口预览不阻断。
 - **SC-02 财务**：最低正式分析基础 = 最新完整年度三张主表 + 审计意见；趋势分析原则上覆盖近三年；最新季度/半年可用则纳入，否则披露缺口、不一刀切；不要求三份独立审计报告（可从历年年报/最新年报比较披露取得）。缺最新完整年度任一主表、或报告期间/金额单位/合并或母公司口径无法确认 → `SECTION_BLOCKED` + `REPORT_BLOCKED`（复合）；关键数字未解决冲突 → 暂停受影响计算与 Claim，同时 `REPORT_BLOCKED`；个别历史期间/附注明细/非关键字段缺失 → 缺口预览；缺分母不得计算、不得 LLM 补算。
-- **SC-03 行业**：来源 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）；优先 A/B，C 可补充，D 不得作为关键结论唯一依据，来源等级低不自动阻断。代理指标记录六项：原目标指标/实际替代指标/替代理由/来源日期/口径/局限性。缺单一数字 → `NOT_FOUND_AFTER_SEARCH`+`NONE`；仅核心内容整体不足（无法确定所属行业/无法形成基本供需竞争政策判断/无法说明风险传导/检索后无替代分析）才 `SECTION_BLOCKED`。可比公司 3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比；不因数量不足自动 `REPORT_BLOCKED`、不强行选不可比公司）。
+- **SC-03 行业**：来源 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）。A/B 级来源可单独支持一般事实性结论；关键负面结论、主体重大变化、重大风险、关键行业规模/份额结论，至少需要“1 个直接支持的 A/B 级来源”或“2 个相互独立、内容一致的 C 级来源”。单一 C 级只作线索或带限制的非关键说明；D 级不得作为关键结论唯一依据；发布日期未知的内容不得支持强时点结论。来源不足时写“未能核实/待补充”并形成显式 gap，不得写成“不存在”；是否阻断由该 gap 的 `impact_scope` 和 Contract blocking 规则决定，不能以“来源等级低”一刀切。代理指标记录六项：原目标指标/实际替代指标/替代理由/来源日期/口径/局限性。只有完成 Contract 规定的来源范围、最小尝试及替代来源策略后，才可使用 `NOT_FOUND_AFTER_SEARCH`；预算耗尽但有效尝试不足只能是 partial + explicit gap。仅核心内容整体不足（无法确定所属行业/无法形成基本供需竞争政策判断/无法说明风险传导/检索后无合格替代分析）才 `SECTION_BLOCKED`。可比公司 3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比；不因数量不足自动 `REPORT_BLOCKED`、不强行选不可比公司）。
 - **SC-04 综合**：上游仅非核心 `NOT_PROVIDED`/`NOT_FOUND_AFTER_SEARCH` → 带缺口预览；上游影响主体/偿债/关键数字/授信方案的问题 → 不得生成受影响结论；任一上游 `SECTION_BLOCKED` → 综合只能说明无法完成对应判断；存在相关 `REPORT_BLOCKED` → 允许预览、禁止导出；不因任意 `WAITING_HUMAN` 停止全部。通过结构化 `impact_scope`（subject/solvency/key_financial/credit_scheme）判断影响面，不得由 LLM 临时决定。
 - **SC-05 other**：先跑通用契约、不自动启动专项分析；提示补充具体业务类型，补充后启用对应追加分析，未补充允许通用预览；综合必须提示“尚未按具体授信业务类型追加专项分析”。
 
@@ -1771,10 +2019,10 @@ python -m evaluation.run_baseline \
 
 推荐按以下顺序推进：
 
-1. 技术方将 41 问执行路由标签迁移和页码规范化，跑当前 V1 Retrieval baseline。
-2. 将 §4 的业务主题落成第一版机器可读 `SectionContract`，再交你复核业务口径。
-3. 沿用已同步的 `AGENTS.md` 输入约束；逐模块补齐 V2 接口和旧入口兼容计划。
-4. 冻结 `EvidenceBlock`、`SourceFinancialRecord`、Claim/Citation、ProgressEvent 和 Checkpoint schema。
-5. 进入 Phase 1 Evidence Architecture 实现，并同时接入最小可用状态栏与断点恢复；按 Phase 1F 单独实施财务来源、对账与集中确认，再接入财务 Worker。
+1. 先审查、复验并按职责提交 R0“正式唯一主链”离线集成改动；具体工作区与测试数字见 `V2_TODO.md`。R0 只作为调用链护栏，不得描述成内容完整性已经解决。
+2. 按 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 审计全部正式 Topic 的 `required_aspects ↔ evidence_requirements` 映射；只有现有 Contract 表达不足时才新增 v2，不回写 v1。
+3. 在 Harness 内落地唯一 `TopicResearchPack`、受控上下文扩读、aspect 缺口调度、Topic 级动态有界预算和持久化/恢复；保留单题 `ResearchOutcome` 兼容接口。
+4. 改造 P4 公司/行业 Worker，使其只从 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
+5. 先跑跨主题合成集和少量真实纵向切片，覆盖本地叙述、表格/附注、结构化财务、外部时效、事件/负面核验；内容完整性门通过后再生成完整 Demo。Phase 5 在此之前保持未进入。
 
-目前不需要你继续设计 Python dataclass；O-01～O-08 已全部确认，剩余 schema 和评测实现由技术设计继续推进。
+目前不需要业务方逐章手写所有表达。业务方只需复核正式 Contract 的业务语义、来源门槛和真实纵向切片是否达到授信报告深度；技术字段、调度器和材料包内部结构由任务书约束下的实现负责。

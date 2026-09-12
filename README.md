@@ -1,151 +1,89 @@
-# 授信报告生成器 (Credit Report Generator)
+# 授信报告生成器（Credit Report Generator）
 
-一个针对 A 股上市公司的授信分析报告自动生成 demo，包含公司主体信用分析、财务分析、行业分析三个维度。**面试 demo 用途，非生产系统**。
+面向 A 股上市公司的本地 Streamlit 授信研究 Demo。系统把电子 PDF、Excel、核准财务快照和可信外部信息组织为可回查事实，再生成公司信用、财务和行业章节。项目用于面试展示，不是生产授信审批系统，也不会替用户自动决定授信额度、期限、评级或增信方案。
 
-详细设计见 [DESIGN.md](./DESIGN.md)，开发约束见 [CLAUDE.md](./CLAUDE.md)。
+## 当前状态
 
----
+V2 的 Evidence、Financial Snapshot、Router、Tool Registry、单题 Research Harness、章节 Worker/Evaluator/Store 和只读报告预览基础已经具备。真实样本同时暴露了一个系统性缺口：单题短答案会在 P3→P4 边界压缩连续正文、表格上下文、跨来源事实和互联网研究成果。
 
-## 快速开始
+项目当前执行 **P3R/P4R Topic Research 与章节内容完整性重整**：
 
-### 0. 前置要求
-
-- Python 3.11+
-- ~5GB 磁盘空间（含 BGE-M3 模型权重）
-- DeepSeek API key（[注册](https://platform.deepseek.com)）
-
-### 1. 准备数据
-
-参见 [数据准备](#数据准备) 章节。简言之：从巨潮资讯下载宁德时代的财务 Excel 和公告 PDF。
-
-### 2. 安装
-
-**推荐先建虚拟环境**（避免依赖污染系统 Python，非必要）：
-
-```bash
-python -m venv .venv
-source .venv/bin/activate    # macOS / Linux
-# .venv\Scripts\activate     # Windows
+```text
+SectionTask
+  → P4 Worker 编排外壳
+  → Harness Topic runtime（按 required aspect 研究、扩读和补缺）
+  → TopicResearchPack（材料、事实、来源、预算、冲突、缺口）
+  → 同一 P4 Worker 的 writer 阶段
+  → Claims + NarrativeParagraphs + Tables
+  → Section Evaluator
 ```
 
-然后：
+因此，历史 Phase 3/4 “测试通过”不等于当前产品内容已经关闭；Phase 5 暂未进入。
 
-```bash
-make setup
-```
+## 输入与边界
 
-会做：装依赖、初始化 SQLite、下载 BGE-M3 模型权重（首次较慢，~2GB）。
+- 支持：A 股上市公司、可提取文本的电子 PDF、Excel，以及财务 PDF/Excel 混合输入。
+- 财务数字：必须先结构化抽取、勾稽、冲突检查并由 Python/SQL 计算；LLM 不计算数字。
+- 不支持：扫描 PDF/OCR、图片、PPT、Word 输入。
+- 外部搜索：当前正式 Provider 为博查（Bocha）；搜索结果必须经过正文获取、不可变快照和来源政策校验后才能引用。
+- Demo 可聚焦宁德时代（300750），但生产规则、Contract 和测试不得写死公司或 case id。
 
-> **VS Code 用户**：项目自带 `.vscode/settings.json`，默认会用 `.venv/bin/python` 作为解释器。打开项目时如果右下角解释器没自动切换，按 `Cmd/Ctrl+Shift+P` → `Python: Select Interpreter` → 选 `.venv`。
+## 文档入口
 
-### 3. 配置环境变量
+开发前不要从历史报告或 Prompt 猜架构。按以下顺序阅读：
 
-新建 `.env`：
+1. [AGENTS.md](./AGENTS.md) — 项目宪法和硬约束
+2. [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) — 文档权威与历史/现行分类
+3. [DESIGN_V2.md](./DESIGN_V2.md) — 现行 V2 设计
+4. [V2_IMPLEMENTATION_PLAN.md](./V2_IMPLEMENTATION_PLAN.md) — 阶段路线与门禁
+5. [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md) — 当前唯一任务书
+6. [V2_TODO.md](./V2_TODO.md) — 当前工作区和下一动作
 
-```
-DEEPSEEK_API_KEY=sk-xxxx
+`DESIGN.md`、旧任务书和交付报告均为历史基线。`CLAUDE.md` 只是 Claude Code 导航页，不是第二份项目宪法。
+
+## 在现有 Demo 工作区运行
+
+`.env` 至少需要：
+
+```dotenv
+DEEPSEEK_API_KEY=<your-key>
 DEEPSEEK_BASE_URL=https://api.deepseek.com
+EXTERNAL_SEARCH_PROVIDER=bocha
+BOCHA_API_KEY=<your-key>
+DEMO_MODE=true
 ```
 
-### 4. 预处理演示样本
+密钥不得提交到 Git，也不要在日志、截图或报告中展示。
+
+先执行只读环境检查：
 
 ```bash
-make demo-data
+python -m scripts.demo_preflight
 ```
 
-会预解析 `data/samples/300750/` 下的所有文件，写入 SQLite 和 ChromaDB 缓存。
-
-### 5. 启动
+启动网页：
 
 ```bash
-make run
+streamlit run streamlit_app.py
 ```
 
-打开 http://localhost:8501。
+页面演示优先加载已经持久化的真实报告产物，避免仅为查看结果重新消耗 LLM/网络调用。当前面试版本以网页截图、录屏、可复制 Markdown 和可展开引用为优先；Word 不作为当前关闭门。
 
----
-
-## 数据准备
-
-需要**手动下载**以下文件，放到 `data/samples/300750/` 下。所有数据均为上市公司公开信息。
-
-### 来源
-
-[巨潮资讯网 - 宁德时代页面](http://www.cninfo.com.cn/new/disclosure/stock?stockCode=300750)
-
-### 目录结构
-
-```
-data/samples/300750/
-├── financial/
-│   ├── financial_2023.xlsx       # 2023 年报附表（包含三张表）
-│   ├── financial_2024.xlsx       # 2024 年报附表
-│   └── financial_2025.xlsx       # 2025 年报附表（如已发布）
-│
-├── announcements/
-│   ├── 300750_2025_annual_report.pdf   # 2025 年度报告全文
-│   ├── 300750_<重要公告 1>.pdf
-│   └── 300750_<重要公告 2>.pdf
-│
-└── industry/
-    └── <可选>新能源电池/锂电池行业研报.pdf
-```
-
-### 财务 Excel 下载步骤
-
-1. 进入巨潮资讯宁德时代页面
-2. 顶部菜单 → 「定期报告」
-3. 找到 **2025 年年度报告** → 点开 → 找到下方附件中的 `财务报表 Excel`（通常文件名形如 `财务报表-2025年.xlsx`）
-4. 重命名为 `financial_2025.xlsx`，放入 `data/samples/300750/financial/`
-5. 重复获取 2023、2024 年报附表
-
-> 如果某年的财务报表 Excel 在巨潮找不到，可用 `财务报表-XX年.xlsx` 替代命名，或暂时只用 2 年数据（系统至少需要 2 个报告期才能算同比）。
-
-### 公告 PDF 下载步骤
-
-1. 同样在巨潮资讯宁德时代页面
-2. 定期报告中下载 **2025 年度报告**（PDF 全文版，约 300 页）
-3. 临时公告中挑 2 份近期重要的（推荐：年度业绩预告、重大投资公告、董事会决议等）
-4. 重命名规范：`300750_<简短描述>.pdf`，放入 `data/samples/300750/announcements/`
-
-### 行业研报（可选）
-
-如果有手头的新能源电池/锂电池行业研报 PDF，可以放到 `industry/` 下。**没有也不影响主流程**——行业分析 agent 主要靠 Claude built-in web search 检索互联网研报。
-
----
-
-## 常用命令
+运行完整离线评测：
 
 ```bash
-make setup        # 初始化环境
-make run          # 启动 Streamlit
-make demo-data    # 预处理样本（解析 + 向量化 + 写缓存）
-make eval         # 跑 evals
-make test         # 跑 pytest
-make clean        # 清掉 data/cache, data/chroma, logs/
-make clean-db     # 清掉 data/credit.db
+python -m evals.run_evals
 ```
 
----
+完整 eval 全绿只代表相应代码/回归门通过，还必须单独检查 aspect 覆盖、材料与事实保留、外部来源采用率、表文一致和章节可读性。
 
-## 开发约束
+## 新机器安装说明
 
-**所有开发工作必须先读 [CLAUDE.md](./CLAUDE.md)**。
+仓库保留 V1 的 `make setup` / `make demo-data` 等命令，但它们尚未按当前 V2 全部数据存储与 P3R/P4R 主链重新做“全新机器从零安装”验收。当前不要把这些命令宣传成新机器一键可用。Phase 6 将统一安装、Demo 数据准备、持久化报告加载和演示脚本；在此之前，以现有已准备工作区和 `scripts.demo_preflight` 为准。
 
-核心约束：
-- LLM 不算数字
-- 每个模块必须可 `python -m <module>` 独立运行
-- 所有 RAG 调用自动落盘到 `logs/retrieval/`
-- 一次 commit 只动一个模块
+## 安全与使用声明
 
----
-
-## 项目状态
-
-见 [CLAUDE.md - Current Status](./CLAUDE.md#current-status)。
-
----
-
-## License
-
-Demo 项目，无商用授权。所有引用的公开数据归原权利人所有。
+- 输出必须保留引用、数据期间、口径和资料限制。
+- “未检索到”不等于“没有发生”。
+- 任何生成内容都需要人工复核，仅供演示和研究辅助。
+- 公开材料的版权和数据权利归原权利人所有。

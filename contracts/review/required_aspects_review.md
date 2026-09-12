@@ -1,6 +1,7 @@
 # Required Aspects 业务复核文档
 
-> **状态：4 题已由业务确认（CONFIRMED_AS_REQUIRED ×2 / CONFIRMED_AS_REQUIRED_AFTER_CORRECTION ×2），
+> **当前角色：CONFIRMED_V1_REVIEW / HISTORICAL_SCOPE。** 本文只确认 Contract v1 中 aspect 是否能从原问题派生，不证明其粒度足以调度完整研究，也不包含 P3R 新要求的 evidence/source/display/not_found 审计。R1 必须新增版本化审计，不覆盖本文。
+> **历史状态：4 题已由业务确认（CONFIRMED_AS_REQUIRED ×2 / CONFIRMED_AS_REQUIRED_AFTER_CORRECTION ×2），
 > 48 题 DERIVED_NO_SEMANTIC_CHANGE 自动通过**
 > 本文档针对 `templates/contracts/standard_v2.yaml` 中 52 个 KeyQuestion 的 `required_aspects` 字段做业务复核，
 > 判断每个 aspect 是「问题原文的自然分解」还是「新增需求」。原 4 题 `BUSINESS_REVIEW_REQUIRED`
@@ -157,9 +158,9 @@ SC-01 ~ SC-05 是**章节契约决策**，与本文件逐题 aspect 复核分属
 
 ---
 
-## Phase 4 前置条件
+## 历史 Phase 4 v1 前置条件（已完成）
 
-进入 Phase 4（完整 41 问 / 全量评估）前，须满足：
+以下条件是当时进入 Phase 4 v1 的门，均已完成；它们不替代当前 P3R R1 的 52 问 aspect/evidence/source/display/not_found 新审计，也不得据此跳过 Contract v2：
 
 1. ✅ 本文件 4 题 `BUSINESS_REVIEW_REQUIRED` 已由业务**逐一确认**（2026-09）：
    `CONFIRMED_AS_REQUIRED` ×2（company_subject_match / industry_scale_cycle）、

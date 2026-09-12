@@ -1,6 +1,7 @@
 # V1 Retrieval Baseline Runner 开发任务书
 
-> 状态：修订版 v0.2（2026-09-06），B-01～B-05 已确认；计分、索引冻结与审计边界已细化  
+> **HISTORICAL / NON-EXECUTABLE。** Phase 0A 已关闭；本文仅保留当时接口、冻结口径和验收记录，不得据此重新开工或修改 frozen baseline。当前状态和任务见 `DOCUMENTATION_INDEX.md` 与 `V2_TODO.md`。
+> 历史状态：修订版 v0.2（2026-09-06），B-01～B-05 已确认；计分、索引冻结与审计边界已细化
 > 实现范围：新增 `evaluation` 模块及其测试/数据配置，并在 `evals/run_evals.py` 注册测试；不修改 V1 Retriever、Indexer 或 Embedding 行为  
 > 设计依据：`DESIGN_V2.md` §7.6、§12.3～§12.8、§16.8、§17 Phase 0
 

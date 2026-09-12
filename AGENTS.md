@@ -1,481 +1,166 @@
 # AGENTS.md
 
-> This is the project constitution. Read this file **completely** before writing any code.
-> When in doubt, this file wins over any other instruction.
+> **Project constitution. Read this file completely before changing code or project documents.**
+> When instructions conflict, follow the authority order below. Do not use a historical report or runtime Prompt as an implementation instruction.
 
----
-
-## Project Snapshot
+## 1. Project snapshot
 
 | | |
 |---|---|
-| **What** | 授信报告生成器 (Credit Analysis Report Generator) |
-| **Why** | 面试 demo，2-4 周交付 |
-| **User** | 客户经理（演示中是面试官） |
-| **Target** | A 股上市公司 |
-| **Platform** | 本地部署 Streamlit Web |
-| **Priority** | 演示稳定 > 亮点突出 > 功能全面 > 工程严谨 |
+| Product | A-share listed-company credit analysis report generator |
+| Purpose | Local Streamlit interview demo; not a production credit decision system |
+| Primary user | Corporate banking relationship manager / interviewer |
+| Demo subject | CATL (300750), without company-specific production rules |
+| Priority | 演示稳定 > 亮点突出 > 功能全面 > 工程严谨；任何亮点不得以错误事实、错误数字或伪造引用为代价 |
+| Current stage | P3R/P4R topic research and chapter-content completeness refactor |
 
-详细设计见 [DESIGN.md](./DESIGN.md)。
+The current design is [DESIGN_V2.md](./DESIGN_V2.md). The original [DESIGN.md](./DESIGN.md) is a historical V1 baseline only.
 
----
+## 2. Documentation authority
 
-## Hard Constraints（永不违反）
+Read [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) for the full map. The binding order is:
 
-- ❌ **第一阶段不接受扫描 PDF/OCR**；PDF 必须为可提取文本的电子 PDF，低文本质量时 fail fast
-- ❌ **不接受 PPT、图片、Word 输入**
-- ✅ **财务材料允许电子 PDF、Excel 或二者混合上传**；PDF 中的财务数字必须先结构化抽取、勾稽和冲突检查，禁止直接依赖普通 RAG 生成
-- ❌ **LLM 不算数字**。所有指标、比率、增长率必须 Python 算好再喂 prompt
-- ❌ **不做用户认证、加密、多用户隔离**（demo 不需要）
-- ❌ **不写没有 CLI 的模块**。每个核心模块必须能 `python -m <module>` 独立运行
-- ❌ **不写没有日志的 RAG 调用**。每次 retrieve 必须落盘到 `logs/retrieval/`
+1. `AGENTS.md` — engineering and safety constitution.
+2. `DESIGN_V2.md` — current product, business, and architecture design.
+3. Confirmed business baselines — `templates/contracts/standard_v2.yaml`, `contracts/sc_decisions.yaml`, and `FORMULA_REVIEW.md`.
+4. `V2_IMPLEMENTATION_PLAN.md` — stage order and exit gates.
+5. The single current task — `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md`.
+6. `V2_TODO.md` — progress record only.
+7. `CLAUDE.md` — thin Claude Code bootstrap only.
 
----
+Historical task books, acceptance reports, generated reports, debug files, reference documents, and `llm/prompts/*.txt` never override this chain.
 
-## Directory Structure
+## 3. Active architecture gate
 
-```
-credit-report-demo/
-├── AGENTS.md                 # 本文件
-├── DESIGN.md                 # 设计文档
-├── README.md                 # 用户文档（最后写）
-├── Makefile
-├── requirements.txt
-├── config.py                 # 配置（含 DEMO_MODE 开关）
-│
-├── streamlit_app.py          # Streamlit 主入口（只负责 UI + 调 agent，不写业务逻辑）
-│
-├── data/
-│   ├── samples/              # 演示样本，按股票代码组织
-│   │   └── 300750/           # 宁德时代
-│   ├── cache/                # PDF 解析缓存、demo 缓存
-│   ├── chroma/               # ChromaDB 持久化目录
-│   └── credit.db             # SQLite 数据库
-│
-├── parsers/                  # 文件解析层
-│   ├── __init__.py
-│   ├── excel_parser.py       # Excel → pandas DataFrame
-│   ├── schema_mapper.py      # DataFrame + LLM → 标准 schema
-│   └── pdf_parser.py         # PDF → text chunks
-│
-├── financial/                # 财务专属（无 RAG）
-│   ├── __init__.py
-│   ├── schema.py             # SQLite 表结构 + 标准化科目代码常量
-│   ├── db.py                 # SQLite 连接 + CRUD
-│   ├── metrics.py            # 财务指标计算函数（纯 Python）
-│   └── analyzer.py           # Agent 2: 财务分析
-│
-├── retrieval/                # RAG 通用层
-│   ├── __init__.py
-│   ├── indexer.py            # PDF chunks → ChromaDB
-│   ├── retriever.py          # query → top-k chunks（带日志）
-│   └── embedding.py          # Embedding 模型封装
-│
-├── agents/                   # 其他 agent
-│   ├── __init__.py
-│   ├── confirm_company.py    # Agent 0
-│   ├── ingest.py             # Agent 1（编排 parsers + indexer）
-│   ├── company_subject.py    # Agent 3
-│   ├── industry.py           # Agent 4
-│   ├── synthesizer.py        # Agent 5
-│   └── verifier.py           # Agent 6
-│
-├── llm/                      # LLM 调用层
-│   ├── __init__.py
-│   ├── client.py             # Anthropic API 封装
-│   └── prompts/              # 所有 prompt 模板（不要内联到代码里）
-│       ├── schema_mapping.txt
-│       ├── financial_analysis.txt
-│       ├── company_subject.txt
-│       ├── industry.txt
-│       └── synthesizer.txt
-│
-├── external/                 # 外部 API 封装
-│   ├── __init__.py
-│   └── akshare_client.py
-│
-├── reporting/                # 报告处理
-│   ├── __init__.py
-│   ├── template.py           # 解析 Markdown 模板
-│   ├── assembler.py          # 章节 → 完整 Markdown
-│   └── word_exporter.py      # Markdown → docx
-│
-├── templates/                # 报告模板（Markdown）
-│   ├── standard.md
-│   └── simple.md
-│
-├── scripts/                  # 运维脚本（非业务逻辑）
-│   ├── __init__.py
-│   └── prepare_demo_data.py  # 预处理样本数据
-│
-├── logs/                     # 运行日志
-│   ├── retrieval/
-│   └── llm/
-│
-├── evals/
-│   ├── cases/                # 测试公司数据
-│   └── run_evals.py
-│
-└── tests/                    # 单元测试（可选，但 evals 必须有）
+Phase 2/3 historical runs, gold, split manifests, and frozen results remain immutable safety and regression baselines. They do **not** prove that a complete topic can be written from the current P3 output.
+
+The target single production chain is:
+
+```text
+SectionContract / SectionTask
+  → Worker orchestration shell
+  → Harness-owned TopicResearchState
+  → (InformationNeed → Router → existing atomic executor → ToolRegistry)*
+  → inspect + bounded context expansion + fact/source validation
+  → TopicResearchPack
+  → Worker writer
+  → SectionClaim + NarrativeParagraph + Table + Unresolved
+  → Section Evaluator
 ```
 
----
+Rules:
 
-## Tech Stack
+- `ResearchOutcome` is one atomic research record and a compatibility-evaluation object. It is not P4's sole content input.
+- Harness owns the only authoritative `TopicResearchPack`, topic state, aspect scheduler, cumulative budget, and checkpoint.
+- `sections.topic_research` and similar experimental code may contribute pure algorithms but must not become a second Router/Harness/tool/LLM runtime.
+- Company and industry writers consume the complete current Pack set whose topic IDs exactly equal `SectionTask.topic_ids`. Missing, duplicate, stale, wrong-task, wrong-company, wrong-`report_as_of`, or wrong-Contract Packs produce an explicit gap/block; writers must not select only convenient Packs and present the Section as complete. The financial writer consumes authoritative `FinancialFactPack` plus validated Evidence-backed note facts.
+- P4 keeps atomic auditable Claims and separately produces human-readable paragraphs/tables supported by multiple Claims.
+- Phase 5 is blocked until the P3R/P4R content gate passes.
 
-| 层 | 选型 |
-|----|------|
-| 前端 | Streamlit |
-| LLM | `anthropic` SDK，DeepSeek-V4-Pro（Anthropic 兼容接口） |
-| Excel | `openpyxl` + `pandas` |
-| PDF | `pypdf` + 文本层质量检测；第一阶段不做扫描件 OCR（无 docling 依赖） |
-| 结构化数据 | `sqlite3` (stdlib) |
-| 向量库 | `chromadb` |
-| Embedding | **BGE-M3**（`FlagEmbedding` 库） |
-| 公开数据 | `akshare` |
-| 互联网检索 | **Codex built-in web search**（当前）。日后可换 `tavily-python`，改一行。 |
-| Word | `python-docx` |
+## 4. Hard constraints
 
----
+- No scanned PDF or OCR in the first release. Electronic PDFs must have an extractable text layer; low quality fails fast.
+- No PPT, image, Word, or arbitrary office-document input in the first release.
+- Financial input may be electronic PDF, Excel, or both. Financial PDF numbers must be structurally extracted, reconciled, and conflict-checked before use; ordinary RAG cannot authorize financial numbers.
+- The LLM never calculates amounts, ratios, growth rates, comparisons, or table aggregates. Python/SQL with Decimal semantics calculates them.
+- Do not invent a single merged authority for all numbers. FinancialSnapshot, Evidence-backed note facts, and ExternalSnapshot retain separate authority/version checks; a unified Fact Registry is a read model and semantic identity layer.
+- No user authentication, encryption, multi-user isolation, production concurrency, or disaster recovery unless a later approved task explicitly adds them.
+- No module-specific branch for `300750`, CATL, a case id, gold page, answer keyword, or fixed document page.
+- No gold document/page in runtime query planning, retrieval decisions, sufficiency, stopping, answer generation, or grading. Gold is offline diagnosis only.
+- Missing evidence means “not obtained within the searched scope,” never “does not exist,” unless an authoritative source explicitly supports the negative fact.
+- Search snippets and URLs are navigation only. External facts require fetched non-empty content, immutable snapshot, authority/date/source-policy checks, and citations.
+- Current external search runtime is Bocha. Tavily is not a runtime dependency or fallback and must not be silently enabled.
+- Do not weaken fail-closed correctness to improve FULL or completion rates. Safety passing also does not prove content completeness.
 
-## Data Model Cheat Sheet
+## 5. Research and writing semantics
 
-### SQLite Tables（详见 DESIGN.md §4.1）
+- Formal Contract `required_aspects` are the scheduling and completion units. One broad retrieval can cover multiple aspects; only gaps trigger focused follow-up.
+- An atomic `ANSWER` ends the current need, not the whole Topic.
+- After a relevant hit, expand within explicit source boundaries: same document version/section, adjacent continuation blocks, table title/unit/header/body, cross-page continuation, and explicit references. Stop at unrelated sections, no-new-information boundaries, or hard budget.
+- Preserve every validated relevant material/fact in the Pack even if a short answer omitted it.
+- Topic budgets are adaptive but finite and versioned. Never solve completeness by globally increasing top-k or tool calls, and never tune budgets by company/case.
+- External research uses an auditable funnel: intent → candidates → rank → fetch → automatic snapshot → extract → validate → adopt/reject.
+- P4 writers organize supported facts into a readable business narrative. They may order, merge, and add non-factual transitions; they may not add facts, numbers, entities, periods, or unsupported conclusions.
+- Flow/activity/event language uses explicit periods such as “2025年度” or “2025年内”; point-in-time balances use explicit dates. Do not use an undefined “报告期内”.
+- Optional or diagnostic financial metrics that cannot be computed may stay out of the main body according to a versioned display policy; required gaps remain explicit.
+- Report length follows Contract coverage and information density. There is no 8,000-character hard cap; 20,000–30,000 Chinese characters is only a human reference for a fuller report, not a pass condition.
 
-- `report_meta` - 报告元信息
-- `balance_sheet` - 资产负债表
-- `income_statement` - 利润表
-- `cash_flow` - 现金流量表
+## 6. Implementation discipline
 
-所有财务表通过 `report_id` 关联到 `report_meta.id`。
+### Plan before code
 
-标准化科目代码集中在 `financial/schema.py`，agent 间通过代码引用，不用中文名。
+Before a new module or cross-module refactor, state:
 
-### ChromaDB Collections
+- public input/output types;
+- main internal functions;
+- dependencies and authority boundaries;
+- CLI/self-check command;
+- tests, migration effects, commit split, and stop condition.
 
-- `company_docs__<stock_code>`
-- `industry_docs__<stock_code>`
+Do not code a major batch until its plan is reviewed when the active task requires a review gate.
 
-按公司隔离，单家公司可独立清理。
+### Protect the workspace
 
----
+- Inspect `git status` first. Existing tracked or untracked changes belong to the user or another agent.
+- Do not overwrite, delete, reset, stash, or silently include unrelated changes.
+- Never commit `.env`, API keys, databases, logs, generated results, debug files, personal settings, or reference documents.
+- SQLite schema changes are append-only migrations. Historical migrations and accepted run artifacts are immutable.
+- Read-only inspection paths must not initialize, create, migrate, or mutate databases.
 
-## Module Interface Contracts
+### One responsibility per change
 
-**核心原则**：每个模块的对外接口是契约，不许在内部调用绕过这些接口。
-违反契约的代码，无论功能多强，都要 reject 重写。
+- Each commit has one reviewable responsibility; tests may accompany the responsible module.
+- Do not mix governance documents, runtime logic, generated results, and unrelated cleanup.
+- Reuse existing public interfaces. If an interface must change, version it and provide compatibility/migration tests.
 
-### `parsers.excel_parser`
+### Runtime observability
 
-```python
-def parse(file_path: str) -> ExcelParseResult: ...
+- Core modules need a CLI or deterministic self-check unless the approved task explicitly classifies them as pure private helpers.
+- All retrieval goes through the approved retrieval/ToolRegistry path and writes retrieval trace.
+- All LLM calls go through the shared client and write call id, prompt/version, model, latency, usage when available, completion status, and errors.
+- Prompts live in `llm/prompts/*.txt`; do not inline them in Python.
+- Do not expose hidden chain-of-thought. Persist actions, evidence, decisions, and concise reasons only.
 
-@dataclass
-class ExcelParseResult:
-    sheets: dict[str, pd.DataFrame]
-    detected_period: str | None       # 推断的主报告期，如 "2024-12-31"
-    detected_scope: str | None        # "consolidated" / "parent"
-    metadata: dict
-    # metadata 必含字段：
-    #   "format"            — "multi_period" | "single_period"
-    #   "unit"              — "yuan" | "wan_yuan" | "qian_yuan" | "yi_yuan" | "baiwan_yuan" | "qianwan_yuan" | "unknown"
-    #   "detected_periods"  — [str]（multi_period 时列出全部报告期）
-```
+### Testing
 
-内部检测逻辑：
-- `_detect_format()`：看第一个非空 sheet 的列头是否有 ≥2 个日期匹配 → multi_period
-- `_detect_unit()`：在 sheet 名和前 3 行搜索"单位：万元/千元/元"
-- 金额单位必须在解析阶段确定，结果写入 `metadata["unit"]`，schema_mapper 从 metadata 读取，不自己再扫
+- Add regression tests for every fixed defect.
+- Run focused tests first, then the full `python -m evals.run_evals` gate before a code commit.
+- Mock tests prove deterministic behavior; at least one bounded formal-chain integration test proves orchestration; small real vertical slices prove content usefulness.
+- A green test count is not a product-quality result. Report separately: safety, aspect coverage, material/fact retention, external-funnel yield, narrative readability, and unresolved gaps.
+- Never rerun frozen evaluation splits to tune them. New refactor evaluation uses new versioned fixtures/runs.
 
-CLI: `python -m parsers.excel_parser <file_path>` → prints JSON summary
+## 7. UI and demo boundary
 
-**已知限制**：当前仅支持 `.xlsx`，不支持旧版 `.xls`（待扩充）。
+- `streamlit_app.py` remains thin: input, service invocation, progress, artifact loading, and display only.
+- Prefer loading a persisted real artifact for screenshots and recording; do not spend LLM/network calls merely to view an existing run.
+- UI must show actual status, missing information, failure reasons, and recoverable next actions without raw internal error dumps or model reasoning.
+- Demo may focus on CATL, but code, Contract, policy, and tests must remain company-independent.
+- Word export is not a prerequisite for the current interview demo; Markdown/Streamlit presentation comes first. A future change requires an explicit business decision first reflected in `AGENTS.md`, `DESIGN_V2.md`, and the roadmap; a lower-level Phase task cannot change this order by itself.
 
-### `parsers.schema_mapper`
+## 8. Current execution boundary
 
-```python
-def map_to_schema(
-    parsed: ExcelParseResult,
-    company_id: str,
-) -> SchemaMapResult: ...
+The only active implementation task is `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md`.
 
-@dataclass
-class SchemaMapResult:
-    report_meta: dict
-    rows: list[NormalizedRow]
-    unmapped_items: list[str]   # 未能映射的科目，需人工 review
-```
+At this point:
 
-CLI: `python -m parsers.schema_mapper <excel> --company <stock_code>`
+- Complete R0 formal-chain review and closure before R1; exact worktree/test status belongs only in `V2_TODO.md`.
+- After R0, execute R1–R7 in the approved order; do not skip directly to report polishing or full 41-question reruns.
+- Do not start Phase 5 or Phase 6 product work while the P3R/P4R gate is open.
 
-### `parsers.pdf_parser`
-
-```python
-def parse(file_path: str) -> PdfParseResult: ...
-
-@dataclass
-class PdfParseResult:
-    chunks: list[TextChunk]
-    page_count: int
-    metadata: dict
-
-@dataclass
-class TextChunk:
-    text: str
-    page_number: int
-    chunk_index: int
-```
-
-CLI: `python -m parsers.pdf_parser <file_path>`
-
-### `financial.db`
-
-```python
-def insert_report(meta: dict, rows: list[NormalizedRow]) -> str: ...  # returns report_id
-def query_metric(company_id: str, item_code: str, period: str) -> float | None: ...
-def list_periods(company_id: str) -> list[str]: ...
-```
-
-### `financial.metrics`
-
-```python
-def compute_all(company_id: str, periods: list[str]) -> MetricsTable: ...
-
-@dataclass
-class MetricsTable:
-    by_period: dict[str, dict[str, float]]   # period → {metric_name: value}
-    yoy_changes: dict[str, dict[str, float]] # period → {metric_name: yoy_pct}
-```
-
-必须包含至少这些指标：流动比率、速动比率、资产负债率、利息保障倍数、毛利率、净利率、ROE、ROA、营收增长率、净利增长率、经营现金流/净利润。
-
-CLI: `python -m financial.metrics --company <stock_code>`
-
-### `financial.analyzer` (Agent 2)
-
-```python
-def run(company_id: str, section_spec: SectionSpec) -> ReportSection: ...
-```
-
-`section_spec` 来自模板解析。Agent 内部：
-1. 调用 `financial.metrics.compute_all` 拿到指标表
-2. 把指标表 + guidance 喂给 LLM
-3. LLM 只写解读文字，不算新指标
-
-CLI: `python -m financial.analyzer --company <stock_code>`
-
-### `retrieval.retriever`
-
-```python
-def retrieve(
-    company_id: str,
-    collection: str,           # "company_docs" | "industry_docs"
-    query: str,
-    k: int = 5,
-) -> list[RetrievedChunk]: ...
-```
-
-**强制行为**：每次调用必须把 `{query, retrieved chunks, scores, timestamp}` 落盘到
-`logs/retrieval/<timestamp>__<query_hash>.jsonl`。这是 RAG 可观测性的硬要求。
-
-### `agents.company_subject` (Agent 3)
-
-```python
-def run(company_id: str, section_spec: SectionSpec) -> ReportSection: ...
-```
-
-内部：
-1. 从 `retrieval.retriever` 查 `company_docs__<id>`
-2. 通过 Codex web search tool 检索近期新闻
-3. 合并喂给 LLM 生成章节
-
-### `agents.industry` (Agent 4)
-
-```python
-def run(company_id: str, industry_code: str, section_spec: SectionSpec) -> ReportSection: ...
-```
-
-主要用 Codex web search tool，必要时检索 `industry_docs__<id>`。
-
-### `agents.synthesizer` (Agent 5)
-
-```python
-def run(
-    sections: list[ReportSection],
-    template_path: str,
-) -> str: ...   # returns full markdown
-```
-
-LLM 调用应尽量轻——主要是衔接、过渡、保持口径一致，不要重写各章节内容。
-
-### `agents.verifier` (Agent 6)
-
-```python
-def run(report_markdown: str, company_id: str) -> VerificationResult: ...
-
-@dataclass
-class VerificationResult:
-    annotated_markdown: str            # 加了标注的 markdown
-    issues: list[Issue]
-
-@dataclass
-class Issue:
-    severity: str        # "yellow" (数值) | "red" (实体) | "orange" (时效)
-    rule: str
-    location: str        # 在原文中的位置
-    detail: str
-    evidence: list[str]  # 公开数据源的对比依据
-```
-
----
-
-## Workflow Rules
-
-### 1. Plan before code
-
-写新模块前，先用 plan mode 列出：
-- 该模块对外接口（输入输出类型）
-- 内部主要函数列表
-- 至少一个 CLI 测试命令
-- 与其他模块的依赖关系
-
-不出 plan 不允许写 `<function_calls>` 写文件。
-
-### 2. One module per change
-
-一次 commit 只动一个模块。混着改是反模式，回滚困难、bug 定位难。
-
-### 3. Independent runnability
-
-每个模块写完，第一件事是 `python -m <module> ...` 跑一次，能看到输出。
-跑不通不算写完，不许进入下一个模块。
-
-### 4. No silent LLM math
-
-LLM 不算数字。所有数值必须在 Python 里算好喂进 prompt。
-如果 LLM 输出里出现"自己算"的指标（特别是百分比、比率），是 **prompt 错了**，
-回去改 prompt，不要改输出。
-
-### 5. No hidden RAG
-
-任何 RAG 调用必须经过 `retrieval.retriever.retrieve()`，且自动落盘日志。
-绕过这个函数直接调 ChromaDB 是反模式。
-
-### 6. No inline prompts
-
-LLM prompt 必须放在 `llm/prompts/*.txt` 文件里，代码里通过文件名引用。
-原因：方便迭代、方便 diff、方便 prompt 版本管理。
-
-### 7. Eval before continuing
-
-每完成一个模块，跑一次 `make eval` 看是否 regression。
-通过再继续，不通过先修。
-
-### 8. Logs are mandatory, not optional
-
-- `logs/retrieval/` 每次 RAG 调用一条 JSONL
-- `logs/llm/` 每次 LLM 调用一条 JSONL（含 input tokens、output tokens、prompt、completion）
-- 默认开启，不需要环境变量切换
-
-### 9. Streamlit thinness
-
-`streamlit_app.py` 不写业务逻辑，只做：
-- 接收用户输入
-- 调用 agent
-- 展示返回结果
-
-agent 内部逻辑变化不应该需要改 Streamlit 代码。
-
-### 10. Demo mode awareness
-
-`config.DEMO_MODE = True` 时：
-- 上传文件从 `data/samples/` 读
-- 跳过 PDF 重复解析（用缓存）
-- 但 **LLM 调用、agent 编排、回检都真实运行**
-
----
-
-## Commands
+Common checks:
 
 ```bash
-make setup        # pip install + 初始化 SQLite + 创建目录
-make run          # streamlit run streamlit_app.py
-make demo-data    # 预处理演示样本（解析 + 向量化 + 写缓存）
-make eval         # python -m evals.run_evals
-make test         # pytest tests/
-make clean        # 清掉 data/cache, data/chroma, logs/
-make clean-db     # 清掉 data/credit.db （重置财务数据）
+python -m scripts.demo_preflight
+python -m evals.run_evals
+streamlit run streamlit_app.py
 ```
 
----
+Use module-specific CLI and focused eval commands from the active task before the full gate.
 
-## Coding Conventions
+## 9. Documentation maintenance
 
-- Python 3.11+
-- Type hints 强制（关键接口必须，内部函数尽量）
-- `dataclass` 优于裸 dict
-- 错误处理：宁可 raise 也不要 `except: pass`。所有 except 必须 log
-- 路径用 `pathlib.Path`，不用 `os.path`
-- 不用 `print`，用 `logging`
-- 命名：模块小写下划线，类驼峰，常量大写下划线
-
----
-
-## Anti-Patterns（过去踩过的坑，禁止重犯）
-
-| 反模式 | 正确做法 |
-|--------|---------|
-| 把 RAG 调用埋在大函数里没日志 | 走 `retrieval.retriever.retrieve()` |
-| 让 LLM 算财务比率 | 数字 Python 算好再喂 prompt |
-| 在 streamlit_app.py 里写业务逻辑 | streamlit 只调 agent |
-| 把多个 agent 写到一个文件里 | 一 agent 一文件 |
-| 用 `try/except: pass` 静默吞错 | log 后 raise，或显式标记降级 |
-| 端到端调试（出错才看哪里挂） | 单模块独立测，集成只验编排 |
-| 跳过 `make eval` 直接 commit | 每次 commit 前过 eval |
-| 把 prompt 写成 f-string 内联在代码 | 放 `llm/prompts/*.txt` |
-| "顺手"在 agent 里加一个 utility 函数 | 提取到 `utils/` 或对应模块 |
-| 改完一个 bug 不写 regression test | 至少加一条 eval case |
-
----
-
-## Current Status
-
-每完成一个里程碑勾选，作为 Codex 的进度记忆。
-
-### Week 1: 财务端到端切片
-- [x] Day 1: 项目骨架 + AGENTS.md / DESIGN.md / Makefile
-- [x] Day 2: `financial.schema` + `financial.db`
-- [x] Day 2-3: `parsers.excel_parser` + `parsers.schema_mapper`
-- [x] Day 4: `financial.metrics`（5+ 指标）
-- [x] Day 5: `financial.analyzer`（agent 跑通）
-- [x] Day 6: Streamlit 接入，端到端跑通
-- [x] Day 7: 第一版 eval
-
-### Week 2: PDF + 公司主体
-- [x] `parsers.pdf_parser`
-- [x] `retrieval.indexer` + `retrieval.retriever`
-- [x] `agents.company_subject`
-- [x] Streamlit 接入
-
-### Week 3: 行业 + 综合 + 并行
-- [x] 互联网检索（Web search + akshare）
-- [x] `agents.industry`
-- [x] `agents.synthesizer`
-- [x] 三 agent 并行调用
-
-### Week 4: 回检 + Word + 打磨
-- [x] `agents.verifier`（三类规则：yellow 数值 >5%、red 实体、orange 时效）
-- [x] `reporting.word_exporter`（Markdown → docx，支持表格/粗斜体/回检标注）
-- [x] DEMO_MODE 完整支持（一键生成、回检集成、网络降级）
-- [x] 演示路径打磨（步骤指示器、友好错误提示、使用指南）
-- [x] 提示词优化（四份 prompt 重构：结构化任务、强制引用、事实/研判区分）
-
----
-
-## When You're Stuck
-
-- 不知道某个模块怎么写 → 读这个模块的 §Module Interface Contracts，照接口写
-- 改一处坏了多处 → 跳出来看 §Anti-Patterns，大概率违反了某条
-- 不确定要不要新建文件 → 看 §Directory Structure，没有对应位置就先讨论
-- LLM 输出不对 → 改 prompt 文件，不要在代码里 post-process
-- RAG 检索结果不对 → 看 `logs/retrieval/` 最新的 jsonl，先验证检索质量再调生成
+- Product/architecture decisions change `DESIGN_V2.md` first, then roadmap, active task, and TODO.
+- Historical reports retain their original facts and receive only a clear historical/superseded banner when needed.
+- `CLAUDE.md` stays a short bootstrap; never copy this constitution into it.
+- `README.md` describes what a user can actually run. Unverified fresh-install claims must be labeled.
+- After doc changes, check authority/version links, stale status language, Markdown links, and whitespace. Documentation changes are committed separately from code.

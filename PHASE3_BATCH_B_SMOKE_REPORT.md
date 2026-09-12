@@ -1,5 +1,7 @@
 # Phase 3 Batch B — 真实冒烟报告（人工门交付物）
 
+> **HISTORICAL PHASE 3 v1 EVIDENCE / REJECTED / NON-EXECUTABLE。** 保留被驳回结果，不得据此判断当前状态或恢复旧接口。
+
 > 状态：**SMOKE_HUMAN_GATE_REJECTED**（本文档已被人工门驳回，原文保留不删，见下方驳回原因）。
 > 修订版见 [`PHASE3_BATCH_B_SMOKE_REPORT_REVISED.md`](./PHASE3_BATCH_B_SMOKE_REPORT_REVISED.md)。
 

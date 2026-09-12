@@ -1,6 +1,9 @@
 # 授信报告生成器 设计文档
 
-> 本文档定义"为什么这么做"。执行细节见 [CLAUDE.md](./CLAUDE.md)。
+> **HISTORICAL V1 DESIGN / NON-EXECUTABLE。** 本文只保留 V1 当时的产品假设、架构和取舍，不描述当前 V2。强制 Excel、Claude built-in search、Tavily、旧 Agent、Word 输出等条款均不得覆盖现行设计。
+> 当前依据：`AGENTS.md` → `DESIGN_V2.md` → `V2_IMPLEMENTATION_PLAN.md` → 当前权威任务书；完整分类见 `DOCUMENTATION_INDEX.md`。
+
+> 以下正文为历史原文，“当前”均指 V1 编制时点。
 
 ---
 

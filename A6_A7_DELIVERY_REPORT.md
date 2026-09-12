@@ -1,7 +1,9 @@
 # A6 / A7 交付报告（Phase 1F-A 财务基础收口）
 
+> **HISTORICAL ACCEPTANCE EVIDENCE / NON-EXECUTABLE。** 保留当时 Snapshot、公式与兼容集成的交付事实；完整 1F、P3R/P4R 和当前状态以现行路线图/TODO 为准。
+
 > 上位任务书：`FINANCIAL_A6_A7_DEVELOPMENT_TASK.md`
-> 状态：已交付，等待最终验收确认
+> 历史原文状态：已交付，等待当时的最终验收确认（后续已完成并关闭）
 > 范围：A6（Formula Registry / FinancialSnapshot / Python 指标计算）+ A7（V1 只读适配 / CLI / 进度 / 集成评测）
 > 关键结论：A6、A7 与 Phase 1F-A「基础出口」可关闭；**完整 1F 未关闭**（1F-B 待 Phase 5）。
 

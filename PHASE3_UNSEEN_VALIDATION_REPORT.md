@@ -1,5 +1,7 @@
 # Phase 3 — unseen_validation 一次性泛化评测报告（冻结后，不修复）
 
+> **HISTORICAL FROZEN EVALUATION / NON-EXECUTABLE。** 本结果只评价 Phase 3 v1 原子路径与安全/泛化表现；不得重跑调参、不得解释为完整 Topic 或章节覆盖。
+
 > 本轮是泛化评测，不是开发。规则 / 代码 / Prompt 已冻结（git `53f654c`），
 > 对 split manifest 的 `unseen_validation` 9 题执行一次真实 Router + 受限研究循环 + 真实 LLM，
 > 只记录结果，不修改任何规则以改善结果。

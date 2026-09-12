@@ -1,6 +1,7 @@
 # Phase 2 Router + Hybrid Retrieval 开发任务书
 
-> 状态：任务书就绪，尚未编码
+> **HISTORICAL / NON-EXECUTABLE。** Phase 2 已冻结关闭；本文只保留当时 Router/Hybrid 接口和评测要求。P3R 复用现行 Router/Retriever，不依据本文另建平行链或修改 frozen gold。
+> 历史状态：任务书就绪，尚未编码
 > 上位设计：`DESIGN_V2.md` §5.3～§5.4、§7、§12、§16.4～§16.5、§17 Phase 2
 > 工程规则：`AGENTS.md`
 > 前置：Phase 0B、Phase 1、Phase 1F-A 已关闭

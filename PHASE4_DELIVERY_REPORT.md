@@ -1,5 +1,7 @@
 # Phase 4 交付报告：章节 Worker、Claim 与章节质量门
 
+> **HISTORICAL PHASE 4 INFRASTRUCTURE ACCEPTANCE / NON-EXECUTABLE。** 本文记录 Planner/Worker/Claim/Evaluator/Store/UI 基础交付。后续真实样本已证明内容完整性不达标，Phase 4 产品关闭已撤回；当前执行 P3R/P4R。
+
 > 对应任务书：`PHASE4_DEVELOPMENT_TASK.md`（§24 完成交付格式）  
 > 批次：Batch D（§13 P4-D Section Evaluator 与定向返工 + §15 Streamlit 接线 + §19/§20 验收）  
 > 交付日期：2026-09-10  

@@ -1,6 +1,7 @@
 # 财务来源、对账与集中确认基础（Phase 1F-A）开发任务书
 
-> 状态：任务书 v0.2，FA-01～FA-06 已确认；允许进入编码前实施计划评审  
+> **HISTORICAL / NON-EXECUTABLE。** Phase 1F-A 已关闭；本文保留 Financial V2 来源、对账与确认的历史实施依据。现行公式口径看 `FORMULA_REVIEW.md`，当前任务看 P3R/P4R 权威任务书。
+> 历史状态：任务书 v0.2，FA-01～FA-06 已确认；允许进入编码前实施计划评审
 > 所属阶段：`V2_IMPLEMENTATION_PLAN.md` Phase 1F-A  
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md` §4.3、§4.3.1、§6.1、§11、§17 Phase 1F  
 > 前置条件：Phase 0A、0B、Phase 1 Evidence Architecture 已验收关闭

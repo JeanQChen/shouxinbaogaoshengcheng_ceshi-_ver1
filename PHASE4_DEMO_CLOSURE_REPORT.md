@@ -1,5 +1,7 @@
 # Phase 4 真实 Demo 关闭缺口报告
 
+> **HISTORICAL FAILURE REPORT / NON-EXECUTABLE。** 本文记录一次真实 Demo 故障及当时定级；后续 JSON robustness 已修复该具体问题，但 Phase 4 内容完整性关闭随后被撤回。不得以本文继续逐层补丁或宣布产品关闭。
+
 > 范围：Phase 4 真实 Demo 关闭的四项通用集成正确性问题（非 Phase 5）。
 > 交付日期：2026-09-11。
 > 结论：四项修复完成并全量验证通过；真实 300750 Demo 重跑仍暴露出**一个新的 P0**（financial 章节 LLM JSON 解析 fail-closed），按任务书约束**停止并报告，不继续「修一处再直接真跑」，不进入 Phase 5**。
