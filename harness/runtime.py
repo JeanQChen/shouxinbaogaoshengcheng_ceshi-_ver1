@@ -376,15 +376,33 @@ def _evidence_summary(state: H.ResearchState) -> str:
 
 
 def _search_candidates(state: H.ResearchState) -> str:
-    urls: list[str] = []
+    """外部候选列表：URL + 标题/摘要/日期/来源等级（供动作模型做有依据的候选筛选，A6）。
+
+    只从 search_external_sources 的 results 提取；摘要只辅助选择，正文未 fetch 不得出事实。
+    """
+    rows: list[str] = []
     for rec in state.tool_history:
-        if rec.result.tool_name == "search_external_sources":
-            for r in (rec.result.data or {}).get("results", []):
-                if r.get("url"):
-                    urls.append(r["url"])
-    if not urls:
+        if rec.result.tool_name != "search_external_sources":
+            continue
+        for r in (rec.result.data or {}).get("results", []):
+            url = r.get("url")
+            if not url:
+                continue
+            parts = [f"[{r.get('rank', '?')}] {r.get('title') or '(无标题)'}"]
+            if r.get("published_at"):
+                parts.append(f" 日期={r['published_at']}")
+            if r.get("source_grade"):
+                parts.append(f" 来源等级={r['source_grade']}")
+            if r.get("source_name"):
+                parts.append(f" 来源={r['source_name']}")
+            parts.append(f" URL={url}")
+            if r.get("snippet"):
+                parts.append(f" 摘要={(r['snippet'] or '')[:80]}")
+            rows.append("".join(parts))
+    if not rows:
         return ""
-    return "FETCH_EXTERNAL 的 url 只能取自以下候选：\n" + "\n".join(f"- {u}" for u in urls[:10])
+    return ("FETCH_EXTERNAL 的 url 只能取自以下候选（标题/日期/来源等级供筛选）：\n"
+            + "\n".join(rows[:10]))
 
 
 def _external_search_blocked_text(state: H.ResearchState) -> str:
@@ -1153,8 +1171,21 @@ def run_question(*, need: RS.InformationNeed, route_result: RS.RouterResult,
                 and result.status == "SUCCESS"):
             _auto_snapshot(state, action, result, registry, route, budget)
 
-        # 5. 致命工具错误 → 停止
+        # 5. 致命工具错误 → 停止（A6 例外：fetch 单候选失败可换候选，不整题失败）。
         if result.is_error():
+            if result.tool_name == "fetch_external_content":
+                # 单来源断连/拦截/限流等是「该候选失败」，不是整题失败：记入 failed_fetch_urls
+                # 并继续循环（F4 的 fetched_urls 已把失败 URL 标记为已消耗，去重会拒绝同 URL
+                # 重取，模型自然转向其它候选）。安全拒绝不绕过限制（SSRF 校验保持，只是换
+                # 合规候选）；retryable 断连已在 Registry 层按 retry_policy 有界重试。
+                url = (args or {}).get("url", "")
+                if url and url not in state.failed_fetch_urls:
+                    state.failed_fetch_urls.append(url)
+                if trace_enabled:
+                    T.emit(run_id, need.need_id, "FETCH_FAILED_RECOVERABLE",
+                           {"url": url, "status": result.status,
+                            "error_code": result.error_code, "retries": result.retries})
+                continue
             stop_reason = "FATAL_TOOL_ERROR"
             S.set_status(state, "FAILED", stop_reason)
             break

@@ -63,8 +63,12 @@ def _spec(name, required, props, routes):
         max_results=10, timeout_ms=1000, retry_policy="none", cost_class="local")
 
 
-def _fake_registry(empty: bool = False) -> R.ToolRegistry:
-    """empty=True：search/inspect 返回空结果（无 evidence），用于预算耗尽无材料路径。"""
+def _fake_registry(empty: bool = False,
+                   fail_urls: tuple[str, ...] = ()) -> R.ToolRegistry:
+    """empty=True：search/inspect 返回空结果（无 evidence），用于预算耗尽无材料路径。
+
+    fail_urls：fetch_external_content 对这些 URL 返回 FATAL_ERROR（模拟单候选断连）。
+    """
     audit = Path(tempfile.mkdtemp())
     reg = R.ToolRegistry(audit_dir=audit)
     ev_ids = [] if empty else ["e1"]
@@ -96,13 +100,25 @@ def _fake_registry(empty: bool = False) -> R.ToolRegistry:
                            "text": "实际控制人为曾毓群", "structured_payload": None},
                      evidence_ids=ev_ids, error_code=None, message=None,
                      retryable=False, trace_id="t"))
+    def _fetch_exec(a):
+        if a["url"] in fail_urls:
+            return TC.ToolResult(
+                call_id="", tool_name="fetch_external_content", tool_version="v1",
+                status="FATAL_ERROR",
+                data={"original_url": a["url"], "canonical_url": a["url"],
+                      "content_text": "", "content_hash": ""},
+                error_code="EXTERNAL_FETCH_BLOCKED",
+                message="RemoteProtocolError: peer closed connection",
+                retryable=False, trace_id="t")
+        return TC.ToolResult(
+            call_id="", tool_name="fetch_external_content", tool_version="v1",
+            status="SUCCESS", data={"canonical_url": a["url"],
+                                    "content_text": "正文内容", "content_hash": "h1"},
+            error_code=None, message=None, retryable=False, trace_id="t")
+
     reg.register(_spec("fetch_external_content", ["url"],
                        {"url": {"type": "string"}}, ("EXTERNAL_RESEARCH",)),
-                 lambda a: TC.ToolResult(
-                     call_id="", tool_name="fetch_external_content", tool_version="v1",
-                     status="SUCCESS", data={"canonical_url": a["url"],
-                                             "content_text": "正文内容", "content_hash": "h1"},
-                     error_code=None, message=None, retryable=False, trace_id="t"))
+                 _fetch_exec)
     reg.register(_spec("snapshot_external_source",
                        ["company_id", "canonical_url", "content_text"],
                        {"company_id": {"type": "string"},
@@ -798,6 +814,49 @@ def main() -> dict:
     RT._run_local_subneeds(st_pure, _mixed_context(), _fake_registry(),
                            P.DEFAULT_BUDGET, "r", False)
     check(st_pure.local_subneeds == [], "A3：非混合需求不派生本地子 need")
+
+    # ---- A6：首候选 fetch 失败 → 换候选 → 成功（非 FATAL_TOOL_ERROR 整题退出）----
+    b_fetch = P.ResearchBudget(
+        max_rounds=10, max_tool_calls=10, max_local_searches=2,
+        max_external_searches=3, max_fetches=3, max_action_repairs=1,
+        max_added_needs=2, max_consecutive_no_new_evidence=8,
+        max_tokens=8000, max_elapsed_ms=120000, max_retries_per_call=1)
+    llm = MockLLM(
+        ['{"action": "SEARCH_EXTERNAL", "arguments": {"query": "处罚"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://bad.com/x"}}',
+         '{"action": "FETCH_EXTERNAL", "arguments": {"url": "https://good.com/y"}}',
+         '{"action": "ANSWER", "arguments": {}}'],
+        [_ANSWER_EXTERNAL])
+    o = RT.run_question(need=_need(), route_result=_router_result("EXTERNAL_RESEARCH"),
+                        registry=_fake_registry(fail_urls=("https://bad.com/x",)),
+                        llm=llm, run_id="r", case_id="c", company_id="300750",
+                        section_id="company", budget=b_fetch, trace_enabled=False)
+    check(o.success is True and o.completion_status == "COMPLETED",
+          "A6：首候选 fetch 失败 → 换候选 → COMPLETED（非 FATAL_TOOL_ERROR）")
+    check(o.state.failed_fetch_urls == ["https://bad.com/x"],
+          "A6：失败候选记入 failed_fetch_urls")
+    tools = [r.result.tool_name for r in o.state.tool_history]
+    check("fetch_external_content" in tools and "snapshot_external_source" in tools,
+          "A6：失败 fetch + 成功 fetch + 自动 snapshot 均入工具历史")
+
+    # ---- A6：_search_candidates 携带标题/日期/来源等级（供候选筛选）----
+    st_cand = H.ResearchState(run_id="r", case_id="c", question_id="q1", company_id="300750",
+                              section_id="company", original_question="q", need=_need())
+    st_cand.tool_history.append(H.ToolCallRecord(
+        call=TC.ToolCall(call_id="x", tool_name="search_external_sources",
+                         arguments={"query": "q"}, idempotency_key="k", need_id="n",
+                         batch_id="b"),
+        result=TC.ToolResult(
+            call_id="x", tool_name="search_external_sources", tool_version="v1",
+            status="SUCCESS",
+            data={"results": [{"rank": 1, "title": "某可比公司年报",
+                               "url": "https://a.com/x", "snippet": "摘要文字",
+                               "published_at": "2025-04-01", "source_grade": "A",
+                               "source_name": "巨潮资讯"}]})))
+    cand = RT._search_candidates(st_cand)
+    check("某可比公司年报" in cand and "2025-04-01" in cand
+          and "来源等级=A" in cand and "https://a.com/x" in cand,
+          "A6：_search_candidates 携带标题/日期/来源等级/URL")
 
     return {"passed": passed, "failed": failed, "skipped": skipped,
             "details": details}

@@ -250,8 +250,14 @@ def fetch_external(
                      f"重定向超过 {max_redirects} 次")
     except _Blocked as e:
         return _fail("FATAL_ERROR", "EXTERNAL_FETCH_BLOCKED", str(e))
-    except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+    except httpx.TimeoutException as e:
         return _fail("RETRYABLE_ERROR", "TOOL_TIMEOUT", f"{type(e).__name__}: {e}")
+    except (httpx.ConnectError, httpx.NetworkError, httpx.RemoteProtocolError) as e:
+        # 网络级瞬断（连接失败 / 读失败 / 对端关闭连接无响应）→ 可重试，且可换下一候选
+        # （A6：实际 industry_policy 首候选因 RemoteProtocolError 断连，旧逻辑标 FATAL
+        # 导致整题退出，未尝试其它候选）。
+        return _fail("RETRYABLE_ERROR", "EXTERNAL_NETWORK_ERROR",
+                     f"{type(e).__name__}: {e}")
     except httpx.HTTPError as e:
         return _fail("FATAL_ERROR", "EXTERNAL_FETCH_BLOCKED", f"{type(e).__name__}: {e}")
     except Exception as e:
