@@ -286,9 +286,14 @@ def validate_draft(paragraphs: tuple[ParagraphDraft, ...], fact_index: dict,
 
 def compute_business_calculations(evidence_facts: tuple[dict, ...],
                                   ) -> tuple[dict, list[dict]]:
-    """按板块聚合收入/成本 → 占比/毛利率（纯 Python）。返回 (calc, rows)。"""
+    """按板块聚合收入/成本 → 占比/毛利率（纯 Python）。返回 (calc, rows)。
+
+    无成本事实的板块 margin=None（表示「缺成本数据」，渲染为 —），不得当作 0 算成
+    100% 毛利率。
+    """
     rev_by_seg: dict[str, Decimal] = {}
     cost_by_seg: dict[str, Decimal] = {}
+    has_cost: set[str] = set()
     for f in evidence_facts:
         cat = f.get("revenue_cost_category")
         seg = f.get("business_segment") or "(未分板块)"
@@ -300,6 +305,7 @@ def compute_business_calculations(evidence_facts: tuple[dict, ...],
             rev_by_seg[seg] = rev_by_seg.get(seg, Decimal(0)) + val
         elif cat == "cost":
             cost_by_seg[seg] = cost_by_seg.get(seg, Decimal(0)) + val
+            has_cost.add(seg)
 
     total_rev = sum(rev_by_seg.values(), Decimal(0))
     segs = sorted(rev_by_seg, key=lambda s: -rev_by_seg[s])
@@ -309,7 +315,7 @@ def compute_business_calculations(evidence_facts: tuple[dict, ...],
         rev = rev_by_seg[seg]
         cost = cost_by_seg.get(seg, Decimal(0))
         share = (rev / total_rev) if total_rev else Decimal(0)
-        margin = ((rev - cost) / rev) if rev else Decimal(0)
+        margin = ((rev - cost) / rev) if (rev and seg in has_cost) else None
         calc[f"share_{i}"] = share
         calc[f"margin_{i}"] = margin
         calc[f"revenue_{i}"] = rev
@@ -323,16 +329,28 @@ def calc_display(calc: dict) -> dict:
     for k, v in calc.items():
         if k == "total_revenue" or k.startswith("revenue_"):
             d[k] = format_yuan_yi(str(v))
-        elif k.startswith("share_") or k.startswith("margin_"):
+        elif k.startswith("share_"):
             d[k] = format_percent(v)
+        elif k.startswith("margin_"):
+            d[k] = format_percent(v) if v is not None else "—"
         else:
             d[k] = str(v)
     return d
 
 
+def _latest_period_facts(evidence_facts: tuple[dict, ...]) -> tuple[dict, ...]:
+    """取最新报告期的事实（主营业务构成表只展示单一报告期，不做跨期求和）。"""
+    periods = [f.get("period") for f in evidence_facts if f.get("period")]
+    if not periods:
+        return evidence_facts
+    latest = max(periods)
+    return tuple(f for f in evidence_facts if f.get("period") == latest)
+
+
 def build_business_table(evidence_facts: tuple[dict, ...],
                          ) -> tuple[TableDraft, dict, dict]:
-    calc, rows = compute_business_calculations(evidence_facts)
+    table_facts = _latest_period_facts(evidence_facts)
+    calc, rows = compute_business_calculations(table_facts)
     header = ("业务板块", "营业收入(亿元)", "收入占比", "营业成本(亿元)", "毛利率")
     table_rows: list[tuple[str, ...]] = []
     for r in rows:
@@ -340,8 +358,9 @@ def build_business_table(evidence_facts: tuple[dict, ...],
             r["segment"],
             format_yuan_yi(str(r["revenue"])).replace(" 亿元", ""),
             format_percent(r["share"]),
-            format_yuan_yi(str(r["cost"])).replace(" 亿元", ""),
-            format_percent(r["margin"]),
+            (format_yuan_yi(str(r["cost"])).replace(" 亿元", "")
+             if r["margin"] is not None else "—"),
+            format_percent(r["margin"]) if r["margin"] is not None else "—",
         ))
     table = TableDraft(table_id="business_segments", caption="主营业务构成（分板块）",
                        header=header, rows=tuple(table_rows))

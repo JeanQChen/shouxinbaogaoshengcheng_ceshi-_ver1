@@ -150,6 +150,33 @@ def main() -> dict:
     check(table.rows[0][0] == "动力电池系统" and table.rows[0][2] == "86.4%",
           "业务表格首行")
 
+    # 5b) 多报告期事实 → 表只取最新报告期（不跨期求和）
+    _EF_multi = (
+        {"evidence_fact_id": "ef-r1-23", "evidence_id": "e1",
+         "revenue_cost_category": "revenue", "business_segment": "动力电池系统",
+         "period": "2023-12-31", "value": "100000000000.0"},
+        {"evidence_fact_id": "ef-r1-25", "evidence_id": "e2",
+         "revenue_cost_category": "revenue", "business_segment": "动力电池系统",
+         "period": "2025-12-31", "value": "316506369000.0"},
+        {"evidence_fact_id": "ef-c1-25", "evidence_id": "e3",
+         "revenue_cost_category": "cost", "business_segment": "动力电池系统",
+         "period": "2025-12-31", "value": "241064397000.0"},
+    )
+    table_multi, _, _ = build_business_table(_EF_multi)
+    check(table_multi.rows[0][0] == "动力电池系统"
+          and table_multi.rows[0][1] == "3,165.06",
+          "多报告期事实 → 表只取最新期（不跨期求和）")
+
+    # 5c) 无成本事实 → 成本/毛利率显示 —（不当作 0 算成 100%）
+    _EF_nocost = (
+        {"evidence_fact_id": "ef-r1", "evidence_id": "e1",
+         "revenue_cost_category": "revenue", "business_segment": "其他业务",
+         "period": "2025-12-31", "value": "16917000000.0"},
+    )
+    table_nocost, _, _ = build_business_table(_EF_nocost)
+    check(table_nocost.rows[0][3] == "—" and table_nocost.rows[0][4] == "—",
+          "无成本事实 → 成本/毛利率显示 —")
+
     # 6) 来源表格 / 周期推断
     src_table = build_source_table(ext_facts)
     check(src_table.header[0] == "来源等级" and len(src_table.rows) == 1,
