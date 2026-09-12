@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import asdict, dataclass, field
 
 from harness import entailment as E
 from harness import schema as H
@@ -186,6 +187,109 @@ def uncovered_aspects(state: H.ResearchState,
         elif _is_numeric_aspect(row["text"]) and not row["has_number"]:
             missing.append(f"{row['text']}（缺具体数字）")
     return missing
+
+
+# ---------------------------------------------------------------------------
+# 只读投影（新能力在正式链的承载位置，§五）：
+#   - AspectCoverage  ← required_aspects / answer.aspects / evaluate_success
+#   - ExternalFunnel ← tool_history / usage / external_material / failed_fetch_urls
+# 均不发起任何检索/工具调用，只从已有 Harness 状态投影。
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AspectCoverageResult:
+    """required-aspect 覆盖的只读投影（可序列化）。
+
+    从正式链的 ``ResearchState`` + ``ResearchAnswer`` 派生，非并行研究循环产物。
+    """
+
+    required_aspects: list = field(default_factory=list)
+    aspect_answers: list = field(default_factory=list)
+    uncovered_aspects: list = field(default_factory=list)
+    covered_count: int = 0
+    total_count: int = 0
+    complete: bool = False
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class ExternalFunnelProjection:
+    """外部转化漏斗的只读投影（可序列化）。
+
+    7 级 → Harness 状态映射：
+      external_queries ← usage.external_searches
+      candidate_urls   ← search_external_sources 结果的去重 URL
+      fetched          ← usage.fetches
+      snapshotted      ← usage.snapshots
+      external_material ← 已固化外部正文数（事实提取输入）
+      failed_fetch_urls ← 抓取失败候选 URL 数
+    """
+
+    external_queries: int = 0
+    candidate_urls: int = 0
+    fetched: int = 0
+    snapshotted: int = 0
+    external_material: int = 0
+    failed_fetch_urls: int = 0
+    external_snapshot_ids: list = field(default_factory=list)
+    failed_fetch_detail: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def build_aspect_coverage(state: H.ResearchState,
+                          answer: H.ResearchAnswer | None) -> AspectCoverageResult:
+    """从 Harness 状态派生 required-aspect 覆盖投影（serializable）。
+
+    ``complete=True`` 当且仅当无 uncovered（全部必要方面已覆盖且数值方面带数字）。
+    """
+    rows = aspect_answers(state, answer)
+    uncovered = uncovered_aspects(state, answer)
+    covered = sum(1 for r in rows if r["answered"])
+    return AspectCoverageResult(
+        required_aspects=list(state.required_aspects or []),
+        aspect_answers=rows,
+        uncovered_aspects=uncovered,
+        covered_count=covered,
+        total_count=len(rows),
+        complete=(not uncovered),
+    )
+
+
+def _search_result_candidate_urls(rec) -> set[str]:
+    """从一条 ToolCallRecord 提取 search_external_sources 的候选 URL（只读）。"""
+    urls: set[str] = set()
+    res = getattr(rec, "result", None)
+    if res is None:
+        return urls
+    if getattr(res, "tool_name", "") != "search_external_sources":
+        return urls
+    data = getattr(res, "data", None) or {}
+    for r in (data.get("results") or []):
+        if isinstance(r, dict) and r.get("url"):
+            urls.add(r["url"])
+    return urls
+
+
+def project_external_funnel(state: H.ResearchState) -> ExternalFunnelProjection:
+    """从 Harness 状态投影外部转化漏斗（只读，不检索、不 fetch、不 snapshot）。"""
+    usage = state.usage or H.UsageLedger()
+    candidate_urls: set[str] = set()
+    for rec in (state.tool_history or []):
+        candidate_urls |= _search_result_candidate_urls(rec)
+    return ExternalFunnelProjection(
+        external_queries=getattr(usage, "external_searches", 0),
+        candidate_urls=len(candidate_urls),
+        fetched=getattr(usage, "fetches", 0),
+        snapshotted=getattr(usage, "snapshots", 0),
+        external_material=len(state.external_material or {}),
+        failed_fetch_urls=len(state.failed_fetch_urls or []),
+        external_snapshot_ids=list(state.external_snapshot_ids or []),
+        failed_fetch_detail=list(state.failed_fetch_urls or []),
+    )
 
 
 # ---------------------------------------------------------------------------

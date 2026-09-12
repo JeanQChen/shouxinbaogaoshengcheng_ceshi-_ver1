@@ -27,6 +27,7 @@ from harness import checkpoint as C
 from harness import policies as P
 from harness import runtime as RT
 from harness import schema as HS
+from harness import state as HState
 from planning import schema as PS
 from routing import router as router_mod
 from routing import schema as RS
@@ -693,6 +694,11 @@ def run_task(task: PS.SectionTask, *, section_id: str, topic_labels: dict[str, s
             "evidence_ids": list(outcome.state.evidence_ids),
             "external_snapshot_ids": list(outcome.state.external_snapshot_ids),
             "content_fingerprint": oid,
+            # 新能力在正式链的承载位置（§五）：只读投影自 Harness 状态。
+            "aspect_coverage": HState.build_aspect_coverage(
+                outcome.state, outcome.answer).to_dict(),
+            "external_funnel": HState.project_external_funnel(
+                outcome.state).to_dict(),
         })
 
     claims = tuple(all_claims)
