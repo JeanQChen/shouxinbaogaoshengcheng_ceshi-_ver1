@@ -14,6 +14,7 @@ from pathlib import Path
 
 from harness import topic_schema as TS
 from harness import topic_store as Store
+from harness._readonly_sqlite import open_readonly_conn
 
 
 @dataclass(frozen=True)
@@ -30,80 +31,92 @@ def _utcnow() -> str:
 
 
 def _readonly_conn(db_path: Path) -> sqlite3.Connection | None:
-    """打开只读连接；库不存在返回 None（绝不创建）。"""
-    if not Path(db_path).exists():
-        return None
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    return conn
+    """打开严格只读连接（mode=ro + PRAGMA query_only=ON）；库不存在返回 None（绝不创建）。"""
+    return open_readonly_conn(db_path)
 
 
-def _to_checkpoint(conn: sqlite3.Connection, row: sqlite3.Row) -> TopicCheckpoint:
-    pack = Store._row_to_pack(conn, row)
+def _checkpoint_from(conn: sqlite3.Connection, pack_id: str) -> TopicCheckpoint:
+    """从已验证 pack_id 构造 checkpoint（走 Store 的完整性复核，损坏 fail-closed）。"""
+    pack = Store._verify_reconstructed(conn, pack_id)
     return TopicCheckpoint(identity=pack.identity(), pack=pack, loaded_at=_utcnow())
 
 
 def load_checkpoint(identity: TS.PackIdentity,
                     db_path: str | Path = Store.DEFAULT_DB_PATH) -> TopicCheckpoint | None:
-    """读取当前 Pack 作为恢复 checkpoint（只读；库不存在 → None）。"""
+    """读取当前 Pack 作为恢复 checkpoint（只读；库不存在 → None）。
+
+    fail-closed：current 指向的 Pack 最新事件为 stale|invalidated|quarantined → 不返回
+    （失效 Pack 不可作为可恢复 current）；行/子行/指纹损坏 → StorageCorruptionError。
+    """
     conn = _readonly_conn(Path(db_path))
     if conn is None:
         return None
     try:
         k = identity.key()
         row = conn.execute(
-            "SELECT p.* FROM topic_current c JOIN topic_pack p ON p.pack_id = c.pack_id "
-            "WHERE c.task_id=? AND c.company_id=? AND c.report_as_of=? AND c.contract_fingerprint=? "
-            "AND c.source_policy_version=? AND c.section_id=? AND c.topic_id=?",
-            k,
-        ).fetchone()
-        return _to_checkpoint(conn, row) if row else None
+            "SELECT pack_id FROM topic_current WHERE task_id=? AND company_id=? AND "
+            "report_as_of=? AND contract_fingerprint=? AND source_policy_version=? "
+            "AND section_id=? AND topic_id=?", k).fetchone()
+        if row is None:
+            return None
+        pack_id = row["pack_id"]
+        if Store._terminal_invalidation_conn(conn, pack_id) is not None:
+            return None
+        return _checkpoint_from(conn, pack_id)
     finally:
         conn.close()
 
 
 def load_checkpoint_by_pack_id(pack_id: str,
                                db_path: str | Path = Store.DEFAULT_DB_PATH) -> TopicCheckpoint | None:
+    """按 pack_id 读任意历史 Pack（显式历史读，含失效；损坏 fail-closed）。"""
     conn = _readonly_conn(Path(db_path))
     if conn is None:
         return None
     try:
-        row = conn.execute("SELECT * FROM topic_pack WHERE pack_id=?", (pack_id,)).fetchone()
-        return _to_checkpoint(conn, row) if row else None
+        row = conn.execute("SELECT 1 FROM topic_pack WHERE pack_id=?", (pack_id,)).fetchone()
+        if row is None:
+            return None
+        return _checkpoint_from(conn, pack_id)
     finally:
         conn.close()
 
 
 def list_checkpoints(db_path: str | Path = Store.DEFAULT_DB_PATH) -> list[TopicCheckpoint]:
-    """列出所有 current Pack checkpoint（只读）。"""
+    """列出所有「可用」current Pack checkpoint（跳过失效 current；损坏 fail-closed）。"""
     conn = _readonly_conn(Path(db_path))
     if conn is None:
         return []
     try:
         rows = conn.execute(
-            "SELECT p.* FROM topic_current c JOIN topic_pack p ON p.pack_id = c.pack_id "
-            "ORDER BY c.task_id, c.company_id, c.topic_id").fetchall()
-        return [_to_checkpoint(conn, r) for r in rows]
+            "SELECT pack_id FROM topic_current ORDER BY task_id, company_id, topic_id").fetchall()
+        out: list[TopicCheckpoint] = []
+        for r in rows:
+            pack_id = r["pack_id"]
+            if Store._terminal_invalidation_conn(conn, pack_id) is not None:
+                continue
+            out.append(_checkpoint_from(conn, pack_id))
+        return out
     finally:
         conn.close()
 
 
 def load_history(identity: TS.PackIdentity,
                  db_path: str | Path = Store.DEFAULT_DB_PATH) -> list[TopicCheckpoint]:
-    """列出某身份的全部历史 Pack checkpoint（含非 current，只读）。"""
+    """列出某身份的全部历史 Pack checkpoint（含非 current/失效，只读；损坏 fail-closed）。"""
     conn = _readonly_conn(Path(db_path))
     if conn is None:
         return []
     try:
         rows = conn.execute(
-            "SELECT * FROM topic_pack WHERE task_id=? AND company_id=? AND "
+            "SELECT pack_id FROM topic_pack WHERE task_id=? AND company_id=? AND "
             "COALESCE(report_as_of,'')=? AND contract_fingerprint=? AND "
             "source_policy_version=? AND section_id=? AND topic_id=? ORDER BY rowid",
             (identity.task_id, identity.company_id, identity.report_as_of or "",
              identity.contract_fingerprint, identity.source_policy_version,
              identity.section_id, identity.topic_id),
         ).fetchall()
-        return [_to_checkpoint(conn, r) for r in rows]
+        return [_checkpoint_from(conn, r["pack_id"]) for r in rows]
     finally:
         conn.close()
 

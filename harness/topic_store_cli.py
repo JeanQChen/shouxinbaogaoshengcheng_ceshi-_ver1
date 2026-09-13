@@ -23,14 +23,12 @@ from pathlib import Path
 from harness import topic_checkpoint as Checkpoint
 from harness import topic_schema as TS
 from harness import topic_store as Store
+from harness._readonly_sqlite import open_readonly_conn
 
 
 def _readonly_conn(db_path: Path) -> sqlite3.Connection | None:
-    if not Path(db_path).exists():
-        return None
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    return conn
+    """严格只读连接（mode=ro + PRAGMA query_only=ON）；库不存在返回 None（绝不创建）。"""
+    return open_readonly_conn(db_path)
 
 
 def _pack_summary(pack: TS.TopicResearchPack) -> dict:
