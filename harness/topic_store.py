@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from collections.abc import Callable
@@ -116,151 +117,72 @@ EVENT_TYPES = (
 )
 
 
+def _ddl_statements() -> list[str]:
+    """返回最新（v1）建表语句列表（逐条拆分，供单事务原子 init）。
+
+    不使用 executescript（其隐式 COMMIT 会破坏首次初始化的原子性）；每条语句独立
+    ``conn.execute``，全部落在同一个事务里，任一失败整体回滚。
+    """
+    stmts: list[str] = []
+
+    stmts.append(
+        "CREATE TABLE IF NOT EXISTS topic_schema_migrations ("
+        "version TEXT PRIMARY KEY, applied_at TEXT NOT NULL)")
+
+    stmts.append(
+        "CREATE TABLE IF NOT EXISTS topic_pack ("
+        "pack_id TEXT PRIMARY KEY, schema_version TEXT NOT NULL, run_id TEXT NOT NULL, "
+        "task_id TEXT NOT NULL, company_id TEXT NOT NULL, report_as_of TEXT, "
+        "contract_version TEXT NOT NULL, contract_fingerprint TEXT NOT NULL, "
+        "source_policy_version TEXT NOT NULL, section_id TEXT NOT NULL, topic_id TEXT NOT NULL, "
+        "question_ids TEXT NOT NULL, outcome_refs TEXT NOT NULL, external_funnel TEXT, "
+        "usage TEXT NOT NULL, uncertain_calls TEXT NOT NULL, process_status TEXT NOT NULL, "
+        "coverage_status TEXT NOT NULL, status_derivation TEXT NOT NULL, "
+        "dependency_fingerprint TEXT NOT NULL, content_fingerprint TEXT NOT NULL, "
+        "created_at TEXT NOT NULL)")
+    stmts.append(
+        "CREATE INDEX IF NOT EXISTS idx_topic_pack_identity ON topic_pack("
+        "task_id, company_id, report_as_of, contract_fingerprint, "
+        "source_policy_version, section_id, topic_id)")
+    stmts.extend(_immutable_trigger_sqls("topic_pack"))
+
+    for table, child_id in (
+        ("topic_aspect_result", "aspect_id"),
+        ("topic_material", "material_id"),
+        ("topic_fact", "fact_id"),
+        ("topic_conflict", "conflict_id"),
+        ("topic_not_found_audit", "audit_id"),
+        ("topic_gap", "unresolved_id"),
+    ):
+        stmts.append(
+            f"CREATE TABLE IF NOT EXISTS {table} ("
+            f"pack_id TEXT NOT NULL REFERENCES topic_pack(pack_id), "
+            f"{child_id} TEXT NOT NULL, seq INTEGER NOT NULL, payload TEXT NOT NULL, "
+            f"PRIMARY KEY (pack_id, {child_id}))")
+        stmts.extend(_immutable_trigger_sqls(table))
+
+    stmts.append(
+        "CREATE TABLE IF NOT EXISTS topic_current ("
+        "task_id TEXT NOT NULL, company_id TEXT NOT NULL, report_as_of TEXT NOT NULL, "
+        "contract_fingerprint TEXT NOT NULL, source_policy_version TEXT NOT NULL, "
+        "section_id TEXT NOT NULL, topic_id TEXT NOT NULL, "
+        "pack_id TEXT NOT NULL REFERENCES topic_pack(pack_id), switched_at TEXT NOT NULL, "
+        "PRIMARY KEY (task_id, company_id, report_as_of, contract_fingerprint, "
+        "source_policy_version, section_id, topic_id))")
+
+    stmts.append(
+        "CREATE TABLE IF NOT EXISTS topic_event ("
+        "event_id TEXT PRIMARY KEY, pack_id TEXT NOT NULL REFERENCES topic_pack(pack_id), "
+        "event_type TEXT NOT NULL, old_pack_id TEXT, new_pack_id TEXT, reason TEXT, "
+        "event_at TEXT NOT NULL)")
+    stmts.extend(_immutable_trigger_sqls("topic_event"))
+
+    return stmts
+
+
 def build_ddl() -> str:
-    """返回最新（v1）建表语句（幂等）。"""
-    parts: list[str] = []
-
-    parts.append("""
--- ---------------------------------------------------------------------------
--- 独立迁移记录（与 harness/checkpoint.py 的 schema_migrations 隔离）
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS topic_schema_migrations (
-    version    TEXT PRIMARY KEY,
-    applied_at TEXT NOT NULL
-);
-""")
-
-    parts.append("""
--- ---------------------------------------------------------------------------
--- Pack 头（不可变历史事实；完整 JSON 分散到子表，标量/身份列在此）
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS topic_pack (
-    pack_id                 TEXT PRIMARY KEY,
-    schema_version          TEXT NOT NULL,
-    run_id                  TEXT NOT NULL,
-    task_id                 TEXT NOT NULL,
-    company_id              TEXT NOT NULL,
-    report_as_of            TEXT,
-    contract_version        TEXT NOT NULL,
-    contract_fingerprint    TEXT NOT NULL,
-    source_policy_version   TEXT NOT NULL,
-    section_id              TEXT NOT NULL,
-    topic_id                TEXT NOT NULL,
-    question_ids            TEXT NOT NULL,
-    outcome_refs            TEXT NOT NULL,
-    external_funnel         TEXT,
-    usage                   TEXT NOT NULL,
-    uncertain_calls         TEXT NOT NULL,
-    process_status          TEXT NOT NULL,
-    coverage_status         TEXT NOT NULL,
-    status_derivation       TEXT NOT NULL,
-    dependency_fingerprint  TEXT NOT NULL,
-    content_fingerprint     TEXT NOT NULL,
-    created_at              TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_topic_pack_identity ON topic_pack(
-    task_id, company_id, report_as_of, contract_fingerprint,
-    source_policy_version, section_id, topic_id);
-""" + _immutable_triggers("topic_pack"))
-
-    parts.append("""
--- ---------------------------------------------------------------------------
--- 子行（不可变历史事实；payload 为对应 typed 对象的完整 JSON）
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS topic_aspect_result (
-    pack_id   TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    aspect_id TEXT NOT NULL,
-    seq       INTEGER NOT NULL,
-    payload   TEXT NOT NULL,
-    PRIMARY KEY (pack_id, aspect_id)
-);
-""" + _immutable_triggers("topic_aspect_result"))
-
-    parts.append("""
-CREATE TABLE IF NOT EXISTS topic_material (
-    pack_id     TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    material_id TEXT NOT NULL,
-    seq         INTEGER NOT NULL,
-    payload     TEXT NOT NULL,
-    PRIMARY KEY (pack_id, material_id)
-);
-""" + _immutable_triggers("topic_material"))
-
-    parts.append("""
-CREATE TABLE IF NOT EXISTS topic_fact (
-    pack_id TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    fact_id TEXT NOT NULL,
-    seq     INTEGER NOT NULL,
-    payload TEXT NOT NULL,
-    PRIMARY KEY (pack_id, fact_id)
-);
-""" + _immutable_triggers("topic_fact"))
-
-    parts.append("""
-CREATE TABLE IF NOT EXISTS topic_conflict (
-    pack_id     TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    conflict_id TEXT NOT NULL,
-    seq         INTEGER NOT NULL,
-    payload     TEXT NOT NULL,
-    PRIMARY KEY (pack_id, conflict_id)
-);
-""" + _immutable_triggers("topic_conflict"))
-
-    parts.append("""
-CREATE TABLE IF NOT EXISTS topic_not_found_audit (
-    pack_id TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    audit_id TEXT NOT NULL,
-    seq     INTEGER NOT NULL,
-    payload TEXT NOT NULL,
-    PRIMARY KEY (pack_id, audit_id)
-);
-""" + _immutable_triggers("topic_not_found_audit"))
-
-    parts.append("""
-CREATE TABLE IF NOT EXISTS topic_gap (
-    pack_id       TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    unresolved_id TEXT NOT NULL,
-    seq           INTEGER NOT NULL,
-    payload       TEXT NOT NULL,
-    PRIMARY KEY (pack_id, unresolved_id)
-);
-""" + _immutable_triggers("topic_gap"))
-
-    parts.append("""
--- ---------------------------------------------------------------------------
--- current 指针（可原子切换，非历史事实）
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS topic_current (
-    task_id                TEXT NOT NULL,
-    company_id             TEXT NOT NULL,
-    report_as_of           TEXT NOT NULL,
-    contract_fingerprint   TEXT NOT NULL,
-    source_policy_version  TEXT NOT NULL,
-    section_id             TEXT NOT NULL,
-    topic_id               TEXT NOT NULL,
-    pack_id                TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    switched_at            TEXT NOT NULL,
-    PRIMARY KEY (task_id, company_id, report_as_of, contract_fingerprint,
-                 source_policy_version, section_id, topic_id)
-);
-""")
-
-    parts.append("""
--- ---------------------------------------------------------------------------
--- 追加事件（不可变审计事件；类型 stale|invalidated|quarantined 标记失效）
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS topic_event (
-    event_id     TEXT PRIMARY KEY,
-    pack_id      TEXT NOT NULL REFERENCES topic_pack(pack_id),
-    event_type   TEXT NOT NULL,
-    old_pack_id  TEXT,
-    new_pack_id  TEXT,
-    reason       TEXT,
-    event_at     TEXT NOT NULL
-);
-""" + _immutable_triggers("topic_event"))
-
-    return "\n".join(parts)
+    """返回最新（v1）建表语句（单字符串；仅诊断/文档展示用，init 走 _ddl_statements）。"""
+    return "\n".join(_ddl_statements())
 
 
 # ---------------------------------------------------------------------------
@@ -348,25 +270,53 @@ MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
 ]
 
 
+def _validate_ddl_prefixes() -> None:
+    """DDL 前缀/危险子句校验：仅允许本模块 topic_ 表 / idx_topic_ 索引 / trg_topic_ 触发器，
+    禁用 INSERT OR IGNORE / INSERT OR REPLACE（幂等/覆盖必须显式冲突，不静默吞冲突）。"""
+    for stmt in _ddl_statements():
+        upper = stmt.upper()
+        if "INSERT OR IGNORE" in upper or "INSERT OR REPLACE" in upper:
+            raise RuntimeError("topic store DDL 禁用 INSERT OR IGNORE / INSERT OR REPLACE")
+        for kind, expect in (("TABLE", "TOPIC_"), ("INDEX", "IDX_TOPIC_"),
+                             ("TRIGGER", "TRG_TOPIC_")):
+            for m in re.finditer(rf"CREATE\s+{kind}\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)", upper):
+                if not m.group(1).startswith(expect):
+                    raise RuntimeError(
+                        f"topic store DDL 含非法 {kind} 前缀对象: {m.group(1)}")
+
+
 def init_topic_store(db_path: str | Path = DEFAULT_DB_PATH) -> None:
-    """初始化 topic Pack Store SQLite 数据库（append-only 追加迁移）。"""
+    """初始化 topic Pack Store SQLite 数据库（append-only 追加迁移，首次初始化单事务原子）。
+
+    - 首次初始化在单个事务内执行全部 DDL + 写入 migration 记录，任一失败整体回滚；
+    - 禁用 INSERT OR IGNORE / INSERT OR REPLACE；
+    - 前缀校验：仅 topic_ 表 / idx_topic_ 索引 / trg_topic_ 触发器，杜绝混入非本模块对象。
+    """
     global _db_path
     _db_path = Path(db_path)
     if TS.TOPIC_PACK_SCHEMA_VERSION != MIGRATIONS[-1][0]:
         raise RuntimeError(
             f"TOPIC_PACK_SCHEMA_VERSION {TS.TOPIC_PACK_SCHEMA_VERSION} != 最新 migration {MIGRATIONS[-1][0]}")
 
+    _validate_ddl_prefixes()
+
     conn = _get_conn()
     try:
         if not _table_exists(conn, "topic_schema_migrations"):
-            conn.executescript(build_ddl())
-            now = _utcnow()
-            for version, _ in MIGRATIONS:
-                conn.execute(
-                    "INSERT OR IGNORE INTO topic_schema_migrations (version, applied_at) VALUES (?,?)",
-                    (version, now),
-                )
-            conn.commit()
+            conn.execute("BEGIN")
+            try:
+                for stmt in _ddl_statements():
+                    conn.execute(stmt)
+                now = _utcnow()
+                for version, _ in MIGRATIONS:
+                    conn.execute(
+                        "INSERT INTO topic_schema_migrations (version, applied_at) VALUES (?,?)",
+                        (version, now),
+                    )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
         else:
             _apply_pending_migrations(conn)
         _verify_structure_matches_latest(conn)
