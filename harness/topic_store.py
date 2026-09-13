@@ -313,13 +313,17 @@ def init_topic_store(db_path: str | Path = DEFAULT_DB_PATH) -> None:
                         "INSERT INTO topic_schema_migrations (version, applied_at) VALUES (?,?)",
                         (version, now),
                     )
+                bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if bad:
+                    raise RuntimeError(f"初始化后外键校验失败: {bad[:5]}")
+                # 最终结构 + migration 前缀复核必须纳入同一事务（COMMIT 前），失败整体回滚。
+                _verify_structure_matches_latest(conn)
                 conn.execute("COMMIT")
             except Exception:
                 conn.execute("ROLLBACK")
                 raise
         else:
             _apply_pending_migrations(conn)
-        _verify_structure_matches_latest(conn)
     finally:
         conn.close()
 
