@@ -1,0 +1,117 @@
+# =============================================================================
+# 来源政策 v1（唯一版本化来源政策资产）
+# 载体：templates/policies/source_policy_v1.yaml
+#
+# 本文件是 R1-A 候选的声明式来源政策，统一 policy_id / policy_version /
+# source_policy_ref 命名（禁止 source_policy_v1 与 source-policy-v1 混用）。
+#
+# 语义忠实反映既有 P3-B02 A/B/C/D 分级（external_v2/schema.py grade_source）与
+# 行业来源充分性规则（sections/industry_source_policy.py assess_industry_sources），
+# 不新增任何 case_id / 300750 / 宁德时代 / 固定页码 / 固定答案关键词专用规则。
+#
+# 仅被 contracts/source_policy.py（只读 schema/loader/validator）与离线测试读取；
+# 不接正式 Router / Harness runtime / Worker / Writer，不改变正式检索行为。
+# =============================================================================
+
+policy_id: source_policy_v1
+policy_version: v1
+schema_version: source-policy-v1
+status: frozen
+created_at: "2026-09-13"
+approved_at: "2026-09-13"
+frozen_at: "2026-09-13"
+content_sha256: "12921c67f82dd18876a8bbef4175a47e0b157e6b5921a3693350ad9aa48cbf17"
+policy_name: "来源政策 v1（A/B/C/D 分级与关键结论支撑规则）"
+
+# Contract v2 中 source_policy_ref 统一指向本 policy_id。
+applies_to:
+  contract_version: v2
+  source_policy_ref: source_policy_v1
+
+# ---------------------------------------------------------------------------
+# 来源等级 A/B/C/D（域名确定性判定，未知域名保守判 D，不向上猜测）
+# ---------------------------------------------------------------------------
+source_grades:
+  A:
+    label: "监管/政府/交易所"
+    ordinary_fact: "独立支撑普通事实"
+    key_conclusion: "支撑关键结论"
+  B:
+    label: "法定披露平台/行业协会"
+    ordinary_fact: "独立支撑普通事实"
+    key_conclusion: "支撑关键结论"
+  C:
+    label: "券商/财经媒体"
+    ordinary_fact: "支撑有限非关键陈述"
+    key_conclusion: "需 ≥2 个相互独立且一致的 C 才可支撑关键结论"
+  D:
+    label: "来源不明"
+    ordinary_fact: "不作为事实依据"
+    key_conclusion: "不得作为关键结论依据"
+
+# ---------------------------------------------------------------------------
+# 关键结论支撑规则
+# ---------------------------------------------------------------------------
+key_conclusion_rule:
+  description: "关键行业结论（规模/份额/重大风险/重大变化）来源充分性判定"
+  threshold: "≥1 直接 A/B，或 ≥2 个相互独立且一致的 C"
+  single_c: "仅能形成有限非关键陈述，不得作为关键结论唯一依据"
+  d_grade: "不得作为关键结论依据"
+  unknown_date: "published_at 未知不得支撑强时点结论（即使 A/B）"
+  insufficient_handling: "从正式研究结论移除该 Claim 并生成显式 unresolved，不重写事实文本"
+
+# ---------------------------------------------------------------------------
+# 独立性判定
+# ---------------------------------------------------------------------------
+independence_rule:
+  by: canonical_domain
+  note: "同一网站两篇文章 ≠ 两个独立 C；独立性按 canonical domain / 来源身份判定"
+
+# ---------------------------------------------------------------------------
+# 关键行业结论主题（通用契约 topic_id，非公司特定）
+# ---------------------------------------------------------------------------
+key_industry_topics:
+  - industry_scale_cycle
+  - industry_position
+  - industry_competition
+  - industry_risk_transmission
+  - industry_supply_demand
+
+# ---------------------------------------------------------------------------
+# 强时点时效窗口（freshness_policy → 天数）
+# ---------------------------------------------------------------------------
+freshness_windows_days:
+  near_3m: 90
+  near_6m: 180
+  near_1y: 365
+  near_2y: 730
+  near_3y: 1095
+
+# ---------------------------------------------------------------------------
+# 证据来源类（Evidence source_class 分类，与 Contract v2 evidence_requirements 一致）
+# ---------------------------------------------------------------------------
+source_classes:
+  - company_industry   # 公司/行业披露材料
+  - financial          # 财务结构化数据
+  - project            # 项目/授信输入
+  - external           # 外部检索（受 A/B/C/D 分级约束）
+  - structured_db      # 结构化库（财务快照/企业信息）
+
+# ---------------------------------------------------------------------------
+# 行业风险传导四层语义（静态 TransmissionRequirement 标签，不放运行态 fact/citation/status）
+# ---------------------------------------------------------------------------
+transmission_layers:
+  - industry_background
+  - conditional_transmission
+  - company_exposure
+  - actual_company_impact
+transmission_channels:
+  - channel: demand_revenue
+    label: "需求/收入"
+  - channel: raw_material_cost
+    label: "原材料/成本"
+  - channel: capacity_capex
+    label: "产能/资本开支"
+  - channel: cashflow_solvency
+    label: "现金流/偿债"
+transmission_note: "行业背景（industry_background）按行业来源政策进入背景正文；条件性传导（conditional_transmission）须使用『可能/通常/取决于』表述并保留 inference 依据；公司暴露（company_exposure）需定性公司事实；实际影响（actual_company_impact）需定量公司暴露/财务影响/管理层披露。行业事实/公司暴露事实/实际影响事实分别需要直接引用；条件性传导允许依据已验证事实和版本化通用商业机制形成 inference，须保留 derived_from_fact_ids / inference_policy_ref / channel / direction / conditions / limitation；缺公司证据时不得清空有效的行业背景/条件性分析，也不得把影响写成已经发生；四条通道（需求/收入、原材料/成本、产能/资本开支、现金流/偿债）分别独立成 aspect。"
