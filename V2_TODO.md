@@ -216,6 +216,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - [x] R0：正式唯一主链收敛 + Contract 来源身份护栏已收口并分责提交（`a4322c0` 契约溯源 / `cd645f1` harness 只读投影 / `81a487c` 唯一主链护栏 + 实验标记 / `2b4211e` Contract 来源身份严格 fail-closed / `edda942` service 到 ToolRegistry 正式链离线集成）；`test_phase4_contract_slice` 32 项、`test_phase4_formal_chain` 26 项、`test_phase4_service_formal_chain` 17 项与完整离线 eval 4065/0/0 全绿作为护栏。R0 仅收口「正式唯一链」与「Contract 来源护栏」，不解决内容完整性；Contract v2 / TopicResearchPack / dynamic budget / formal writer 均未实现（不进入 R1）。
 - [x] R1-A：52 问 × aspect × evidence 审计 + Contract v2 + 唯一版本化 source policy / WritingSpec / PresentationProfile 资产 + 只读 schema/loader/validator + 审计导出 `review_52q.json/.csv` + 离线测试 153 项全绿。已批准并冻结、按职责提交（未接线正式运行时）。
 - [x] R1：唯一 `TopicResearchPack` schema/Store/checkpoint 已确立（R1-A 冻结资产 + R1-B 编码完成）。R1-B 产出 `harness/topic_schema.py`（typed schema + AspectV2 22 必需 + 4 扩展冻结投影 + 三类权威/locator 联合 + 双轴状态 + ResearchOutcome 兼容入口）、`harness/topic_store.py`（append-only SQLite Pack Store + `topic_schema_migrations` + current 指针 + `topic_event` 失效事件）、`harness/topic_checkpoint.py`（`load_checkpoint` 只读重放 + `verify_dependency_fingerprint`）、`harness/topic_store_cli.py`（只读 CLI + self-check）+ `evals/test_topic_pack_store.py`（16 类 102 项）并注册 `run_evals`。完整离线 eval 4320 passed / 0 failed / 0 skipped；v1 `standard_v2.yaml` 固定 SHA256 不变、未接 runtime/第二 Router/工具循环。分责提交 `c08d80f` `4b6a785` `bc5d37e` `b35f274` `e2882ff`。未接线正式运行时（R2/R3/R4/R5 未实现）。
+- [x] R1-B 最后一次架构门禁返修（2026-09-13，追加定点修复 commit，不改写历史/不回滚）：以 Codex 独立审计复现的 4 个已确认缺陷为准定点修复——(1) `commit_pack(pack, requirement)` 的 requirement 必填，身份/aspect/question/冻结投影/dependency fingerprint 全量一致，不存在绕过 requirement 的公开写入口；(2) aspect 语义 + 双轴状态在 commit 边界独立重算（空壳 covered、not_found 未 qualified、partial/blocked/not_applicable 依据、事实/材料/gap 回指、SupportedFact 非空 CitationRef + 非 rejected authority、authority/sufficiency 两门独立、process/coverage/status_derivation 与重算不一致 fail-closed）；(3) content_fingerprint 纳入 process/coverage/status_derivation/usage/uncertain_calls/outcome_refs，改内容即改 pack_id，复用前深规范形比较，同 pack_id 不同内容 → StorageCorruptionError/StorageConflictError；(4) invalidated/stale/quarantined 后 current/checkpoint 默认读 fail-closed（不再把失效 Pack 当可用 current/resumable），损坏读 → StorageCorruptionError；(5) 新增 `harness/_readonly_sqlite.py` 严格只读（`sqlite3.connect(uri+"?mode=ro", uri=True)` + `PRAGMA query_only=ON`），读路径绝不建库/写库；(6) migration 首初始化单事务原子（27 条 DDL 逐条执行 + 失败 ROLLBACK 无残留表）、禁 INSERT OR IGNORE/REPLACE、DDL 前缀校验 + 故障注入回滚测试；(7) `MaterialPayloadRef` 经最小 typed `PayloadResolver`（Protocol/DI，离线 fake resolver）可验证，dangling/类型/版本/hash 不一致 fail-closed。回归新增 `evals/test_topic_pack_store.py` 24 项反例（§四）并入 141 项，完整离线 eval 4359 passed / 0 failed / 0 skipped；v1 `standard_v2.yaml` 固定 SHA256 不变、未接 runtime/真实 LLM/博查/网络、未生成真实报告。
 - [ ] R2：实现本地命中后的材料构建与受控上下文扩读，覆盖同章节相邻块、跨页续文、表题/单位/表头/续表和明确交叉引用，并记录边界、去重与未读范围。
 - [ ] R3：实现 aspect 待办调度、Harness Topic runtime 与复杂度动态有界预算；宽查询可覆盖多个 aspect，仅对缺口补检；原子 ANSWER 不提前结束 Topic，预算耗尽形成可恢复 Partial Pack。
 - [ ] R4：完善外部研究漏斗的 aspect 语义、候选优先级、fetch/snapshot、换源和来源政策；snippet/D 级/未快照内容不得进入正式事实，低价值候选不得耗尽关键 aspect 预算。
@@ -265,7 +266,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-> **当前动作（2026-09-13）**：R1-B 已按批准计划编码完成并通过完整离线 eval（4320 passed / 0 failed / 0 skipped），已按职责分责提交（`c08d80f` `4b6a785` `bc5d37e` `b35f274` `e2882ff`，docs 冻结 `e6dee97` 在前）；下一步进入 R2（材料构建/受控上下文扩读），进入前需输出 R2 编码前实施计划并获批。本轮未跑真实 LLM/博查/网络/真实报告生成。
+> **当前动作（2026-09-13）**：R1-B 最后一次架构门禁返修已定点修复 Codex 复现的 4 个已确认缺陷 + 7 项修复并追加定点 commit（不改写历史/不回滚），回归 24 项反例 + 完整离线 eval 4359 passed / 0 failed / 0 skipped 全绿；下一步进入 R2（材料构建/受控上下文扩读），进入前需输出 R2 编码前实施计划并获批。本轮未跑真实 LLM/博查/网络/真实报告生成。
 
 1. **当前面试版交互与审核范围已确认（2026-09-13）**：报告生成后只读展示缺失事项、已查范围、原因、影响和建议材料类型；不实现用户补件、缺口绑定、Evidence 更新、集中确认提交或继续生成。状态栏区分流程完成、草稿预览、系统审核和人工最终确认。Phase 5 采用内容完整性前置门 + 六类 Assurance + 受限 Controller，LLM 只返回有证据定位的结构化 issue，最高自动状态为“可供人工确认”。
 2. **R1-A 已批准并冻结（2026-09-13，已按职责提交，未接线）**：完成 52 问 × aspect × evidence
@@ -297,7 +298,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 5. **R1-A 已冻结（Contract v2 + 版本化 WritingSpec/Profile 载体已收口）**：`templates/contracts/standard_v3.yaml`
    配 `contract_version=v2`，canonical、机器可读的 SectionWritingSpec / ReportPresentationProfile
    载体、schema、loader、validator、版本与指纹已在 R1-A 冻结并分责提交；R1-B（唯一 Pack schema/Store/checkpoint）仍未编码。
-6. **下一开发动作**：R1-B 已编码完成并通过完整离线 eval（4320/0/0）与分责提交；下一开发动作为输出
+6. **下一开发动作**：R1-B 最后一次架构门禁返修已定点修复并追加定点 commit（完整离线 eval 4359/0/0）；下一开发动作为输出
    R2（材料构建/受控上下文扩读）编码前实施计划并等待批准；批准前不编码 R2、不重跑真实 LLM/博查/网络。
 7. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
 8. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
