@@ -1,0 +1,70 @@
+# =============================================================================
+# PresentationProfile v1（唯一版本化呈现配置资产）
+# 载体：templates/presentation_profiles/interview_demo_v1.yaml
+#
+# 只控制显示、折叠、截图与附录，不得改变事实、覆盖、引用或业务判断。
+# 所有事实/覆盖/引用/判断语义以 Contract v2 + WritingSpec 为准，本配置不得覆盖。
+#
+# 仅被 sections/presentation_profile.py（只读 schema/loader/validator）与离线测试读取。
+# =============================================================================
+
+presentation_profile_id: interview_demo_v1
+schema_version: presentation-profile-v1
+status: frozen
+created_at: "2026-09-13"
+approved_at: "2026-09-13"
+frozen_at: "2026-09-13"
+content_sha256: "ab43d221e97a9b75d9f3fd68f0364ea5f46ecfaf671e5c154588eeb9f2da6ca9"
+profile_name: "访谈演示呈现配置"
+writing_spec_ref: credit_report_v1
+contract_ref:
+  contract_version: v2
+  asset: templates/contracts/standard_v3.yaml
+
+# 呈现边界（硬约束）
+scope:
+  allowed: [display, folding, screenshots, appendix]
+  forbidden: [fact_change, coverage_change, citation_change, business_judgment_change]
+
+# 折叠层级
+fold_levels:
+  default: h2
+  expand_on_demand: [h3, h4]
+  note: "默认折叠到 H2；H3/H4 按需展开。折叠不得隐藏 required body 内容。"
+
+# 展示规则（不改变语义，只改变呈现）
+display_rules:
+  toc: "按 WritingSpec 8/5/9 目录渲染，标题逐字一致"
+  tables:
+    render: native
+    empty_policy: "不渲染空表；表头保留"
+  gap_marker: "缺失证据以「未获得/未检索到」展示，进入资料限制区"
+  unresolved_marker: "blocked/source_unavailable/budget_exhausted/needs_human_review 进入资料限制/待确认区"
+  diagnostic_marker: "诊断槽位内容（EBITDA/FCF/季度同比/利息费用代理）以附录或脚注呈现，不进入正文判断"
+  citation_display: "引用以只读来源名 + 物理页展示，不写死固定文档名"
+  negative_event_body: "正文只呈现『已检索到以下事项』或『在明确列示的检索范围内未发现相关事项』，禁止『该事项不存在』"
+
+# 截图区域（演示用，不影响正文）
+screenshot_regions:
+  - id: company_toc
+    label: "公司信用研究目录（8 H2）"
+  - id: financial_toc
+    label: "财务分析目录（5 H2）"
+  - id: industry_toc
+    label: "行业研究目录（9 H2）"
+  - id: debt_table
+    label: "偿债、授信、发债与对外担保表"
+  - id: solvency_table
+    label: "偿债能力指标表"
+
+# 附录项
+appendix_items:
+  - id: full_consolidation_scope
+    label: "完整合并范围"
+    note: "仅审计附录，不要求全部写入正文"
+  - id: diagnostic_slots
+    label: "诊断槽位"
+    note: "EBITDA/FCF/不可比季度同比/不可靠利息费用代理"
+  - id: unresolved_zone
+    label: "资料限制/待确认区"
+    note: "blocked/source_unavailable/budget_exhausted/needs_human_review 汇总"
