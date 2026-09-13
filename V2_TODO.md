@@ -217,6 +217,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 - [x] R1-A：52 问 × aspect × evidence 审计 + Contract v2 + 唯一版本化 source policy / WritingSpec / PresentationProfile 资产 + 只读 schema/loader/validator + 审计导出 `review_52q.json/.csv` + 离线测试 153 项全绿。已批准并冻结、按职责提交（未接线正式运行时）。
 - [x] R1：唯一 `TopicResearchPack` schema/Store/checkpoint 已确立（R1-A 冻结资产 + R1-B 编码完成）。R1-B 产出 `harness/topic_schema.py`（typed schema + AspectV2 22 必需 + 4 扩展冻结投影 + 三类权威/locator 联合 + 双轴状态 + ResearchOutcome 兼容入口）、`harness/topic_store.py`（append-only SQLite Pack Store + `topic_schema_migrations` + current 指针 + `topic_event` 失效事件）、`harness/topic_checkpoint.py`（`load_checkpoint` 只读重放 + `verify_dependency_fingerprint`）、`harness/topic_store_cli.py`（只读 CLI + self-check）+ `evals/test_topic_pack_store.py`（16 类 102 项）并注册 `run_evals`。完整离线 eval 4320 passed / 0 failed / 0 skipped；v1 `standard_v2.yaml` 固定 SHA256 不变、未接 runtime/第二 Router/工具循环。分责提交 `c08d80f` `4b6a785` `bc5d37e` `b35f274` `e2882ff`。未接线正式运行时（R2/R3/R4/R5 未实现）。
 - [x] R1-B 最后一次架构门禁返修（2026-09-13，追加定点修复 commit，不改写历史/不回滚）：以 Codex 独立审计复现的 4 个已确认缺陷为准定点修复——(1) `commit_pack(pack, requirement)` 的 requirement 必填，身份/aspect/question/冻结投影/dependency fingerprint 全量一致，不存在绕过 requirement 的公开写入口；(2) aspect 语义 + 双轴状态在 commit 边界独立重算（空壳 covered、not_found 未 qualified、partial/blocked/not_applicable 依据、事实/材料/gap 回指、SupportedFact 非空 CitationRef + 非 rejected authority、authority/sufficiency 两门独立、process/coverage/status_derivation 与重算不一致 fail-closed）；(3) content_fingerprint 纳入 process/coverage/status_derivation/usage/uncertain_calls/outcome_refs，改内容即改 pack_id，复用前深规范形比较，同 pack_id 不同内容 → StorageCorruptionError/StorageConflictError；(4) invalidated/stale/quarantined 后 current/checkpoint 默认读 fail-closed（不再把失效 Pack 当可用 current/resumable），损坏读 → StorageCorruptionError；(5) 新增 `harness/_readonly_sqlite.py` 严格只读（`sqlite3.connect(uri+"?mode=ro", uri=True)` + `PRAGMA query_only=ON`），读路径绝不建库/写库；(6) migration 首初始化单事务原子（27 条 DDL 逐条执行 + 失败 ROLLBACK 无残留表）、禁 INSERT OR IGNORE/REPLACE、DDL 前缀校验 + 故障注入回滚测试；(7) `MaterialPayloadRef` 经最小 typed `PayloadResolver`（Protocol/DI，离线 fake resolver）可验证，dangling/类型/版本/hash 不一致 fail-closed。回归新增 `evals/test_topic_pack_store.py` 24 项反例（§四）并入 141 项，完整离线 eval 4359 passed / 0 failed / 0 skipped；v1 `standard_v2.yaml` 固定 SHA256 不变、未接 runtime/真实 LLM/博查/网络、未生成真实报告。
+- [x] R1-B 最后四个残余门禁定点收口（2026-09-13，追加定点修复 commit，不改写历史/不回滚）：以 Codex 独立复现的 4 个残余缺陷为准——(1) 有 material 但不提供 PayloadResolver 仍可提交 → `pack.materials` 非空必须注入 resolver（fail-closed）、无 material 不必填、每 material 走 payload 解析，material_type/locator/authority/version/content_hash/dangling 不一致拒绝、`created_dependency_fingerprint` 有效；(2) covered 使用自称 authoritative 但 current/inspected 全 False 的权威仍可提交 → authority 结论由字段确定性重算（不信任自称 verdict；external 最高仅 supplemental_only）、material↔fact↔citation 来源身份一致、coverage_rules 确定性评估（未知/set_complete → coverage_rule_not_evaluable）、关键结论 topic sufficiency 独立门、requirement 不自证（contract/source policy/EvidenceRequirementRef/question 闭合 + fingerprint 有效）；(3) invalidated Pack 可经重新切换 current 复活 → stale|invalidated|quarantined 为终态失效事件，普通 commit_pack/reuse/switched_current 不清除，同 pack_id 失效后普通 recommit 拒绝；(4) 最终结构复核失败发生在 COMMIT 后仍残留 schema → 复核纳入同一原子事务（BEGIN→DDL→台账→foreign_key_check→结构复核→COMMIT，失败 ROLLBACK 无残留）。回归新增 `evals/test_topic_pack_store.py` 16 项反例（N1–N16，夹具升级为确定性 authority + 真实 coverage_rules），专项 159/0/0、完整离线 eval 4377 passed / 0 failed / 0 skipped；v1 `standard_v2.yaml` 固定 SHA256 不变、未接 runtime/真实 LLM/博查/网络、未生成真实报告。分责提交 `79befdd`（payload 与 authority/coverage 资格门）、`d9f183c`（invalidated 终态失效）、`ba53278`（migration 原子复核）、`1e13f1a`（反例测试）＋ docs。
 - [ ] R2：实现本地命中后的材料构建与受控上下文扩读，覆盖同章节相邻块、跨页续文、表题/单位/表头/续表和明确交叉引用，并记录边界、去重与未读范围。
 - [ ] R3：实现 aspect 待办调度、Harness Topic runtime 与复杂度动态有界预算；宽查询可覆盖多个 aspect，仅对缺口补检；原子 ANSWER 不提前结束 Topic，预算耗尽形成可恢复 Partial Pack。
 - [ ] R4：完善外部研究漏斗的 aspect 语义、候选优先级、fetch/snapshot、换源和来源政策；snippet/D 级/未快照内容不得进入正式事实，低价值候选不得耗尽关键 aspect 预算。
@@ -266,7 +267,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-> **当前动作（2026-09-13）**：R1-B 最后一次架构门禁返修已定点修复 Codex 复现的 4 个已确认缺陷 + 7 项修复并追加定点 commit（不改写历史/不回滚），回归 24 项反例 + 完整离线 eval 4359 passed / 0 failed / 0 skipped 全绿；下一步进入 R2（材料构建/受控上下文扩读），进入前需输出 R2 编码前实施计划并获批。本轮未跑真实 LLM/博查/网络/真实报告生成。
+> **当前动作（2026-09-13）**：R1-B 最后四个残余门禁（PayloadResolver 必填、authority/coverage 确定性重算、invalidated Pack 终态失效、migration 最终复核原子化）已定点收口，追加 16 项反例（N1–N16）与 5 个定点 commit（不改写历史/不回滚），完整离线 eval 4377 passed / 0 failed / 0 skipped 全绿；R1-B 严格关闭，下一步进入 R2（材料构建/受控上下文扩读），进入前需输出 R2 编码前实施计划并获批。本轮未跑真实 LLM/博查/网络/真实报告生成。
 
 1. **当前面试版交互与审核范围已确认（2026-09-13）**：报告生成后只读展示缺失事项、已查范围、原因、影响和建议材料类型；不实现用户补件、缺口绑定、Evidence 更新、集中确认提交或继续生成。状态栏区分流程完成、草稿预览、系统审核和人工最终确认。Phase 5 采用内容完整性前置门 + 六类 Assurance + 受限 Controller，LLM 只返回有证据定位的结构化 issue，最高自动状态为“可供人工确认”。
 2. **R1-A 已批准并冻结（2026-09-13，已按职责提交，未接线）**：完成 52 问 × aspect × evidence
@@ -297,11 +298,21 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
    docs-only commit `846887d` 落入 HEAD。
 5. **R1-A 已冻结（Contract v2 + 版本化 WritingSpec/Profile 载体已收口）**：`templates/contracts/standard_v3.yaml`
    配 `contract_version=v2`，canonical、机器可读的 SectionWritingSpec / ReportPresentationProfile
-   载体、schema、loader、validator、版本与指纹已在 R1-A 冻结并分责提交；R1-B（唯一 Pack schema/Store/checkpoint）仍未编码。
-6. **下一开发动作**：R1-B 最后一次架构门禁返修已定点修复并追加定点 commit（完整离线 eval 4359/0/0）；下一开发动作为输出
-   R2（材料构建/受控上下文扩读）编码前实施计划并等待批准；批准前不编码 R2、不重跑真实 LLM/博查/网络。
-7. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
-8. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
+   载体、schema、loader、validator、版本与指纹已在 R1-A 冻结并分责提交。
+6. **R1-B 已严格关闭（唯一 TopicResearchPack schema + append-only Pack Store + checkpoint，2026-09-13）**：
+   最后四个残余门禁定点收口：① Pack 含 material 必须注入 PayloadResolver（fail-closed）且
+   material↔payload_ref typed 身份 / created_dependency_fingerprint 一致；② authority 结论由字段
+   确定性重算（不信任自称 verdict）、material↔fact↔citation 来源身份一致、coverage_rules 确定性评估
+   （不可表达 → coverage_rule_not_evaluable）、关键结论 sufficiency 独立门；③ stale|invalidated|quarantined
+   为 Pack 终态失效事件，普通 recommit 拒绝复活；④ migration 最终结构复核纳入同一原子事务（失败回滚
+   无残留 schema）。追加 16 项反例（N1–N16），专项 `test_topic_pack_store` 159/0/0、`test_harness_checkpoint`
+   11/0/0、`test_phase4_formal_chain` 26/0/0、`test_phase4_service_formal_chain` 17/0/0、`test_contract_v2_assets`
+   0 失败，完整离线 eval 4377/0/0；`standard_v2.yaml`（v1）固定 SHA256 不变。分责 commit：`79befdd`
+   （payload 与 authority/coverage 资格门）、`d9f183c`（invalidated 终态失效）、`ba53278`（migration 原子复核）、
+   `1e13f1a`（反例测试）。
+7. **下一开发动作**：输出 R2（材料构建/受控上下文扩读）编码前实施计划并等待批准；批准前不编码 R2、不重跑真实 LLM/博查/网络。
+8. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
+9. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
    验收产物全部原样保留，只作为回归和安全基线，不回写、不重标、不覆盖。
 
 ## 七、交付时间门
