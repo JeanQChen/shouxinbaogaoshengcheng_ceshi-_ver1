@@ -1,29 +1,24 @@
-"""Eval: R1-B TopicResearchPack schema + Pack Store + checkpoint + CLI（§14 十六类矩阵）。
+"""Eval: R1-B TopicResearchPack schema + Pack Store + checkpoint + CLI（§14 十六类矩阵 + §四 反例回归）。
 
 用法: python -m evals.test_topic_pack_store
 
-全部离线：mock 构造 Pack / requirement，不调真实 LLM / bocha / 网络 / Router / 工具循环。
-断言覆盖 R1B_IMPLEMENTATION_PLAN.md §14 的 16 类测试：
-  1. 序列化往返（schema_version / 非法枚举 / 嵌套 unknown-field fail-closed）
-  2. 内容寻址（pack_id / dependency_fingerprint 不含 run_id/时间戳；内容/依赖变化即变）
-  3. 幂等（同 pack_id 同内容复用；异内容损坏 fail-closed）
-  4. 冲突（错身份/公司/日期/契约/任务全部 fail-closed）
-  5. current 指针（原子切换、只读加载、历史不 UPDATE/DELETE）
-  6. 失效（依赖指纹变化 → 标记失效、不自动升级）
-  7. migration（append-only、结构不一致 fail-closed、不创建/迁移 legacy 表、只读不建库）
-  8. 损坏恢复（StorageCorruptionError、健康对象不受影响）
-  9. 状态适配双轴（adapt_outcome_completion / derive_pack_status / 未知状态 fail-closed / 跨空间拒绝）
-  10. 权威分离（三类强类型 + locator 联合、mismatch fail-closed）
-  11. 两门独立（authority 通过 ≠ sufficiency 通过）
-  12. checkpoint（严格只读、指纹不符拒绝 resume）
-  13. 正式链边界（不接 runtime、v1 SHA256 不变）
-  14. payload 不可变引用（hash/类型 mismatch fail-closed）
-  15. 冻结投影（AspectV2 22 必需 + 4 扩展全投影）
-  16. 数据库共存初始化（两种顺序均成功、只读 hash 不变）
+全部离线：mock 构造 Pack / requirement / resolver，不调真实 LLM / bocha / 网络 / Router / 工具循环。
+断言覆盖 R1B_IMPLEMENTATION_PLAN.md §14 的 16 类测试，以及 R1-B 最后一次架构门禁返修的
+4 个已确认缺陷 + 7 项定点修复的反例回归（§四）。
+
+已确认缺陷（Codex 独立复现）→ 修复：
+  1. 省略 requirement 仍可提交 → commit_pack(requirement) 必填
+  2. 同 pack_id 改 coverage_status 仍幂等复用 → content_fingerprint 含 process/coverage/
+     status_derivation/usage/uncertain_calls/outcome_refs + 深规范形比较
+  3. invalidated 后 get_current_pack 仍返回 current → 失效 current fail-closed
+  4. 只读连接允许 CREATE TABLE → mode=ro + PRAGMA query_only=ON
+  + aspect 语义/双轴状态独立重算、损坏读 fail-closed、migration 单事务原子、
+    MaterialPayloadRef 最小 typed resolver 可验证。
 """
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import sqlite3
@@ -39,6 +34,7 @@ from harness import topic_checkpoint as Checkpoint
 from harness import topic_schema as TS
 from harness import topic_store as Store
 from harness import topic_store_cli as CLI
+from harness._readonly_sqlite import open_readonly_conn
 
 ROOT = Path(__file__).resolve().parent.parent
 V1_FIXED_SHA256 = "23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45"
@@ -62,7 +58,8 @@ def _req_ref(rid: str = "er1") -> TS.EvidenceRequirementRef:
                                      requirement_fingerprint=_sha("req:" + rid), schema_version="1")
 
 
-def _aspect_snapshot(aspect_id: str, topic_id: str = "t1") -> TS.TopicAspectRequirementSnapshot:
+def _aspect_snapshot(aspect_id: str, topic_id: str = "t1",
+                     applicability_policy: str | None = None) -> TS.TopicAspectRequirementSnapshot:
     return TS.TopicAspectRequirementSnapshot(
         aspect_id=aspect_id, question_id="q1", topic_id=topic_id,
         requirement_text="req text", kind="fact", producer_kind="company",
@@ -70,7 +67,7 @@ def _aspect_snapshot(aspect_id: str, topic_id: str = "t1") -> TS.TopicAspectRequ
         complete_set_rule="", evidence_requirement_ids=(_req_ref(),),
         source_policy_ref=_policy_ref(), time_scope="period", display_tier="primary",
         content_role="subject", missing_policy="none", blocking_policy=(),
-        applicability_policy=None, impact_scope=("subject",), output_destination="body",
+        applicability_policy=applicability_policy, impact_scope=("subject",), output_destination="body",
         derived_from=(), business_review_status="none",
         contract_version="v1", contract_sha256=_sha("contract"),
         canonical_fingerprint=_sha("canonical:" + aspect_id),
@@ -143,15 +140,24 @@ def _audit(aid: str, qualified: bool = True) -> TS.NotFoundAudit:
 
 
 def _gap(gid: str, aspect_ids: tuple[str, ...], reason_code: str = "not_found",
-         impact: str = "subject") -> TS.ResearchGap:
+         impact: str = "subject", blocking: bool = False) -> TS.ResearchGap:
     return TS.ResearchGap(unresolved_id=gid, aspect_ids=aspect_ids, reason_code=reason_code,
-                          detail="d", attempted_need_ids=("n1",), blocking=False, impact=impact)
+                          detail="d", attempted_need_ids=("n1",), blocking=blocking, impact=impact)
 
 
-def _usage() -> TS.TopicUsageSnapshot:
+def _usage(stop_reason: str | None = None) -> TS.TopicUsageSnapshot:
     bp = TS.BudgetPolicySnapshot(schema_version="1", canonical_hash=_sha("bp"), tier="t1")
     return TS.TopicUsageSnapshot(budget_policy=bp,
-                                 cumulative_usage=(TS.UsageEntry(metric="rounds", value=1, unit=""),))
+                                 cumulative_usage=(TS.UsageEntry(metric="rounds", value=1, unit=""),),
+                                 stop_reason=stop_reason)
+
+
+def _closed_fact(fid: str, aspect_ids: tuple[str, ...], verdict: str = "authoritative",
+                 citation: bool = True) -> TS.SupportedFact:
+    auth = TS.EvidenceAuthorityAssessment(evidence_id="ev1", verdict=verdict)
+    refs = (TS.CitationRef(ref_type="evidence", evidence_id="e1"),) if citation else ()
+    return TS.SupportedFact(fact_id=fid, text="fact text", fact_type="fact", aspect_ids=aspect_ids,
+                            citation_refs=refs, source_authority=auth)
 
 
 def _build(topic_id: str = "t1", statuses: dict[str, str] | None = None,
@@ -160,38 +166,172 @@ def _build(topic_id: str = "t1", statuses: dict[str, str] | None = None,
            task_id: str = "task1", company_id: str = "300750", section_id: str = "company",
            report_as_of: str | None = None, contract_version: str = "v1",
            facts: tuple[TS.SupportedFact, ...] = (),
-           materials: tuple[TS.ResearchMaterial, ...] = ()):
-    """构造一个 finalized Pack + 对应 aspect 冻结投影 tuple。"""
+           materials: tuple[TS.ResearchMaterial, ...] = (),
+           usage: TS.TopicUsageSnapshot | None = None,
+           uncertain_calls: tuple[TS.UncertainToolCallRecord, ...] = (),
+           closed_chain: bool = True):
+    """构造一个 finalized Pack + 对应 aspect 冻结投影 tuple。
+
+    covered aspect 默认走「最小真实闭合链」（≥1 material + ≥1 fact + citation + authoritative
+    authority + 回指 aspect），否则 commit 会被 _validate_aspect_semantics 拒绝（空壳 covered
+    是 R1-B 修复的缺陷）。closed_chain=False 仅用于反例测试。
+    """
     contract_fp = contract_fp or _sha("contract")
     statuses = statuses or {"a1": "covered"}
     aspects: list[TS.TopicAspectRequirementSnapshot] = []
     results: list[TS.AspectResearchResult] = []
     audits: list[TS.NotFoundAudit] = []
+    gaps: list[TS.ResearchGap] = []
+    all_facts = list(facts)
+    all_materials = list(materials)
     for aid, status in statuses.items():
-        snap = _aspect_snapshot(aid, topic_id)
+        snap = _aspect_snapshot(aid, topic_id,
+                                applicability_policy=("n/a-by-scope"
+                                                      if status == "not_applicable" else None))
         aspects.append(snap)
         nfa_id = None
-        if status == "not_found":
+        material_ids: tuple[str, ...] = ()
+        fact_ids: tuple[str, ...] = ()
+        unresolved_ids: tuple[str, ...] = ()
+        if status == "covered" and closed_chain:
+            mid, fid = "m-" + aid, "f-" + aid
+            all_materials.append(_material("evidence_span", mid))
+            all_facts.append(_closed_fact(fid, (aid,)))
+            material_ids, fact_ids = (mid,), (fid,)
+        elif status == "not_found":
             nfa_id = "audit-" + aid
             audits.append(_audit(nfa_id, qualified=True))
+        elif status == "partial":
+            gid = "gap-" + aid
+            gaps.append(_gap(gid, (aid,), blocking=False))
+            unresolved_ids = (gid,)
+        elif status == "blocked":
+            gid = "gap-" + aid
+            gaps.append(_gap(gid, (aid,), blocking=True))
+            unresolved_ids = (gid,)
         results.append(TS.AspectResearchResult(
             aspect_id=aid, question_ids=("q1",), requirement_snapshot=snap, status=status,
-            supported_fact_ids=(), material_ids=(), attempted_need_ids=(), unresolved_ids=(),
-            not_found_audit_id=nfa_id))
+            supported_fact_ids=fact_ids, material_ids=material_ids, attempted_need_ids=(),
+            unresolved_ids=unresolved_ids, not_found_audit_id=nfa_id))
     required = tuple(a.aspect_id for a in aspects)
-    process, coverage, derivation = TS.derive_pack_status(required, tuple(results))
+    u = usage or _usage()
+    process, coverage, derivation = TS.derive_pack_status(required, tuple(results),
+                                                          stop_reason=u.stop_reason)
     dep = TS.compute_dependency_fingerprint(contract_fp, spv, dep_versions or {})
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id=run_id,
         task_id=task_id, company_id=company_id, report_as_of=report_as_of,
         contract_version=contract_version, contract_fingerprint=contract_fp,
         source_policy_version=spv, section_id=section_id, topic_id=topic_id,
-        question_ids=("q1",), aspect_results=tuple(results), materials=materials,
-        facts=facts, outcome_refs=(), external_funnel=None, conflicts=(),
-        not_found_audits=tuple(audits), unresolved=(), usage=_usage(), uncertain_calls=(),
+        question_ids=("q1",), aspect_results=tuple(results), materials=tuple(all_materials),
+        facts=tuple(all_facts), outcome_refs=(), external_funnel=None, conflicts=(),
+        not_found_audits=tuple(audits), unresolved=tuple(gaps), usage=u,
+        uncertain_calls=uncertain_calls,
         process_status=process, coverage_status=coverage, status_derivation=derivation,
         dependency_fingerprint=dep)
     return TS.finalize_pack(pack), tuple(aspects)
+
+
+def _build_raw(statuses: dict[str, str], topic_id: str = "t1",
+               covered_material: bool = True, covered_fact: bool = True,
+               covered_authority_verdict: str = "authoritative", covered_citation: bool = True,
+               not_found_qualified: bool = True, partial_gap: bool = True,
+               blocked_gap: bool = True, not_applicable_policy: bool = True,
+               stop_reason: str | None = None):
+    """构造任意状态组合的 finalized Pack（供反例测试；可有意制造语义门禁违规）。"""
+    contract_fp = _sha("contract")
+    aspects: list[TS.TopicAspectRequirementSnapshot] = []
+    results: list[TS.AspectResearchResult] = []
+    audits: list[TS.NotFoundAudit] = []
+    gaps: list[TS.ResearchGap] = []
+    materials: list[TS.ResearchMaterial] = []
+    facts: list[TS.SupportedFact] = []
+    for aid, status in statuses.items():
+        snap = _aspect_snapshot(aid, topic_id,
+                                applicability_policy=("n/a-by-scope"
+                                                      if status == "not_applicable"
+                                                      and not_applicable_policy else None))
+        aspects.append(snap)
+        nfa_id = None
+        material_ids, fact_ids, unresolved_ids = (), (), ()
+        if status == "covered":
+            if covered_material:
+                mid = "m-" + aid
+                materials.append(_material("evidence_span", mid))
+                material_ids = (mid,)
+            if covered_fact:
+                fid = "f-" + aid
+                facts.append(_closed_fact(fid, (aid,), verdict=covered_authority_verdict,
+                                          citation=covered_citation))
+                fact_ids = (fid,)
+        elif status == "not_found":
+            nfa_id = "audit-" + aid
+            audits.append(_audit(nfa_id, qualified=not_found_qualified))
+        elif status == "partial":
+            if partial_gap:
+                gid = "gap-" + aid
+                gaps.append(_gap(gid, (aid,), blocking=False))
+                unresolved_ids = (gid,)
+        elif status == "blocked":
+            if blocked_gap:
+                gid = "gap-" + aid
+                gaps.append(_gap(gid, (aid,), blocking=True))
+                unresolved_ids = (gid,)
+        results.append(TS.AspectResearchResult(
+            aspect_id=aid, question_ids=("q1",), requirement_snapshot=snap, status=status,
+            supported_fact_ids=fact_ids, material_ids=material_ids, attempted_need_ids=(),
+            unresolved_ids=unresolved_ids, not_found_audit_id=nfa_id))
+    required = tuple(a.aspect_id for a in aspects)
+    u = _usage(stop_reason=stop_reason)
+    process, coverage, derivation = TS.derive_pack_status(required, tuple(results),
+                                                          stop_reason=stop_reason)
+    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", {})
+    pack = TS.TopicResearchPack(
+        schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
+        task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
+        contract_fingerprint=contract_fp, source_policy_version="v1",
+        section_id="company", topic_id=topic_id, question_ids=("q1",),
+        aspect_results=tuple(results), materials=tuple(materials), facts=tuple(facts),
+        outcome_refs=(), external_funnel=None, conflicts=(), not_found_audits=tuple(audits),
+        unresolved=tuple(gaps), usage=u, uncertain_calls=(),
+        process_status=process, coverage_status=coverage, status_derivation=derivation,
+        dependency_fingerprint=dep)
+    return TS.finalize_pack(pack), tuple(aspects)
+
+
+def _forge_blocked_unjustified():
+    """伪造：aspect status=blocked 但无 blocking gap 且无 stop_reason（绕过 derive 手工构造）。
+
+    blocked 在 derive 层本身要求 stop_reason（PackProcessStatus 硬约束），故正常路径无法产生
+    「无依据 blocked」；此处手工填一个不一致的 process_status（pending）以单独命中
+    _validate_aspect_semantics 的 blocked 门禁。
+    """
+    contract_fp = _sha("contract")
+    snap = _aspect_snapshot("a1", "t1")
+    result = TS.AspectResearchResult(
+        aspect_id="a1", question_ids=("q1",), requirement_snapshot=snap, status="blocked",
+        supported_fact_ids=(), material_ids=(), attempted_need_ids=(), unresolved_ids=())
+    process = TS.PackProcessStatus("pending")
+    coverage = TS.PackCoverageStatus("insufficient", (), ("a1",), ())
+    derivation = TS.StatusDerivation(
+        schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, rule_version="forged",
+        derivation_fingerprint=_sha("d"), per_aspect=(TS.AspectStatusEntry("a1", "blocked"),))
+    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", {})
+    pack = TS.TopicResearchPack(
+        schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
+        task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
+        contract_fingerprint=contract_fp, source_policy_version="v1", section_id="company",
+        topic_id="t1", question_ids=("q1",), aspect_results=(result,), materials=(),
+        facts=(), outcome_refs=(), external_funnel=None, conflicts=(), not_found_audits=(),
+        unresolved=(), usage=_usage(), uncertain_calls=(),
+        process_status=process, coverage_status=coverage, status_derivation=derivation,
+        dependency_fingerprint=dep)
+    return TS.finalize_pack(pack), (snap,)
+
+
+def _tamper_and_refinalize(good: TS.TopicResearchPack, **repl):
+    """篡改状态字段后清空 pack_id 再 finalize（保持 verify_pack_id 通过，仅触发重算门禁）。"""
+    return TS.finalize_pack(dataclasses.replace(good, pack_id="", **repl))
 
 
 def _requirement(aspects: tuple[TS.TopicAspectRequirementSnapshot, ...],
@@ -204,6 +344,42 @@ def _requirement(aspects: tuple[TS.TopicAspectRequirementSnapshot, ...],
         aspects=aspects, allowed_capabilities=("evidence",), dependency_versions={})
     kw.update(overrides)
     return TS.TopicResearchRequirement(**kw)
+
+
+# -- 最小 typed resolver（R1-B 依赖注入边界；离线 fake） --
+
+class _GoodResolver:
+    def resolve(self, pr: TS.MaterialPayloadRef) -> TS.ResolvedPayload:
+        return TS.ResolvedPayload(object_type=pr.object_type, authority_identity=pr.authority_identity,
+                                  version=pr.version, locator=pr.locator,
+                                  content_hash=pr.content_hash, payload_bytes=None)
+
+
+class _DanglingResolver:
+    def resolve(self, pr: TS.MaterialPayloadRef) -> TS.ResolvedPayload | None:
+        return None
+
+
+class _WrongTypeResolver:
+    def resolve(self, pr: TS.MaterialPayloadRef) -> TS.ResolvedPayload:
+        wrong = "external_snapshot" if pr.object_type != "external_snapshot" else "evidence_span"
+        return TS.ResolvedPayload(object_type=wrong, authority_identity=pr.authority_identity,
+                                  version=pr.version, locator=pr.locator,
+                                  content_hash=pr.content_hash, payload_bytes=None)
+
+
+class _WrongVersionResolver:
+    def resolve(self, pr: TS.MaterialPayloadRef) -> TS.ResolvedPayload:
+        return TS.ResolvedPayload(object_type=pr.object_type, authority_identity=pr.authority_identity,
+                                  version="v-wrong", locator=pr.locator,
+                                  content_hash=pr.content_hash, payload_bytes=None)
+
+
+class _WrongHashResolver:
+    def resolve(self, pr: TS.MaterialPayloadRef) -> TS.ResolvedPayload:
+        return TS.ResolvedPayload(object_type=pr.object_type, authority_identity=pr.authority_identity,
+                                  version=pr.version, locator=pr.locator,
+                                  content_hash=_sha("wrong-hash"), payload_bytes=None)
 
 
 def main() -> dict:
@@ -230,14 +406,12 @@ def main() -> dict:
     check(back == pack, "TopicResearchPack to_dict ↔ from_dict 往返相等")
     check(back.pack_id == pack.pack_id, "往返后 pack_id 保持")
 
-    # schema_version 校验
     try:
         TS.TopicResearchPack.from_dict({**d, "schema_version": "999"})
         check(False, "非法 schema_version 应被拒绝")
     except TS.SchemaValidationError:
         check(True, "非法 schema_version → SchemaValidationError")
 
-    # 非法枚举 fail-closed
     try:
         TS.PackProcessStatus(status="bogus")
         check(False, "非法 PackProcessStatus 应被拒绝")
@@ -250,7 +424,6 @@ def main() -> dict:
     except TS.SchemaValidationError:
         check(True, "非法 fact_type → SchemaValidationError")
 
-    # 嵌套对象 unknown-field fail-closed
     nested = json.loads(json.dumps(d))
     nested["usage"]["extra_field"] = "x"
     try:
@@ -259,7 +432,6 @@ def main() -> dict:
     except TS.SchemaValidationError:
         check(True, "嵌套 usage.extra_field → SchemaValidationError")
 
-    # discriminator 序列化
     mat = _material("evidence_span", "m1")
     check(mat.locator.to_dict()["locator_type"] == "evidence",
           "EvidenceLocator discriminator 序列化 = evidence")
@@ -299,7 +471,8 @@ def main() -> dict:
 
         # -- 5. current 指针 + 落盘/读回 --
         p, aspects = _build()
-        res = Store.commit_pack(p)
+        req = _requirement(aspects)
+        res = Store.commit_pack(p, req)
         check(res.reused is False and res.current_switched is True, "首次 commit 非复用且切换 current")
         got = Store.get_pack(p.pack_id)
         check(got is not None and got.pack_id == p.pack_id, "get_pack(pack_id) 读回")
@@ -309,24 +482,9 @@ def main() -> dict:
         check(len(hist) == 1 and hist[0].pack_id == p.pack_id, "list_pack_history 含已提交 Pack")
 
         # -- 3. 幂等复用 --
-        res2 = Store.commit_pack(p)
+        res2 = Store.commit_pack(p, req)
         check(res2.reused is True and res2.current_switched is False, "同 pack_id 同内容 → 幂等复用")
         check(Store.get_pack(p.pack_id) is not None, "复用后 Pack 仍可读")
-
-        # -- 3/8. 损坏：篡改已存 Pack 的 content_fingerprint，重提交 → StorageCorruptionError --
-        conn = sqlite3.connect(str(db))
-        conn.execute("DROP TRIGGER IF EXISTS trg_topic_pack_no_update")
-        conn.execute("UPDATE topic_pack SET content_fingerprint=? WHERE pack_id=?",
-                     (_sha("garbage"), p.pack_id))
-        conn.commit()
-        conn.close()
-        try:
-            Store.commit_pack(p)
-            check(False, "损坏 pack 复用应被拒绝")
-        except Store.StorageCorruptionError:
-            check(True, "损坏 pack 复用 → StorageCorruptionError")
-        # 健康对象不受影响（同一 Pack 历史仍可读，不被隔离删除）
-        check(Store.get_pack(p.pack_id) is not None, "损坏对象不影响健康 Pack")
 
         # -- 4. 冲突：错身份/公司/日期/契约/任务 fail-closed --
         cases = [
@@ -337,29 +495,12 @@ def main() -> dict:
             ("错政策 source_policy_version", {"spv": "v99"}),
         ]
         for label, ov in cases:
-            req = _requirement(aspects, **ov)
+            bad_req = _requirement(aspects, **ov)
             try:
-                Store.commit_pack(p, req)
+                Store.commit_pack(p, bad_req)
                 check(False, f"{label} 应 fail-closed")
             except (TS.SchemaValidationError, Store.TopicStoreValidationError):
                 check(True, f"{label} → fail-closed")
-
-        # -- 6. 失效：依赖指纹变化 → 标记失效、不自动升级 --
-        mark_target = p.pack_id
-        Store.mark_invalidated(mark_target, "invalidated", reason="contract changed")
-        events = Store.list_events(mark_target)
-        check(any(e.event_type == "invalidated" and e.pack_id == mark_target for e in events),
-              "mark_invalidated 追加 invalidated 事件")
-        # 不自动升级 / 不删除历史 / current 不变
-        check(Store.get_pack(mark_target) is not None, "失效后 Pack 历史仍在（不 DELETE）")
-        check(Store.get_current_pack(p.identity()).pack_id == mark_target,
-              "失效不自动切换 current（不自动升级）")
-        # 非法失效类型
-        try:
-            Store.mark_invalidated(mark_target, "bogus")
-            check(False, "mark_invalidated 非法事件类型应被拒绝")
-        except Store.TopicStoreValidationError:
-            check(True, "mark_invalidated 非法事件类型 → TopicStoreValidationError")
 
         # -- 12. 指纹不符拒绝 resume --
         dep = p.dependency_fingerprint
@@ -372,7 +513,7 @@ def main() -> dict:
         except ValueError:
             check(True, "空期望指纹 → ValueError")
 
-        # -- 12. checkpoint 只读加载 --
+        # -- 12. checkpoint 只读加载（失效前） --
         cp = Checkpoint.load_checkpoint(p.identity(), db)
         check(cp is not None and cp.pack.pack_id == p.pack_id, "load_checkpoint 只读加载 current")
         cp_by_id = Checkpoint.load_checkpoint_by_pack_id(p.pack_id, db)
@@ -393,7 +534,6 @@ def main() -> dict:
 
         # -- 7. migration：结构不一致 fail-closed、不创建 legacy 表 --
         check(Store.applied_schema_version() == "1", "applied_schema_version == 1")
-        # topic_store 不创建 run_manifest / question_outcome
         c = sqlite3.connect(str(db))
         legacy_tables = {r[0] for r in c.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
@@ -401,6 +541,19 @@ def main() -> dict:
         check("run_manifest" not in legacy_tables, "topic_store 不创建 run_manifest")
         check("question_outcome" not in legacy_tables, "topic_store 不创建 question_outcome")
         check("schema_migrations" not in legacy_tables, "topic_store 不创建 legacy schema_migrations")
+
+        # -- CLI --
+        cli_ck = CLI.run(["--self-check", "--db", str(db)])
+        check(cli_ck.get("ok") is True, "CLI --self-check 通过")
+        cli_pack = CLI.run(["--pack", p.pack_id, "--db", str(db)])
+        check(cli_pack.get("ok") is True and cli_pack["pack"]["pack_id"] == p.pack_id,
+              "CLI --pack 读回")
+        cli_cur = CLI.run(["--current", "--task-id", "task1", "--company-id", "300750",
+                           "--contract-fingerprint", p.contract_fingerprint,
+                           "--source-policy-version", "v1", "--section-id", "company",
+                           "--topic-id", "t1", "--db", str(db)])
+        check(cli_cur.get("ok") is True and cli_cur["pack"]["pack_id"] == p.pack_id,
+              "CLI --current 读回")
 
         # 破坏结构（DROP 一张 topic 表），self_check / _verify 应 fail-closed
         c = sqlite3.connect(str(db))
@@ -424,11 +577,10 @@ def main() -> dict:
         cli_bad = CLI.run(["--self-check", "--db", str(db)])
         check(cli_bad.get("ok") is False, "CLI --self-check 结构损坏 → ok=False")
 
-        # -- 16. 只读打开前后文件 hash 不变 --
-        # 用未损坏的另一份干净 DB 校验（上面已 DROP topic_fact）
+        # -- 16. 只读打开前后文件 hash 不变（另一份干净 DB） --
         db2 = Path(td) / "clean.db"
         Store.init_topic_store(db2)
-        Store.commit_pack(p)
+        Store.commit_pack(p, req)
         h_before = hashlib.sha256(db2.read_bytes()).hexdigest()
         Checkpoint.load_checkpoint(p.identity(), db2)
         Checkpoint.list_checkpoints(db2)
@@ -436,23 +588,9 @@ def main() -> dict:
         h_after = hashlib.sha256(db2.read_bytes()).hexdigest()
         check(h_before == h_after, "只读路径（checkpoint/CLI self-check）前后文件 hash 不变")
 
-        # -- CLI --
-        cli_ck = CLI.run(["--self-check", "--db", str(db2)])
-        check(cli_ck.get("ok") is True, "CLI --self-check 通过")
-        cli_pack = CLI.run(["--pack", p.pack_id, "--db", str(db2)])
-        check(cli_pack.get("ok") is True and cli_pack["pack"]["pack_id"] == p.pack_id,
-              "CLI --pack 读回")
-        cli_cur = CLI.run(["--current", "--task-id", "task1", "--company-id", "300750",
-                           "--contract-fingerprint", p.contract_fingerprint,
-                           "--source-policy-version", "v1", "--section-id", "company",
-                           "--topic-id", "t1", "--db", str(db2)])
-        check(cli_cur.get("ok") is True and cli_cur["pack"]["pack_id"] == p.pack_id,
-              "CLI --current 读回")
-
     # =========================================================================
     # 9. 状态适配（双轴）
     # =========================================================================
-    # adapt_outcome_completion 只产出原子资格
     oc = SimpleNamespace(completion_status="COMPLETED", state=SimpleNamespace(question_id="q1"))
     elig = TS.adapt_outcome_completion(oc)
     check(isinstance(elig, TS.AtomicOutcomeEligibility) and elig.eligible
@@ -472,8 +610,6 @@ def main() -> dict:
     except TS.StateAdaptationError:
         check(True, "未知 completion_status → StateAdaptationError")
 
-    # derive_pack_status 双轴
-    # 5 required 仅 1 covered → process 不得 finished + coverage=insufficient
     r5 = tuple(TS.AspectResearchResult(
         aspect_id=a, question_ids=("q1",), requirement_snapshot=_aspect_snapshot(a),
         status=("covered" if a == "a1" else "partial"),
@@ -483,7 +619,6 @@ def main() -> dict:
     check(proc.status != "finished" and cov.status == "insufficient",
           "5 required 仅 1 covered → process≠finished + coverage=insufficient")
 
-    # 3 covered + 1 合格 not_found + 1 not_applicable → finished + complete_with_gaps
     mixed = tuple(TS.AspectResearchResult(
         aspect_id=a, question_ids=("q1",), requirement_snapshot=_aspect_snapshot(a),
         status={"a1": "covered", "a2": "covered", "a3": "covered",
@@ -497,7 +632,6 @@ def main() -> dict:
     check(cov2.covered_aspect_ids == ("a1", "a2", "a3") and "a4" in cov2.gap_aspect_ids,
           "coverage 保留 covered / gap 明细")
 
-    # hard block → blocked + coverage 保留实际结果不清空
     blocked = tuple(TS.AspectResearchResult(
         aspect_id=a, question_ids=("q1",), requirement_snapshot=_aspect_snapshot(a),
         status=("covered" if a == "a1" else "blocked"),
@@ -508,12 +642,10 @@ def main() -> dict:
           "hard block → process=blocked + hard_stop_reason")
     check(cov3.covered_aspect_ids == ("a1",), "block 不清空已覆盖 aspect 明细")
 
-    # 预算耗尽 → stopped_by_budget + 已有 covered facts 保留
     proc4, cov4, der4 = TS.derive_pack_status(("a1", "a2"), blocked, stop_reason="BUDGET_EXHAUSTED")
     check(proc4.status == "stopped_by_budget" and cov4.covered_aspect_ids == ("a1",),
           "预算耗尽 → stopped_by_budget 且保留 covered")
 
-    # 未知状态 fail-closed / 跨空间字符串拒绝
     try:
         TS.AspectResearchResult(aspect_id="a1", question_ids=("q1",),
                                 requirement_snapshot=_aspect_snapshot("a1"), status="COMPLETED",
@@ -527,12 +659,11 @@ def main() -> dict:
         TS.derive_pack_status(("a1", "a2"), (TS.AspectResearchResult(
             aspect_id="a1", question_ids=("q1",), requirement_snapshot=_aspect_snapshot("a1"),
             status="covered", supported_fact_ids=(), material_ids=(), attempted_need_ids=(),
-            unresolved_ids=()),), stop_reason=None)  # required 含 a2 但结果缺失
+            unresolved_ids=()),), stop_reason=None)
         check(False, "缺 required aspect 应 fail-closed")
     except TS.StateAdaptationError:
         check(True, "derive_pack_status 缺 required aspect → StateAdaptationError")
 
-    # TopicUsageSnapshot 无含混 completion_status
     u = _usage()
     check("completion_status" not in u.to_dict(), "TopicUsageSnapshot 无 completion_status 字段")
     check("completion_status" not in TS.PackProcessStatus("finished").to_dict(),
@@ -541,12 +672,10 @@ def main() -> dict:
     # =========================================================================
     # 10. 权威分离（三类强类型 + locator 联合）
     # =========================================================================
-    # 三类 authority 往返（discriminator）
     for auth in (_evidence_authority(), _financial_authority(), _external_authority()):
         back_auth = TS.authority_from_dict(auth.to_dict())
         check(type(back_auth) is type(auth), f"authority 往返保型: {type(auth).__name__}")
 
-    # locator 三变体按 material_type 区分
     check(TS.locator_from_dict(_evidence_locator().to_dict()).locator_type == "evidence",
           "evidence locator 往返")
     check(TS.locator_from_dict(_financial_locator().to_dict()).locator_type == "financial_snapshot",
@@ -554,7 +683,6 @@ def main() -> dict:
     check(TS.locator_from_dict(_external_locator().to_dict()).locator_type == "external_snapshot",
           "external locator 往返")
 
-    # material type ↔ authority ↔ locator mismatch fail-closed
     try:
         TS.ResearchMaterial(material_id="m", material_type="evidence_span", source_identity="s",
                             locator=_financial_locator(), payload_ref=_payload_ref("evidence_span", _financial_locator()),
@@ -571,7 +699,6 @@ def main() -> dict:
     except TS.SchemaValidationError:
         check(True, "material_type=structured + evidence authority → SchemaValidationError")
 
-    # ValueIdentity 不同不可互换
     v1 = TS.ValueIdentity(value_kind="k", metric="m", unit="u", period="p", scope="s",
                           amount_canonical="100")
     v2 = TS.ValueIdentity(value_kind="k", metric="m", unit="u", period="p", scope="s",
@@ -608,7 +735,6 @@ def main() -> dict:
     except TS.SchemaValidationError:
         check(True, "MaterialPayloadRef 非法 content_hash → SchemaValidationError")
 
-    # 外部漏斗 payload hash mismatch fail-closed
     payload = b"hello funnel"
     ef = TS.ExternalFunnelSnapshot(schema_version="1", canonical_hash=hashlib.sha256(payload).hexdigest(),
                                    producer_version="pv1")
@@ -620,14 +746,13 @@ def main() -> dict:
     except TS.SchemaValidationError:
         check(True, "ExternalFunnelSnapshot 非法 canonical_hash → SchemaValidationError")
 
-    # EvidenceLocator 最低要求
     try:
         TS.EvidenceLocator()
         check(False, "EvidenceLocator 无 page/block/section 应 fail-closed")
     except TS.SchemaValidationError:
         check(True, "EvidenceLocator 缺定位 → SchemaValidationError")
     try:
-        TS.EvidenceLocator(section_path="s1")  # 无 document_id/document_version
+        TS.EvidenceLocator(section_path="s1")
         check(False, "EvidenceLocator 无 document 身份应 fail-closed")
     except TS.SchemaValidationError:
         check(True, "EvidenceLocator 缺 document_id/version → SchemaValidationError")
@@ -643,16 +768,13 @@ def main() -> dict:
     for ext in ("business_review_reason", "derived_from_scope", "transmission_layers",
                 "transmission_channel"):
         check(ext in snap_d, f"冻结投影含扩展字段 {ext}")
-    # EvidenceRequirementRef 绑定 requirement ID + 所属 Contract SHA + requirement fingerprint + schema/version
     er = _req_ref()
     check(er.requirement_id and len(er.contract_sha256) == 64
           and len(er.requirement_fingerprint) == 64 and er.schema_version,
           "EvidenceRequirementRef 绑定 4 项身份")
-    # SourcePolicyRef 绑定 policy version + content fingerprint
     sp = _policy_ref()
     check(sp.policy_version and len(sp.content_fingerprint) == 64,
           "SourcePolicyRef 绑定 policy version + content fingerprint")
-    # 缺字段 fail-closed
     try:
         TS.EvidenceRequirementRef(requirement_id="", contract_sha256=_sha("c"),
                                   requirement_fingerprint=_sha("r"), schema_version="1")
@@ -664,7 +786,6 @@ def main() -> dict:
     # 16. 数据库共存初始化（两种顺序）
     # =========================================================================
     with tempfile.TemporaryDirectory() as td2:
-        # 顺序 ①：checkpoint 先、topic_store 后
         dbA = Path(td2) / "a.db"
         LegacyCheckpoint.init_db(dbA)
         Store.init_topic_store(dbA)
@@ -676,7 +797,6 @@ def main() -> dict:
         check(LegacyCheckpoint.get_run_manifest("r1", dbA) is not None,
               "顺序① legacy run_manifest 可用")
         check(Store.applied_schema_version() == "1", "顺序① topic_store 可用")
-        # 顺序 ②：topic_store 先、checkpoint 后
         dbB = Path(td2) / "b.db"
         Store.init_topic_store(dbB)
         LegacyCheckpoint.init_db(dbB)
@@ -688,7 +808,6 @@ def main() -> dict:
         check(LegacyCheckpoint.get_run_manifest("r1", dbB) is not None,
               "顺序② legacy run_manifest 可用")
         check(Store.applied_schema_version() == "1", "顺序② topic_store 可用")
-        # 重复初始化幂等
         Store.init_topic_store(dbB)
         LegacyCheckpoint.init_db(dbB)
         check(Store.applied_schema_version() == "1", "重复初始化幂等（topic_store）")
@@ -711,6 +830,260 @@ def main() -> dict:
     v1_bytes = (ROOT / "templates" / "contracts" / "standard_v2.yaml").read_bytes()
     check(hashlib.sha256(v1_bytes).hexdigest() == V1_FIXED_SHA256,
           "standard_v2.yaml 固定字节 SHA256 不变（v1 未被覆盖）")
+
+    # =========================================================================
+    # §四 反例回归（4 缺陷 + 7 修复的定点反例）
+    # =========================================================================
+
+    # --- 缺陷 1：省略 requirement 仍可提交 → requirement 必填 ---
+    p0, aspects0 = _build()
+    try:
+        Store.commit_pack(p0)  # type: ignore[call-arg]
+        check(False, "T1 省略 requirement 应拒绝提交")
+    except TypeError:
+        check(True, "T1 commit_pack 缺 requirement → TypeError（必填，无绕过入口）")
+
+    # --- requirement 身份 / aspect / question / dependency 全量一致 ---
+    try:
+        Store.commit_pack(p0, _requirement(aspects0, task_id="task-X"))
+        check(False, "T2 错 task_id 应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T2 错 task_id → TopicStoreValidationError")
+
+    try:
+        Store.commit_pack(p0, _requirement(tuple(_aspect_snapshot(a) for a in ("a1", "aX"))))
+        check(False, "T3 aspect 集合错应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T3 aspect 集合不一致 → TopicStoreValidationError")
+
+    try:
+        Store.commit_pack(p0, _requirement(aspects0, question_ids=("q1", "qX")))
+        check(False, "T4 question 集合错应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T4 question 集合不一致 → TopicStoreValidationError")
+
+    try:
+        Store.commit_pack(p0, _requirement(aspects0, dependency_versions={"assessor": "v9"}))
+        check(False, "T5 dependency_fingerprint 错应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T5 dependency_fingerprint 不一致 → TopicStoreValidationError")
+
+    # --- 缺陷 2 + 修复 2：aspect 语义 + 双轴状态独立重算 ---
+    for label, kwargs in [
+        ("T6 空壳 covered（无 material/fact）", {"covered_material": False, "covered_fact": False}),
+        ("T7 covered 由 rejected authority 支撑", {"covered_authority_verdict": "rejected"}),
+        ("T8 covered fact 空 citation", {"covered_citation": False}),
+    ]:
+        bad, bad_aspects = _build_raw({"a1": "covered"}, **kwargs)
+        try:
+            Store.commit_pack(bad, _requirement(bad_aspects))
+            check(False, f"{label} 应 fail-closed")
+        except Store.TopicStoreValidationError:
+            check(True, f"{label} → TopicStoreValidationError")
+
+    bad_nf, nf_aspects = _build_raw({"a1": "not_found"}, not_found_qualified=False)
+    try:
+        Store.commit_pack(bad_nf, _requirement(nf_aspects))
+        check(False, "T9 not_found 未 qualified 应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T9 not_found 未 qualified audit → TopicStoreValidationError")
+
+    bad_partial, partial_aspects = _build_raw({"a1": "partial"}, partial_gap=False)
+    try:
+        Store.commit_pack(bad_partial, _requirement(partial_aspects))
+        check(False, "T10 partial 无 gap/not_found 应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T10 partial 无 gap/not_found → TopicStoreValidationError")
+
+    bad_block, block_aspects = _forge_blocked_unjustified()
+    try:
+        Store.commit_pack(bad_block, _requirement(block_aspects))
+        check(False, "T11 blocked 无 blocking gap/stop_reason 应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T11 blocked 无依据 → TopicStoreValidationError")
+
+    bad_na, na_aspects = _build_raw({"a1": "not_applicable"}, not_applicable_policy=False)
+    try:
+        Store.commit_pack(bad_na, _requirement(na_aspects))
+        check(False, "T12 not_applicable 无 applicability_policy 应 fail-closed")
+    except Store.TopicStoreValidationError:
+        check(True, "T12 not_applicable 无依据 → TopicStoreValidationError")
+
+    # 双轴状态篡改（重算后 fail-closed，不信任调用方填写的 status）
+    good, good_aspects = _build()
+    for label, repl in [
+        ("T13 process_status 篡改", {"process_status": TS.PackProcessStatus("pending")}),
+        ("T14 coverage_status 篡改", {"coverage_status": TS.PackCoverageStatus(
+            status="insufficient", covered_aspect_ids=(), gap_aspect_ids=("a1",),
+            not_applicable_aspect_ids=())}),
+        ("T15 status_derivation 篡改", {"status_derivation": TS.StatusDerivation(
+            schema_version="1", rule_version="forged", derivation_fingerprint=_sha("x"),
+            per_aspect=())}),
+    ]:
+        tampered = _tamper_and_refinalize(good, **repl)
+        try:
+            Store.commit_pack(tampered, _requirement(good_aspects))
+            check(False, f"{label} 应 fail-closed")
+        except Store.TopicStoreValidationError:
+            check(True, f"{label} → TopicStoreValidationError（重算不一致）")
+
+    # --- 修复 3：content 身份含 coverage/status/usage，改 content 即改 pack_id ---
+    p_cov_a, _ = _build(statuses={"a1": "covered"})
+    p_cov_b, _ = _build(statuses={"a1": "not_found"})
+    check(p_cov_a.pack_id != p_cov_b.pack_id, "T16 coverage 变化 → pack_id 变化（不再幂等复用）")
+    check(p_cov_a.content_fingerprint() != p_cov_b.content_fingerprint(),
+          "T16 coverage 变化 → content_fingerprint 变化")
+    p_usage_a, _ = _build(usage=_usage(stop_reason=None))
+    p_usage_b, _ = _build(usage=_usage(stop_reason="BUDGET_EXHAUSTED"))
+    check(p_usage_a.pack_id != p_usage_b.pack_id, "T16 usage/stop_reason 变化 → pack_id 变化")
+    forged = dataclasses.replace(p_cov_b, pack_id=p_cov_a.pack_id)
+    try:
+        forged.verify_pack_id()
+        check(False, "T17 同 pack_id 不同内容应被 verify_pack_id 拒绝")
+    except TS.SchemaValidationError:
+        check(True, "T17 同 pack_id 不同内容 → verify_pack_id SchemaValidationError")
+
+    # --- 缺陷 3 + 修复 4：失效 current / 损坏读 fail-closed ---
+    with tempfile.TemporaryDirectory() as td3:
+        db3 = Path(td3) / "life.db"
+        Store.init_topic_store(db3)
+        p_life, aspects_life = _build()
+        req_life = _requirement(aspects_life)
+        Store.commit_pack(p_life, req_life)
+        check(Store.get_current_pack(p_life.identity()) is not None,
+              "失效前 current 可用（前置）")
+
+        Store.mark_invalidated(p_life.pack_id, "invalidated", reason="contract changed")
+        check(Store.get_current_pack(p_life.identity()) is None,
+              "T18 invalidated 后 get_current_pack → None（不再返回失效 current）")
+        cl = Store.load_current_pack(p_life.identity())
+        check(cl.pack is None and cl.available is False and cl.reason == "invalidated",
+              "T18 load_current_pack available=False + reason=invalidated")
+        check(Store.list_current_packs() == [], "T19 list_current_packs 排除失效 current")
+        check(Checkpoint.load_checkpoint(p_life.identity(), db3) is None,
+              "T19 invalidated → load_checkpoint 不返回（不可 resume）")
+        check(Checkpoint.load_checkpoint_by_pack_id(p_life.pack_id, db3) is not None,
+              "T19 load_checkpoint_by_pack_id 显式历史读仍可返回失效 Pack")
+        check(len(Store.list_pack_history(p_life.identity())) == 1,
+              "T19 list_pack_history 保留失效历史（不 DELETE）")
+
+        # 损坏：篡改 content_fingerprint → 读/提交 fail-closed
+        c3 = sqlite3.connect(str(db3))
+        c3.execute("DROP TRIGGER IF EXISTS trg_topic_pack_no_update")
+        c3.execute("UPDATE topic_pack SET content_fingerprint=? WHERE pack_id=?",
+                   (_sha("garbage"), p_life.pack_id))
+        c3.commit()
+        c3.close()
+        try:
+            Store.get_pack(p_life.pack_id)
+            check(False, "T20 损坏 content_fingerprint 读回应 fail-closed")
+        except Store.StorageCorruptionError:
+            check(True, "T20 损坏 content_fingerprint → get_pack StorageCorruptionError")
+        try:
+            Store.commit_pack(p_life, req_life)
+            check(False, "T20 损坏 pack 复用应 fail-closed")
+        except Store.StorageCorruptionError:
+            check(True, "T20 损坏 pack 复用 → StorageCorruptionError")
+
+    # --- 修复 5：严格只读（mode=ro + query_only=ON）写必失败 ---
+    with tempfile.TemporaryDirectory() as td4:
+        db4 = Path(td4) / "ro.db"
+        Store.init_topic_store(db4)
+        Store.commit_pack(p0, _requirement(aspects0))
+        ro = open_readonly_conn(db4)
+        check(ro is not None, "只读连接可打开已存在库")
+        try:
+            ro.execute("CREATE TABLE should_fail (x INTEGER)")
+            check(False, "T21 只读连接 CREATE TABLE 应失败")
+        except sqlite3.OperationalError as e:
+            check("readonly" in str(e).lower(),
+                  "T21 只读连接 CREATE TABLE → OperationalError(readonly)")
+        finally:
+            ro.close()
+        try:
+            ro2 = open_readonly_conn(db4)
+            ro2.execute("INSERT INTO topic_event (event_id, pack_id, event_type, event_at) "
+                        "VALUES ('x','y','z','')")
+            check(False, "T21 只读连接 INSERT 应失败")
+        except sqlite3.OperationalError:
+            check(True, "T21 只读连接 INSERT → OperationalError")
+        finally:
+            ro2.close()
+        # 只读连接不创建库文件
+        missing2 = Path(td4) / "missing.db"
+        check(open_readonly_conn(missing2) is None, "T21 缺库只读连接返回 None")
+        check(not missing2.exists(), "T21 只读连接不创建库文件")
+
+    # --- 修复 6：migration 单事务原子 + 禁 OR IGNORE/REPLACE + 前缀校验 ---
+    check(all("INSERT OR IGNORE" not in s.upper() and "INSERT OR REPLACE" not in s.upper()
+              for s in Store._ddl_statements()),
+          "T22 DDL 不含 INSERT OR IGNORE / INSERT OR REPLACE")
+    try:
+        Store._validate_ddl_prefixes()
+        check(True, "T22 DDL 前缀校验通过（仅 topic_/idx_topic_/trg_topic_）")
+    except RuntimeError:
+        check(False, "T22 DDL 前缀校验不应失败")
+
+    orig_ddl = Store._ddl_statements
+    orig_validate = Store._validate_ddl_prefixes
+
+    def bad_ddl():
+        stmts = orig_ddl()
+        stmts.insert(3, "CREATE TABLE topic_bad_rollback (")
+        return stmts
+
+    with tempfile.TemporaryDirectory() as td5:
+        fault_db = Path(td5) / "fault.db"
+        Store._ddl_statements = bad_ddl
+        Store._validate_ddl_prefixes = lambda: None
+        try:
+            Store.init_topic_store(fault_db)
+            check(False, "T22 故障注入的 init 应失败")
+        except sqlite3.OperationalError:
+            check(True, "T22 故障注入 → init 失败")
+        finally:
+            Store._ddl_statements = orig_ddl
+            Store._validate_ddl_prefixes = orig_validate
+        c5 = sqlite3.connect(str(fault_db))
+        tables5 = {r[0] for r in c5.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        c5.close()
+        check("topic_pack" not in tables5 and "topic_schema_migrations" not in tables5,
+              "T22 单事务：故障回滚后无残留表（无半初始化）")
+        # 前缀校验拒绝非 topic_ 对象
+        Store._ddl_statements = lambda: ["CREATE TABLE evil (x INTEGER)"]
+        try:
+            Store._validate_ddl_prefixes()
+            check(False, "T22 非 topic_ 前缀 DDL 应被拒绝")
+        except RuntimeError:
+            check(True, "T22 非 topic_ 前缀 DDL → RuntimeError")
+        finally:
+            Store._ddl_statements = orig_ddl
+
+    # --- 修复 7：MaterialPayloadRef 最小 typed resolver 可验证 ---
+    p_payload, aspects_payload = _build()
+    check(TS.verify_pack_payloads(p_payload, _GoodResolver()) is None,
+          "T23 good resolver → verify_pack_payloads 通过")
+    for label, resolver in [
+        ("T23 dangling", _DanglingResolver()),
+        ("T24 object_type mismatch", _WrongTypeResolver()),
+        ("T24 version mismatch", _WrongVersionResolver()),
+        ("T24 content_hash mismatch", _WrongHashResolver()),
+    ]:
+        try:
+            TS.verify_pack_payloads(p_payload, resolver)
+            check(False, f"{label} 应 fail-closed")
+        except TS.SchemaValidationError:
+            check(True, f"{label} → SchemaValidationError（fail-closed）")
+    with tempfile.TemporaryDirectory() as td6:
+        db6 = Path(td6) / "res.db"
+        Store.init_topic_store(db6)
+        res6 = Store.commit_pack(p_payload, _requirement(aspects_payload), _GoodResolver())
+        check(res6.reused is False, "T24 commit_pack + good resolver 成功落盘")
+        try:
+            Store.commit_pack(p_payload, _requirement(aspects_payload), _DanglingResolver())
+            check(False, "T23 commit_pack + dangling resolver 应 fail-closed")
+        except TS.SchemaValidationError:
+            check(True, "T23 commit_pack + dangling resolver → SchemaValidationError")
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 
