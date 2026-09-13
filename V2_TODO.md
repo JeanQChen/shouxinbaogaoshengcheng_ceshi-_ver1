@@ -213,7 +213,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ### [ ] P3R/P4R：Topic Research 与章节内容完整性重整（当前）
 
-- [x] R0：正式唯一主链收敛改动已按职责提交（`a4322c0` 契约溯源 / `cd645f1` harness 只读投影 / `81a487c` 唯一主链护栏 + 实验标记）；`test_phase4_formal_chain` 26 项与完整 eval 4040/0/0 全绿作为护栏，尚未解决内容完整性（不进入 R1）。
+- [x] R0：正式唯一主链收敛 + Contract 来源身份护栏已收口并分责提交（`a4322c0` 契约溯源 / `cd645f1` harness 只读投影 / `81a487c` 唯一主链护栏 + 实验标记 / `2b4211e` Contract 来源身份严格 fail-closed / `edda942` service 到 ToolRegistry 正式链离线集成）；`test_phase4_contract_slice` 32 项、`test_phase4_formal_chain` 26 项、`test_phase4_service_formal_chain` 17 项与完整离线 eval 4065/0/0 全绿作为护栏。R0 仅收口「正式唯一链」与「Contract 来源护栏」，不解决内容完整性；Contract v2 / TopicResearchPack / dynamic budget / formal writer 均未实现（不进入 R1）。
 - [ ] R1：完成 52 问 aspect/evidence/display 审计；发布不覆盖 v1 的 Contract v2、完整 P3-B02 来源 policy 与 search/fetch capability 语义；在 Harness 内确立唯一 `TopicResearchPack` schema/Store/checkpoint，并定义唯一机器可读 WritingSpec/PresentationProfile 资产、loader、validator 与版本。
 - [ ] R2：实现本地命中后的材料构建与受控上下文扩读，覆盖同章节相邻块、跨页续文、表题/单位/表头/续表和明确交叉引用，并记录边界、去重与未读范围。
 - [ ] R3：实现 aspect 待办调度、Harness Topic runtime 与复杂度动态有界预算；宽查询可覆盖多个 aspect，仅对缺口补检；原子 ANSWER 不提前结束 Topic，预算耗尽形成可恢复 Partial Pack。
@@ -262,14 +262,17 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-1. **正式唯一主链 R0 已收口并分责提交（2026-09-13）**：正式运行链固定为
+1. **正式唯一主链 + Contract 来源身份 R0 已收口并分责提交（2026-09-13）**：正式运行链固定为
    `sections.service → Worker → research_common → Router → harness.runtime → ToolRegistry`，
-   `test_phase4_formal_chain` 26 项、`test_phase4_contract_slice` 24 项等专项与完整离线
-   eval 4040 passed / 0 failed / 0 skipped 全绿；实验 `run_topic` 正式链调用数为 0。分责 commit：
+   Contract 身份（`contract_sha256` + `contract_version`）改为严格 fail-closed、独立来源（不再
+   从待校验 task 自我证明）。`test_phase4_contract_slice` 32 项、`test_phase4_formal_chain` 26 项、
+   `test_phase4_service_formal_chain` 17 项等专项与完整离线 eval 4065 passed / 0 failed /
+   0 skipped 全绿；实验 `run_topic` 正式链调用数为 0（由 service 级 spy 直接证明）。分责 commit：
    `a4322c0`（Contract 派生 SectionTask 公共溯源接口 + 切片漂移 fail-closed）、
    `cd645f1`（AspectCoverage/ExternalFunnel 只读状态投影）、`81a487c`（正式唯一主链护栏 +
-   平行模块实验标记）。R0 只锁定唯一链与回归，不实现 TopicResearchPack/Contract v2/预算，
-   不进入 R1。
+   平行模块实验标记）、`2b4211e`（Contract 来源身份严格 fail-closed）、`edda942`（service 到
+   ToolRegistry 正式链离线集成）。R0 仅收口「正式唯一链」与「Contract 来源护栏」，不实现
+   TopicResearchPack / Contract v2 / dynamic budget / formal writer，不进入 R1。
 2. **P3R/P4R 文档治理已独立提交（2026-09-13）**：`AGENTS.md`、`DESIGN_V2.md` v0.6、本路线图、
    `DOCUMENTATION_INDEX.md` 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 已统一规定唯一 Pack、
    aspect 调度、受控扩读、动态有界预算及 Claims→NarrativeParagraphs 写作分层；已作为独立

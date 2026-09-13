@@ -2,7 +2,7 @@
 
 > 面向执行者：Claude Code
 > 版本：v1.1 · 2026-09-13
-> 状态：**权威实施任务书；R0 已有工作区改动待审查/复验/分责提交，R1～R7 按各批计划与授权推进**
+> 状态：**权威实施任务书；R0 已收口（正式唯一链护栏 + Contract 来源身份严格 fail-closed，未进入 R1）；R1～R7 按各批计划与授权推进**
 > 上位依据：`AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` v0.6、`V2_IMPLEMENTATION_PLAN.md` v0.4、`templates/contracts/standard_v2.yaml`（历史兼容 Contract v1；R1 必须发布兼容 Contract v2，具体载体/命名按获批计划确定）
 > 目标：修复所有正式 Topic 的“有材料但研究结果过短、P4 只消费简短答案、章节像断言清单、外部检索价值没有进入报告”的系统性问题
 > 优先级：面试 Demo 可讲解与内容可信 > 继续堆功能 > 追求完整平台化
