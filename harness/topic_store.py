@@ -497,6 +497,130 @@ def _validate_requirement_matches(pack: TS.TopicResearchPack,
             raise TopicStoreValidationError(
                 f"aspect {r.aspect_id!r} 的 requirement_snapshot 与冻结投影不一致")
 
+    # question 集合一致（顺序无关，按集合比较）
+    if set(requirement.question_ids) != set(pack.question_ids):
+        raise TopicStoreValidationError(
+            f"question 集合不一致：requirement={sorted(requirement.question_ids)}，"
+            f"pack={sorted(pack.question_ids)}")
+
+    # dependency fingerprint 必须与 requirement 重新计算结果一致
+    expected_dep = requirement.dependency_fingerprint()
+    if pack.dependency_fingerprint != expected_dep:
+        raise TopicStoreValidationError(
+            f"dependency_fingerprint 不一致：pack={pack.dependency_fingerprint!r}，"
+            f"requirement 重算={expected_dep!r}")
+
+
+def _validate_aspect_semantics(pack: TS.TopicResearchPack) -> None:
+    """aspect 层语义门禁（不信任调用方直接填写的 status，也不信任空壳 covered）。
+
+    - covered 必须非空壳（≥1 material + ≥1 supported fact + 非 rejected authority + citation 非空）；
+    - not_found 必须绑定 qualified NotFoundAudit；
+    - partial/blocked 必须与对应 Gap / 停止原因一致；
+    - not_applicable 必须保留适用性判定依据；
+    - aspect 引用的 facts/materials/gaps/audits 必须存在并回指该 aspect；
+    - SupportedFact 必须有非空 CitationRef 且不得以 rejected authority 支撑；
+    - attached SufficiencyAssessment 的 aspect/事实/来源 ID 必须可解析且一致；
+    - authority gate 与 sufficiency gate 独立（不互相替代）。
+    """
+    fact_by_id = {f.fact_id: f for f in pack.facts}
+    material_by_id = {m.material_id: m for m in pack.materials}
+    audit_by_id = {a.audit_id: a for a in pack.not_found_audits}
+    gap_by_id = {g.unresolved_id: g for g in pack.unresolved}
+    source_ids = ({m.source_identity for m in pack.materials}
+                  | {m.payload_ref.authority_identity for m in pack.materials})
+
+    for r in pack.aspect_results:
+        for fid in r.supported_fact_ids:
+            if fid not in fact_by_id:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} 引用不存在 fact {fid!r}")
+            if r.aspect_id not in fact_by_id[fid].aspect_ids:
+                raise TopicStoreValidationError(
+                    f"fact {fid!r} 不回指 aspect {r.aspect_id!r}")
+        for gid in r.unresolved_ids:
+            if gid not in gap_by_id:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} 引用不存在 gap {gid!r}")
+            if r.aspect_id not in gap_by_id[gid].aspect_ids:
+                raise TopicStoreValidationError(
+                    f"gap {gid!r} 不回指 aspect {r.aspect_id!r}")
+
+        if r.status == "covered":
+            if not r.material_ids:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=covered 但无 material（空壳）")
+            if not r.supported_fact_ids:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=covered 但无 supported fact（空壳）")
+            for fid in r.supported_fact_ids:
+                f = fact_by_id[fid]
+                if not f.citation_refs:
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 fact {fid!r} 无 CitationRef")
+                if f.source_authority.verdict == "rejected":
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 fact {fid!r} 由 rejected authority 支撑")
+        elif r.status == "not_found":
+            if r.not_found_audit_id is None:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=not_found 未绑定 not_found_audit_id")
+            audit = audit_by_id[r.not_found_audit_id]
+            if not audit.qualified:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=not_found 但 audit 未 qualified")
+        elif r.status == "partial":
+            if not r.unresolved_ids and r.not_found_audit_id is None:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=partial 但无 gap/not_found 依据")
+        elif r.status == "blocked":
+            blocking_gap = any(gap_by_id[gid].blocking for gid in r.unresolved_ids
+                               if gid in gap_by_id)
+            if not blocking_gap and not pack.usage.stop_reason:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=blocked 但无 blocking gap 或 stop_reason")
+        elif r.status == "not_applicable":
+            if not r.requirement_snapshot.applicability_policy:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} status=not_applicable 但无 applicability_policy 依据")
+
+        if r.sufficiency_assessment is not None:
+            sa = r.sufficiency_assessment
+            if sa.aspect_id is not None and sa.aspect_id != r.aspect_id:
+                raise TopicStoreValidationError(
+                    f"aspect {r.aspect_id!r} 的 SufficiencyAssessment.aspect_id={sa.aspect_id!r} 不一致")
+            for fid in sa.supporting_fact_ids:
+                if fid not in fact_by_id:
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 SufficiencyAssessment 引用不存在 fact {fid!r}")
+            for sid in sa.supporting_source_ids:
+                if sid not in source_ids:
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 SufficiencyAssessment 引用无法解析的 source {sid!r}")
+
+
+def _recompute_status_consistency(pack: TS.TopicResearchPack,
+                                  requirement: TS.TopicResearchRequirement) -> None:
+    """双轴状态 + status_derivation 必须由完整 requirement + aspect_results 确定性重算。
+
+    调用方提供的 process_status / coverage_status / status_derivation 与重算值不一致 →
+    fail-closed（不信任伪造的 covered/complete）。
+    """
+    required = tuple(a.aspect_id for a in requirement.aspects)
+    process2, coverage2, derivation2 = TS.derive_pack_status(
+        required, pack.aspect_results, stop_reason=pack.usage.stop_reason)
+    if process2 != pack.process_status:
+        raise TopicStoreValidationError(
+            f"process_status 与确定性重算不一致：调用方={pack.process_status.to_dict()}，"
+            f"重算={process2.to_dict()}")
+    if coverage2 != pack.coverage_status:
+        raise TopicStoreValidationError(
+            f"coverage_status 与确定性重算不一致：调用方={pack.coverage_status.to_dict()}，"
+            f"重算={coverage2.to_dict()}")
+    if derivation2 != pack.status_derivation:
+        raise TopicStoreValidationError(
+            f"status_derivation 与确定性重算不一致")
+
 
 # ---------------------------------------------------------------------------
 # 落盘 / 读回
@@ -674,8 +798,11 @@ def commit_pack(pack: TS.TopicResearchPack,
     else:
         pack.verify_pack_id()
     _validate_pack_references(pack)
-    if requirement is not None:
-        _validate_requirement_matches(pack, requirement)
+    _validate_requirement_matches(pack, requirement)
+    _validate_aspect_semantics(pack)
+    _recompute_status_consistency(pack, requirement)
+    if resolver is not None:
+        TS.verify_pack_payloads(pack, resolver)
 
     conn = _get_conn()
     try:
@@ -686,9 +813,10 @@ def commit_pack(pack: TS.TopicResearchPack,
             if not _existing_pack_integrity_ok(conn, pack.pack_id):
                 raise StorageCorruptionError(
                     f"pack 复用前完整性校验失败: {pack.pack_id}")
-            if existing["content_fingerprint"] != pack.content_fingerprint():
+            existing_pack = _verify_reconstructed(conn, pack.pack_id)
+            if not _canonical_equal(existing_pack, pack):
                 raise StorageConflictError(
-                    f"pack_id 已存在但内容指纹不一致（哈希碰撞）: {pack.pack_id}")
+                    f"pack_id 已存在但内容深规范形不一致（哈希碰撞/内容篡改）: {pack.pack_id}")
             cur = _current_pack_id_conn(conn, pack)
             current_switched = (cur != pack.pack_id)
             if current_switched:

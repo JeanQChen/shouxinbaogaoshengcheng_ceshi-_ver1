@@ -27,7 +27,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any
+from typing import Any, Protocol
 
 from contracts.schema_v2 import (
     REQUIRED_ASPECT_FIELDS,
@@ -1072,6 +1072,61 @@ class MaterialPayloadRef:
             created_dependency_fingerprint=_get_str(d, "created_dependency_fingerprint",
                                                     "MaterialPayloadRef", allow_empty=True) or "",
         )
+
+
+@dataclass(frozen=True)
+class ResolvedPayload:
+    """payload resolver 的解析结果（不可变 payload 的身份 + 内容哈希）。"""
+
+    object_type: str
+    authority_identity: str
+    version: str
+    locator: MaterialLocator
+    content_hash: str
+    payload_bytes: bytes | None = None
+
+
+class PayloadResolver(Protocol):
+    """R1-B 最小 payload resolver 边界（依赖注入；不直接依赖 Evidence/Financial/External Store）。"""
+
+    def resolve(self, payload_ref: MaterialPayloadRef) -> ResolvedPayload | None:
+        """解析 payload_ref 到不可变 payload；dangling（目标不存在）→ None。"""
+        ...
+
+
+def verify_material_payload_ref(payload_ref: MaterialPayloadRef,
+                                resolver: PayloadResolver) -> ResolvedPayload:
+    """校验 payload_ref 可解析且身份/哈希一致。
+
+    dangling / object_type 不符 / authority_identity 不符 / version 不符 / locator 不一致 /
+    content_hash 不符 / payload 字节哈希不匹配 → 全部 fail-closed（SchemaValidationError）。
+    """
+    resolved = resolver.resolve(payload_ref)
+    if resolved is None:
+        raise SchemaValidationError(
+            f"MaterialPayloadRef dangling：{payload_ref.object_type}:{payload_ref.authority_identity}"
+            f"@{payload_ref.version}")
+    if resolved.object_type != payload_ref.object_type:
+        raise SchemaValidationError(
+            f"MaterialPayloadRef object_type 不符：期望 {payload_ref.object_type!r}，"
+            f"得到 {resolved.object_type!r}")
+    if resolved.authority_identity != payload_ref.authority_identity:
+        raise SchemaValidationError(
+            f"MaterialPayloadRef authority_identity 不符：期望 {payload_ref.authority_identity!r}，"
+            f"得到 {resolved.authority_identity!r}")
+    if resolved.version != payload_ref.version:
+        raise SchemaValidationError(
+            f"MaterialPayloadRef version 不符：期望 {payload_ref.version!r}，得到 {resolved.version!r}")
+    if resolved.locator.to_dict() != payload_ref.locator.to_dict():
+        raise SchemaValidationError("MaterialPayloadRef locator 与解析目标不一致")
+    if resolved.content_hash != payload_ref.content_hash:
+        raise SchemaValidationError(
+            f"MaterialPayloadRef content_hash 不符：期望 {payload_ref.content_hash!r}，"
+            f"得到 {resolved.content_hash!r}")
+    if resolved.payload_bytes is not None:
+        if hashlib.sha256(resolved.payload_bytes).hexdigest() != payload_ref.content_hash:
+            raise SchemaValidationError("MaterialPayloadRef payload 内容哈希不匹配")
+    return resolved
 
 
 def _material_consistency(material_type: str, locator: MaterialLocator,
@@ -2161,6 +2216,16 @@ def finalize_pack(pack: TopicResearchPack) -> TopicResearchPack:
     """回填确定性 pack_id（内容身份 + 依赖指纹）。"""
     pack.verify_pack_id()
     return dataclasses.replace(pack, pack_id=pack.compute_pack_id())
+
+
+def verify_pack_payloads(pack: TopicResearchPack, resolver: PayloadResolver) -> None:
+    """校验 Pack 内全部 material 的 payload_ref 可解析（dangling/类型/版本/locator/hash → fail-closed）。
+
+    由 commit/finalize 边界注入 resolver 调用；R1-B 不直接依赖 Evidence/Financial/External
+    Store，离线测试使用 fake resolver。
+    """
+    for m in pack.materials:
+        verify_material_payload_ref(m.payload_ref, resolver)
 
 
 # ---------------------------------------------------------------------------
