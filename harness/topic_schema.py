@@ -2098,8 +2098,11 @@ class TopicResearchPack:
         )
 
     def content_fingerprint(self) -> str:
-        """内容身份规范形（不含 run_id / pack_id / dependency_fingerprint / 双轴状态 /
-        status_derivation / usage / uncertain_calls / outcome_refs）。"""
+        """内容身份规范形：除 run_id / pack_id / dependency_fingerprint 外的全部稳定字段。
+
+        含 process/coverage/status_derivation/usage/uncertain_calls/outcome_refs，使同一
+        pack_id 只能对应同一份不可变 Pack 内容（改任一字段即改 pack_id，杜绝静默复用）。
+        """
         body = {
             "schema_version": self.schema_version,
             "task_id": self.task_id,
@@ -2114,10 +2117,16 @@ class TopicResearchPack:
             "aspect_results": [r.to_dict() for r in self.aspect_results],
             "materials": [m.to_dict() for m in self.materials],
             "facts": [f.to_dict() for f in self.facts],
+            "outcome_refs": self.outcome_refs,
             "conflicts": [c.to_dict() for c in self.conflicts],
             "not_found_audits": [n.to_dict() for n in self.not_found_audits],
             "unresolved": [u.to_dict() for u in self.unresolved],
             "external_funnel": self.external_funnel.to_dict() if self.external_funnel else None,
+            "usage": self.usage.to_dict(),
+            "uncertain_calls": [u.to_dict() for u in self.uncertain_calls],
+            "process_status": self.process_status.to_dict(),
+            "coverage_status": self.coverage_status.to_dict(),
+            "status_derivation": self.status_derivation.to_dict(),
         }
         return sha256_canonical(body)
 

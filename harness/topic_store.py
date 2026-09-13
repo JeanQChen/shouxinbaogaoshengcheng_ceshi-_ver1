@@ -767,16 +767,56 @@ def _current_pack_id_conn(conn: sqlite3.Connection, pack: TS.TopicResearchPack) 
     return row["pack_id"] if row else None
 
 
-def _existing_pack_integrity_ok(conn: sqlite3.Connection, pack_id: str) -> bool:
-    """复用前完整性校验：既有 Pack 的 content_fingerprint 与 pack_id 与内容重算一致。"""
+def _canonical_equal(a: TS.TopicResearchPack, b: TS.TopicResearchPack) -> bool:
+    """深规范形比较：content_fingerprint + dependency_fingerprint 全等即同一份不可变内容。
+
+    content_fingerprint 已含 process/coverage/status_derivation/usage/uncertain_calls/
+    outcome_refs 等全部内容字段，故这是对「全部内容 + 依赖」的深比较；run_id / pack_id
+    被有意排除（内容身份不绑定 run/timestamp，由 pack_id 自身承载身份）。
+    """
+    return (a.content_fingerprint() == b.content_fingerprint()
+            and a.dependency_fingerprint == b.dependency_fingerprint)
+
+
+def _verify_reconstructed(conn: sqlite3.Connection, pack_id: str) -> TS.TopicResearchPack:
+    """读回复核（fail-closed）：行 + 全部子行 + content_fingerprint + pack_id 逐项一致。
+
+    子行是 content_fingerprint 的一部分，因此重算 content_fingerprint 并与存库值、pack_id
+    比对，即同时复核了子行缺失/篡改；任一不符 → StorageCorruptionError（不返回半成品）。
+    """
     row = conn.execute("SELECT * FROM topic_pack WHERE pack_id=?", (pack_id,)).fetchone()
     if row is None:
-        return True
+        raise StorageCorruptionError(f"pack 行缺失: {pack_id}")
+    back = _row_to_pack(conn, row)
+    if back.content_fingerprint() != row["content_fingerprint"]:
+        raise StorageCorruptionError(
+            f"pack content_fingerprint 与内容重算不一致: {pack_id}")
+    if back.compute_pack_id() != pack_id:
+        raise StorageCorruptionError(
+            f"pack_id 与内容/依赖指纹重算不一致: {pack_id}")
+    return back
+
+
+def _terminal_invalidation_conn(conn: sqlite3.Connection, pack_id: str) -> str | None:
+    """返回 pack 最新一条事件的失效类型（stale|invalidated|quarantined），否则 None。
+
+    只有「最新一条」决定当前是否失效：失效后被 committed/reused/switched_current 升级则不视为失效。
+    """
+    row = conn.execute(
+        "SELECT event_type FROM topic_event WHERE pack_id=? ORDER BY rowid DESC LIMIT 1",
+        (pack_id,)).fetchone()
+    if row is None:
+        return None
+    t = row["event_type"]
+    return t if t in ("stale", "invalidated", "quarantined") else None
+
+
+def _existing_pack_integrity_ok(conn: sqlite3.Connection, pack_id: str) -> bool:
+    """复用前完整性校验：既有 Pack 的 content_fingerprint 与 pack_id 与内容重算一致。"""
     try:
-        back = _row_to_pack(conn, row)
-        return (back.content_fingerprint() == row["content_fingerprint"]
-                and back.compute_pack_id() == pack_id)
-    except Exception:
+        _verify_reconstructed(conn, pack_id)
+        return True
+    except StorageCorruptionError:
         return False
 
 
@@ -785,12 +825,16 @@ def _existing_pack_integrity_ok(conn: sqlite3.Connection, pack_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def commit_pack(pack: TS.TopicResearchPack,
-                requirement: TS.TopicResearchRequirement | None = None) -> CommitPackResult:
+                requirement: TS.TopicResearchRequirement,
+                resolver: TS.PayloadResolver | None = None) -> CommitPackResult:
     """单事务原子提交一个 TopicResearchPack（append-only）。
 
+    - requirement 必填：身份 / aspect 集合 / question 集合 / 冻结投影 / dependency fingerprint
+      完全一致，否则拒绝（不存在绕过 requirement 的公开写入口）；
+    - aspect 语义门禁 + 双轴状态独立重算（不信任调用方填写的 status，空壳 covered 拒绝）；
+    - 注入 resolver 时逐 material payload_ref 可解析校验（dangling/类型/版本/locator/hash fail-closed）；
     - pack_id 为空 → 确定性回填；非空 → 校验与内容/依赖指纹一致；
-    - 引用完整性 + （可选）requirement 身份/aspect 集合/冻结投影校验；
-    - 同 pack_id 已存在 → 复用前完整性校验 + 幂等复用（不重写、不冲突，内容身份即身份）；
+    - 同 pack_id 已存在 → 复用前完整性校验 + 深规范形比较 → 幂等复用（不重写、不冲突）；
     - 全新 pack_id → 写 Pack + 全部子行 → 写后复核 → 原子切换 current → commit。
     """
     if not pack.pack_id:
@@ -833,10 +877,9 @@ def commit_pack(pack: TS.TopicResearchPack,
         _insert_pack_conn(conn, pack)
         _insert_all_children_conn(conn, pack)
 
-        # 写后复核：读回并逐字段比对，防止序列化/落盘丢失。
-        back = _row_to_pack(conn, conn.execute(
-            "SELECT * FROM topic_pack WHERE pack_id=?", (pack.pack_id,)).fetchone())
-        if back.to_dict() != pack.to_dict():
+        # 写后复核：读回并深规范形比对，防止序列化/落盘丢失。
+        back = _verify_reconstructed(conn, pack.pack_id)
+        if not _canonical_equal(back, pack):
             raise StorageCorruptionError(
                 f"pack 写后复核不一致: {pack.pack_id}")
 
@@ -859,52 +902,91 @@ def commit_pack(pack: TS.TopicResearchPack,
 # ---------------------------------------------------------------------------
 
 def get_pack(pack_id: str) -> TS.TopicResearchPack | None:
+    """读单 Pack；行/子行/指纹/pack_id 任一不符 → StorageCorruptionError（fail-closed）。"""
     conn = _get_conn()
     try:
-        row = conn.execute("SELECT * FROM topic_pack WHERE pack_id=?", (pack_id,)).fetchone()
-        return _row_to_pack(conn, row) if row else None
+        row = conn.execute("SELECT 1 FROM topic_pack WHERE pack_id=?", (pack_id,)).fetchone()
+        if row is None:
+            return None
+        return _verify_reconstructed(conn, pack_id)
+    finally:
+        conn.close()
+
+
+@dataclass(frozen=True)
+class CurrentPackLoad:
+    """current 指针解析结果（fail-closed 包装，区分「无 current」与「current 不可用」）。"""
+
+    pack: TS.TopicResearchPack | None
+    pack_id: str | None = None
+    reason: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return self.pack is not None
+
+
+def load_current_pack(identity: TS.PackIdentity) -> CurrentPackLoad:
+    """读 current 指针并解析为「可用」Pack（fail-closed）。
+
+    - 无 current 指针 → available=False（reason="no_current"）；
+    - current 指向的行/子行/指纹不一致 → StorageCorruptionError（不返回半成品）；
+    - 指向的 Pack 最新事件为 stale|invalidated|quarantined → available=False（reason=事件类型），
+      绝不把失效 Pack 当可用 current 返回。
+    """
+    conn = _get_conn()
+    try:
+        k = identity.key()
+        row = conn.execute(
+            "SELECT pack_id FROM topic_current WHERE task_id=? AND company_id=? AND "
+            "report_as_of=? AND contract_fingerprint=? AND source_policy_version=? "
+            "AND section_id=? AND topic_id=?", k).fetchone()
+        if row is None:
+            return CurrentPackLoad(pack=None, reason="no_current")
+        pack_id = row["pack_id"]
+        inv = _terminal_invalidation_conn(conn, pack_id)
+        if inv is not None:
+            return CurrentPackLoad(pack=None, pack_id=pack_id, reason=inv)
+        return CurrentPackLoad(pack=_verify_reconstructed(conn, pack_id), pack_id=pack_id)
     finally:
         conn.close()
 
 
 def get_current_pack(identity: TS.PackIdentity) -> TS.TopicResearchPack | None:
-    conn = _get_conn()
-    try:
-        k = identity.key()
-        row = conn.execute(
-            "SELECT p.* FROM topic_current c JOIN topic_pack p ON p.pack_id = c.pack_id "
-            "WHERE c.task_id=? AND c.company_id=? AND c.report_as_of=? AND c.contract_fingerprint=? "
-            "AND c.source_policy_version=? AND c.section_id=? AND c.topic_id=?",
-            k,
-        ).fetchone()
-        return _row_to_pack(conn, row) if row else None
-    finally:
-        conn.close()
+    """fail-closed 包装：仅返回「可用」current；失效/损坏/无 current 一律 None（不暴露失效对象）。"""
+    return load_current_pack(identity).pack
 
 
 def list_current_packs() -> list[TS.TopicResearchPack]:
+    """列出全部「可用」current Pack（跳过失效的 current；损坏仍 fail-closed 抛出）。"""
     conn = _get_conn()
     try:
         rows = conn.execute(
-            "SELECT p.* FROM topic_current c JOIN topic_pack p ON p.pack_id = c.pack_id "
-            "ORDER BY c.task_id, c.company_id, c.topic_id").fetchall()
-        return [_row_to_pack(conn, r) for r in rows]
+            "SELECT pack_id FROM topic_current ORDER BY task_id, company_id, topic_id").fetchall()
+        out: list[TS.TopicResearchPack] = []
+        for r in rows:
+            pack_id = r["pack_id"]
+            if _terminal_invalidation_conn(conn, pack_id) is not None:
+                continue
+            out.append(_verify_reconstructed(conn, pack_id))
+        return out
     finally:
         conn.close()
 
 
 def list_pack_history(identity: TS.PackIdentity) -> list[TS.TopicResearchPack]:
+    """读该身份全部历史 Pack（显式历史读，含失效/旧版本；损坏仍 fail-closed 抛出）。"""
     conn = _get_conn()
     try:
         rows = conn.execute(
-            "SELECT * FROM topic_pack WHERE task_id=? AND company_id=? AND "
+            "SELECT pack_id FROM topic_pack WHERE task_id=? AND company_id=? AND "
             "COALESCE(report_as_of,'')=? AND contract_fingerprint=? AND "
             "source_policy_version=? AND section_id=? AND topic_id=? ORDER BY rowid",
             (identity.task_id, identity.company_id, identity.report_as_of or "",
              identity.contract_fingerprint, identity.source_policy_version,
              identity.section_id, identity.topic_id),
         ).fetchall()
-        return [_row_to_pack(conn, r) for r in rows]
+        return [_verify_reconstructed(conn, r["pack_id"]) for r in rows]
     finally:
         conn.close()
 
