@@ -331,7 +331,9 @@ def validate_section_task_provenance(
 
     - 篡改 question / required_aspects / evidence_requirements / blocking_rules /
       output_requirements / 任一正式字段 → 内容漂移；
-    - ``plan_id`` / ``contract_version`` / ``contract_sha256`` 来源不一致。
+    - ``plan_id`` / ``contract_version`` / ``contract_sha256`` 来源不一致。其中
+      ``contract_sha256`` 为严格相等：一旦调用方提供期望值，task 中的 SHA 缺失、
+      ``None``、空字符串或错误值全部 fail-closed（无 legacy 静默兼容）。
 
     与 ``planner.plan`` 共用 :func:`build_section_task` + :func:`canonical_section_task`
     同一实现，不复制 Planner 逻辑。evaluation 层只消费本接口，不得调用任何
@@ -349,13 +351,21 @@ def validate_section_task_provenance(
                 f"contract_version 不一致: 期望 {contract_version!r} 实际 {actual_cv!r}")
     if contract_sha256 is not None:
         actual_sha = task.dependency_versions.get("contract_sha256")
-        if actual_sha not in (None, "", contract_sha256):
+        # 严格相等：缺失 / None / 空字符串 / 错误 SHA 全部 fail-closed。
+        if actual_sha != contract_sha256:
             diffs.append(
                 f"contract_sha256 不一致: 期望 {contract_sha256!r} 实际 {actual_sha!r}")
 
-    # 内容一致性：以契约重新派生期望任务，规范形逐字段比对。
+    # 内容一致性：以契约 + 独立期望 Contract 身份重新派生期望任务，规范形逐字段比对。
+    # 期望身份（contract_version / contract_sha256）由调用方独立提供，不得把 task 自身
+    # dependency_versions 原样当作权威来源（否则形成自我证明）。
+    expected_deps = dict(task.dependency_versions)
+    if contract_version is not None:
+        expected_deps["contract_version"] = contract_version
+    if contract_sha256 is not None:
+        expected_deps["contract_sha256"] = contract_sha256
     expected = build_section_task(sec, credit_type, plan_id=task.plan_id,
-                                  dependency_versions=task.dependency_versions)
+                                  dependency_versions=expected_deps)
     exp = canonical_section_task(expected)
     act = canonical_section_task(task)
     for key in exp:

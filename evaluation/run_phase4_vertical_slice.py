@@ -113,7 +113,10 @@ def select_slice(plan: PS.ReportPlan, contracts: list[CS.SectionContract], *,
     """
     task = CSL.find_section_task(plan, section_id)
     sec = contract_by_section(contracts)[section_id]
-    CSL.validate_task_against_contract(task, sec, plan.credit_type)
+    CSL.validate_task_against_contract(task, sec, plan.credit_type,
+                                       contract_version=CS.CONTRACT_VERSION,
+                                       contract_sha256=plan.contract_fingerprint,
+                                       plan_id=plan.plan_id)
     identity = CSL.slice_identity(task, scope=scope, topic_id=topic_id,
                                   question_id=question_id)
     return task, identity
@@ -363,8 +366,12 @@ def _self_check() -> dict:
     comp_task = CSL.find_section_task(plan, "company")
     ind_task = CSL.find_section_task(plan, "industry")
     by_sec = contract_by_section(contracts)
-    CSL.validate_task_against_contract(comp_task, by_sec["company"], "other")
-    CSL.validate_task_against_contract(ind_task, by_sec["industry"], "other")
+    CSL.validate_task_against_contract(comp_task, by_sec["company"], "other",
+                                       contract_version=CS.CONTRACT_VERSION,
+                                       contract_sha256=contract_sha, plan_id=plan.plan_id)
+    CSL.validate_task_against_contract(ind_task, by_sec["industry"], "other",
+                                       contract_version=CS.CONTRACT_VERSION,
+                                       contract_sha256=contract_sha, plan_id=plan.plan_id)
     drift_clean = True
 
     tampered = PS.SectionTask(
@@ -384,7 +391,9 @@ def _self_check() -> dict:
     )
     drift_raises = False
     try:
-        CSL.validate_task_against_contract(tampered, by_sec["company"], "other")
+        CSL.validate_task_against_contract(tampered, by_sec["company"], "other",
+                                           contract_version=CS.CONTRACT_VERSION,
+                                           contract_sha256=contract_sha, plan_id=plan.plan_id)
     except CSL.ContractDriftError as e:
         drift_raises = e.reason == CSL.CONTRACT_DRIFT
 

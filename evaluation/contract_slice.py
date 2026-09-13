@@ -71,14 +71,20 @@ question_canonical_fingerprint = planner.question_fingerprint
 
 def derive_expected_task(sec: CS.SectionContract, credit_type: str, *,
                          task_id: str, plan_id: str,
-                         dependency_versions: dict) -> PS.SectionTask:
+                         contract_version: str,
+                         contract_sha256: str) -> PS.SectionTask:
     """按契约重新派生「期望任务」——委托 planner.build_section_task（唯一实现）。
 
     ``task_id`` 由 ``(plan_id, section_id)`` 确定性派生；调用方传入的 task_id 与
-    派生值不一致属来源异常 → fail-closed。
+    派生值不一致属来源异常 → fail-closed。期望 Contract 身份（``contract_version`` /
+    ``contract_sha256``）由调用方独立提供，不得原样取自待校验 task。
     """
-    expected = planner.build_section_task(sec, credit_type, plan_id=plan_id,
-                                          dependency_versions=dependency_versions)
+    expected = planner.build_section_task(
+        sec, credit_type, plan_id=plan_id,
+        dependency_versions={
+            "contract_version": contract_version,
+            "contract_sha256": contract_sha256,
+        })
     if expected.task_id != task_id:
         raise ContractDriftError(
             reason=CONTRACT_DRIFT,
@@ -87,17 +93,24 @@ def derive_expected_task(sec: CS.SectionContract, credit_type: str, *,
 
 
 def validate_task_against_contract(task: PS.SectionTask, sec: CS.SectionContract,
-                                   credit_type: str) -> None:
+                                   credit_type: str, *,
+                                   contract_version: str,
+                                   contract_sha256: str,
+                                   plan_id: str | None = None) -> None:
     """漂移校验：委托 planner.validate_section_task_provenance，fail-closed。
 
     篡改 required_aspects / evidence_requirements / question 文本 / 任一正式字段 →
     ContractDriftError(reason=CONTRACT_TASK_DRIFT)。
+
+    期望 Contract 身份（``contract_version`` / ``contract_sha256`` / ``plan_id``）必须
+    来自独立来源（独立加载的 Contract 文件、ReportPlan 或调用方显式输入），不得从待校验
+    task 自身读取（否则形成自我证明）。SHA 严格相等，缺失/空/篡改均 fail-closed。
     """
     ok, diffs = planner.validate_section_task_provenance(
         task, sec, credit_type,
-        contract_version=task.dependency_versions.get("contract_version"),
-        contract_sha256=task.dependency_versions.get("contract_sha256"),
-        plan_id=task.plan_id)
+        contract_version=contract_version,
+        contract_sha256=contract_sha256,
+        plan_id=plan_id)
     if not ok:
         raise ContractDriftError(reason=CONTRACT_DRIFT, diffs=diffs)
 
@@ -350,7 +363,9 @@ def _self_check() -> dict:
     plan = planner.plan(job, contracts, fp)
     company_task = find_section_task(plan, "company")
     by_sec = {s.section_id: s for s in contracts}
-    validate_task_against_contract(company_task, by_sec["company"], "other")
+    validate_task_against_contract(company_task, by_sec["company"], "other",
+                                   contract_version=CS.CONTRACT_VERSION,
+                                   contract_sha256=fp, plan_id=plan.plan_id)
     out["drift_company_clean"] = True
 
     # 篡改 required_aspects → 漂移
@@ -371,7 +386,9 @@ def _self_check() -> dict:
     )
     drift_raised = False
     try:
-        validate_task_against_contract(tampered, by_sec["company"], "other")
+        validate_task_against_contract(tampered, by_sec["company"], "other",
+                                       contract_version=CS.CONTRACT_VERSION,
+                                       contract_sha256=fp, plan_id=plan.plan_id)
     except ContractDriftError as e:
         drift_raised = e.reason == CONTRACT_DRIFT
     out["drift_tamper_raises"] = drift_raised

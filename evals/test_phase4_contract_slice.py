@@ -19,12 +19,14 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from contracts import schema as CS
 from evaluation import contract_slice as CSL
 from evaluation.run_phase4_vertical_slice import (
     load_formal, plan_dry, select_slice,
@@ -56,12 +58,32 @@ def _tamper_evidence(task: PS.SectionTask) -> PS.SectionTask:
         for q in task.questions])
 
 
-def _raises_drift(task: PS.SectionTask, sec) -> bool:
+def _with_deps(task: PS.SectionTask, deps: dict) -> PS.SectionTask:
+    return dataclasses.replace(task, dependency_versions=deps)
+
+
+def _raises_drift(task: PS.SectionTask, sec, plan) -> bool:
+    """独立 Contract 身份（Plan 指纹 + schema 版本）下的漂移校验，期望抛 CONTRACT_DRIFT。"""
     try:
-        CSL.validate_task_against_contract(task, sec, "other")
+        CSL.validate_task_against_contract(
+            task, sec, "other",
+            contract_version=CS.CONTRACT_VERSION,
+            contract_sha256=plan.contract_fingerprint, plan_id=plan.plan_id)
         return False
     except CSL.ContractDriftError as e:
         return e.reason == CSL.CONTRACT_DRIFT
+
+
+def _validates_ok(task: PS.SectionTask, sec, plan) -> bool:
+    """独立 Contract 身份下校验通过（正确 SHA + version）。"""
+    try:
+        CSL.validate_task_against_contract(
+            task, sec, "other",
+            contract_version=CS.CONTRACT_VERSION,
+            contract_sha256=plan.contract_fingerprint, plan_id=plan.plan_id)
+        return True
+    except CSL.ContractDriftError:
+        return False
 
 
 def main() -> dict:
@@ -101,18 +123,68 @@ def main() -> dict:
           "company_business_main required_aspects == 冻结契约")
     expected = CSL.derive_expected_task(
         by_sec["company"], "other", task_id=comp_task.task_id,
-        plan_id=comp_task.plan_id, dependency_versions=comp_task.dependency_versions)
+        plan_id=comp_task.plan_id,
+        contract_version=CS.CONTRACT_VERSION,
+        contract_sha256=plan.contract_fingerprint)
     exp_q = CSL.select_question(expected, "company_business_main")
     check(CSL.canonical_question_dict(exp_q) == CSL.canonical_question_dict(q),
           "question_slice 规范形 == 契约（无手工重建 PlannedQuestion）")
 
     # 3) 篡改 required_aspects → CONTRACT_TASK_DRIFT
-    check(_raises_drift(_tamper_required(comp_task), by_sec["company"]),
+    check(_raises_drift(_tamper_required(comp_task), by_sec["company"], plan),
           "篡改 required_aspects → CONTRACT_TASK_DRIFT")
 
     # 4) 篡改 evidence_requirements → CONTRACT_TASK_DRIFT
-    check(_raises_drift(_tamper_evidence(comp_task), by_sec["company"]),
+    check(_raises_drift(_tamper_evidence(comp_task), by_sec["company"], plan),
           "篡改 evidence_requirements → CONTRACT_TASK_DRIFT")
+
+    # ------------------------------------------------------------------ 来源身份（R0 收口）
+    # 4a) 正确 SHA + 正确 version → 通过。
+    check(_validates_ok(comp_task, by_sec["company"], plan),
+          "正确 contract_sha256 + contract_version → 校验通过")
+
+    # 4b) 正式 Planner 新生成任务不受影响（company + industry 均干净）。
+    ind_task = CSL.find_section_task(plan, "industry")
+    check(_validates_ok(ind_task, by_sec["industry"], plan),
+          "正式 Planner 新生成 industry 任务不受影响（独立身份校验通过）")
+
+    # 4c) SHA 字段删除 → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {k: v for k, v in comp_task.dependency_versions.items()
+                               if k != "contract_sha256"}),
+        by_sec["company"], plan),
+        "SHA 字段删除 → fail-closed 拒绝")
+
+    # 4d) SHA 为 None → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {**comp_task.dependency_versions, "contract_sha256": None}),
+        by_sec["company"], plan),
+        "SHA 为 None → fail-closed 拒绝")
+
+    # 4e) SHA 为空字符串 → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {**comp_task.dependency_versions, "contract_sha256": ""}),
+        by_sec["company"], plan),
+        "SHA 为空字符串 → fail-closed 拒绝")
+
+    # 4f) SHA 被篡改 → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {**comp_task.dependency_versions, "contract_sha256": "0" * 64}),
+        by_sec["company"], plan),
+        "SHA 被篡改 → fail-closed 拒绝")
+
+    # 4g) contract_version 字段删除 → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {k: v for k, v in comp_task.dependency_versions.items()
+                               if k != "contract_version"}),
+        by_sec["company"], plan),
+        "contract_version 字段删除 → fail-closed 拒绝")
+
+    # 4h) contract_version 与独立期望不一致 → 拒绝。
+    check(_raises_drift(
+        _with_deps(comp_task, {**comp_task.dependency_versions, "contract_version": "v99"}),
+        by_sec["company"], plan),
+        "contract_version 不一致 → fail-closed 拒绝")
 
     # 5) topic_preview company_business 4 正式问题
     check(comp_id["selected_question_ids"] == [
