@@ -414,6 +414,43 @@ def _validate_pack_references(pack: TS.TopicResearchPack) -> None:
                 raise TopicStoreValidationError(f"gap {g.unresolved_id!r} 引用不存在 aspect {aid!r}")
 
 
+def _validate_requirement_self_consistency(requirement: TS.TopicResearchRequirement) -> None:
+    """requirement 不得自证：内嵌 Contract/SourcePolicy/EvidenceRequirement/question 身份必须闭合一致。
+
+    - 顶层 contract_fingerprint 必须为有效 sha256；
+    - 每条 aspect 的 contract_version / contract_sha256 与顶层一致；
+    - 每条 EvidenceRequirementRef 的 contract_sha256 与顶层一致；
+    - 每条 SourcePolicyRef 的 policy_version 与顶层 source_policy_version 一致；
+    - question 集合与所有 aspect 的 question_id 闭合一致。
+    """
+    if not TS._is_sha256_hex(requirement.contract_fingerprint):
+        raise TopicStoreValidationError(
+            "requirement.contract_fingerprint 必须为 64 位 sha256 hex")
+    qids = set(requirement.question_ids)
+    aspect_qids = {a.question_id for a in requirement.aspects}
+    if qids != aspect_qids:
+        raise TopicStoreValidationError(
+            f"requirement question 集合与 aspect question_id 不闭合："
+            f"question_ids={sorted(qids)}，aspect question_id={sorted(aspect_qids)}")
+    for a in requirement.aspects:
+        if a.contract_version != requirement.contract_version:
+            raise TopicStoreValidationError(
+                f"aspect {a.aspect_id!r} contract_version={a.contract_version!r} 与 "
+                f"requirement={requirement.contract_version!r} 不一致")
+        if a.contract_sha256 != requirement.contract_fingerprint:
+            raise TopicStoreValidationError(
+                f"aspect {a.aspect_id!r} contract_sha256 与 requirement.contract_fingerprint 不一致")
+        if a.source_policy_ref.policy_version != requirement.source_policy_version:
+            raise TopicStoreValidationError(
+                f"aspect {a.aspect_id!r} source_policy_ref.policy_version 与 "
+                f"requirement.source_policy_version 不一致")
+        for er in a.evidence_requirement_ids:
+            if er.contract_sha256 != requirement.contract_fingerprint:
+                raise TopicStoreValidationError(
+                    f"aspect {a.aspect_id!r} EvidenceRequirementRef.contract_sha256 与 "
+                    f"requirement.contract_fingerprint 不一致")
+
+
 def _validate_requirement_matches(pack: TS.TopicResearchPack,
                                   requirement: TS.TopicResearchRequirement) -> None:
     """Store 提交时校验 requirement 身份 + aspect 集合完全一致 + 冻结投影一致（§六）。"""
@@ -461,17 +498,83 @@ def _validate_requirement_matches(pack: TS.TopicResearchPack,
             f"requirement 重算={expected_dep!r}")
 
 
+# 关键行业结论 topic（§9 sufficiency gate 目标）；由 frozen Contract 派生，不修改业务语义。
+_CRITICAL_CONCLUSION_TOPICS = (
+    "industry_scale_cycle",
+    "industry_position",
+    "industry_competition",
+    "industry_risk_transmission",
+    "industry_supply_demand",
+)
+
+
+def _evaluate_coverage_rules(r: TS.AspectResearchResult,
+                             facts: tuple[TS.SupportedFact, ...],
+                             materials: tuple[TS.ResearchMaterial, ...]) -> None:
+    """covered aspect 的 coverage_rules 确定性评估（fail-closed，绝不默认通过）。
+
+    只有 topic_harness 的 6 条规则可被 typed schema 确定性表达；未知/非 topic_harness 规则，
+    或需运行时集合枚举证明的 set_complete → coverage_rule_not_evaluable（拒绝）。
+    direct_support 的闭环由 _validate_aspect_semantics 的 authority/closed-chain 门禁承担；
+    search_audit 仅针对负面核验/not_found/集合/外部时效（由 not_found 分支单独门禁），
+    covered 正面事实不触发；applicability 由 not_applicable 分支单独门禁。
+    """
+    snap = r.requirement_snapshot
+    rules = set(snap.coverage_rules)
+    known = {"set_complete", "required_fields_complete", "minimum_sources",
+             "direct_support", "search_audit", "applicability"}
+    unknown = rules - known
+    if unknown:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} 含不可评估 coverage_rule_not_evaluable: {sorted(unknown)}")
+    if "set_complete" in rules:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} coverage_rule_not_evaluable: set_complete 需权威集合枚举证明，"
+            f"R1-B typed schema 无法表达（fail-closed）")
+    if "required_fields_complete" in rules:
+        obtained: set[str] = set()
+        for f in facts:
+            obtained |= set(f.obtained_fields)
+        missing = set(snap.required_fields) - obtained
+        if missing:
+            raise TopicStoreValidationError(
+                f"aspect {r.aspect_id!r} required_fields_complete 未满足，缺字段 {sorted(missing)}")
+    if "minimum_sources" in rules:
+        ids = {TS.authority_source_identity(f.source_authority) for f in facts}
+        if len(ids) < 1:
+            raise TopicStoreValidationError(
+                f"aspect {r.aspect_id!r} minimum_sources 未满足（无有效来源）")
+
+
+def _validate_sufficiency_required(r: TS.AspectResearchResult) -> None:
+    """关键行业结论 topic 的 covered aspect 必须携带满足阈值的 SufficiencyAssessment（§9）。"""
+    snap = r.requirement_snapshot
+    if snap.topic_id not in _CRITICAL_CONCLUSION_TOPICS:
+        return
+    if r.status != "covered":
+        return
+    sa = r.sufficiency_assessment
+    if sa is None:
+        raise TopicStoreValidationError(
+            f"关键结论 aspect {r.aspect_id!r}（topic={snap.topic_id}）缺 SufficiencyAssessment")
+    if not sa.threshold_met:
+        raise TopicStoreValidationError(
+            f"关键结论 aspect {r.aspect_id!r} SufficiencyAssessment.threshold_met=False")
+
+
 def _validate_aspect_semantics(pack: TS.TopicResearchPack) -> None:
     """aspect 层语义门禁（不信任调用方直接填写的 status，也不信任空壳 covered）。
 
     - covered 必须非空壳（≥1 material + ≥1 supported fact + 非 rejected authority + citation 非空）；
+    - covered 的 authority 必须确定性重算为 authoritative（不信任自称 verdict），且 material /
+      fact / citation 来源身份一致（material→payload→authority→fact→citation→aspect 闭环）；
+    - covered 的 coverage_rules 必须确定性评估（不可表达 → fail-closed）；
+    - 关键结论 topic 的 covered aspect 必须通过 sufficiency gate（authority 与 sufficiency 独立）；
     - not_found 必须绑定 qualified NotFoundAudit；
     - partial/blocked 必须与对应 Gap / 停止原因一致；
     - not_applicable 必须保留适用性判定依据；
     - aspect 引用的 facts/materials/gaps/audits 必须存在并回指该 aspect；
-    - SupportedFact 必须有非空 CitationRef 且不得以 rejected authority 支撑；
-    - attached SufficiencyAssessment 的 aspect/事实/来源 ID 必须可解析且一致；
-    - authority gate 与 sufficiency gate 独立（不互相替代）。
+    - attached SufficiencyAssessment 的 aspect/事实/来源 ID 必须可解析且一致。
     """
     fact_by_id = {f.fact_id: f for f in pack.facts}
     material_by_id = {m.material_id: m for m in pack.materials}
@@ -503,14 +606,45 @@ def _validate_aspect_semantics(pack: TS.TopicResearchPack) -> None:
             if not r.supported_fact_ids:
                 raise TopicStoreValidationError(
                     f"aspect {r.aspect_id!r} status=covered 但无 supported fact（空壳）")
-            for fid in r.supported_fact_ids:
-                f = fact_by_id[fid]
+            facts = tuple(fact_by_id[fid] for fid in r.supported_fact_ids)
+            materials = tuple(material_by_id[mid] for mid in r.material_ids)
+            for f in facts:
                 if not f.citation_refs:
                     raise TopicStoreValidationError(
-                        f"aspect {r.aspect_id!r} 的 fact {fid!r} 无 CitationRef")
-                if f.source_authority.verdict == "rejected":
+                        f"aspect {r.aspect_id!r} 的 fact {f.fact_id!r} 无 CitationRef")
+                # 权威确定性重算（不信任自称 verdict）。
+                rv = TS.recompute_authority_verdict(f.source_authority)
+                if f.source_authority.verdict != rv:
                     raise TopicStoreValidationError(
-                        f"aspect {r.aspect_id!r} 的 fact {fid!r} 由 rejected authority 支撑")
+                        f"aspect {r.aspect_id!r} 的 fact {f.fact_id!r} authority verdict "
+                        f"自称 {f.source_authority.verdict!r} 与字段确定性重算 {rv!r} 不一致")
+                if rv != "authoritative":
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 fact {f.fact_id!r} 由非 authoritative 来源支撑")
+                # citation 与 source_authority 来源身份一致。
+                aid = TS.authority_source_identity(f.source_authority)
+                if not any(TS.citation_source_identity(c) == aid for c in f.citation_refs):
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 fact {f.fact_id!r} citation 与 "
+                        f"source_authority 来源身份不一致")
+                # fact 必须被同源 material 支撑（material→fact 身份一致）。
+                if not any(TS.authority_source_identity(m.authority_assessment) == aid
+                           for m in materials):
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 fact {f.fact_id!r} 无同源 material 支撑")
+            for m in materials:
+                rv = TS.recompute_authority_verdict(m.authority_assessment)
+                if m.authority_assessment.verdict != rv:
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 material {m.material_id!r} authority verdict "
+                        f"自称 {m.authority_assessment.verdict!r} 与字段重算 {rv!r} 不一致")
+                if rv != "authoritative":
+                    raise TopicStoreValidationError(
+                        f"aspect {r.aspect_id!r} 的 material {m.material_id!r} 由非 authoritative 来源支撑")
+            # 最小覆盖证明（coverage_rules；不可表达 → fail-closed）。
+            _evaluate_coverage_rules(r, facts, materials)
+            # 关键结论 sufficiency gate（与 authority gate 独立）。
+            _validate_sufficiency_required(r)
         elif r.status == "not_found":
             if r.not_found_audit_id is None:
                 raise TopicStoreValidationError(
@@ -792,10 +926,14 @@ def commit_pack(pack: TS.TopicResearchPack,
     else:
         pack.verify_pack_id()
     _validate_pack_references(pack)
+    _validate_requirement_self_consistency(requirement)
     _validate_requirement_matches(pack, requirement)
     _validate_aspect_semantics(pack)
     _recompute_status_consistency(pack, requirement)
-    if resolver is not None:
+    if pack.materials:
+        if resolver is None:
+            raise TopicStoreValidationError(
+                "pack 含 material 但未注入 PayloadResolver（payload 必须可解析，fail-closed）")
         TS.verify_pack_payloads(pack, resolver)
 
     conn = _get_conn()

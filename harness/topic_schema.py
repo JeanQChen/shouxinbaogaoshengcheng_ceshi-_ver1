@@ -1048,6 +1048,9 @@ class MaterialPayloadRef:
             raise SchemaValidationError("MaterialPayloadRef.version 必须非空")
         if not _is_sha256_hex(self.content_hash):
             raise SchemaValidationError("MaterialPayloadRef.content_hash 必须为 64 位 sha256 hex")
+        if not _is_sha256_hex(self.created_dependency_fingerprint):
+            raise SchemaValidationError(
+                "MaterialPayloadRef.created_dependency_fingerprint 必须为 64 位 sha256 hex")
 
     def to_dict(self) -> dict:
         return {
@@ -1129,6 +1132,60 @@ def verify_material_payload_ref(payload_ref: MaterialPayloadRef,
     return resolved
 
 
+def recompute_authority_verdict(authority: AuthorityAssessment) -> str:
+    """确定性重算权威结论（不信任调用方自填 verdict）。
+
+    authoritative 必须满足该来源类型支持「正式事实」的全部资格字段，任一缺失 → rejected。
+    External 即使字段全有效也最高只能 supplemental_only（external 仅 supplemental，
+    不能独立支撑 formal fact，见 §14 权威分离）。
+    """
+    if isinstance(authority, EvidenceAuthorityAssessment):
+        ok = (authority.is_current_document and authority.is_current_set
+              and authority.fetched_inspected_nonempty
+              and bool(authority.document_id) and bool(authority.company_id)
+              and (authority.page is not None or authority.block_range is not None)
+              and _is_sha256_hex(authority.content_hash))
+        return "authoritative" if ok else "rejected"
+    if isinstance(authority, FinancialSnapshotAuthorityAssessment):
+        ok = (authority.is_current and authority.validity == "valid"
+              and not authority.report_blocked and not authority.quarantine
+              and bool(authority.company_id) and bool(authority.scope)
+              and bool(authority.currency) and bool(authority.purpose)
+              and bool(authority.report_as_of)
+              and authority.item_code is not None and authority.formula_id is not None
+              and authority.period is not None)
+        return "authoritative" if ok else "rejected"
+    if isinstance(authority, ExternalSnapshotAuthorityAssessment):
+        ok = (authority.fetched_nonempty and _is_sha256_hex(authority.content_hash)
+              and bool(authority.canonical_url) and bool(authority.domain)
+              and authority.source_grade != "D" and authority.min_grade_met
+              and authority.time_qualified)
+        return "supplemental_only" if ok else "rejected"
+    raise TypeError(f"未知 authority 类型: {type(authority).__name__}")
+
+
+def authority_source_identity(authority: AuthorityAssessment) -> str:
+    """三类权威的来源身份字符串（material authority ↔ fact source_authority ↔ CitationRef 一致性域）。"""
+    if isinstance(authority, EvidenceAuthorityAssessment):
+        return f"evidence:{authority.evidence_id}"
+    if isinstance(authority, FinancialSnapshotAuthorityAssessment):
+        return f"financial_snapshot:{authority.snapshot_id}"
+    if isinstance(authority, ExternalSnapshotAuthorityAssessment):
+        return f"external_snapshot:{authority.source_snapshot_id}"
+    raise TypeError(f"未知 authority 类型: {type(authority).__name__}")
+
+
+def citation_source_identity(citation: CitationRef) -> str:
+    """CitationRef 的来源身份（与 authority_source_identity 同域，供一致性比对）。"""
+    if citation.ref_type == "evidence":
+        return f"evidence:{citation.evidence_id or ''}"
+    if citation.ref_type == "structured":
+        return f"financial_snapshot:{citation.snapshot_id or ''}"
+    if citation.ref_type == "external":
+        return f"external_snapshot:{citation.source_snapshot_id or ''}"
+    raise SchemaValidationError(f"未知 CitationRef.ref_type: {citation.ref_type!r}")
+
+
 def _material_consistency(material_type: str, locator: MaterialLocator,
                           authority: AuthorityAssessment) -> None:
     """material type ↔ locator 变体 ↔ authority 变体 三者必须匹配（§8 强制不变量）。"""
@@ -1168,6 +1225,13 @@ class ResearchMaterial:
         if not _is_sha256_hex(self.content_hash):
             raise SchemaValidationError("ResearchMaterial.content_hash 必须为 64 位 sha256 hex")
         _material_consistency(self.material_type, self.locator, self.authority_assessment)
+        # material 与 payload_ref 的 typed 身份必须严格一致（§三.1：不得只验证 resolver 自报字段）。
+        if self.payload_ref.object_type != self.material_type:
+            raise SchemaValidationError(
+                f"ResearchMaterial.material_type={self.material_type!r} 与 "
+                f"payload_ref.object_type={self.payload_ref.object_type!r} 不一致")
+        if self.payload_ref.locator.to_dict() != self.locator.to_dict():
+            raise SchemaValidationError("ResearchMaterial.locator 与 payload_ref.locator 不一致")
 
     def to_dict(self) -> dict:
         return {
@@ -1256,6 +1320,8 @@ class SupportedFact:
     period: str | None = None
     scope: str | None = None
     confidence: str | None = None
+    # 本事实取得的 required_fields 标识（用于 required_fields_complete 覆盖证明；无运行时集合证明）。
+    obtained_fields: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.fact_id:
@@ -1281,13 +1347,14 @@ class SupportedFact:
             "period": self.period,
             "scope": self.scope,
             "confidence": self.confidence,
+            "obtained_fields": list(self.obtained_fields),
         }
 
     @classmethod
     def from_dict(cls, d: Any) -> "SupportedFact":
         d = _reject_unknown(d, {"fact_id", "text", "fact_type", "aspect_ids", "citation_refs",
                                 "source_authority", "value_identity", "semantic_tags", "period",
-                                "scope", "confidence"}, "SupportedFact")
+                                "scope", "confidence", "obtained_fields"}, "SupportedFact")
         vi = d.get("value_identity")
         return cls(
             fact_id=_get_str(d, "fact_id", "SupportedFact"),
@@ -1303,6 +1370,7 @@ class SupportedFact:
             period=_get_str(d, "period", "SupportedFact", allow_none=True),
             scope=_get_str(d, "scope", "SupportedFact", allow_none=True),
             confidence=_get_str(d, "confidence", "SupportedFact", allow_none=True),
+            obtained_fields=_get_str_tuple(d, "obtained_fields", "SupportedFact"),
         )
 
 
