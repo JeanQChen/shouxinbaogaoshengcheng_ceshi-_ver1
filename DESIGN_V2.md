@@ -1,6 +1,6 @@
 # 授信报告生成器 V2 设计文档
 
-> 状态：实施纲领 v0.6（2026-09-13：文档治理、TopicResearchPack、覆盖驱动研究与版本化写作规格）
+> 状态：实施纲领 v0.7（2026-09-13：文档治理、TopicResearchPack、覆盖驱动研究、只读缺口展示、状态栏与独立全报告 Assurance）
 > 基线：历史 V1 `DESIGN.md`、已交付的 V2 基础能力与当前代码
 > 目的：定义 V2 的产品边界、报告契约、Evidence 架构、检索、Research Harness、评测与全报告质量保障。本文首先用于确认设计，不代表所有模块已经实现。
 > 实现状态：Phase 0A～3 的历史验收和冻结结果原样保留；Phase 3 frozen_final 是安全性、路由与单题实际路径基线，不等于已经满足完整主题研究。Phase 4 的规划、Worker、Evaluator、Store 与 UI 基础已实现，但因 P3→P4 信息吞吐和内容完整性不足，于 2026-09-12 重开 P3R/P4R 内容能力门；Phase 5 暂不进入。§4.3 财务指标口径仍以 `FORMULA_REVIEW.md` 为准。
@@ -31,7 +31,7 @@
 | D-05 | 项目材料最小范围按 §4.5 保留 | 第二阶段实施，预测数据强制 Excel，项目研究禁止联网 |
 | D-06 | 第一阶段只支持 A 股上市公司 | 外部核验和样本范围均围绕公开上市公司 |
 | D-07 | 第一阶段仅接受电子 PDF 和 Excel；财务允许二者混合上传 | 扫描 PDF/OCR、Word、PPT、图片放入第二阶段规划 |
-| D-08 | blocking 问题阻止正式版导出 | 允许查看带问题的预览版，修复并复检后才能正式导出 |
+| D-08 | blocking 问题阻止系统审核通过 | 允许查看带问题的预览版；修复并复检后才可达到“系统审核通过、可供人工确认”，人工最终确认仍是独立状态 |
 
 ### 0.2 补充确认事项
 
@@ -40,7 +40,7 @@
 | O-01 | 第一阶段财务 PDF 仅支持电子 PDF，不支持扫描 PDF/OCR | 低文本质量或扫描件 fail fast，提示改用电子年报 PDF 或 Excel |
 | O-02 | 多个财务来源数字冲突时不自动选口径 | 保留各来源值并生成 reconciliation issue，交客户经理确认 |
 | O-03 | 企业核验 MCP 不可用时允许降级 | 降级至交易所公告、国家企业信用信息公示系统等公开来源，并显式提示 |
-| O-04 | 主体或控制关系异常时不销毁任务 | 阻止正式版，保留处理结果并转人工确认；无实际控制人不等于主体不合法 |
+| O-04 | 主体或控制关系异常时不销毁任务 | 阻止系统审核通过，保留处理结果并标记需人工最终确认；无实际控制人不等于主体不合法 |
 | O-05 | 新闻和行业规模 2 年为默认回溯窗口 | 历史沿革和周期比较允许使用更早资料并标注年份 |
 | O-06 | 重资产 70%、轻资产 40% 为关注提示 | 不作为自动否决线 |
 | O-07 | Evidence 长期保留并允许主动删除 | 按公司/任务删除时先检查最终报告引用关系 |
@@ -58,11 +58,11 @@
 | B-04 | 全部必需本地证据完成可靠映射后，整题才进入正式分母 | 部分映射题单列诊断与排除原因，不删除缺失部分后计分 |
 | B-05 | 当前41问的页码均为“且”，不是“或” | `/`、`+`、跨文档引用及页码范围全部表示必需页；完整覆盖以 `AllGroupHit` 判断 |
 
-### 0.4 2026-09-06 交互与恢复确认
+### 0.4 2026-09-06 交互与恢复确认（历史基线；当前面试版范围由 §0.7 修订）
 
-- `[已确认 F-05]` 财务冲突必须选择来源并说明理由，或补充更正材料；自动重算并通过完整回检后方可正式导出，不提供“忽略冲突”放行。
-- `[已确认 F-06]` 尽量减少中途交互。`[建议默认]` 使用一个集中待确认面板，批量处理已发现问题；独立工作继续，只有受影响的计算与结论等待确认，交互细则见 §4.3.1。
-- `[已确认 H-04]` 达到预算后保留已有结果；用户点击“继续生成”才追加有限预算，只处理未完成问题。必须明确告诉客户当前问题、停止原因、影响以及下一步动作；等待人工确认的问题不能靠追加预算绕过。
+- `[历史确认 F-05]` 财务冲突必须选择来源并说明理由，或补充更正材料；自动重算并通过完整回检后方可正式导出，不提供“忽略冲突”放行。现有底层确认能力保留，但当前面试版不交付用户补件、绑定和重算交互，见 §0.7。
+- `[历史确认 F-06，当前范围由 UI-01/UI-02 修订]` 原计划以集中待确认面板批量处理问题；当前面试版只读汇总这些问题，不提供批量确认、补件、重算或续跑动作，交互细则见 §4.3.1。
+- `[历史确认 H-04]` 达到预算后保留已有结果，原计划由用户点击“继续生成”追加有限预算。当前面试版仍保留有界预算、缺口和 checkpoint，但不交付用户触发的继续生成入口，见 §0.7。
 
 ### 0.5 2026-09-12 P3→P4 内容完整性架构修订（现行）
 
@@ -83,6 +83,34 @@
 当前相近对象必须收敛而不能再新造第四套：Harness 拥有正式 `TopicResearchPack`；`ResearchOutcome` 是其原子输入；既有 `sections.material_bundle.TopicEvidenceBundle` 迁移为 Pack 内部材料视图或兼容适配器；实验 `sections.topic_research.TopicResearchPack` 不直接升格；`AspectCoverageResult` 与 `ExternalFunnelProjection` 只是 Pack 的审计投影，不是调度器或正式交付物。
 
 本轮具体实施、迁移和验收以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 为唯一任务书。
+
+### 0.6 2026-09-13 R1-A 冻结资产（已批准、已冻结、未接线）
+
+R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计导出 + 离线测试」，不接正式运行时。资产已由用户与 Codex 批准并冻结、按职责提交；尚未接线正式运行时：
+
+| 资产 | 载体 | 状态 |
+|---|---|---|
+| Contract v2（草稿，非默认） | `templates/contracts/standard_v3.yaml` | 52 问（28 topic_harness / 13 financial_workflow / 3 phase4_section_derived / 8 phase5_synthesizer）、187 aspect、每 aspect 22 字段、49 evidence 需求 |
+| 来源政策 v1 | `templates/policies/source_policy_v1.yaml` | A/B/C/D 分级、关键结论支撑、独立性、时效窗口、行业风险传导四层 |
+| WritingSpec v1 | `templates/writing_specs/credit_report_v1.yaml` | 逐字 8/5/9 H2 目录 + 187 primary / 6 secondary_reference，每 aspect 恰一 primary |
+| PresentationProfile v1 | `templates/presentation_profiles/interview_demo_v1.yaml` | 只允许 display/folding/screenshots/appendix，禁止 fact/coverage/citation/business_judgment 变更 |
+| 审计产物 | `contracts/review/review_52q.json` / `.csv` | 52 问 × 187 aspect × 49 evidence 展平快照 |
+| 只读代码 | `contracts/loader_v2.py` `validator_v2.py` `source_policy.py` `sections/writing_spec.py` `presentation_profile.py` `contracts/review/topic_aspect_evidence_review.py` | 纯声明式，不 import Router/Harness/Worker/Writer |
+| 离线测试 | `evals/test_contract_v2_assets.py`（已注册 `run_evals`） | 153 项全绿 |
+
+硬边界：`standard_v2.yaml`（v1）未被覆盖（固定 SHA256 `23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45`）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1-B、R2～R7、Phase 5/6 未进入。R1-A 专项 153 passed / 0 failed、完整 eval 4218 passed / 0 failed / 0 skipped 全绿，但只证明资产自洽，不宣称 P3R/P4R 或 Phase 4 内容关闭。
+
+### 0.7 2026-09-13 面试版交互、状态栏与最终审核边界（现行）
+
+| ID | 已确认决策 | 实施含义 |
+|---|---|---|
+| UI-01 | 当前面试版不实现报告生成后的用户补件闭环 | 只读展示缺少什么、已查范围、原因、影响及建议材料类型；不提供补充上传、缺口绑定、Evidence 增量更新、用户处理后定向续跑 |
+| UI-02 | 保留未来扩展口，不展示尚不可执行的按钮 | Gap 保留稳定身份、影响范围、建议材料类型和未来动作类型；现有 checkpoint/确认底座可保留，但不作为当前 UI 能力承诺 |
+| UI-03 | 状态栏是当前版本核心用户能力 | 进度来自持久化任务单元和产物，不由模型估计；分别显示流程是否结束、草稿是否可预览、系统审核是否通过、是否等待人工最终确认 |
+| V-04 | 最终审核由受限 `Assurance Controller` 组织，不由生成模型自由自评 | 先运行内容完整性前置门与确定性检查，再运行有证据输入的受限语义审稿；LLM 只能返回结构化 issue/定位/返工目标，不能覆盖硬失败、重写正文或直接放行 |
+| V-05 | 系统最高状态是“已通过系统审核，可供人工确认” | 报告版本、输入、Pack、Claim、引用、规则和审核结果必须绑定；报告变化使旧审核失效；主体、重大负面、关键财务冲突和授信方案仍由人工最终确认 |
+
+本次范围修订不删除历史 checkpoint、ResolutionRecord、财务确认或依赖失效代码，也不禁止未来产品版本实现补件闭环；只是将它们从当前面试版 Phase 5/6 出口中移除。当前缺口是只读审计产物，不是待用户在线处理的工作队列。预算耗尽、来源不足和必须人工判断均应形成明确状态，但页面不提供“继续研究”或“补充材料”动作。
 
 ---
 
@@ -201,12 +229,16 @@ Topic + Aspect 待办          │
                  ▼
           Report Assurance
                  │
-        ┌────────┼─────────┐
-        ▼        ▼         ▼
-      通过    定向返工    人工确认
-        │
-        ▼
-最终报告 + 引用 + 风险清单 + 方案评价 + Audit Package
+        ┌────────┴─────────┐
+        ▼                  ▼
+系统审核未通过          系统审核通过
+  → 草稿/定向返工          │
+                           ▼
+                    可供人工最终确认
+                           │
+                           ▼
+                  人工已确认的报告版本
+       + 引用 + 风险清单 + 方案评价 + Audit Package
 
 第二阶段条件分支：授信类型为固定资产贷款/项目贷款
   → 项目材料（PDF + 预测 Excel）
@@ -376,7 +408,7 @@ Excel/PDF → 表格与附注抽取 → 标准科目/结构化明细 → SQLite
 
 #### 4.3.1 财务冲突的集中处理与最少交互
 
-`[建议默认，落实 F-05/F-06]` 正常路径无需额外确认；仅真实未解决冲突进入统一“待确认事项”面板，不逐个弹窗、不逐题追问。
+`[历史目标，当前面试版不交付交互闭环]` 下列 1～6 项保留为未来产品扩展设计和既有底层能力的审计依据。按照 §0.7，当前面试版只读展示冲突、缺项、来源、影响和建议材料类型，不提供选源提交、补充更正材料、确认后重算或用户续跑入口；未解决冲突继续阻止系统审核通过。
 
 1. 自动完成单位标准化、期间/口径分离、重复上传识别和同口径一致性校验。不同合并范围、期间、币种或重述版本不能误当成可合并数据；同口径且校验一致的多份记录只计一次并保留全部来源。非零差异按已版本化的精度/舍入规则处理，未知精度或超出容差必须列为冲突，不能用财务重大性阈值掩盖差异。
 2. 持续收集冲突，先完成不依赖这些冲突的解析、公司研究和行业研究。受影响指标不计算，依赖它的 Claim 不生成；预览明确标注待核实及影响范围，正式导出保持阻断。主体错误等影响整个任务的前提问题应立即明确提示，不能为了批量收集而继续使用错误主体。
@@ -385,7 +417,7 @@ Excel/PDF → 表格与附注抽取 → 标准科目/结构化明细 → SQLite
 5. 客户一次点击“确认并重新核验”，系统保存本次条目清单、采用/未采用来源、理由、时间和源文件哈希；补充材料路径记录新旧来源及重检结果。自动使受影响计算与下游 Claim 失效、重算和重生成，再运行完整 Assurance。无新问题不再次询问；新出现的冲突仍在同一面板处理。
 6. 客户可暂不处理并查看带缺口的预览。确认仅解决来源选择，不等于免除勾稽校验或获得正式导出许可。已确认来源内容/口径变化时确认失效；只改变授信方案时重算相关分析，不要求重做未受影响的来源确认。
 
-交互验收：无冲突时零新增确认；同一批可处理冲突支持一次提交；独立章节可继续；新材料只使受影响确认失效；无法核实的问题明确说明，不能承诺所有任务只需一次交互。
+未来交互验收（不属于当前面试版门禁）：无冲突时零新增确认；同一批可处理冲突支持一次提交；独立章节可继续；新材料只使受影响确认失效；无法核实的问题明确说明，不能承诺所有任务只需一次交互。当前门禁只要求上述问题在状态栏和缺口面板中完整、可理解、可回查地展示。
 
 ### 4.4 行业研究
 
@@ -588,6 +620,8 @@ class EvidencePack:
 
 `EvidencePack` 回答“一次 InformationNeed 找到了什么”；`TopicResearchPack` 回答“一个正式 Topic 为写成完整章节已经研究了什么、还缺什么”。它由 Harness 所有并持久化，是 P4 公司/行业 Worker 的正式内容输入。
 
+> 以下 dataclass 为**历史示意字段名**：稳定不变量见本小节下方硬规则；唯一强类型 schema 以 `R1B_IMPLEMENTATION_PLAN.md` §1（落点 `harness/topic_schema.py`）为唯一规范，本文不维护第二份完整 schema。本处已把历史松散字段（裸 `locator` / `content_or_payload_ref` / `authority_status` / `source_authority` / `value_identity` / `external_funnel` / `budget_policy` / `cumulative_usage`，原为 `dict`/`str` 形态）替换为强类型引用，并对 Pack 补上 process/coverage 双轴状态，避免与 R1-B 唯一 schema 冲突。
+
 ```python
 @dataclass
 class AspectResearchResult:
@@ -608,11 +642,11 @@ class ResearchMaterial:
     material_id: str
     material_type: str          # evidence_span | table_context | structured | external_snapshot
     source_identity: str
-    locator: dict
-    content_or_payload_ref: str
+    locator: MaterialLocator                       # 按 material_type 区分的严格联合类型（见 R1-B §1）
+    payload_ref: MaterialPayloadRef                # 不可变解析引用（替代裸 content_or_payload_ref）
     context_parent_id: str | None
     content_hash: str
-    authority_status: str
+    authority_assessment: AuthorityAssessment      # 三类来源权威联合类型（替代裸 authority_status）
 
 @dataclass
 class SupportedFact:
@@ -621,8 +655,8 @@ class SupportedFact:
     fact_type: str
     aspect_ids: list[str]
     citation_refs: list[CitationRef]
-    source_authority: str       # evidence | financial_snapshot | external_snapshot
-    value_identity: dict | None # Decimal字符串、单位、指标/科目、期间、scope、值类别
+    source_authority: AuthorityAssessment   # 三类来源权威联合类型（替代裸 source_authority）
+    value_identity: ValueIdentity | None    # 规范化数字语义（value_kind/metric/unit/period/scope/amount_canonical）
     semantic_tags: list[str]
     period: str | None
     scope: str | None
@@ -683,13 +717,14 @@ class TopicResearchPack:
     materials: list[ResearchMaterial]
     facts: list[SupportedFact]
     outcome_refs: list[str]
-    external_funnel: dict
+    external_funnel: ExternalFunnelSnapshot | None
     conflicts: list[ResearchConflict]
     not_found_audits: list[NotFoundAudit]
     unresolved: list[ResearchGap]
-    budget_policy: dict
-    cumulative_usage: dict
-    stop_reason: str | None
+    usage: TopicUsageSnapshot                     # budget_policy + cumulative_usage + stop_reason（typed）
+    process_status: PackProcessStatus             # pending|running|finished|stopped_by_budget|blocked|failed
+    coverage_status: PackCoverageStatus           # complete|complete_with_gaps|insufficient|unavailable
+    status_derivation: StatusDerivation
     dependency_fingerprint: str
 ```
 
@@ -704,6 +739,8 @@ class TopicResearchPack:
 - 所有可能进入报告的数字统一投影为可查询的 `SupportedFact.value_identity`/财务事实只读视图，供各 Topic 复用；这是一层统一 Fact Registry 读模型，不是把 FinancialSnapshot、Evidence 附注、授信/担保/研发和外部数据强行写进同一权威表。来源类型、原始定位、期间、单位、scope 与语义类别必须保留，LLM 不能把不同权威或口径的同值互换。
 - `AspectCoverageResult` 和 `ExternalFunnelProjection` 可以从 Pack 派生或作为其审计字段，但不能替代 Pack 的材料、事实、预算和未解决项。
 - aspect 级 `not_found` 只有在对应 `NotFoundAudit.qualified=true` 时成立，并向历史 KeyQuestion 状态投影为 `NOT_FOUND_AFTER_SEARCH`；不得机械继承原子 outcome。预算耗尽、存在未合理尝试候选或未达到来源/扩读/替代策略时只能是 `partial + ResearchGap`。
+- `TopicResearchPack` 的**研究流程状态**（`process_status`）与**内容覆盖状态**（`coverage_status`）是两个正交维度，不得用一个含混 `status` 同时表达。一个原子 `ResearchOutcome=COMPLETED` 只能结束当前 need，不能结束 Topic；只有完整 required aspect 集合都进入按 Contract 允许的合法终态后流程才可 `finished`，内容是否完整/是否有缺口由 coverage 轴单独表达（`not_found` 是 aspect 层证据结果，不是 Pack 流程状态）。
+- 所有嵌套对象 unknown-field fail-closed；Writer 只能消费与 `SectionTask.topic_ids` 完全匹配、身份逐字段一致的 Pack 集，缺 Pack 必须显式 gap/block。
 
 ### 5.5 Claim 与 Citation
 
@@ -1122,17 +1159,17 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 
 `[已确认 H-01，2026-09-12 修订]` 历史单题公司/行业 6 轮作为 Phase 3 frozen 评测基线保留；正式内容生产改为版本化的 Topic 复杂度预算。简单字段题可沿用小预算，多 aspect 本地题、混合结构化题和外部研究题分别提高上限，但每档必须同时限制 rounds、tool calls、local/external searches、fetch/snapshot、tokens 和 elapsed time。预算由 aspect 数、来源类型和未覆盖缺口确定，不由公司名称、case_id 或 gold 决定。
 `[已确认 H-02]` 模型可以追加 Information Need，但必须受章节边界、允许工具和预算约束。  
-`[已确认 H-03]` UI 提供“继续生成”。未完成任务的中间产物最长保留 5 天；报告导出后及时清理可再生的运行中间态。最终报告、版本、Evidence 和引用长期保留。
+`[历史确认 H-03，当前范围由 UI-01/UI-02 修订]` checkpoint 与中间产物保留用于崩溃恢复、审计和未来扩展；当前面试版 UI 不提供“继续生成”按钮。未完成任务的中间产物最长保留 5 天；报告导出后及时清理可再生的运行中间态。最终报告、版本、Evidence 和引用长期保留。
 
 `[建议默认]` 一轮定义为一次规划动作及其有上限的工具执行批次，可以覆盖多个 Need，不等于完成一个主题。每批 policy 必须冻结 max_iterations、max_tool_calls、max_tokens、max_elapsed_ms、max_external_calls、max_retries 和 max_repair_rounds；重试、定向返工和 Evaluator 消耗均计入预算。正式运行不接受无限值；具体数值由小规模运行校准后版本化。
 
-`[已确认 H-04]` 达到任一预算上限即保存 checkpoint，状态为 paused，不能标记为质量通过。点击“继续生成”才追加一批有限预算，默认沿用对应章节单批上限；保存 batch_id、追加记录、每批及全任务累计用量，累计值不得重置。只处理 unresolved Need 及其失效下游，不重做仍有效的已完成工作。
+`[已确认 H-04，2026-09-13 范围修订]` 达到任一预算上限即保存 checkpoint，状态为 paused/partial，不能标记为质量通过；当前面试版到此交付带缺口草稿，不向用户提供追加预算或继续生成入口。内部批次、累计用量和未解决 Need 仍须完整记录，为崩溃恢复、复现实验和未来扩展保留稳定接口。
 
 以下情形一律不能视为研究充分：任意相关 Evidence 命中、任意一个 Claim 生成、任意一条外部搜索结果返回、或模型主动选择 ANSWER。完成判断必须逐 required aspect 使用已验证事实与引用；预算耗尽时可以交付 `PARTIAL` Pack，但必须保留已取得材料，并列明具体缺口、已查范围、未读范围和下一步建议。
 
 `not_found` 不是“没看到结果”的默认状态。只有执行了 Contract 规定的来源范围、最低有效尝试、必要的上下文扩读与替代来源/候选策略后，才允许标为 `not_found`；检索尚未真正执行、候选尚未合理尝试、fetch 全被低价值候选挤占或仅因预算耗尽时，必须标为 `partial` 并记录具体 gap，不能提前关门。
 
-继续之前必须展示：当前缺什么、已查哪些材料/来源、为何停止、影响哪些结论或导出、下一批拟做什么、追加预算及其时间/调用上限。时间上限不是完成时间承诺。资料不足时明确提示需补充的材料；waiting_user 状态提供“处理待确认事项/补充材料”入口，追加预算不能解除该阻断。独立章节仍可按各自状态继续。
+当前面试版必须只读展示：当前缺什么、已查哪些材料/来源、为何停止、影响哪些结论或审核状态、以及未来如扩展时建议补充的材料类型。不得展示不可执行的“处理待确认事项”“补充材料”或“继续生成”按钮，不实施缺口与新材料绑定、Evidence 增量更新或用户触发续跑。独立章节仍按各自状态完成并可预览；缺口不能因缺少交互入口而被隐藏或改写为“不存在”。
 
 ### 9.4 Evaluator 使用边界
 
@@ -1141,6 +1178,7 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 - Evaluator 只能指出具体缺口和证据问题，不负责重写章节。
 - 最多触发有限次定向返工，禁止 evaluator-optimizer 无限循环。
 - Evaluator 的输入、输出、模型和评分必须进入 trace。
+- Section Evaluator 只负责章节质量，不是最终报告放行者；不得把 Writer 的自报覆盖或单次 LLM 评分当作通过证明。
 
 ### 9.5 状态栏与内部 Trace
 
@@ -1148,7 +1186,16 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 
 #### 9.5.1 状态不是装饰性进度条
 
-页面状态、后台任务状态和 checkpoint 共用同一套结构化事件。每次阶段变化先持久化 `ProgressEvent`；只有阶段产物完整提交后，才写入 `Checkpoint` 并将阶段标记为 `completed`。因此“已完成”代表该阶段可审计、可复用、可从其后继续，而不是仅代表函数运行过。
+页面状态、后台任务状态和 checkpoint 共用同一套结构化事件。每次阶段变化先持久化 `ProgressEvent`；只有阶段产物完整提交后，才写入 `Checkpoint` 并将阶段标记为 `completed`。因此“已完成”代表该阶段可审计、可复用，而不是仅代表函数运行过，也不等于内容完整、系统审核通过或人工接受。
+
+状态栏必须分离四个维度，禁止继续以单一 `success` 代替：
+
+1. `process_completed`：工作流是否正常结束；
+2. `preview_available`：是否存在可读草稿；
+3. `assurance_status`：当前报告版本是否通过系统审核；
+4. `human_acceptance_status`：是否已经人工最终确认。
+
+用户可见最高自动状态为“已通过系统审核，可供人工确认”，系统不得把自己的审核结果表述为人工批准或正式授信决定。
 
 任务有一个父级 `JobState`，公司研究、财务分析和行业研究分别拥有子级 `StageState`。并行运行时页面分别展示三个章节的进度，不能用一个虚假的线性百分比掩盖慢任务。
 
@@ -1167,8 +1214,8 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 | 行业研究 | `INDUSTRY_RESEARCH` | 已完成 Need 数 / 计划数 | 外部快照、EvidencePack、Claim 和章节草稿 |
 | 章节质量检查 | `SECTION_EVALUATION` | 已通过章节数 / 应完成章节数 | Evaluator 结果及返工记录 |
 | 综合整理报告 | `ASSEMBLING` / `SYNTHESIZING` | 已组装章节数与跨章冲突数 | 完整报告草稿和 Claim 关系 |
-| 整体自检 | `VERIFYING` | 已运行检查类别数 / 总类别数 | Assurance 结果及正式版门禁状态 |
-| 生成交付文件 | `EXPORTING` | 已生成目标格式数 / 总数 | 最终报告版本与导出文件 |
+| 整体自检 | `VERIFYING` | 内容完整性前置门及已运行 Assurance 类别数 / 总数 | 绑定当前报告版本的 Assurance 结果及人工复核状态 |
+| 生成交付文件 | `EXPORTING` | 已生成目标格式数 / 总数 | 当前报告版本与草稿导出；人工最终确认状态独立保存 |
 
 当总量暂时未知时，页面显示阶段动画和当前动作，不伪造百分比；一旦得到页数、文件数或 Need 数，再切换为确定进度。
 
@@ -1179,8 +1226,8 @@ UI 至少展示：
 - 当前阶段、并行章节及简短动作，例如“正在读取第 3/8 份 PDF”。
 - 已完成/总任务数、未解决 Information Need 和需要人工确认的事项。
 - 当前阶段耗时、任务总耗时；工具调用、重试和外部检索次数可折叠展示。
-- `retrying`、`degraded`、`waiting_user`、`paused`、`failed` 等明确状态，而不是长期停在“处理中”。
-- 最近 checkpoint 的时间、已保留的结果和“继续生成”入口。
+- `retrying`、`degraded`、`partial`、`review_required`、`paused`、`failed` 等明确状态，而不是长期停在“处理中”；兼容层内部 `waiting_user` 在当前 UI 映射为“存在信息缺口/需人工复核”，不形成在线处理入口。
+- 最近 checkpoint 的时间和已保留结果；当前面试版不展示“继续生成”或补件按钮。
 - 可选的 token/成本，但不展示模型隐藏思维链。
 
 #### 9.5.4 Checkpoint 与断点恢复
@@ -1195,7 +1242,7 @@ UI 至少展示：
 6. 每个 Information Need 的 EvidencePack 完成，以及每个章节通过质量门。
 7. 报告组装完成、整体 Assurance 完成和交付文件生成完成。
 
-恢复时读取最近一个有效 checkpoint，校验输入哈希与产物引用；已完成单元不重复执行，checkpoint 之后未完整提交的单元以相同幂等键安全重跑。若用户替换材料或修改授信方案，系统按依赖关系使受影响的下游 checkpoint 失效，而不是盲目续跑旧结果。
+恢复时读取最近一个有效 checkpoint，校验输入哈希与产物引用；已完成单元不重复执行，checkpoint 之后未完整提交的单元以相同幂等键安全重跑。当前面试版只要求系统崩溃/重启恢复和产物复现，不交付用户替换材料后的在线依赖失效与续跑；相应身份、依赖和失效字段继续保留为未来扩展口。
 
 恢复还需核对 contract、schema、提示词、模型、规则、索引和财务快照版本，以及人工确认的来源绑定；版本不兼容时明确说明需重跑哪些单元。幂等保证本地产物不会重复提交，不保证崩溃前未记录响应的外部调用不会再次计费；此类不确定调用必须记录并纳入预算，不能宣称外部调用恰好执行一次。
 
@@ -1242,6 +1289,10 @@ UI 至少展示：
 
 V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告质量保障。
 
+### 11.0 内容完整性前置门
+
+六类 Assurance 运行前，必须先确定性核对 `Contract required_aspects → TopicResearchPack/FinancialFactPack → SectionClaim → NarrativeParagraph/Table` 的保留关系：每个 required aspect 有独立终态，covered 必须有合格事实与引用，高优先级已支持事实不得无理由在 Writer 边界丢失。该门负责回答“应写的内容是否系统性漏掉”，不能由引用存在性或 LLM 自评替代；失败时报告仍可作为带缺口草稿预览，但不得获得系统审核通过状态。
+
 ### 11.1 六类检查
 
 | 类别 | 核心问题 | 首选方法 |
@@ -1250,22 +1301,37 @@ V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告�
 | Numerical Consistency | 数字、单位、期间和计算是否一致 | Python/SQL Rules |
 | Entity Consistency | 公司、股东、子公司、项目是否混淆 | 实体表 + Rules |
 | Temporal Consistency | 是否混用过期或不同时间口径 | 日期 Rules + 来源元数据 |
-| Cross-section Consistency | 不同章节事实和判断是否矛盾 | Claim 图谱 + LLM Evaluator |
-| Decision Adequacy | 风险是否落实到对用户授信方案的评价 | Rules + LLM Evaluator |
+| Cross-section Consistency | 不同章节事实和判断是否矛盾 | Claim 图谱 + Phase 5 受限独立语义审稿器（见 §11.2） |
+| Decision Adequacy | 风险是否落实到对用户授信方案的评价 | Rules + Phase 5 受限独立语义审稿器（见 §11.2） |
 
-### 11.2 质量门与回流
+### 11.2 Assurance Controller 与防自我证明边界
+
+最终审核不是第二个自由写作 Agent，也不是 Writer 与 Reviewer 的多轮辩论。`Assurance Controller` 只编排以下单向质量门：
+
+1. 冻结并校验当前 `report_version`、Contract、Pack、Snapshot、Claim、Citation、规则和 Prompt 身份；
+2. 先执行内容完整性前置门与可确定计算的硬规则，任一 blocking 不得被 LLM 覆盖；
+3. 语义审稿输入由权威 Store 独立构造为“Claim + 最小证据原文 + 精确定位 + Contract rubric”，不读取 Writer 的自评、隐藏推理或历史对话；
+4. LLM 只返回结构化 `supported/contradicted/insufficient/missing_content` issue、位置和建议返工目标，不得重写正文、创造事实、直接决定发布或与 Writer 反复协商；
+5. 最终状态由确定性聚合器计算，并绑定当前报告版本；任何自动修正或章节返工生成新版本后，旧 Assurance 立即失效并重新运行；
+6. 主体异常、重大负面事项、关键财务冲突及用户授信方案仍保留人工最终确认。使用不同审核模型是可选增强；当前 Demo 允许复用同一底层模型，但必须独立调用、独立 Prompt、独立证据上下文且无共享生成历史。
+
+系统状态至少区分“流程完成”“草稿可预览”“系统审核未通过”“系统审核通过、可供人工确认”。LLM 不输出最终布尔绿灯；形式化放行条件为：当前版本硬规则通过、blocking 为 0、必需语义审核结果完整且仍有效。
+
+### 11.3 质量门与回流
 
 | 问题类型 | 默认动作 |
 |---|---|
 | 格式、名称、单位等确定性错误 | 自动返回组装层修正 |
-| 证据不足或引用不支持 | 返回具体 SectionTask 补查 |
+| 证据不足或引用不支持 | 在本次有界运行内返回具体 SectionTask 定向补查；运行结束后仍不足则只读展示缺口 |
 | 跨章节判断冲突 | 返回综合研判层 |
 | 财务数字不一致 | 阻止正式版导出，重新读取结构化结果 |
-| 重大事实无法确认 | 标记 blocking，要求客户经理确认 |
+| 重大事实无法确认 | 标记 blocking/review_required，草稿列明影响，当前面试版不提供在线补件或确认闭环 |
 
 `[已确认 V-01]` 数值重大错误、主体错误、无证据的核心结论和方案评价自相矛盾为 blocking，阻止正式版导出。  
 `[已确认 V-02]` 可延续黄/红/橙的用户提示思路，但 V2 不受 V1 颜色绑定限制；内部 `category` 与 `severity` 分开建模。  
 `[已确认 V-03]` 自动修正后必须重新运行完整 Assurance。
+`[已确认 V-04]` 内容完整性前置门、确定性硬规则和版本绑定由 Controller 计算；LLM 只做有证据输入的结构化语义审稿，不能自我证明或直接放行。
+`[已确认 V-05]` 当前面试版最高自动状态为“已通过系统审核，可供人工确认”；不实现用户补件/绑定/续跑，也不把系统审核表述为人工授信批准。
 
 ---
 
@@ -1782,7 +1848,7 @@ def run_topic(task: SectionTask, topic_id: str, policy: TopicResearchPolicy) -> 
 def resume_topic(pack_run_id: str) -> TopicResearchPack: ...
 ```
 
-`harness.runtime.run_question` 是历史评测和原子动作兼容入口；`harness.topic_runtime.run_topic` 是 P3R 正式生产入口。Topic runtime 可以调用原子执行器，但两者必须复用同一 Router、ToolRegistry、动作执行、证据权威校验和 Trace，不允许 `sections.topic_research` 再实现平行搜索循环。`resume_topic` 只处理仍未终态的 aspect，并保留累计预算。若为兼容性在 `harness.runtime` re-export Topic API，必须只做薄转发且由测试证明不存在第二份实现。
+`harness.runtime.run_question` 是历史评测和原子动作兼容入口；`harness.topic_runtime.run_topic` 是 P3R 正式生产入口。Topic runtime 可以调用原子执行器，但两者必须复用同一 Router、ToolRegistry、动作执行、证据权威校验和 Trace，不允许 `sections.topic_research` 再实现平行搜索循环。`resume_topic` 只处理仍未终态的 aspect，并保留累计预算；该 API/CLI 仅用于系统故障恢复、管理员诊断和自动化测试，不得成为当前面试版的用户继续生成入口。若为兼容性在 `harness.runtime` re-export Topic API，必须只做薄转发且由测试证明不存在第二份实现。
 
 CLI：
 
@@ -1867,7 +1933,7 @@ python -m evaluation.run_baseline \
 
 产出：电子 PDF 表格/附注坐标契约、SourceFinancialRecord、reconciliation/人工处理记录、FinancialSnapshot 查询与 V1 兼容适配、版本化公式及缺失值规则、集中待确认面板。
 
-退出条件：PDF/Excel 同值混合输入与单来源得到相同指标；重复上传不重复计数；母公司/合并、期间、币种、重述版本隔离；冲突值不进入计算；一次批量选择自动重算并完整复检；替换材料仅使受影响确认失效。无冲突路径零额外交互，未解决冲突阻止正式导出。
+退出条件（未来完整财务交互版）：PDF/Excel 同值混合输入与单来源得到相同指标；重复上传不重复计数；母公司/合并、期间、币种、重述版本隔离；冲突值不进入计算；一次批量选择自动重算并完整复检；替换材料仅使受影响确认失效。无冲突路径零额外交互，未解决冲突阻止正式导出。当前面试版只对已经冻结的输入执行最终完整性复核并只读展示缺口，不提供材料替换、用户确认或交互式重算，边界以 §0.7 UI-01/UI-02 为准。
 
 ### Phase 2：Router + Hybrid Retrieval
 
@@ -1911,14 +1977,15 @@ python -m evaluation.run_baseline \
 
 - 确定性组装。
 - Claim 驱动的跨章节综合。
-- 六类 Assurance。
-- 正式版导出门禁。
+- 内容完整性前置门 + 六类 Assurance，由受限 Controller 确定性聚合；LLM 只提交有证据定位的结构化 issue。
+- 报告版本绑定的系统审核门；最高自动状态为“可供人工确认”。
 
 ### Phase 6：UI 与演示打磨
 
 产出：
 
-- Streamlit 展示阶段状态、证据来源、未解决问题和质量门结果。
+- Streamlit 展示真实阶段状态、流程完成/预览/系统审核/人工确认四类状态、证据来源、未解决问题和质量门结果。
+- 缺口面板当前只读展示，不实现用户补件、绑定、Evidence 更新或继续生成；保留未来扩展字段。
 - 保留一键 Demo。
 - V1/V2 切换或回退开关。
 
@@ -1953,9 +2020,9 @@ python -m evaluation.run_baseline \
 - [x] S-01～S-03：只评价用户方案，不主动设计新方案，不自创评级。
 - [x] E-01～E-03：表格结构、网页快照和 Evidence 本地长期版本化保存。
 - [x] R-01/R-02：先 RRF，额外 reranker 由效果/资源评测决定。
-- [x] H-01～H-04：研究轮数、动态 Need、5 天中间态、追加有限预算和明确当前问题后继续生成。
-- [x] F-05/F-06：来源选择/补充更正后重算复检、减少中途交互；集中面板为建议实现。
-- [x] V-01～V-03：blocking、视觉提示和修复后完整复检。
+- [x] H-01～H-04：研究轮数、动态 Need、有界预算和 checkpoint；H-03/H-04 的用户继续生成入口已由 UI-01/UI-02 修订为当前面试版不交付。
+- [x] F-05/F-06：财务冲突确认与补件闭环作为历史底座/未来扩展保留；当前面试版仅只读展示冲突和缺口。
+- [x] V-01～V-05：blocking、视觉提示、修复后复检、受限 Assurance Controller、防自我证明和人工最终确认。
 - [x] EV-01/EV-02/EV-04：已提供 41 问及页码，不安排第二人工评审。
 - [x] A-01：接受新增 V2 一级目录。
 - [x] O-01～O-10：电子 PDF 边界、冲突处理、外部核验降级、异常门禁、时效窗口、风险阈值、Evidence 删除、首轮 Retrieval 评测范围、正式结论截止日及外部来源充分性。
@@ -1992,9 +2059,9 @@ python -m evaluation.run_baseline \
 
 - **SC-01 公司信用**：主体/股票代码/材料主体无法一致确认 → `JOB_BLOCKED`；主营业务完全无法确认 → `SECTION_BLOCKED`；控股股东或实际控制关系无法确认、重大债务/金融机构借款/对外担保因材料明显缺失无法核实 → `REPORT_BLOCKED`；合法无实际控制人 → `SATISFIED`+`NONE`；已执行检索未发现 → `NOT_FOUND_AFTER_SEARCH`+`NONE`（记录检索范围/来源/截止日期，不得写“确定不存在”）；客户/供应商名称依法未披露但集中度已披露 → `SATISFIED`+`NONE`；股权激励不适用 → `NOT_APPLICABLE`+`NONE`；研发/新业务/管理层履历等非核心不足 → 缺口预览不阻断。
 - **SC-02 财务**：最低正式分析基础 = 最新完整年度三张主表 + 审计意见；趋势分析原则上覆盖近三年；最新季度/半年可用则纳入，否则披露缺口、不一刀切；不要求三份独立审计报告（可从历年年报/最新年报比较披露取得）。缺最新完整年度任一主表、或报告期间/金额单位/合并或母公司口径无法确认 → `SECTION_BLOCKED` + `REPORT_BLOCKED`（复合）；关键数字未解决冲突 → 暂停受影响计算与 Claim，同时 `REPORT_BLOCKED`；个别历史期间/附注明细/非关键字段缺失 → 缺口预览；缺分母不得计算、不得 LLM 补算。
-- **SC-03 行业**：来源 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）。A/B 级来源可单独支持一般事实性结论；关键负面结论、主体重大变化、重大风险、关键行业规模/份额结论，至少需要“1 个直接支持的 A/B 级来源”或“2 个相互独立、内容一致的 C 级来源”。单一 C 级只作线索或带限制的非关键说明；D 级不得作为关键结论唯一依据；发布日期未知的内容不得支持强时点结论。来源不足时写“未能核实/待补充”并形成显式 gap，不得写成“不存在”；是否阻断由该 gap 的 `impact_scope` 和 Contract blocking 规则决定，不能以“来源等级低”一刀切。代理指标记录六项：原目标指标/实际替代指标/替代理由/来源日期/口径/局限性。只有完成 Contract 规定的来源范围、最小尝试及替代来源策略后，才可使用 `NOT_FOUND_AFTER_SEARCH`；预算耗尽但有效尝试不足只能是 partial + explicit gap。仅核心内容整体不足（无法确定所属行业/无法形成基本供需竞争政策判断/无法说明风险传导/检索后无合格替代分析）才 `SECTION_BLOCKED`。可比公司 3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比；不因数量不足自动 `REPORT_BLOCKED`、不强行选不可比公司）。
+- **SC-03 行业**：来源 A/B/C/D 四级（A=监管/政府/交易所，B=行业协会/研究机构/公司公告，C=券商/财经媒体/头部披露，D=来源不明/聚合转载）。A/B 级来源可单独支持一般事实性结论；关键负面结论、主体重大变化、重大风险、关键行业规模/份额结论，至少需要“1 个直接支持的 A/B 级来源”或“2 个相互独立、内容一致的 C 级来源”。单一 C 级只作线索或带限制的非关键说明；D 级不得作为关键结论唯一依据；发布日期未知的内容不得支持强时点结论。来源不足时写“在明确列示的检索范围内未发现相关事项”或“未能核实”，形成显式 gap 并列出未来建议材料类型，不得写成“不存在”或把“待补充”表现为当前可执行动作；是否阻断由该 gap 的 `impact_scope` 和 Contract blocking 规则决定，不能以“来源等级低”一刀切。代理指标记录六项：原目标指标/实际替代指标/替代理由/来源日期/口径/局限性。只有完成 Contract 规定的来源范围、最小尝试及替代来源策略后，才可使用 `NOT_FOUND_AFTER_SEARCH`；预算耗尽但有效尝试不足只能是 partial + explicit gap。仅核心内容整体不足（无法确定所属行业/无法形成基本供需竞争政策判断/无法说明风险传导/检索后无合格替代分析）才 `SECTION_BLOCKED`。可比公司 3~5 家是目标不是门禁（1~2 家说明限制、无直接可比用相近、无合理可比说明不可比；不因数量不足自动 `REPORT_BLOCKED`、不强行选不可比公司）。
 - **SC-04 综合**：上游仅非核心 `NOT_PROVIDED`/`NOT_FOUND_AFTER_SEARCH` → 带缺口预览；上游影响主体/偿债/关键数字/授信方案的问题 → 不得生成受影响结论；任一上游 `SECTION_BLOCKED` → 综合只能说明无法完成对应判断；存在相关 `REPORT_BLOCKED` → 允许预览、禁止导出；不因任意 `WAITING_HUMAN` 停止全部。通过结构化 `impact_scope`（subject/solvency/key_financial/credit_scheme）判断影响面，不得由 LLM 临时决定。
-- **SC-05 other**：先跑通用契约、不自动启动专项分析；提示补充具体业务类型，补充后启用对应追加分析，未补充允许通用预览；综合必须提示“尚未按具体授信业务类型追加专项分析”。
+- **SC-05 other**：先跑通用契约、不自动启动专项分析。当前面试版若初始输入未给出具体业务类型，只读展示该缺口、影响和建议未来提供的业务类型，仍允许通用预览，不在同一任务内补件或续跑；综合必须提示“尚未按具体授信业务类型追加专项分析”。未来版本可在新任务或获批交互扩展中启用对应专项分析。
 
 ### 19.6 E1-01～E1-05 最终规则（Phase 1 编码前冻结）
 
@@ -2019,10 +2086,10 @@ python -m evaluation.run_baseline \
 
 推荐按以下顺序推进：
 
-1. 先审查、复验并按职责提交 R0“正式唯一主链”离线集成改动；具体工作区与测试数字见 `V2_TODO.md`。R0 只作为调用链护栏，不得描述成内容完整性已经解决。
-2. 按 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 审计全部正式 Topic 的 `required_aspects ↔ evidence_requirements` 映射；只有现有 Contract 表达不足时才新增 v2，不回写 v1。
-3. 在 Harness 内落地唯一 `TopicResearchPack`、受控上下文扩读、aspect 缺口调度、Topic 级动态有界预算和持久化/恢复；保留单题 `ResearchOutcome` 兼容接口。
-4. 改造 P4 公司/行业 Worker，使其只从 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
-5. 先跑跨主题合成集和少量真实纵向切片，覆盖本地叙述、表格/附注、结构化财务、外部时效、事件/负面核验；内容完整性门通过后再生成完整 Demo。Phase 5 在此之前保持未进入。
+1. R0 已关闭、R1-A 已批准并冻结（已按职责提交，未接线）。当前动作是完成 R1-B 计划架构复核并等待批准；测试全绿不等于批准。
+2. R1-B 获批后在 Harness 内落地唯一 `TopicResearchPack` schema/Store/checkpoint 与兼容迁移；不回写 v1、不接正式链。
+3. 按 R2～R4 实现受控上下文扩读、aspect 缺口调度、Topic 级动态有界预算和外部研究漏斗；内部恢复保留累计预算，但当前 UI 不提供用户续跑。
+4. 按 R5 改造 P4 公司/行业 Worker，使其只从 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
+5. 按 R6/R7 先跑跨主题合成集和少量真实纵向切片，覆盖本地叙述、表格/附注、结构化财务、外部时效、事件/负面核验；内容完整性门通过后再生成完整 Demo。Phase 5 在此之前保持未进入。
 
 目前不需要业务方逐章手写所有表达。业务方只需复核正式 Contract 的业务语义、来源门槛和真实纵向切片是否达到授信报告深度；技术字段、调度器和材料包内部结构由任务书约束下的实现负责。

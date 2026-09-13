@@ -15,7 +15,7 @@
 
 冲突时严格按 `DOCUMENTATION_INDEX.md` 的权威顺序处理。历史任务书、交付报告、生成结果、debug 文件、参考 DOCX、`llm/prompts/*.txt` 和本文件都不能覆盖上位设计。
 
-## 当前门（2026-09-12）
+## 当前门（2026-09-13）
 
 - Phase 2/3 的 frozen 结果是历史安全/回归基线，不是完整 Topic 研究证明。
 - Phase 4 基础模块保留，但产品内容关闭已撤回；当前执行 P3R/P4R。
@@ -25,14 +25,15 @@
 - 财务继续使用 `FinancialFactPack`，可组合经验证的 Evidence 附注事实，不混淆来源权威。
 - 输出同时包含可审计 Claim 与多 Claim 支撑的 `NarrativeParagraph`/表格。
 - 不启用 `sections.topic_research` 等第二套研究运行时。
+- 当前面试版只读展示状态与信息缺口，不实现用户补件、缺口绑定、Evidence 更新或用户触发继续生成。
+- Phase 4 Section Evaluator 不是最终放行者；Phase 5 由内容完整性前置门、六类 Assurance 和受限 Controller 形成版本化系统审核，LLM 不得自我放行。
 - Phase 5/6 产品开发暂不进入。
 
 ## 当前工作顺序
 
 1. 先保护并审查当前 worktree/diff（如有）；具体状态只以 `V2_TODO.md` 和现场 `git status` 为准。
-2. R0 只复验和收口正式唯一主链；当前 diff、测试数字和提交状态只从 `V2_TODO.md` 读取，未经独立复验不得当成已确认事实。
-3. R1 先完成 52 问 aspect/evidence/display 审计，发布兼容 Contract v2 与完整来源 policy，确定唯一 Pack schema/Store，以及唯一机器可读、版本化 WritingSpec/Profile 资产。
-4. 获批后按权威任务书 R2～R7 实施；不要跳到 Prompt 润色、完整 41 问或整份报告重跑。
+2. R0 已关闭；R1-A 已冻结；R1-B 仍须计划审批后编码，不得直接编码。
+3. R1 获批后确定唯一 Pack schema/Store，并按权威任务书完成 R2～R7；不要跳到 Prompt 润色、完整 41 问或整份报告重跑。
 
 ## 不得做
 

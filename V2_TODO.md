@@ -2,7 +2,7 @@
 
 > 更新时间：2026-09-13
 > 用途：记录 V2 已完成、正在进行和下一步工作。
-> 上位依据：`DESIGN_V2.md` v0.6；阶段顺序：`V2_IMPLEMENTATION_PLAN.md` v0.4；文档角色见 `DOCUMENTATION_INDEX.md`；当前具体实施以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 为准。
+> 上位依据：`DESIGN_V2.md` v0.7；阶段顺序：`V2_IMPLEMENTATION_PLAN.md` v0.5；文档角色见 `DOCUMENTATION_INDEX.md`；当前具体实施以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.2 为准。
 
 ## 一、当前结论
 
@@ -16,8 +16,8 @@ Phase 4 的 Planner、Worker、Claim、Evaluator、Store 和只读 UI 基础已�
 Phase 3 历史安全基线 + Phase 4 基础设施
   → P3R TopicResearchPack + 覆盖驱动研究
   → P4R Claims + NarrativeParagraphs + 章节内容门
-  → Phase 5 综合生成 + Assurance + 正式导出门禁 + 1F-B
-  → Phase 6 全流程 UI、演示与交付验收
+  → Phase 5 综合生成 + 内容完整性前置门 + Assurance Controller + 1F-B 财务终检
+  → Phase 6 真实状态栏、只读缺口面板与演示交付
 ```
 
 项目分析不属于本轮 V2 第一阶段，留到产品第二阶段。
@@ -214,7 +214,8 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 ### [ ] P3R/P4R：Topic Research 与章节内容完整性重整（当前）
 
 - [x] R0：正式唯一主链收敛 + Contract 来源身份护栏已收口并分责提交（`a4322c0` 契约溯源 / `cd645f1` harness 只读投影 / `81a487c` 唯一主链护栏 + 实验标记 / `2b4211e` Contract 来源身份严格 fail-closed / `edda942` service 到 ToolRegistry 正式链离线集成）；`test_phase4_contract_slice` 32 项、`test_phase4_formal_chain` 26 项、`test_phase4_service_formal_chain` 17 项与完整离线 eval 4065/0/0 全绿作为护栏。R0 仅收口「正式唯一链」与「Contract 来源护栏」，不解决内容完整性；Contract v2 / TopicResearchPack / dynamic budget / formal writer 均未实现（不进入 R1）。
-- [ ] R1：完成 52 问 aspect/evidence/display 审计；发布不覆盖 v1 的 Contract v2、完整 P3-B02 来源 policy 与 search/fetch capability 语义；在 Harness 内确立唯一 `TopicResearchPack` schema/Store/checkpoint，并定义唯一机器可读 WritingSpec/PresentationProfile 资产、loader、validator 与版本。
+- [x] R1-A：52 问 × aspect × evidence 审计 + Contract v2 + 唯一版本化 source policy / WritingSpec / PresentationProfile 资产 + 只读 schema/loader/validator + 审计导出 `review_52q.json/.csv` + 离线测试 153 项全绿。已批准并冻结、按职责提交（未接线正式运行时）。
+- [ ] R1（R1-A 已批准并冻结，其余留待 R1-B）：在 Harness 内确立唯一 `TopicResearchPack` schema/Store/checkpoint，并完成 migration/兼容验证与序列化/幂等/冲突/current/只读/migration 测试。
 - [ ] R2：实现本地命中后的材料构建与受控上下文扩读，覆盖同章节相邻块、跨页续文、表题/单位/表头/续表和明确交叉引用，并记录边界、去重与未读范围。
 - [ ] R3：实现 aspect 待办调度、Harness Topic runtime 与复杂度动态有界预算；宽查询可覆盖多个 aspect，仅对缺口补检；原子 ANSWER 不提前结束 Topic，预算耗尽形成可恢复 Partial Pack。
 - [ ] R4：完善外部研究漏斗的 aspect 语义、候选优先级、fetch/snapshot、换源和来源政策；snippet/D 级/未快照内容不得进入正式事实，低价值候选不得耗尽关键 aspect 预算。
@@ -224,25 +225,27 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 权威任务书：`PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md`。
 
-### [ ] Phase 5：综合评价 + Assurance + 1F-B
+### [ ] Phase 5：综合评价 + 内容完整性前置门 + Assurance Controller + 1F-B
 
 > **进入门禁：** P3R/P4R 的 R0～R7 通过、至少一份三章 Demo 达到内容验收；在此之前不得以“安全测试全绿”替代内容门。
 
 - 编写并确认 Phase 5/1F-B 开发任务书。
 - 确定性组装章节，再基于合格 Claim 做跨章节梳理，不简单拼接，也不重写事实。
 - 综合评价只评价用户给定的授信方案，不自行创造额度、期限、担保方案或评级。
-- 将现有事实核查扩展为完整 Assurance：数值、主体、时效、引用、跨章一致性和方案评价。
-- 问题修复、人工财务处理或章节返工后，对新报告版本重新执行完整 Assurance。
-- 在服务/导出层实现正式状态门禁；预览可带问题。本次面试版本优先网页展示和可复制 Markdown，现有 Word 能力保留但不作为 Phase 6 阻断门，正式 Word 验收后置。
-- 完成 1F-B：来源调整后自动失效并重算受影响指标、章节和综合结论。
+- 增加 `Contract → Pack → Claim → Paragraph/Table` 内容完整性前置门，再执行数值、主体、时效、引用、跨章一致性和方案评价六类 Assurance。
+- Assurance Controller 先跑确定性硬门；LLM 只读取独立构造的 Claim+证据+定位+rubric 并返回结构化 issue，不覆盖硬失败、不重写正文、不直接放行。
+- 问题自动修正或章节返工后，对新报告版本重新执行完整 Assurance；旧审核结果不得放行新版本。
+- 在服务/产物层区分流程完成、草稿可预览、系统审核状态和人工最终确认；最高自动状态为“已通过系统审核，可供人工确认”。本次面试版本优先网页展示和可复制 Markdown，现有 Word 能力保留但不作为 Phase 6 阻断门。
+- 完成 1F-B 财务终检：冲突与缺项进入只读缺口和 Assurance；当前版不实现用户补件、选源绑定、Evidence 更新或在线定向重算。
 - 生成可回放的 Audit Package。
 
 ### [ ] Phase 6：全流程集成与演示交付
 
 - 编写 Phase 6 收口任务书。
-- 整合上传、解析、Evidence、财务确认、研究、章节生成、综合、Assurance 和导出状态。
-- UI 显示真实进度、当前阶段、缺口、失败原因和可恢复点，不展示模型思维链。
-- 验证材料替换、任务中断恢复、网络失败、预算耗尽、无冲突和有冲突路径。
+- 整合初始材料输入、解析、Evidence、财务处理、研究、章节生成、综合、Assurance 和草稿展示状态。
+- UI 状态栏由真实任务单元与持久化产物驱动，显示当前阶段、章节进度、缺口、失败原因及审核结果，不展示模型思维链或虚假百分比。
+- UI 只读展示缺什么、已查范围、原因、影响和未来建议材料类型；不提供用户补件、缺口绑定、Evidence 增量更新、集中确认提交或继续生成按钮，仅保留未来扩展字段。
+- 验证系统中断恢复、网络失败、预算耗尽、无冲突和有冲突路径；用户替换材料后的在线失效/续跑不属于当前版验收。
 - 保留 V1/V2 回退能力，并明确 V1 结果不等于通过 V2 Assurance。
 - 跑代表性真实端到端样本和完整 eval，记录延迟、token、成本、失败率及已知限制。
 - 更新 README、演示脚本和最终验收记录。
@@ -262,7 +265,21 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-1. **正式唯一主链 + Contract 来源身份 R0 已收口并分责提交（2026-09-13）**：正式运行链固定为
+> **当前动作（2026-09-13，进行中，不 commit）**：R1-A 已冻结；R1-B 仍未编码。当前动作是完成 R1-B 计划架构复核并等待批准；仅改计划与少量过期状态文档，不编码、不跑真实 LLM/博查、不生成报告、不 commit。
+
+1. **当前面试版交互与审核范围已确认（2026-09-13）**：报告生成后只读展示缺失事项、已查范围、原因、影响和建议材料类型；不实现用户补件、缺口绑定、Evidence 更新、集中确认提交或继续生成。状态栏区分流程完成、草稿预览、系统审核和人工最终确认。Phase 5 采用内容完整性前置门 + 六类 Assurance + 受限 Controller，LLM 只返回有证据定位的结构化 issue，最高自动状态为“可供人工确认”。
+2. **R1-A 已批准并冻结（2026-09-13，已按职责提交，未接线）**：完成 52 问 × aspect × evidence
+   审计与四类版本化资产发布。产物：`templates/contracts/standard_v3.yaml`（Contract v2，52 问
+   28/13/3/8、187 aspect、每 aspect 22 字段、49 evidence 需求）、`templates/policies/source_policy_v1.yaml`、
+   `templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary_reference）、
+   `templates/presentation_profiles/interview_demo_v1.yaml`、审计产物 `contracts/review/review_52q.json/.csv`、
+   只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` +
+   `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项，
+   已注册 `run_evals`）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认、未接线
+   Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交
+   （`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1-A 专项 153 passed / 0 failed、完整 eval
+   4218 passed / 0 failed / 0 skipped 全绿；`transfer_human` 等表述已核对为“只读需人工复核状态”。
+3. **正式唯一主链 + Contract 来源身份 R0 已收口并分责提交（2026-09-13）**：正式运行链固定为
    `sections.service → Worker → research_common → Router → harness.runtime → ToolRegistry`，
    Contract 身份（`contract_sha256` + `contract_version`）改为严格 fail-closed、独立来源（不再
    从待校验 task 自我证明）。`test_phase4_contract_slice` 32 项、`test_phase4_formal_chain` 26 项、
@@ -273,18 +290,17 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
    平行模块实验标记）、`2b4211e`（Contract 来源身份严格 fail-closed）、`edda942`（service 到
    ToolRegistry 正式链离线集成）。R0 仅收口「正式唯一链」与「Contract 来源护栏」，不实现
    TopicResearchPack / Contract v2 / dynamic budget / formal writer，不进入 R1。
-2. **P3R/P4R 文档治理已独立提交（2026-09-13）**：`AGENTS.md`、`DESIGN_V2.md` v0.6、本路线图、
+4. **P3R/P4R 文档治理已独立提交（2026-09-13）**：`AGENTS.md`、`DESIGN_V2.md` v0.6、本路线图、
    `DOCUMENTATION_INDEX.md` 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 已统一规定唯一 Pack、
    aspect 调度、受控扩读、动态有界预算及 Claims→NarrativeParagraphs 写作分层；已作为独立
    docs-only commit `846887d` 落入 HEAD。
-3. **R1 不是可选复核**：必须发布兼容的新 Contract v2（含完整 aspect/evidence/source-policy 与
-   search/fetch 能力语义），同时冻结 canonical、机器可读的 SectionWritingSpec / ReportPresentationProfile
-   载体、schema、loader、validator、版本和指纹。推荐载体是 `templates/contracts/standard_v3.yaml`
-   配 `contract_version=v2`，最终文件布局在 R1 编码前计划中确认；在此之前不能称全部字段已经冻结。
-4. **下一开发动作**：先做 Contract aspect/evidence 映射审计和 Pack schema/Store，不立即重跑真实
+5. **R1-A 已冻结（Contract v2 + 版本化 WritingSpec/Profile 载体已收口）**：`templates/contracts/standard_v3.yaml`
+   配 `contract_version=v2`，canonical、机器可读的 SectionWritingSpec / ReportPresentationProfile
+   载体、schema、loader、validator、版本与指纹已在 R1-A 冻结并分责提交；R1-B（唯一 Pack schema/Store/checkpoint）仍未编码。
+6. **下一开发动作**：完成 R1-B 计划架构复核并等待用户 + Codex 批准；批准前不编码 R1-B、不重跑真实
    LLM/博查；随后按本地材料、表格/附注、结构化、外部、事件核验五类纵向切片逐批验收。
-5. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
-6. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
+7. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
+8. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
    验收产物全部原样保留，只作为回归和安全基线，不回写、不重标、不覆盖。
 
 ## 七、交付时间门

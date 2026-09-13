@@ -1,9 +1,9 @@
 # Phase 3R / Phase 4R：Topic Research 与章节内容完整性重整任务书
 
 > 面向执行者：Claude Code
-> 版本：v1.1 · 2026-09-13
-> 状态：**权威实施任务书；R0 已收口（正式唯一链护栏 + Contract 来源身份严格 fail-closed，未进入 R1）；R1～R7 按各批计划与授权推进**
-> 上位依据：`AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` v0.6、`V2_IMPLEMENTATION_PLAN.md` v0.4、`templates/contracts/standard_v2.yaml`（历史兼容 Contract v1；R1 必须发布兼容 Contract v2，具体载体/命名按获批计划确定）
+> 版本：v1.2 · 2026-09-13
+> 状态：**权威实施任务书；R0 已收口（正式唯一链护栏 + Contract 来源身份严格 fail-closed）；R1-A 已批准并冻结（已按职责提交，未接线）；R1 其余（Pack schema/Store、迁移方案）与 R2～R7 按各批计划与授权推进**
+> 上位依据：`AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` v0.7、`V2_IMPLEMENTATION_PLAN.md` v0.5、`templates/contracts/standard_v2.yaml`（历史兼容 Contract v1；R1 必须发布兼容 Contract v2，具体载体/命名按获批计划确定）
 > 目标：修复所有正式 Topic 的“有材料但研究结果过短、P4 只消费简短答案、章节像断言清单、外部检索价值没有进入报告”的系统性问题
 > 优先级：面试 Demo 可讲解与内容可信 > 继续堆功能 > 追求完整平台化
 
@@ -104,7 +104,7 @@ SectionContract / SectionTask
 
 ### 3.2 最小正式数据模型
 
-字段名可在计划中按现有代码风格细化，但业务语义不得缩减：
+字段名可在计划中按现有代码风格细化，但业务语义不得缩减。以下 dataclass 为**历史示意字段名**；唯一强类型 schema 以 `R1B_IMPLEMENTATION_PLAN.md` §1（落点 `harness/topic_schema.py`）为唯一规范，本文不维护第二份完整 schema。已把松散字段替换为强类型引用，并对 Pack 补上 process/coverage 双轴状态。
 
 ```python
 @dataclass(frozen=True)
@@ -141,11 +141,11 @@ class ResearchMaterial:
     material_id: str
     material_type: str  # evidence_span | table_context | structured | external_snapshot
     source_identity: str
-    locator: dict
-    content_or_payload_ref: str
+    locator: MaterialLocator                       # 按 material_type 区分的严格联合类型
+    payload_ref: MaterialPayloadRef                # 不可变解析引用（替代裸 content_or_payload_ref）
     context_parent_id: str | None
     content_hash: str
-    authority_status: str
+    authority_assessment: AuthorityAssessment      # 三类来源权威联合类型（替代裸 authority_status）
 
 @dataclass(frozen=True)
 class SupportedFact:
@@ -154,8 +154,8 @@ class SupportedFact:
     fact_type: str
     aspect_ids: tuple[str, ...]
     citation_refs: tuple[CitationRef, ...]
-    source_authority: str
-    value_identity: dict | None  # canonical Decimal字符串、单位、指标/科目、期间、scope、值类别
+    source_authority: AuthorityAssessment   # 三类来源权威联合类型（替代裸 source_authority）
+    value_identity: ValueIdentity | None    # 规范化数字语义（value_kind/metric/unit/period/scope/amount_canonical）
     semantic_tags: tuple[str, ...]
     period: str | None
     scope: str | None
@@ -216,13 +216,14 @@ class TopicResearchPack:
     materials: tuple[ResearchMaterial, ...]
     facts: tuple[SupportedFact, ...]
     outcome_refs: tuple[str, ...]
-    external_funnel: dict
+    external_funnel: ExternalFunnelSnapshot | None
     conflicts: tuple[ResearchConflict, ...]
     not_found_audits: tuple[NotFoundAudit, ...]
     unresolved: tuple[ResearchGap, ...]
-    budget_policy: dict
-    cumulative_usage: dict
-    stop_reason: str | None
+    usage: TopicUsageSnapshot                     # budget_policy + cumulative_usage + stop_reason（typed）
+    process_status: PackProcessStatus             # pending|running|finished|stopped_by_budget|blocked|failed
+    coverage_status: PackCoverageStatus           # complete|complete_with_gaps|insufficient|unavailable
+    status_derivation: StatusDerivation
     dependency_fingerprint: str
 ```
 
@@ -347,7 +348,7 @@ aspect/query intent
 
 每档还必须独立限制 local search、inspect/expand、external search、fetch/snapshot、LLM rounds、tokens、elapsed 和 retry；执行前预留 fetch→snapshot 原子预算。具体数字由计划和测试固定成 policy version，不得按公司/case 调参。
 
-停止条件：全部必需 aspect 终态；连续两轮/两次定向尝试无新材料或事实；候选耗尽；人工阻断；或任一硬预算到顶。预算到顶时仍提交非空 Partial Pack 和继续建议，累计预算不清零。
+停止条件：全部必需 aspect 终态；连续两轮/两次定向尝试无新材料或事实；候选耗尽；人工阻断；或任一硬预算到顶。预算到顶时仍提交非空 Partial Pack、停止原因和未来建议材料类型，累计预算不清零；系统可保留内部恢复信息，但当前 UI 不提供用户继续生成动作。
 
 ---
 
@@ -379,9 +380,9 @@ Writer 只允许：归并、排序、衔接、基于已支持事实作有引用�
 - not applicable：不放入主表，但保留结构化状态；
 - 以上分类必须来自版本化 Contract/display policy，不由 LLM 或 Writer 静默删除。
 
-### 6.5 内容完整性门
+### 6.5 章节内容完整性检查
 
-Section Evaluator 除既有安全规则外，新增确定性/半确定性检查：
+Section Evaluator 除既有安全规则外，新增以下章级确定性/半确定性检查。这些结果为 Phase 5 全报告内容完整性前置门提供输入，但 P4 不得据此生成 report-level Assurance 或最终放行状态：
 
 - 所有 required aspect 是否有明确状态；
 - covered aspect 是否至少有合格事实和引用，而非仅检索命中；
@@ -390,6 +391,15 @@ Section Evaluator 除既有安全规则外，新增确定性/半确定性检查�
 - 宽 Topic 是否只有一条概述却遗漏已取得的构成/过程/原因；
 - 段落中的事实/数字是否全部映射到 Claim；
 - DATA_GAP 是否指出具体缺口，而非空白章节或大段错误码。
+
+### 6.6 当前面试版缺口交互与状态边界
+
+- 缺口输出必须结构化保留 `gap_id`、缺失事项、已查范围、停止原因、影响范围、建议材料类型及未来动作类型；这些字段服务只读展示、审计和未来扩展。
+- 当前版本不实现用户补件、Gap 与新材料绑定、Evidence 增量更新、人工处理后定向续跑或用户点击“继续生成”。不得为这些未实现能力新增 UI 按钮或验收承诺。
+- `transfer_human` / `needs_human_review` 等既有机器标签在当前版本只表示“需人工复核或阻断”的只读状态，不表示用户处理后可在本任务内继续。任何 Contract、policy 或 Profile 候选文案若仍承诺“确认后继续受影响部分”，必须在批准/冻结前改为当前只读语义；未来动作只可作为明确标注的扩展字段保留。
+- checkpoint 继续用于有界运行、崩溃恢复、复现和未来扩展；预算耗尽在本次运行中形成 `partial + gap`，页面展示原因，不由用户追加预算。
+- 状态输出必须分别表达流程是否完成、草稿是否可预览、系统 Assurance 是否通过以及是否完成人工最终确认；不得继续使用单一 `success` 混合四者。
+- P4 Section Evaluator 只做章节质量检查。完整报告的内容完整性前置门、六类 Assurance、版本绑定及人工最终确认属于 Phase 5；P4 不得提前实现一个可自我放行的“最终审核 Agent”。
 
 ---
 
@@ -422,6 +432,8 @@ Section Evaluator 除既有安全规则外，新增确定性/半确定性检查�
 
 **出口：** 52 问映射审计；Contract v2、来源 policy 和迁移方案经人工确认并通过兼容验证；唯一 Pack 类型；canonical WritingSpec/PresentationProfile 资产、schema/loader/validator、版本与依赖指纹方案；序列化/反序列化、内容寻址、幂等、冲突、current、只读加载、依赖变化失效和 migration 测试全绿。R1 未通过不得进入 R2。
 
+**R1-A 状态（2026-09-13，已批准并冻结）：** 已按授权书 §二/§五～§十一 生成并冻结资产，由用户与 Codex 批准；**已冻结、已按职责提交、未接线正式运行时**。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、每 aspect 22 字段、49 evidence 需求）、`templates/policies/source_policy_v1.yaml`（A/B/C/D 分级 + 关键结论支撑 + 行业风险传导四层）、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary_reference）、`templates/presentation_profiles/interview_demo_v1.yaml`（呈现边界硬约束）、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项全绿，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1 其余出口（唯一 Pack 类型、migration/兼容验证、序列化/幂等/冲突/current/只读/migration 测试）留待 R1-B。
+
 ### R2：材料构建与受控上下文扩读
 
 **建议文件：** `harness/context_expansion.py`、`harness/topic_materials.py`，复用 `sections.material_bundle` 和 Evidence 正式接口；对应 CLI/eval。
@@ -432,7 +444,7 @@ Section Evaluator 除既有安全规则外，新增确定性/半确定性检查�
 
 **建议文件：** `harness/topic_runtime.py`，扩展现有 policy/checkpoint/trace，不复制 Router/Registry。
 
-**出口：** 一个宽查询覆盖多个 aspect、只补未覆盖项、ANSWER 不提前结束 Topic、无进展停止、动态档位、各分项硬上限、continue 累计、故障恢复和 Partial Pack 测试全绿。历史 `research_action_v1` / `research_answer_v1` 只作为原子 need Prompt 使用并明确标记；正式 fact/calculation/inference 均须引用，1～3 句短答不得成为 Topic 完成或 P4 内容上限。
+**出口：** 一个宽查询覆盖多个 aspect、只补未覆盖项、ANSWER 不提前结束 Topic、无进展停止、动态档位、各分项硬上限、单次运行累计不重置、系统故障恢复和 Partial Pack 测试全绿。历史 `research_action_v1` / `research_answer_v1` 只作为原子 need Prompt 使用并明确标记；正式 fact/calculation/inference 均须引用，1～3 句短答不得成为 Topic 完成或 P4 内容上限。当前版不开发用户触发的 continue/resume 交互。
 
 ### R4：外部研究闭环
 
@@ -444,7 +456,7 @@ Section Evaluator 除既有安全规则外，新增确定性/半确定性检查�
 
 **建议修改：** `sections/research_common.py`、`company_worker.py`、`industry_worker.py`、`financial_worker.py`、`sections/schema.py`、版本化 `SectionWritingSpec` / `ReportPresentationProfile`、Renderer/Writer prompt 与对应 tests。迁移 `chapter_writer` 中通用纯函数时必须进入正式 Worker 调用并删除/弃用平行入口。
 
-**出口：** 每章消费与 `SectionTask.topic_ids` 完全匹配的 Pack 集，缺失/重复/stale/错任务 Pack 显式阻断；AST/集成测试证明正式内容路径不再只遍历 `answer.claims`；Pack facts→Claims 无丢失；多个研究 Topic 按 WritingSpec 合并为业务小节；多 Claim→段落/表格；数字 marker、引用、明确期间语言、缺口和降级稿规则全绿。`publication_editor.txt` 不再承担正式写作；V1 templates/prompts 不进入 V2 链。
+**出口：** 每章消费与 `SectionTask.topic_ids` 完全匹配的 Pack 集，缺失/重复/stale/错任务 Pack 显式阻断；AST/集成测试证明正式内容路径不再只遍历 `answer.claims`；Pack facts→Claims 无丢失；多个研究 Topic 按 WritingSpec 合并为业务小节；多 Claim→段落/表格；数字 marker、引用、明确期间语言、只读缺口和降级稿规则全绿。Gap 输出包含缺失事项、已查范围、原因、影响与建议材料类型，但不接用户补件/绑定/续跑。`publication_editor.txt` 不再承担正式写作；V1 templates/prompts 不进入 V2 链。
 
 ### R6：跨类型离线集成
 
@@ -471,6 +483,8 @@ fixtures 至少包含一个非 300750 公司和未见 Topic 组合；不得从 g
 
 每个 Topic 输出：`topic_research_pack.json`、人读材料索引、aspect matrix、query/tool/funnel 审计、章节 Markdown、Claim/paragraph 映射和新旧对比。人工确认“有用材料没有系统性丢失、外部来源价值可见、正文像授信报告且引用可回查”后，才运行一份完整三章 Demo 并恢复 Phase 4 关闭评审。
 
+R7 的人工确认是验收人员对持久化产物的离线检查，不是产品内补件或续跑功能。三章 Demo 必须输出可供 Phase 6 状态栏消费的阶段事件、各章状态、缺口摘要和预览可用性；最终 Report Assurance 仍在 Phase 5 实现。
+
 ---
 
 ## 8. 强制测试与失效形态
@@ -484,7 +498,7 @@ fixtures 至少包含一个非 300750 公司和未见 Topic 组合；不得从 g
 - 表题、单位和数据分块仍能恢复完整 table context；
 - 外部搜索有多个候选，首个 blocked 后换源；fetch 成功但 snapshot 失败不可采纳；
 - 尚有低价值未抓候选时，另一 P0 aspect 仍可发新查询；
-- 动态预算任一维度绝不 max+1；fetch 预留 snapshot；恢复累计不清零；
+- 动态预算任一维度绝不 max+1；fetch 预留 snapshot；单次运行及系统恢复累计不清零；不要求用户触发继续生成；
 - Pack 的内容 identity 不含 run_id 时间戳/call_id，但依赖/内容变化会变；
 - 不同来源的数字可经统一 Fact Registry 查询，但收入/成本、期间、单位、scope 或 authority 不同不得互换；
 - P4 不丢 Pack 中高优先级事实；多 Claim 段落任一引用失效时 fail-closed 或明确降级；
@@ -525,17 +539,17 @@ fixtures 至少包含一个非 300750 公司和未见 Topic 组合；不得从 g
 
 ---
 
-## 10. 第一轮只允许输出的编码前计划
+## 10. 当前批次计划与人工门
 
-收到本任务书后，Claude Code 第一轮先完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`、两份 confirmed Contract review、正式 Contract、当前 worktree/diff（如有），以及 P3/P4 相关实现。**先不调用真实 LLM/博查。R0 已有改动只做审查、复验和分责提交；R1～R7 每批在对应计划获批后编码。** 输出计划必须逐项回答：
+R0 已关闭，不得重新盘点或实现。R1-A 已批准并冻结、已按职责提交、尚未接线正式运行时。Claude Code 在进入下一批前，先完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`、两份 confirmed Contract review、正式 Contract、当前 worktree/diff（如有），以及 P3/P4 相关实现。**先不调用真实 LLM/博查；R1-B 计划须先经人工 + Codex 审批后才可编码。R1-B～R7 每批仍须先输出计划并等待批准。** 当前计划必须逐项回答：
 
-1. `V2_TODO.md` 所列当前 R0 工作区改动的逐文件归属、是否可作为 R0 提交，以及报告基线如何独立复验；
+1. R1-A 已冻结、已按职责提交；当前等待 R1-B 计划批准。R1-B 计划的逐文件归属、52 问业务语义和架构边界是否符合上位设计、哪些项仍需业务确认；
 2. 三套相近材料对象的逐字段映射，以及最终唯一对象放在哪个模块；
 3. 52 问 aspect/evidence/display 审计产物格式；现有 Contract 过粗项如何通用拆分；`standard_v3.yaml`/`contract_version=v2`（或有充分迁移理由的等价新文件）及历史 manifest/loader 兼容方式；search/fetch capability 与 Rules-internal snapshot 如何表达；
-4. Pack schema、Store/migration、稳定 ID、指纹、checkpoint/resume 和只读加载；
+4. Pack schema、Store/migration、稳定 ID、指纹、checkpoint、系统故障恢复和只读加载；其中恢复接口不得暴露为当前 UI 的用户续跑动作；
 5. 上下文扩读算法的入口、边界、预算、去重和 Trace；
 6. aspect 调度状态机及如何避免“一 aspect 一搜索”和“任意答案提前结束”；
-7. Topic 动态预算各档明确数值、执行前预留和 continue 语义；
+7. Topic 动态预算各档明确数值、执行前预留和系统内部恢复语义；当前面试版禁止用户触发 continue/resume；
 8. 外部候选优先级、换源、来源政策和 provider 质量归因；
 9. P4 正式 Worker 如何校验完整 Pack 集，并按唯一机器可读资产中的版本化 WritingSpec/PresentationProfile 从 Pack 生成 Claim/Paragraph/Table；其 canonical 路径、loader/validator/version/fingerprint；哪些旧 Prompt/template/path 删除或 deprecated；
 10. 财务主表、附注 Evidence 与不可计算指标的边界；

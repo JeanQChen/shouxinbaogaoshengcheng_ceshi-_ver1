@@ -1,6 +1,6 @@
 # 文档治理与权威索引
 
-> 版本：v1.0 · 2026-09-13
+> 版本：v1.1 · 2026-09-13
 > 用途：告诉开发者和开发代理“当前应读什么、什么只是历史、冲突时听谁的”。
 > 本文件不定义业务规则或代码接口；具体规则以对应权威文档为准。
 
@@ -44,6 +44,8 @@ SectionContract / SectionTask
 - Contract 负责定义“必须研究什么、证据和缺口门槛”；版本化 `SectionWritingSpec` / `ReportPresentationProfile` 负责定义“如何组合为小节、段落和表格”，二者都必须进入依赖指纹，Prompt 和旧 Markdown 模板不得承担影子 Contract。
 - 一个 Section 必须消费与 `SectionTask.topic_ids` 完全匹配的完整 Pack 集；缺少整个 Topic 的 Pack 也必须显式暴露，不能通过挑选已有材料生成看似完整的章节。
 - P4 同时保留细粒度可审计 Claim 和面向人的完整段落/表格，安全正确与内容完整分别验收。
+- 当前面试版在生成后只读展示状态与信息缺口，不实现用户补件、缺口绑定、Evidence 增量更新或用户触发续跑；相应字段只保留未来扩展接口。
+- Phase 4 的 Section Evaluator 不是最终放行者；Phase 5 由确定性 Assurance Controller 汇总“内容完整性前置门 + 六类全报告检查”，LLM 仅做有证据输入的结构化语义审稿，最高系统状态仍需人工最终确认。
 - Phase 5 在 P3R/P4R 内容门通过前不得开始。
 
 ## 3. 文档分类
@@ -102,16 +104,18 @@ SectionContract / SectionTask
 - `requirements*.txt` 是依赖清单；`tree.txt` 是过时目录快照，不是接口清单。
 - `evaluation/results/**`、日志、数据库、debug JSON 和参考 DOCX 都不是项目指令。
 
-## 4. 当前尚未冻结的决定
+## 4. 当前开放决定与 R1-A 冻结资产
 
-以下事项已明确为“待实现阶段用证据决定”，不得由开发代理自行拍板：
+R1-A 已由用户与 Codex 批准并正式冻结、按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 / 187 aspect / 49 evidence / 28·13·3·8 生产者）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（187 primary + 6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`。Contract v2 尚未接线正式 runtime；R1-B 尚未编码（计划待审批）。
 
-1. **Contract v2 的具体迁移载体**：发布兼容 v2 已是必需项；R1 默认评估 `templates/contracts/standard_v3.yaml` + `contract_version=v2`，并明确新来源 policy、WritingSpec/Profile 资产路径及 v1 manifest/loader 兼容。不得原地改写 v1。
+以下事项仍为“待实现阶段用证据决定”，不得由开发代理自行拍板：
+
+1. **R1-B 计划审批与实施**：唯一 `TopicResearchPack` schema/Store/checkpoint、`data/harness.db` 兼容迁移、状态适配、身份/指纹/失效规则与离线测试；计划须先获人工 + Codex 批准后才可编码。
 2. **Topic 预算具体数值**：S/M/L/XL 只是初始分档，须由合成测试和少量真实纵向样本校准；不得按 300750 或 case id 调参。
 3. **搜索 Provider 是否更换**：当前正式运行时仍为博查；先区分查询规划、候选排序、fetch 可达性和 Provider 召回，再决定是否单独做对照。
 4. **统一数字事实层的物理存储**：方向是统一只读 Fact Registry/语义身份，不是立即把 FinancialSnapshot、Evidence 附注和 ExternalSnapshot 合并进一张权威表。
 5. **报告最终篇幅**：不设 8,000 字符硬门；2～3 万中文字符仅为人工参考，最终由 Contract 覆盖、信息密度、可读性与演示时间共同决定。
-6. **R0 实际状态**：调用链复验、当前 diff 和测试数字只记录在 `V2_TODO.md`；长期治理文档不写死易过期的工作区状态。
+6. **R0/R1-A 实际测试与工作区状态**：调用链复验、当前 diff 和测试数字只记录在 `V2_TODO.md`；长期治理文档不写死易过期的工作区状态。
 
 ## 5. 文档维护规则
 

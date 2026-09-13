@@ -55,6 +55,7 @@ Rules:
 - `sections.topic_research` and similar experimental code may contribute pure algorithms but must not become a second Router/Harness/tool/LLM runtime.
 - Company and industry writers consume the complete current Pack set whose topic IDs exactly equal `SectionTask.topic_ids`. Missing, duplicate, stale, wrong-task, wrong-company, wrong-`report_as_of`, or wrong-Contract Packs produce an explicit gap/block; writers must not select only convenient Packs and present the Section as complete. The financial writer consumes authoritative `FinancialFactPack` plus validated Evidence-backed note facts.
 - P4 keeps atomic auditable Claims and separately produces human-readable paragraphs/tables supported by multiple Claims.
+- Phase 4 Section Evaluator is a bounded chapter-quality loop, not the final report approver. Phase 5 Assurance Controller controls only system-Assurance/release eligibility: deterministic gates first, evidence-grounded semantic review second, and a deterministic version-bound status aggregation. An LLM may emit structured issues but may not override hard failures, rewrite the report, or approve its own output by self-assertion. Final human acceptance remains a separate state and is never inferred by the Controller.
 - Phase 5 is blocked until the P3R/P4R content gate passes.
 
 ## 4. Hard constraints
@@ -133,7 +134,8 @@ Do not code a major batch until its plan is reviewed when the active task requir
 
 - `streamlit_app.py` remains thin: input, service invocation, progress, artifact loading, and display only.
 - Prefer loading a persisted real artifact for screenshots and recording; do not spend LLM/network calls merely to view an existing run.
-- UI must show actual status, missing information, failure reasons, and recoverable next actions without raw internal error dumps or model reasoning.
+- The current interview-demo release is read-only after generation: it shows actual status, missing information, searched scope, impact, failure reasons, and suggested future material types, but does not implement user supplementary upload, gap-to-material binding, Evidence mutation, or user-triggered resume/continue. Keep structured extension seams without exposing inactive actions.
+- Status is a product feature, not a decorative percentage. Distinguish process completion, preview availability, system-Assurance outcome, and final human acceptance; progress must come from persisted units/artifacts rather than model estimates.
 - Demo may focus on CATL, but code, Contract, policy, and tests must remain company-independent.
 - Word export is not a prerequisite for the current interview demo; Markdown/Streamlit presentation comes first. A future change requires an explicit business decision first reflected in `AGENTS.md`, `DESIGN_V2.md`, and the roadmap; a lower-level Phase task cannot change this order by itself.
 
@@ -143,8 +145,8 @@ The only active implementation task is `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TA
 
 At this point:
 
-- Complete R0 formal-chain review and closure before R1; exact worktree/test status belongs only in `V2_TODO.md`.
-- After R0, execute R1–R7 in the approved order; do not skip directly to report polishing or full 41-question reruns.
+- R0 is closed and R1-A is frozen (approved, committed by responsibility). R1-B must be planned and approved before coding; exact worktree/test status belongs only in `V2_TODO.md`.
+- Execute the remaining R1–R7 work in the approved order; do not skip directly to report polishing or full 41-question reruns.
 - Do not start Phase 5 or Phase 6 product work while the P3R/P4R gate is open.
 
 Common checks:
