@@ -882,17 +882,16 @@ def _verify_reconstructed(conn: sqlite3.Connection, pack_id: str) -> TS.TopicRes
 
 
 def _terminal_invalidation_conn(conn: sqlite3.Connection, pack_id: str) -> str | None:
-    """返回 pack 最新一条事件的失效类型（stale|invalidated|quarantined），否则 None。
+    """返回 pack 的终态失效类型（stale|invalidated|quarantined），否则 None。
 
-    只有「最新一条」决定当前是否失效：失效后被 committed/reused/switched_current 升级则不视为失效。
+    失效是 Pack 身份上的终态事件：只要历史上存在任一失效事件即终态失效，不被后续
+    committed/reused/switched_current 清除。绝不默认「最新事件非失效」即复活。
     """
     row = conn.execute(
-        "SELECT event_type FROM topic_event WHERE pack_id=? ORDER BY rowid DESC LIMIT 1",
+        "SELECT event_type FROM topic_event WHERE pack_id=? AND event_type IN "
+        "('stale','invalidated','quarantined') ORDER BY rowid DESC LIMIT 1",
         (pack_id,)).fetchone()
-    if row is None:
-        return None
-    t = row["event_type"]
-    return t if t in ("stale", "invalidated", "quarantined") else None
+    return row["event_type"] if row is not None else None
 
 
 def _existing_pack_integrity_ok(conn: sqlite3.Connection, pack_id: str) -> bool:
@@ -942,6 +941,10 @@ def commit_pack(pack: TS.TopicResearchPack,
             "SELECT * FROM topic_pack WHERE pack_id=?", (pack.pack_id,)).fetchone()
 
         if existing is not None:
+            if _terminal_invalidation_conn(conn, pack.pack_id) is not None:
+                raise TopicStoreValidationError(
+                    f"pack {pack.pack_id} 已终态失效（stale|invalidated|quarantined），"
+                    f"禁止普通 recommit 复活")
             if not _existing_pack_integrity_ok(conn, pack.pack_id):
                 raise StorageCorruptionError(
                     f"pack 复用前完整性校验失败: {pack.pack_id}")
