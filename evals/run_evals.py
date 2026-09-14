@@ -91,6 +91,7 @@ EVAL_MODULES = [
     "evals.test_harness_snapshot_lock",
     "evals.test_harness_checkpoint",
     "evals.test_topic_pack_store",
+    "evals.test_topic_pack_contract_reachability",
     "evals.test_harness_runtime",
     "evals.test_demo_preflight",
     "evals.test_actual_path_41",
