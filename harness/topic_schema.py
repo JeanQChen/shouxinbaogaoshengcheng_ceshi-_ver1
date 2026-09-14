@@ -42,7 +42,12 @@ from harness.schema import CITATION_TYPES, COMPLETION_STATUSES, ENTAILMENT_VERDI
 # TopicResearchPack 序列化 schema 版本（to_dict/from_dict 契约版本）。
 # v2：JSON payload/schema 解释语义升级（set_complete 独立枚举证明 + SourcePolicyRef 唯一绑定），
 #     无新增 SQLite 列；由迁移 2 记录该解释语义升级（见 topic_store.topic_schema_migrations）。
-TOPIC_PACK_SCHEMA_VERSION = "2"
+# v3：DEPENDENCY_VERSION_KEYS 增 set_enumerator（正式 SetEnumerationVerifier 进入依赖指纹），
+#     与 Store schema v3（topic_material_payload 表）是两个独立版本维度，不重新耦合。
+TOPIC_PACK_SCHEMA_VERSION = "3"
+# Store 结构 schema 版本（独立维度，与 TOPIC_PACK_SCHEMA_VERSION 解耦；断言
+# init_topic_store 时 STORE_SCHEMA_VERSION == MIGRATIONS[-1][0]）。
+STORE_SCHEMA_VERSION = "3"
 # StatusDerivation 推导规则版本（derive_pack_status 语义版本）。
 STATUS_DERIVATION_RULE_VERSION = "1"
 # 依赖版本字典允许的键（不允许任意语义 dict）。
@@ -52,6 +57,7 @@ DEPENDENCY_VERSION_KEYS = (
     "topic_schema",
     "assessor",
     "validator",
+    "set_enumerator",
 )
 
 # ---------------------------------------------------------------------------

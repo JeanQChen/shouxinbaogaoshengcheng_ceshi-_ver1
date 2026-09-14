@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -99,7 +100,8 @@ def _immutable_triggers(table: str) -> str:
     return "\n" + "\n".join(_immutable_trigger_sqls(table)) + "\n"
 
 
-_IMMUTABLE_TABLES = (
+# v1/R1-B 不可变表（迁移 2 只读复核范围；不含 v3 新增的 topic_material_payload）。
+_IMMUTABLE_TABLES_V2 = (
     "topic_pack",
     "topic_aspect_result",
     "topic_material",
@@ -109,6 +111,9 @@ _IMMUTABLE_TABLES = (
     "topic_gap",
     "topic_event",
 )
+
+# 当前（v3）不可变表：在 v2 基础上追加 topic_material_payload（append-only 不可 UPDATE/DELETE）。
+_IMMUTABLE_TABLES = _IMMUTABLE_TABLES_V2 + ("topic_material_payload",)
 
 # 追加事件类型（§6：stale|invalidated|quarantined 标记失效，不进入 writer 消费）。
 EVENT_TYPES = (
@@ -181,11 +186,30 @@ def _ddl_statements() -> list[str]:
         "event_at TEXT NOT NULL)")
     stmts.extend(_immutable_trigger_sqls("topic_event"))
 
+    # migration 3：topic_material_payload（append-only、content-addressed，双哈希两层身份）。
+    stmts.extend(_material_payload_ddl_statements())
+
+    return stmts
+
+
+def _material_payload_ddl_statements() -> list[str]:
+    """topic_material_payload 建表语句（fresh init 与 migration 3 共用，单源）。"""
+    stmts: list[str] = [
+        "CREATE TABLE IF NOT EXISTS topic_material_payload ("
+        "payload_id TEXT PRIMARY KEY, object_type TEXT NOT NULL, "
+        "authority_identity TEXT NOT NULL, version TEXT NOT NULL, "
+        "locator_json TEXT NOT NULL, source_content_hash TEXT NOT NULL, "
+        "payload_hash TEXT NOT NULL, payload_bytes BLOB NOT NULL, "
+        "created_dependency_fingerprint TEXT NOT NULL, created_at TEXT NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS idx_topic_material_payload_lookup "
+        "ON topic_material_payload(authority_identity, version, object_type)",
+    ]
+    stmts.extend(_immutable_trigger_sqls("topic_material_payload"))
     return stmts
 
 
 def build_ddl() -> str:
-    """返回最新（v1）建表语句（单字符串；仅诊断/文档展示用，init 走 _ddl_statements）。"""
+    """返回最新建表语句（单字符串；仅诊断/文档展示用，init 走 _ddl_statements）。"""
     return "\n".join(_ddl_statements())
 
 
@@ -256,7 +280,7 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
         raise RuntimeError(f"topic_schema_migrations 最新版本 {latest} != 期望 {MIGRATIONS[-1][0]}")
     for table in ("topic_pack", "topic_aspect_result", "topic_material", "topic_fact",
                   "topic_conflict", "topic_not_found_audit", "topic_gap", "topic_current",
-                  "topic_event", "topic_schema_migrations"):
+                  "topic_event", "topic_material_payload", "topic_schema_migrations"):
         if not _table_exists(conn, table):
             raise RuntimeError(f"结构校验失败：缺表 {table}")
     for table in _IMMUTABLE_TABLES:
@@ -292,7 +316,7 @@ def _migration_2_json_semantics(conn: sqlite3.Connection) -> None:
         raise RuntimeError(
             f"迁移 2 结构复核失败：topic_pack 列集 {sorted(set(cols))} 与 v1 期望 "
             f"{sorted(_V1_TOPIC_PACK_COLUMNS)} 不一致（解释语义升级不得改动物理列）")
-    for table in _IMMUTABLE_TABLES:
+    for table in _IMMUTABLE_TABLES_V2:
         for trig in (f"trg_{table}_no_update", f"trg_{table}_no_delete"):
             exists = conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?", (trig,)
@@ -301,10 +325,21 @@ def _migration_2_json_semantics(conn: sqlite3.Connection) -> None:
                 raise RuntimeError(f"迁移 2 结构复核失败：缺不可变触发器 {trig}")
 
 
+def _migration_3_material_payload(conn: sqlite3.Connection) -> None:
+    """迁移 3（追加式）：新建 topic_material_payload 表 + 索引 + 不可变触发器。
+
+    只负责 Store 结构（与 Pack schema v3 是两个独立维度）；幂等（CREATE IF NOT EXISTS），
+    不改动/删除/重写既有表。DDL 前缀仍受 _validate_ddl_prefixes 约束。
+    """
+    for stmt in _material_payload_ddl_statements():
+        conn.execute(stmt)
+
+
 # 迁移列表（追加式；已应用版本记录在 topic_schema_migrations 表）。
 MIGRATIONS: list[tuple[str, Callable[[sqlite3.Connection], None] | None]] = [
     ("1", None),  # v1 初始 DDL
     ("2", _migration_2_json_semantics),  # JSON payload/schema 解释语义升级（无新列）
+    ("3", _migration_3_material_payload),  # topic_material_payload 表（Store schema v3）
 ]
 
 
@@ -332,9 +367,9 @@ def init_topic_store(db_path: str | Path = DEFAULT_DB_PATH) -> None:
     """
     global _db_path
     _db_path = Path(db_path)
-    if TS.TOPIC_PACK_SCHEMA_VERSION != MIGRATIONS[-1][0]:
+    if TS.STORE_SCHEMA_VERSION != MIGRATIONS[-1][0]:
         raise RuntimeError(
-            f"TOPIC_PACK_SCHEMA_VERSION {TS.TOPIC_PACK_SCHEMA_VERSION} != 最新 migration {MIGRATIONS[-1][0]}")
+            f"STORE_SCHEMA_VERSION {TS.STORE_SCHEMA_VERSION} != 最新 migration {MIGRATIONS[-1][0]}")
 
     _validate_ddl_prefixes()
 
@@ -1607,3 +1642,158 @@ def list_events(pack_id: str | None = None) -> list[TopicEvent]:
         return [_row_to_event(r) for r in rows]
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# R2：material payload 持久化（append-only、content-addressed、双哈希）
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class MaterialPayloadRecord:
+    """一次 material payload 持久化记录（§4.12）。
+
+    - payload_id == payload_hash == sha256(payload_bytes)（载体层身份）；
+    - source_content_hash == EvidenceBlock.content_hash（来源层身份，与载体层是不同身份层）；
+    - locator_json 为 locator 的规范序列化（MaterialPayloadRef.locator.to_dict() 的 JSON）；
+    - created_at 仅审计，不进入 payload identity。
+    """
+
+    payload_id: str
+    object_type: str
+    authority_identity: str
+    version: str
+    locator_json: str
+    source_content_hash: str
+    payload_hash: str
+    payload_bytes: bytes
+    created_dependency_fingerprint: str
+
+
+def _locator_to_dict_norm(locator_json: str) -> dict:
+    """把 locator_json 解析为 locator 并回规范化 dict（供一致性比较，容忍 JSON 排版差异）。"""
+    return TS.locator_from_dict(_json_loads(locator_json)).to_dict()
+
+
+class TopicMaterialPayloadResolver:
+    """R2 材料 payload 解析器（实现 TS.PayloadResolver）。
+
+    - resolve 按 payload_ref.content_hash（= payload_hash）查 topic_material_payload：
+      行不存在 → None（dangling）；行存在但任一字段/重算哈希不一致 → StorageCorruptionError
+      （不把损坏伪装成「未找到」）；
+    - commit_payload_batch 单事务原子提交一批新增 payload；同 payload_id 内容一致 → 幂等复用，
+      同 ID 异内容 → StorageCorruptionError（哈希碰撞/损坏）；
+    - 只认 evidence_span / table_context（R2 构建范围），structured / external_snapshot 返回
+      None（R2 不构建，R4 经 typed resolver registry/multiplexer 扩展，不永久 fail-closed）。
+    """
+
+    def __init__(self, db_path: str | Path):
+        self._db_path = Path(db_path)
+
+    def _conn(self) -> sqlite3.Connection:
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(self._db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+    def resolve(self, payload_ref: TS.MaterialPayloadRef) -> TS.ResolvedPayload | None:
+        if payload_ref.object_type not in ("evidence_span", "table_context"):
+            return None  # R2 只构建这两类；后两类 R4 扩展，不永久 fail-closed
+        payload_id = payload_ref.content_hash
+        conn = self._conn()
+        try:
+            row = conn.execute(
+                "SELECT * FROM topic_material_payload WHERE payload_id=?", (payload_id,)
+            ).fetchone()
+            if row is None:
+                return None  # dangling：交给上层作未读/缺口
+            self._assert_row_matches(row, payload_ref)
+            return TS.ResolvedPayload(
+                object_type=row["object_type"],
+                authority_identity=row["authority_identity"],
+                version=row["version"],
+                locator=TS.locator_from_dict(_json_loads(row["locator_json"])),
+                content_hash=row["payload_hash"],
+                payload_bytes=bytes(row["payload_bytes"]),
+            )
+        finally:
+            conn.close()
+
+    def _assert_row_matches(self, row: sqlite3.Row, payload_ref: TS.MaterialPayloadRef) -> None:
+        if row["object_type"] != payload_ref.object_type:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} object_type 不符：期望 "
+                f"{payload_ref.object_type!r}，得到 {row['object_type']!r}")
+        if row["version"] != payload_ref.version:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} version 不符：期望 "
+                f"{payload_ref.version!r}，得到 {row['version']!r}")
+        if row["authority_identity"] != payload_ref.authority_identity:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} authority_identity 不符")
+        if row["created_dependency_fingerprint"] != payload_ref.created_dependency_fingerprint:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} created_dependency_fingerprint 不符")
+        if _locator_to_dict_norm(row["locator_json"]) != payload_ref.locator.to_dict():
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} locator 与 ref 不一致")
+        if row["payload_hash"] != payload_ref.content_hash:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} payload_hash 与 content_hash 不一致")
+        if hashlib.sha256(bytes(row["payload_bytes"])).hexdigest() != row["payload_hash"]:
+            raise StorageCorruptionError(
+                f"payload {payload_ref.content_hash} payload_bytes 重算哈希 ≠ payload_hash")
+
+    def commit_payload_batch(self, records: tuple[MaterialPayloadRecord, ...]) -> None:
+        """单事务原子提交一批新增 payload；任一失败整体回滚、无残留。"""
+        if not records:
+            return
+        conn = self._conn()
+        try:
+            conn.execute("BEGIN")
+            try:
+                for rec in records:
+                    self._insert_one(conn, rec)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        finally:
+            conn.close()
+
+    def _insert_one(self, conn: sqlite3.Connection, rec: MaterialPayloadRecord) -> None:
+        # 自洽校验：payload_id == payload_hash == sha256(payload_bytes)。
+        if rec.payload_id != rec.payload_hash:
+            raise StorageCorruptionError(
+                f"MaterialPayloadRecord payload_id {rec.payload_id} != payload_hash {rec.payload_hash}")
+        if hashlib.sha256(rec.payload_bytes).hexdigest() != rec.payload_hash:
+            raise StorageCorruptionError(
+                f"MaterialPayloadRecord payload_hash 与 payload_bytes 重算不一致: {rec.payload_id}")
+
+        row = conn.execute(
+            "SELECT * FROM topic_material_payload WHERE payload_id=?", (rec.payload_id,)
+        ).fetchone()
+        if row is not None:
+            # 同 ID：内容一致 → 幂等复用；不一致 → 哈希碰撞/损坏。
+            same = (
+                row["payload_hash"] == rec.payload_hash
+                and row["source_content_hash"] == rec.source_content_hash
+                and bytes(row["payload_bytes"]) == rec.payload_bytes
+                and row["object_type"] == rec.object_type
+                and row["authority_identity"] == rec.authority_identity
+                and row["version"] == rec.version
+                and _locator_to_dict_norm(row["locator_json"]) == _locator_to_dict_norm(rec.locator_json)
+                and row["created_dependency_fingerprint"] == rec.created_dependency_fingerprint
+            )
+            if same:
+                return  # 幂等复用，不重写
+            raise StorageCorruptionError(
+                f"payload_id {rec.payload_id} 已存在但内容不一致（哈希碰撞/损坏）")
+
+        conn.execute(
+            "INSERT INTO topic_material_payload (payload_id, object_type, authority_identity, "
+            "version, locator_json, source_content_hash, payload_hash, payload_bytes, "
+            "created_dependency_fingerprint, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rec.payload_id, rec.object_type, rec.authority_identity, rec.version,
+             rec.locator_json, rec.source_content_hash, rec.payload_hash,
+             rec.payload_bytes, rec.created_dependency_fingerprint, _utcnow()))

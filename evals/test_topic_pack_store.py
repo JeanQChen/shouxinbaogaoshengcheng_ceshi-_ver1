@@ -1053,7 +1053,7 @@ def main() -> dict:
         check(not missing.exists(), "只读路径不创建库文件")
 
         # -- 7. migration：结构不一致 fail-closed、不创建 legacy 表 --
-        check(Store.applied_schema_version() == "2", "applied_schema_version == 2")
+        check(Store.applied_schema_version() == "3", "applied_schema_version == 3")
         c = sqlite3.connect(str(db))
         legacy_tables = {r[0] for r in c.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
@@ -1316,7 +1316,7 @@ def main() -> dict:
             snapshot_id=None, external_policy_version="v1", harness_fingerprint="hf"), dbA)
         check(LegacyCheckpoint.get_run_manifest("r1", dbA) is not None,
               "顺序① legacy run_manifest 可用")
-        check(Store.applied_schema_version() == "2", "顺序① topic_store 可用")
+        check(Store.applied_schema_version() == "3", "顺序① topic_store 可用")
         dbB = Path(td2) / "b.db"
         Store.init_topic_store(dbB)
         LegacyCheckpoint.init_db(dbB)
@@ -1327,10 +1327,10 @@ def main() -> dict:
             snapshot_id=None, external_policy_version="v1", harness_fingerprint="hf"), dbB)
         check(LegacyCheckpoint.get_run_manifest("r1", dbB) is not None,
               "顺序② legacy run_manifest 可用")
-        check(Store.applied_schema_version() == "2", "顺序② topic_store 可用")
+        check(Store.applied_schema_version() == "3", "顺序② topic_store 可用")
         Store.init_topic_store(dbB)
         LegacyCheckpoint.init_db(dbB)
-        check(Store.applied_schema_version() == "2", "重复初始化幂等（topic_store）")
+        check(Store.applied_schema_version() == "3", "重复初始化幂等（topic_store）")
         check(LegacyCheckpoint.get_run_manifest("r1", dbB) is not None,
               "重复初始化幂等（legacy）")
 
@@ -2000,25 +2000,27 @@ def main() -> dict:
         except Store.TopicStoreValidationError:
             check(True, "E5 缺独立枚举 verifier → fail-closed（不得靠自填集合升 covered）")
 
-    # --- Fix 1：migration 1→2 升级路径 + v1 旧数据不静默消费 ---
+    # --- Fix 1：migration 2→3 升级路径 + v1 旧数据不静默消费 ---
     with tempfile.TemporaryDirectory() as tdM:
         db = Path(tdM) / "m.db"
         Store.init_topic_store(db)
-        check(Store.applied_schema_version() == "2", "fresh DB → schema 2")
+        check(Store.applied_schema_version() == "3", "fresh DB → schema 3")
         c = sqlite3.connect(str(db))
-        c.execute("DELETE FROM topic_schema_migrations WHERE version='2'")
+        # 模拟仅 migration 1/2 的旧库：删掉 v3 表（连同其触发器/索引）+ migration 记录。
+        c.execute("DROP TABLE topic_material_payload")
+        c.execute("DELETE FROM topic_schema_migrations WHERE version='3'")
         c.commit()
         c.close()
-        # 模拟仅 migration 1 的旧库，重新 init 应追加迁移 2（迁移 1 不改写）。
+        # 重新 init 应追加迁移 3（迁移 1/2 不改写），重建 topic_material_payload。
         Store.init_topic_store(db)
-        check(Store.applied_schema_version() == "2", "migration 1→2 升级 → schema 2")
+        check(Store.applied_schema_version() == "3", "migration 2→3 升级 → schema 3")
         c2 = sqlite3.connect(str(db))
         try:
             vers = [r[0] for r in c2.execute(
                 "SELECT version FROM topic_schema_migrations ORDER BY rowid")]
         finally:
             c2.close()
-        check(vers == ["1", "2"], "migration 序列为 1,2（迁移 1 未被改写）")
+        check(vers == ["1", "2", "3"], "migration 序列为 1,2,3（迁移 1/2 未被改写）")
 
     with tempfile.TemporaryDirectory() as tdV1:
         db = Path(tdV1) / "v1.db"
