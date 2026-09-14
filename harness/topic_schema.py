@@ -40,7 +40,9 @@ from harness.schema import CITATION_TYPES, COMPLETION_STATUSES, ENTAILMENT_VERDI
 # ---------------------------------------------------------------------------
 
 # TopicResearchPack 序列化 schema 版本（to_dict/from_dict 契约版本）。
-TOPIC_PACK_SCHEMA_VERSION = "1"
+# v2：JSON payload/schema 解释语义升级（set_complete 独立枚举证明 + SourcePolicyRef 唯一绑定），
+#     无新增 SQLite 列；由迁移 2 记录该解释语义升级（见 topic_store.topic_schema_migrations）。
+TOPIC_PACK_SCHEMA_VERSION = "2"
 # StatusDerivation 推导规则版本（derive_pack_status 语义版本）。
 STATUS_DERIVATION_RULE_VERSION = "1"
 # 依赖版本字典允许的键（不允许任意语义 dict）。
@@ -162,6 +164,54 @@ _AUTHORITY_TYPE_BY_MATERIAL = {
     "structured": "financial_snapshot",
     "external_snapshot": "external_snapshot",
 }
+
+# 权威类型 → 来源类（source_class，对齐 contracts.schema_v2 / source_policy_v1 的 source_classes）。
+# financial_snapshot 是公司结构化披露（非 external），与 company disclosure 同属「非外部」来源。
+AUTHORITY_SOURCE_CLASS_BY_TYPE = {
+    "evidence": "company_industry",
+    "financial_snapshot": "structured_db",
+    "external_snapshot": "external",
+}
+
+# 行业风险传导四层（对齐 contracts.schema_v2.TRANSMISSION_LAYERS）。
+TRANSMISSION_LAYERS = (
+    "industry_background",
+    "conditional_transmission",
+    "company_exposure",
+    "actual_company_impact",
+)
+
+# sufficiency gate 评估器版本与规则 ID。规则本身由冻结输入（EvidenceRequirement +
+# SourcePolicy + transmission_layers）派生，绝不硬编码 Topic 名单。
+SUFFICIENCY_ASSESSOR_VERSION = "1"
+KEY_CONCLUSION_RULE = "key_conclusion_ab_c"
+KEY_CONCLUSION_RULE_VERSION = "1"
+TRANSMISSION_SUFFICIENCY_RULES = {
+    "industry_background": ("industry_background_external", "1"),
+    "conditional_transmission": ("conditional_transmission_verified_fact", "1"),
+    "company_exposure": ("company_exposure_company_disclosure", "1"),
+    "actual_company_impact": ("actual_company_impact_company_disclosure", "1"),
+}
+
+# support eligibility 政策版本（usage-scope gate 的派生结果版本）。
+SUPPORT_ELIGIBILITY_POLICY_VERSION = "1"
+
+# set_complete 评估器版本 / 规则版本 / 可信 verifier 版本（Fix 4 强制一致）。
+SET_COMPLETENESS_ASSESSOR_VERSION = "1"
+SET_COMPLETENESS_RULE_VERSION = "1"
+SET_COMPLETENESS_VERIFIER_VERSION = "1"
+# set_complete 独立枚举 verifier 版本（Fix 2）。SetEnumerationVerifier 是受信任、版本化、
+# 确定性的运行时依赖：Store 只能校验它返回的 payload_hash / boundary_identity / enumerated
+# 集合关系与真实解析 payload 身份一致，无法证明任意注入实现「内部确实读取过 payload bytes」。
+# R2 须实现正式确定性枚举器并由唯一正式组合入口注入；接线前生产运行链不得将 set_complete
+# aspect 提升为 covered。此版本必须进入 R2 dependency fingerprint（本轮只记录该硬门）。
+SET_ENUMERATION_VERIFIER_VERSION = "1"
+
+# 条件性行业传导 inference 政策（版本化允许枚举；冻结 Contract 只枚举字段名，不枚举字段值，
+# 故 policy 身份/版本与 direction 枚举由本 schema 版本化定义，Store 据此 fail-closed 校验）。
+CONDITIONAL_INFERENCE_POLICY_ID = "conditional-transmission-inference-v1"
+CONDITIONAL_INFERENCE_POLICY_VERSION = "1"
+INFERENCE_DIRECTIONS = ("industry_to_company",)
 
 
 # ---------------------------------------------------------------------------
@@ -295,13 +345,84 @@ def _get_enum(v: str, allowed: tuple[str, ...], typename: str, key: str) -> str:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class SourceClassGroup:
+    """required_any_of 的一个可选组：一组来源类 + 可选最低等级 + 可选事实类别。"""
+
+    source_classes: tuple[str, ...]
+    min_grade: str | None = None
+    kind: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.source_classes:
+            raise SchemaValidationError("SourceClassGroup.source_classes 必须非空")
+        if self.min_grade is not None:
+            _get_enum(self.min_grade, SOURCE_GRADES, "SourceClassGroup", "min_grade")
+
+    def to_dict(self) -> dict:
+        return {
+            "source_classes": list(self.source_classes),
+            "min_grade": self.min_grade,
+            "kind": self.kind,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "SourceClassGroup":
+        d = _reject_unknown(d, {"source_classes", "min_grade", "kind"}, "SourceClassGroup")
+        return cls(
+            source_classes=_get_str_tuple(d, "source_classes", "SourceClassGroup"),
+            min_grade=_get_str(d, "min_grade", "SourceClassGroup", allow_none=True),
+            kind=_get_str(d, "kind", "SourceClassGroup", allow_none=True),
+        )
+
+
+@dataclass(frozen=True)
+class EvidenceAuthorityPolicy:
+    """冻结证据需求的 authority 使用范围（required_any_of / supplemental_only / inference_lineage）。
+
+    这是「来源使用资格」而非「来源权威」：required_any_of 决定哪些来源类可作为 formal
+    事实支撑该 aspect；supplemental_only 决定哪些来源类只能补充、不能独立支撑；
+    inference_lineage_required 决定是否需要推断链。
+    """
+
+    required_any_of: tuple[SourceClassGroup, ...]
+    supplemental_only: tuple[str, ...] = ()
+    inference_lineage_required: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.required_any_of:
+            raise SchemaValidationError("EvidenceAuthorityPolicy.required_any_of 必须非空")
+
+    def to_dict(self) -> dict:
+        return {
+            "required_any_of": [g.to_dict() for g in self.required_any_of],
+            "supplemental_only": list(self.supplemental_only),
+            "inference_lineage_required": self.inference_lineage_required,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "EvidenceAuthorityPolicy":
+        d = _reject_unknown(d, {"required_any_of", "supplemental_only", "inference_lineage_required"},
+                            "EvidenceAuthorityPolicy")
+        return cls(
+            required_any_of=tuple(SourceClassGroup.from_dict(x) for x in _as_list(
+                d.get("required_any_of"), "EvidenceAuthorityPolicy", "required_any_of")),
+            supplemental_only=_get_str_tuple(d, "supplemental_only", "EvidenceAuthorityPolicy"),
+            inference_lineage_required=_get_bool(d, "inference_lineage_required", "EvidenceAuthorityPolicy"),
+        )
+
+
+@dataclass(frozen=True)
 class EvidenceRequirementRef:
-    """证据需求权威引用（绑定 requirement ID + 所属 Contract SHA + requirement 指纹 + schema/version）。"""
+    """证据需求权威引用（绑定 requirement ID + 所属 Contract SHA + requirement 指纹 + schema/version
+    + 来源类使用资格）。source_classes / authority 用于 usage-scope gate（Fix 1），可空表示
+    无冻结使用资格信息（旧合成引用不触发 usage-scope gate）。"""
 
     requirement_id: str
     contract_sha256: str
     requirement_fingerprint: str
     schema_version: str
+    source_classes: tuple[str, ...] = ()
+    authority: EvidenceAuthorityPolicy | None = None
 
     def __post_init__(self) -> None:
         if not self.requirement_id:
@@ -319,17 +440,23 @@ class EvidenceRequirementRef:
             "contract_sha256": self.contract_sha256,
             "requirement_fingerprint": self.requirement_fingerprint,
             "schema_version": self.schema_version,
+            "source_classes": list(self.source_classes),
+            "authority": self.authority.to_dict() if self.authority is not None else None,
         }
 
     @classmethod
     def from_dict(cls, d: Any) -> "EvidenceRequirementRef":
-        d = _reject_unknown(d, {"requirement_id", "contract_sha256", "requirement_fingerprint", "schema_version"},
+        d = _reject_unknown(d, {"requirement_id", "contract_sha256", "requirement_fingerprint",
+                                "schema_version", "source_classes", "authority"},
                             "EvidenceRequirementRef")
+        auth = d.get("authority")
         return cls(
             requirement_id=_get_str(d, "requirement_id", "EvidenceRequirementRef"),
             contract_sha256=_get_str(d, "contract_sha256", "EvidenceRequirementRef"),
             requirement_fingerprint=_get_str(d, "requirement_fingerprint", "EvidenceRequirementRef"),
             schema_version=_get_str(d, "schema_version", "EvidenceRequirementRef"),
+            source_classes=_get_str_tuple(d, "source_classes", "EvidenceRequirementRef"),
+            authority=EvidenceAuthorityPolicy.from_dict(auth) if auth is not None else None,
         )
 
 
@@ -625,6 +752,7 @@ class FinancialLocator:
     scope: str = ""
     report_as_of: str = ""
     formula_id: str | None = None
+    formula_version: str | None = None
     item_code: str | None = None
     period: str | None = None
 
@@ -634,6 +762,11 @@ class FinancialLocator:
         # item_code 与 formula_id 至少一个有效。
         if not self.item_code and not self.formula_id:
             raise SchemaValidationError("FinancialLocator 至少需要 item_code 或 formula_id 之一")
+        # Fix 2：formula_id 存在 → 必须可验证 formula_version；item-only 不得伪造公式版本。
+        if self.formula_id is not None and not self.formula_version:
+            raise SchemaValidationError("FinancialLocator 引用 formula_id 必须携带 formula_version")
+        if self.formula_id is None and self.formula_version is not None:
+            raise SchemaValidationError("FinancialLocator.formula_version 不得脱离 formula_id 存在")
 
     def to_dict(self) -> dict:
         return {
@@ -643,6 +776,7 @@ class FinancialLocator:
             "scope": self.scope,
             "report_as_of": self.report_as_of,
             "formula_id": self.formula_id,
+            "formula_version": self.formula_version,
             "item_code": self.item_code,
             "period": self.period,
         }
@@ -650,7 +784,7 @@ class FinancialLocator:
     @classmethod
     def from_dict(cls, d: Any) -> "FinancialLocator":
         d = _reject_unknown(d, {"locator_type", "snapshot_id", "company_id", "scope", "report_as_of",
-                                "formula_id", "item_code", "period"}, "FinancialLocator")
+                                "formula_id", "formula_version", "item_code", "period"}, "FinancialLocator")
         if d.get("locator_type") not in (None, "financial_snapshot"):
             raise SchemaValidationError(
                 f"FinancialLocator.locator_type 必须为 'financial_snapshot'，得到 {d.get('locator_type')!r}")
@@ -660,6 +794,7 @@ class FinancialLocator:
             scope=_get_str(d, "scope", "FinancialLocator", allow_empty=True) or "",
             report_as_of=_get_str(d, "report_as_of", "FinancialLocator", allow_empty=True) or "",
             formula_id=_get_str(d, "formula_id", "FinancialLocator", allow_none=True),
+            formula_version=_get_str(d, "formula_version", "FinancialLocator", allow_none=True),
             item_code=_get_str(d, "item_code", "FinancialLocator", allow_none=True),
             period=_get_str(d, "period", "FinancialLocator", allow_none=True),
         )
@@ -816,6 +951,7 @@ class FinancialSnapshotAuthorityAssessment:
     quarantine: bool = False
     item_code: str | None = None
     formula_id: str | None = None
+    formula_version: str | None = None
     period: str | None = None
     verdict: str = "rejected"
     reason: str = ""
@@ -826,6 +962,13 @@ class FinancialSnapshotAuthorityAssessment:
             raise SchemaValidationError("FinancialSnapshotAuthorityAssessment.snapshot_id 必须非空")
         _get_enum(self.validity, FINANCIAL_VALIDITIES, "FinancialSnapshotAuthorityAssessment", "validity")
         _get_enum(self.verdict, AUTHORITY_VERDICTS, "FinancialSnapshotAuthorityAssessment", "verdict")
+        # Fix 2：formula_id 存在 → 必须可验证 formula_version；item-only 不得伪造公式版本。
+        if self.formula_id is not None and not self.formula_version:
+            raise SchemaValidationError(
+                "FinancialSnapshotAuthorityAssessment 引用 formula_id 必须携带 formula_version")
+        if self.formula_id is None and self.formula_version is not None:
+            raise SchemaValidationError(
+                "FinancialSnapshotAuthorityAssessment.formula_version 不得脱离 formula_id 存在")
 
     def to_dict(self) -> dict:
         return {
@@ -842,6 +985,7 @@ class FinancialSnapshotAuthorityAssessment:
             "quarantine": self.quarantine,
             "item_code": self.item_code,
             "formula_id": self.formula_id,
+            "formula_version": self.formula_version,
             "period": self.period,
             "verdict": self.verdict,
             "reason": self.reason,
@@ -852,8 +996,8 @@ class FinancialSnapshotAuthorityAssessment:
     def from_dict(cls, d: Any) -> "FinancialSnapshotAuthorityAssessment":
         d = _reject_unknown(d, {"authority_type", "snapshot_id", "company_id", "scope", "currency",
                                 "purpose", "report_as_of", "is_current", "validity", "report_blocked",
-                                "quarantine", "item_code", "formula_id", "period", "verdict", "reason",
-                                "validator_version"}, "FinancialSnapshotAuthorityAssessment")
+                                "quarantine", "item_code", "formula_id", "formula_version", "period",
+                                "verdict", "reason", "validator_version"}, "FinancialSnapshotAuthorityAssessment")
         if d.get("authority_type") not in (None, "financial_snapshot"):
             raise SchemaValidationError(
                 f"FinancialSnapshotAuthorityAssessment.authority_type 必须为 'financial_snapshot'，"
@@ -872,6 +1016,8 @@ class FinancialSnapshotAuthorityAssessment:
             quarantine=_get_bool(d, "quarantine", "FinancialSnapshotAuthorityAssessment"),
             item_code=_get_str(d, "item_code", "FinancialSnapshotAuthorityAssessment", allow_none=True),
             formula_id=_get_str(d, "formula_id", "FinancialSnapshotAuthorityAssessment", allow_none=True),
+            formula_version=_get_str(d, "formula_version", "FinancialSnapshotAuthorityAssessment",
+                                     allow_none=True),
             period=_get_str(d, "period", "FinancialSnapshotAuthorityAssessment", allow_none=True),
             verdict=_get_str(d, "verdict", "FinancialSnapshotAuthorityAssessment"),
             reason=_get_str(d, "reason", "FinancialSnapshotAuthorityAssessment", allow_empty=True) or "",
@@ -1135,9 +1281,14 @@ def verify_material_payload_ref(payload_ref: MaterialPayloadRef,
 def recompute_authority_verdict(authority: AuthorityAssessment) -> str:
     """确定性重算权威结论（不信任调用方自填 verdict）。
 
-    authoritative 必须满足该来源类型支持「正式事实」的全部资格字段，任一缺失 → rejected。
-    External 即使字段全有效也最高只能 supplemental_only（external 仅 supplemental，
-    不能独立支撑 formal fact，见 §14 权威分离）。
+    权威门只判断「来源及事实载体是否真实、完整、可回查、版本有效」，不判断「该来源能否独立
+    证明公司级结论」（后者属于 aspect usage-scope gate / sufficiency gate，见 Fix 1/Fix 4）。
+
+    - Evidence / Financial：满足该来源类型支持「正式事实」的全部资格字段 → authoritative。
+      Financial 的 item_code / formula_id 至少一个有效（Fix 2：item-only / formula-only 合法）。
+    - External：fetched 正文非空 + content_hash 有效 + canonical URL/domain 有效 + grade != D
+      + 时间资格有效 + 来源身份一致 → authoritative（A/B/C 单条 external 事实可过权威门，
+      但「权威」≠「充分」，是否可作 formal 行业事实由 usage-scope gate 判定；D → rejected）。
     """
     if isinstance(authority, EvidenceAuthorityAssessment):
         ok = (authority.is_current_document and authority.is_current_set
@@ -1152,7 +1303,7 @@ def recompute_authority_verdict(authority: AuthorityAssessment) -> str:
               and bool(authority.company_id) and bool(authority.scope)
               and bool(authority.currency) and bool(authority.purpose)
               and bool(authority.report_as_of)
-              and authority.item_code is not None and authority.formula_id is not None
+              and (authority.item_code is not None or authority.formula_id is not None)
               and authority.period is not None)
         return "authoritative" if ok else "rejected"
     if isinstance(authority, ExternalSnapshotAuthorityAssessment):
@@ -1160,7 +1311,7 @@ def recompute_authority_verdict(authority: AuthorityAssessment) -> str:
               and bool(authority.canonical_url) and bool(authority.domain)
               and authority.source_grade != "D" and authority.min_grade_met
               and authority.time_qualified)
-        return "supplemental_only" if ok else "rejected"
+        return "authoritative" if ok else "rejected"
     raise TypeError(f"未知 authority 类型: {type(authority).__name__}")
 
 
@@ -1186,6 +1337,32 @@ def citation_source_identity(citation: CitationRef) -> str:
     raise SchemaValidationError(f"未知 CitationRef.ref_type: {citation.ref_type!r}")
 
 
+def authority_source_class(authority: AuthorityAssessment) -> str:
+    """三类权威 → 来源类（source_class）。用于 usage-scope gate（Fix 1）。"""
+    if isinstance(authority, EvidenceAuthorityAssessment):
+        return "company_industry"
+    if isinstance(authority, FinancialSnapshotAuthorityAssessment):
+        return "structured_db"
+    if isinstance(authority, ExternalSnapshotAuthorityAssessment):
+        return "external"
+    raise TypeError(f"未知 authority 类型: {type(authority).__name__}")
+
+
+def authority_source_grade(authority: AuthorityAssessment) -> str | None:
+    """来源等级（A/B/C/D）。仅 external 有 grade；evidence/financial 为公司披露/结构化，
+    不属于 external 分级体系 → None。"""
+    if isinstance(authority, ExternalSnapshotAuthorityAssessment):
+        return authority.source_grade
+    return None
+
+
+def authority_independence_domain(authority: AuthorityAssessment) -> str | None:
+    """独立性域（仅 external 有意义，用于 sufficiency 的「≥2 相互独立 C」复算）。"""
+    if isinstance(authority, ExternalSnapshotAuthorityAssessment):
+        return authority.independence_domain or None
+    return None
+
+
 def _material_consistency(material_type: str, locator: MaterialLocator,
                           authority: AuthorityAssessment) -> None:
     """material type ↔ locator 变体 ↔ authority 变体 三者必须匹配（§8 强制不变量）。"""
@@ -1201,6 +1378,44 @@ def _material_consistency(material_type: str, locator: MaterialLocator,
         raise SchemaValidationError(
             f"material_type={material_type!r} 要求 authority_type={exp_auth!r}，"
             f"得到 {authority.authority_type!r}")
+    # Fix 2：structured 的 locator↔authority 必须形成完整财务身份闭环。
+    # item-only / formula-only / 双身份 各按规则强制一致，跨身份错配、无谓 formula、版本/period
+    # 不对称一律拒绝（不允许 locator 与 authority 跨身份错配，也不允许 item-only 伪造 formula）。
+    if material_type == "structured":
+        validate_financial_identity(locator, authority)
+
+
+def validate_financial_identity(locator: "FinancialLocator",
+                                authority: "FinancialSnapshotAuthorityAssessment") -> None:
+    """locator ↔ authority 财务身份闭环（snapshot/item/formula/formula_version/period）。"""
+    if locator.snapshot_id != authority.snapshot_id:
+        raise SchemaValidationError(
+            f"financial locator.snapshot_id={locator.snapshot_id!r} 与 "
+            f"authority.snapshot_id={authority.snapshot_id!r} 不一致")
+    if (locator.period or "") != (authority.period or ""):
+        raise SchemaValidationError(
+            f"financial locator.period={locator.period!r} 与 "
+            f"authority.period={authority.period!r} 不一致")
+    # item 身份：两侧必须一致地给出/缺失，且值相等（item-only 不得混入 formula）。
+    if (locator.item_code is not None) != (authority.item_code is not None):
+        raise SchemaValidationError(
+            "financial item_code 身份不对称：locator/authority 一侧 item-only 另一侧无 item")
+    if locator.item_code is not None and locator.item_code != authority.item_code:
+        raise SchemaValidationError(
+            f"financial locator.item_code={locator.item_code!r} 与 "
+            f"authority.item_code={authority.item_code!r} 不一致")
+    # formula 身份：两侧必须一致地给出/缺失，formula_id + formula_version 都相等。
+    if (locator.formula_id is not None) != (authority.formula_id is not None):
+        raise SchemaValidationError(
+            "financial formula_id 身份不对称：locator/authority 一侧 formula-only 另一侧无 formula")
+    if locator.formula_id is not None and locator.formula_id != authority.formula_id:
+        raise SchemaValidationError(
+            f"financial locator.formula_id={locator.formula_id!r} 与 "
+            f"authority.formula_id={authority.formula_id!r} 不一致")
+    if locator.formula_id is not None and (locator.formula_version or "") != (authority.formula_version or ""):
+        raise SchemaValidationError(
+            f"financial locator.formula_version={locator.formula_version!r} 与 "
+            f"authority.formula_version={authority.formula_version!r} 不一致")
 
 
 @dataclass(frozen=True)
@@ -1306,6 +1521,66 @@ class ValueIdentity:
 
 
 @dataclass(frozen=True)
+class InferenceLineage:
+    """条件性行业传导的推断血缘（Fix 3 类型化载体，绑定 inference SupportedFact）。
+
+    字段名与冻结 Contract `er_ind_transmission_conditional.authority.inference_lineage.fields`
+    逐一对应（inference_policy_ref / channel / direction / conditions / limitation /
+    derived_from_fact_ids），另附版本化 rule_version。缺任一必填字段 → 构造即 fail-closed。
+    """
+
+    inference_policy_ref: str
+    rule_version: str
+    channel: str
+    direction: str
+    conditions: tuple[str, ...]
+    limitation: tuple[str, ...]
+    derived_from_fact_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.inference_policy_ref:
+            raise SchemaValidationError("InferenceLineage.inference_policy_ref 必须非空")
+        if not self.rule_version:
+            raise SchemaValidationError("InferenceLineage.rule_version 必须非空")
+        if not self.channel:
+            raise SchemaValidationError("InferenceLineage.channel 必须非空")
+        _get_enum(self.direction, INFERENCE_DIRECTIONS, "InferenceLineage", "direction")
+        if not self.conditions:
+            raise SchemaValidationError("InferenceLineage.conditions 必须非空")
+        if not self.limitation:
+            raise SchemaValidationError("InferenceLineage.limitation 必须非空")
+        if not self.derived_from_fact_ids:
+            raise SchemaValidationError("InferenceLineage.derived_from_fact_ids 必须非空")
+        if len(set(self.derived_from_fact_ids)) != len(self.derived_from_fact_ids):
+            raise SchemaValidationError("InferenceLineage.derived_from_fact_ids 不得重复")
+
+    def to_dict(self) -> dict:
+        return {
+            "inference_policy_ref": self.inference_policy_ref,
+            "rule_version": self.rule_version,
+            "channel": self.channel,
+            "direction": self.direction,
+            "conditions": list(self.conditions),
+            "limitation": list(self.limitation),
+            "derived_from_fact_ids": list(self.derived_from_fact_ids),
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "InferenceLineage":
+        d = _reject_unknown(d, {"inference_policy_ref", "rule_version", "channel", "direction",
+                                "conditions", "limitation", "derived_from_fact_ids"}, "InferenceLineage")
+        return cls(
+            inference_policy_ref=_get_str(d, "inference_policy_ref", "InferenceLineage"),
+            rule_version=_get_str(d, "rule_version", "InferenceLineage"),
+            channel=_get_str(d, "channel", "InferenceLineage"),
+            direction=_get_str(d, "direction", "InferenceLineage"),
+            conditions=_get_str_tuple(d, "conditions", "InferenceLineage"),
+            limitation=_get_str_tuple(d, "limitation", "InferenceLineage"),
+            derived_from_fact_ids=_get_str_tuple(d, "derived_from_fact_ids", "InferenceLineage"),
+        )
+
+
+@dataclass(frozen=True)
 class SupportedFact:
     """一条通过校验的 adopted fact（SUPPORTED entailment）。"""
 
@@ -1322,6 +1597,8 @@ class SupportedFact:
     confidence: str | None = None
     # 本事实取得的 required_fields 标识（用于 required_fields_complete 覆盖证明；无运行时集合证明）。
     obtained_fields: tuple[str, ...] = ()
+    # Fix 3：inference fact 的类型化推断血缘（普通 fact 为 None）。
+    inference_lineage: InferenceLineage | None = None
 
     def __post_init__(self) -> None:
         if not self.fact_id:
@@ -1333,6 +1610,10 @@ class SupportedFact:
             raise SchemaValidationError("SupportedFact.aspect_ids 必须非空")
         if self.confidence is not None and self.confidence not in ("high", "low"):
             raise SchemaValidationError(f"SupportedFact.confidence 非法: {self.confidence!r}")
+        if self.fact_type == "inference" and self.inference_lineage is None:
+            raise SchemaValidationError("SupportedFact.fact_type=inference 必须携带 inference_lineage")
+        if self.fact_type == "fact" and self.inference_lineage is not None:
+            raise SchemaValidationError("SupportedFact.fact_type=fact 不得携带 inference_lineage")
 
     def to_dict(self) -> dict:
         return {
@@ -1348,14 +1629,17 @@ class SupportedFact:
             "scope": self.scope,
             "confidence": self.confidence,
             "obtained_fields": list(self.obtained_fields),
+            "inference_lineage": self.inference_lineage.to_dict() if self.inference_lineage else None,
         }
 
     @classmethod
     def from_dict(cls, d: Any) -> "SupportedFact":
         d = _reject_unknown(d, {"fact_id", "text", "fact_type", "aspect_ids", "citation_refs",
                                 "source_authority", "value_identity", "semantic_tags", "period",
-                                "scope", "confidence", "obtained_fields"}, "SupportedFact")
+                                "scope", "confidence", "obtained_fields", "inference_lineage"},
+                            "SupportedFact")
         vi = d.get("value_identity")
+        il = d.get("inference_lineage")
         return cls(
             fact_id=_get_str(d, "fact_id", "SupportedFact"),
             text=_get_str(d, "text", "SupportedFact"),
@@ -1371,6 +1655,7 @@ class SupportedFact:
             scope=_get_str(d, "scope", "SupportedFact", allow_none=True),
             confidence=_get_str(d, "confidence", "SupportedFact", allow_none=True),
             obtained_fields=_get_str_tuple(d, "obtained_fields", "SupportedFact"),
+            inference_lineage=InferenceLineage.from_dict(il) if il is not None else None,
         )
 
 
@@ -1819,6 +2104,483 @@ class StatusDerivation:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class FrozenSourcePolicySnapshot:
+    """冻结 SourcePolicy 的最小投影（sufficiency 复算所需的独立冻结输入）。
+
+    只携带可确定性复算 sufficiency 的字段；绝不含 Pack 自证布尔（不信任调用方）。
+    key_industry_topics 由 source_policy.load_source_policy 派生，不硬编码。
+    """
+
+    policy_id: str
+    policy_version: str
+    content_fingerprint: str
+    key_industry_topics: tuple[str, ...] = ()
+    key_conclusion_rule: str = KEY_CONCLUSION_RULE
+    key_conclusion_rule_version: str = KEY_CONCLUSION_RULE_VERSION
+
+    def __post_init__(self) -> None:
+        if not self.policy_id or not self.policy_version:
+            raise SchemaValidationError("FrozenSourcePolicySnapshot.policy_id/policy_version 必须非空")
+        if not _is_sha256_hex(self.content_fingerprint):
+            raise SchemaValidationError("FrozenSourcePolicySnapshot.content_fingerprint 必须为 64 位 sha256 hex")
+        if not self.key_conclusion_rule or not self.key_conclusion_rule_version:
+            raise SchemaValidationError("FrozenSourcePolicySnapshot.key_conclusion_rule/version 必须非空")
+
+    def to_dict(self) -> dict:
+        return {
+            "policy_id": self.policy_id,
+            "policy_version": self.policy_version,
+            "content_fingerprint": self.content_fingerprint,
+            "key_industry_topics": list(self.key_industry_topics),
+            "key_conclusion_rule": self.key_conclusion_rule,
+            "key_conclusion_rule_version": self.key_conclusion_rule_version,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "FrozenSourcePolicySnapshot":
+        d = _reject_unknown(d, {"policy_id", "policy_version", "content_fingerprint",
+                                "key_industry_topics", "key_conclusion_rule",
+                                "key_conclusion_rule_version"}, "FrozenSourcePolicySnapshot")
+        return cls(
+            policy_id=_get_str(d, "policy_id", "FrozenSourcePolicySnapshot"),
+            policy_version=_get_str(d, "policy_version", "FrozenSourcePolicySnapshot"),
+            content_fingerprint=_get_str(d, "content_fingerprint", "FrozenSourcePolicySnapshot"),
+            key_industry_topics=_get_str_tuple(d, "key_industry_topics", "FrozenSourcePolicySnapshot"),
+            key_conclusion_rule=_get_str(d, "key_conclusion_rule", "FrozenSourcePolicySnapshot"),
+            key_conclusion_rule_version=_get_str(d, "key_conclusion_rule_version", "FrozenSourcePolicySnapshot"),
+        )
+
+
+class SourcePolicyResolver(Protocol):
+    """R1-B 最小 SourcePolicy 解析边界（依赖注入；不直接信任调用方构造的 FrozenSourcePolicySnapshot）。
+
+    resolve 从独立冻结来源按 SourcePolicyRef 解析不可变政策投影；不可解析 / dangling → None。
+    """
+
+    def resolve(self, source_policy_ref: SourcePolicyRef) -> FrozenSourcePolicySnapshot | None:
+        """解析 SourcePolicyRef 到不可变冻结投影；dangling → None。"""
+        ...
+
+
+def verify_frozen_source_policy(source_policy_ref: SourcePolicyRef,
+                                resolved: FrozenSourcePolicySnapshot | None) -> FrozenSourcePolicySnapshot:
+    """校验 resolver 返回的冻结 SourcePolicy 与 SourcePolicyRef 身份闭合一致（Fix 1 fail-closed）。
+
+    dangling / policy_id 不一致 / policy_version 不一致 / content_fingerprint 不一致 /
+    key_industry_topics 为空（伪造）/ key_conclusion_rule·version 与可信常量不一致 → 全部拒绝。
+    绝不把调用方任意构造的 FrozenSourcePolicySnapshot 当作可信输入，也绝不通过空 topic 名单
+    或省略 resolver 关闭 sufficiency gate。
+    """
+    if resolved is None:
+        raise SchemaValidationError(
+            f"SourcePolicyRef 无法解析（dangling）：{source_policy_ref.policy_id}"
+            f"@{source_policy_ref.policy_version}")
+    if resolved.policy_id != source_policy_ref.policy_id:
+        raise SchemaValidationError(
+            f"SourcePolicy policy_id 不一致：期望 {source_policy_ref.policy_id!r}，"
+            f"得到 {resolved.policy_id!r}")
+    if resolved.policy_version != source_policy_ref.policy_version:
+        raise SchemaValidationError(
+            f"SourcePolicy policy_version 不一致：期望 {source_policy_ref.policy_version!r}，"
+            f"得到 {resolved.policy_version!r}")
+    if resolved.content_fingerprint != source_policy_ref.content_fingerprint:
+        raise SchemaValidationError(
+            f"SourcePolicy content_fingerprint 不一致：期望 {source_policy_ref.content_fingerprint!r}，"
+            f"得到 {resolved.content_fingerprint!r}")
+    if not resolved.key_industry_topics:
+        raise SchemaValidationError("SourcePolicy key_industry_topics 为空（伪造；fail-closed）")
+    if resolved.key_conclusion_rule != KEY_CONCLUSION_RULE:
+        raise SchemaValidationError(
+            f"SourcePolicy key_conclusion_rule 不一致：期望 {KEY_CONCLUSION_RULE!r}，"
+            f"得到 {resolved.key_conclusion_rule!r}")
+    if resolved.key_conclusion_rule_version != KEY_CONCLUSION_RULE_VERSION:
+        raise SchemaValidationError(
+            f"SourcePolicy key_conclusion_rule_version 不一致：期望 {KEY_CONCLUSION_RULE_VERSION!r}，"
+            f"得到 {resolved.key_conclusion_rule_version!r}")
+    return resolved
+
+
+@dataclass(frozen=True)
+class SupportEligibilityAssessment:
+    """usage-scope gate 派生结果（Fix 1）：某 aspect 允许哪些来源类作 required / supplemental。
+
+    由冻结 EvidenceRequirementRef.source_classes/authority 确定性派生
+    （derive_support_eligibility），不硬编码 Topic ID，不含自由文本。
+    """
+
+    aspect_id: str
+    policy_version: str
+    required_source_classes: tuple[str, ...]
+    supplemental_only_source_classes: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.aspect_id:
+            raise SchemaValidationError("SupportEligibilityAssessment.aspect_id 必须非空")
+        if not self.policy_version:
+            raise SchemaValidationError("SupportEligibilityAssessment.policy_version 必须非空")
+
+    def to_dict(self) -> dict:
+        return {
+            "aspect_id": self.aspect_id,
+            "policy_version": self.policy_version,
+            "required_source_classes": list(self.required_source_classes),
+            "supplemental_only_source_classes": list(self.supplemental_only_source_classes),
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "SupportEligibilityAssessment":
+        d = _reject_unknown(d, {"aspect_id", "policy_version", "required_source_classes",
+                                "supplemental_only_source_classes"}, "SupportEligibilityAssessment")
+        return cls(
+            aspect_id=_get_str(d, "aspect_id", "SupportEligibilityAssessment"),
+            policy_version=_get_str(d, "policy_version", "SupportEligibilityAssessment"),
+            required_source_classes=_get_str_tuple(d, "required_source_classes", "SupportEligibilityAssessment"),
+            supplemental_only_source_classes=_get_str_tuple(d, "supplemental_only_source_classes",
+                                                           "SupportEligibilityAssessment"),
+        )
+
+
+@dataclass(frozen=True)
+class SetCompletenessAssessment:
+    """set_complete 的类型化证明（Fix 3）：在明确权威披露范围内完整归拢枚举。
+
+    绑定 material 身份 + 文档版本 + 章节/表边界 + expected/observed 成员 + 排除理由 +
+    supporting material/fact + scope_complete + 评估器/推导版本 + Contract/dependency 指纹。
+    """
+
+    aspect_id: str
+    rule_version: str
+    source_material_ids: tuple[str, ...]
+    document_version: str
+    source_boundary: str
+    expected_member_ids: tuple[str, ...]
+    observed_member_ids: tuple[str, ...]
+    excluded_member_ids: tuple[str, ...]
+    exclusion_reasons: tuple[str, ...]
+    supporting_material_ids: tuple[str, ...]
+    supporting_fact_ids: tuple[str, ...]
+    scope_complete: bool
+    assessor_version: str
+    contract_sha256: str
+    dependency_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if not self.aspect_id:
+            raise SchemaValidationError("SetCompletenessAssessment.aspect_id 必须非空")
+        if not self.rule_version:
+            raise SchemaValidationError("SetCompletenessAssessment.rule_version 必须非空")
+        if not self.source_material_ids:
+            raise SchemaValidationError("SetCompletenessAssessment.source_material_ids 必须非空")
+        if not self.document_version or not self.source_boundary:
+            raise SchemaValidationError("SetCompletenessAssessment.document_version/source_boundary 必须非空")
+        if not self.expected_member_ids:
+            raise SchemaValidationError("SetCompletenessAssessment.expected_member_ids 必须非空")
+        if len(self.excluded_member_ids) != len(self.exclusion_reasons):
+            raise SchemaValidationError(
+                "SetCompletenessAssessment.excluded_member_ids 与 exclusion_reasons 必须一一对应")
+        if not _is_sha256_hex(self.contract_sha256):
+            raise SchemaValidationError("SetCompletenessAssessment.contract_sha256 必须为 64 位 sha256 hex")
+        if not _is_sha256_hex(self.dependency_fingerprint):
+            raise SchemaValidationError("SetCompletenessAssessment.dependency_fingerprint 必须为 64 位 sha256 hex")
+
+    def to_dict(self) -> dict:
+        return {
+            "aspect_id": self.aspect_id,
+            "rule_version": self.rule_version,
+            "source_material_ids": list(self.source_material_ids),
+            "document_version": self.document_version,
+            "source_boundary": self.source_boundary,
+            "expected_member_ids": list(self.expected_member_ids),
+            "observed_member_ids": list(self.observed_member_ids),
+            "excluded_member_ids": list(self.excluded_member_ids),
+            "exclusion_reasons": list(self.exclusion_reasons),
+            "supporting_material_ids": list(self.supporting_material_ids),
+            "supporting_fact_ids": list(self.supporting_fact_ids),
+            "scope_complete": self.scope_complete,
+            "assessor_version": self.assessor_version,
+            "contract_sha256": self.contract_sha256,
+            "dependency_fingerprint": self.dependency_fingerprint,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "SetCompletenessAssessment":
+        d = _reject_unknown(d, {
+            "aspect_id", "rule_version", "source_material_ids", "document_version",
+            "source_boundary", "expected_member_ids", "observed_member_ids", "excluded_member_ids",
+            "exclusion_reasons", "supporting_material_ids", "supporting_fact_ids", "scope_complete",
+            "assessor_version", "contract_sha256", "dependency_fingerprint",
+        }, "SetCompletenessAssessment")
+        return cls(
+            aspect_id=_get_str(d, "aspect_id", "SetCompletenessAssessment"),
+            rule_version=_get_str(d, "rule_version", "SetCompletenessAssessment"),
+            source_material_ids=_get_str_tuple(d, "source_material_ids", "SetCompletenessAssessment"),
+            document_version=_get_str(d, "document_version", "SetCompletenessAssessment"),
+            source_boundary=_get_str(d, "source_boundary", "SetCompletenessAssessment"),
+            expected_member_ids=_get_str_tuple(d, "expected_member_ids", "SetCompletenessAssessment"),
+            observed_member_ids=_get_str_tuple(d, "observed_member_ids", "SetCompletenessAssessment"),
+            excluded_member_ids=_get_str_tuple(d, "excluded_member_ids", "SetCompletenessAssessment"),
+            exclusion_reasons=_get_str_tuple(d, "exclusion_reasons", "SetCompletenessAssessment"),
+            supporting_material_ids=_get_str_tuple(d, "supporting_material_ids", "SetCompletenessAssessment"),
+            supporting_fact_ids=_get_str_tuple(d, "supporting_fact_ids", "SetCompletenessAssessment"),
+            scope_complete=_get_bool(d, "scope_complete", "SetCompletenessAssessment"),
+            assessor_version=_get_str(d, "assessor_version", "SetCompletenessAssessment",
+                                      allow_empty=True) or "",
+            contract_sha256=_get_str(d, "contract_sha256", "SetCompletenessAssessment"),
+            dependency_fingerprint=_get_str(d, "dependency_fingerprint", "SetCompletenessAssessment"),
+        )
+
+
+@dataclass(frozen=True)
+class SetCompletenessVerdict:
+    """SetCompletenessVerifier 的确定性判定（不信任 Pack 自填 scope_complete）。"""
+
+    set_complete: bool
+    verifier_version: str
+    reason: str = ""
+
+
+class SetCompletenessVerifier(Protocol):
+    """R1-B 最小 set_complete 可信评估边界（依赖注入；确定性复算集合关系）。
+
+    不得直接信任 SetCompletenessAssessment.scope_complete；由 verifier 从集合关系 +
+    依赖指纹确定性复算 set_complete。verifier 缺失 / 版本不符 / 身份不符 / 复算 False →
+    fail-closed。
+    """
+
+    def verify(self, assessment: "SetCompletenessAssessment",
+               dependency_fingerprint: str) -> SetCompletenessVerdict | None:
+        """复算 set_complete；无法验证 → None。"""
+        ...
+
+
+def compute_set_completeness_verdict(assessment: "SetCompletenessAssessment",
+                                     dependency_fingerprint: str) -> SetCompletenessVerdict:
+    """确定性复算 set_complete 集合关系（引用实现；不信任 scope_complete 布尔）。
+
+    校验：成员 ID 唯一非空；observed ∩ excluded 空；expected = observed ∪ excluded；
+    每个 excluded 有非空 reason；dependency_fingerprint 与当前 Pack/Requirement 严格一致。
+    contract_sha256 / rule_version / assessor_version / 成员绑定由 Store 单独强校验。
+    """
+    reasons: list[str] = []
+    expected = assessment.expected_member_ids
+    observed = assessment.observed_member_ids
+    excluded = assessment.excluded_member_ids
+    excl_reasons = assessment.exclusion_reasons
+    all_members = expected + observed + excluded
+    if any(not m for m in all_members):
+        reasons.append("member id 为空")
+    if len(set(expected)) != len(expected):
+        reasons.append("expected 含重复 member id")
+    if len(set(observed)) != len(observed):
+        reasons.append("observed 含重复 member id")
+    if len(set(excluded)) != len(excluded):
+        reasons.append("excluded 含重复 member id")
+    if set(observed) & set(excluded):
+        reasons.append("observed ∩ excluded 非空")
+    if set(expected) != (set(observed) | set(excluded)):
+        reasons.append("expected != observed ∪ excluded")
+    if len(excluded) != len(excl_reasons) or any(not r for r in excl_reasons):
+        reasons.append("excluded 成员缺非空 reason")
+    if assessment.dependency_fingerprint != dependency_fingerprint:
+        reasons.append("dependency_fingerprint 与当前 Pack/Requirement 不一致")
+    return SetCompletenessVerdict(
+        set_complete=(len(reasons) == 0),
+        verifier_version=SET_COMPLETENESS_VERIFIER_VERSION,
+        reason="; ".join(reasons),
+    )
+
+
+@dataclass(frozen=True)
+class SetEnumerationResult:
+    """set_complete 的独立枚举结果（Fix 2）：受信任枚举器产出的确定性枚举成员集合。
+
+    不含 Pack 自证布尔。enumerated_member_ids 是枚举器从明确边界 + payload 枚举得到的成员集合；
+    payload_hash / boundary_identity 由枚举器对真实 payload 与边界确定性计算，Store 据此与
+    assessment 自填 expected/observed/excluded 及实际解析 payload 身份/hash 交叉复核。
+    material_type_supported=False 表示该 material 类型无法枚举（Store fail-closed）。
+
+    信任边界：这些字段是「受信任、版本化、确定性的枚举器」的自报结果。Store 只能校验它们
+    与真实解析 payload 的身份/哈希/边界/集合关系是否一致，无法证明该枚举器内部确实读取过
+    payload bytes。R2 由唯一正式组合入口注入正式枚举器后才建立该信任。
+    """
+
+    material_type_supported: bool
+    enumerated_member_ids: tuple[str, ...] = ()
+    payload_hash: str = ""
+    boundary_identity: str = ""
+    verifier_version: str = ""
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.verifier_version:
+            raise SchemaValidationError("SetEnumerationResult.verifier_version 必须非空")
+        if self.material_type_supported:
+            if not _is_sha256_hex(self.payload_hash):
+                raise SchemaValidationError(
+                    "SetEnumerationResult.payload_hash 必须为 64 位 sha256 hex")
+            if not self.boundary_identity:
+                raise SchemaValidationError("SetEnumerationResult.boundary_identity 必须非空")
+            if not self.enumerated_member_ids:
+                raise SchemaValidationError("SetEnumerationResult.enumerated_member_ids 必须非空")
+            if any(not m for m in self.enumerated_member_ids):
+                raise SchemaValidationError("SetEnumerationResult.enumerated_member_ids 含空成员")
+
+    def to_dict(self) -> dict:
+        return {
+            "material_type_supported": self.material_type_supported,
+            "enumerated_member_ids": list(self.enumerated_member_ids),
+            "payload_hash": self.payload_hash,
+            "boundary_identity": self.boundary_identity,
+            "verifier_version": self.verifier_version,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "SetEnumerationResult":
+        d = _reject_unknown(d, {
+            "material_type_supported", "enumerated_member_ids", "payload_hash",
+            "boundary_identity", "verifier_version", "reason"}, "SetEnumerationResult")
+        return cls(
+            material_type_supported=_get_bool(d, "material_type_supported", "SetEnumerationResult"),
+            enumerated_member_ids=_get_str_tuple(d, "enumerated_member_ids", "SetEnumerationResult"),
+            payload_hash=_get_str(d, "payload_hash", "SetEnumerationResult", allow_empty=True) or "",
+            boundary_identity=_get_str(d, "boundary_identity", "SetEnumerationResult",
+                                       allow_empty=True) or "",
+            verifier_version=_get_str(d, "verifier_version", "SetEnumerationResult"),
+            reason=_get_str(d, "reason", "SetEnumerationResult", allow_empty=True) or "",
+        )
+
+
+class SetEnumerationVerifier(Protocol):
+    """R1-B 最小独立枚举边界（Fix 2）：受信任、版本化、确定性的运行时依赖。
+
+    枚举器从 Store 解析出的 resolved_payloads 枚举集合成员，并确定性计算 payload_hash /
+    boundary_identity。Store 交叉复核 material/payload 身份、payload hash、document version、
+    source boundary、dependency fingerprint、以及 enumerated/expected/observed/excluded 集合关系；
+    任何一项不符 → fail-closed。
+
+    信任边界（不得高估）：Store 无法证明一个任意注入的 Python 实现「内部确实读取过 payload
+    bytes」；payload 缺失 / bytes 不可用 / 边界不可验证 / 不支持该 material 类型 → 返回
+    material_type_supported=False 或 None（Store fail-closed）。
+
+    R2 硬门：R2 必须实现正式、版本化、确定性的文档枚举器，且必须由唯一正式组合入口注入；
+    正式枚举器接线之前，生产运行链不得将 set_complete aspect 提升为 covered。R2 后续计划必须
+    把枚举器版本纳入 dependency fingerprint（本轮只记录该硬门，不实现 R2）。测试 fake 只证明
+    接口与 Store 绑定关系成立，不代表正式文档枚举已实现。
+    """
+
+    def enumerate(self, assessment: "SetCompletenessAssessment",
+                  materials: tuple["ResearchMaterial", ...],
+                  resolved_payloads: tuple["ResolvedPayload", ...],
+                  dependency_fingerprint: str) -> SetEnumerationResult | None:
+        """枚举成员；无法枚举（payload 缺失/bytes 不可用/不支持类型）→ None 或 supported=False。"""
+        ...
+
+
+def compute_boundary_identity(document_version: str, source_boundary: str) -> str:
+    """边界身份指纹（Fix 2）：把 document_version + source_boundary 固化为确定性 sha256。
+
+    枚举器与 Store 各自对同一 (document_version, source_boundary) 计算，须一致；不一致即
+    枚举边界与 assessment 自填边界不匹配（fail-closed）。
+    """
+    return sha256_canonical({
+        "document_version": document_version,
+        "source_boundary": source_boundary,
+    })
+
+
+def compute_source_payload_hash(resolved_payloads: tuple["ResolvedPayload", ...]) -> str:
+    """来源 payload 集合的确定性哈希（枚举器与 Store 各自独立计算，须一致）。
+
+    以 content_hash（已由 verify_material_payload_ref 复核 == sha256(payload_bytes)）为规范形，
+    使枚举器与 Store 无需各自重算字节哈希即得同一值；绑定枚举结果到真实 payload 身份。
+    枚举结果 payload_hash 与该值不一致 → 判定枚举结果与真实解析 payload 身份不一致（fail-closed）。
+    """
+    return sha256_canonical([rp.content_hash for rp in resolved_payloads])
+
+
+def derive_support_eligibility(snap: TopicAspectRequirementSnapshot) -> SupportEligibilityAssessment:
+    """从冻结 EvidenceRequirementRef 派生 aspect 的 usage-scope（Fix 1）。
+
+    required = 所有 required_any_of 组 source_classes 的并集；supplemental_only = 各 ref 的
+    supplemental_only 并集。无冻结使用资格信息（source_classes/authority 全空）→ 两者皆空
+    （Store 此时不触发 usage-scope gate，仅权威门 + coverage + sufficiency）。
+    """
+    required: set[str] = set()
+    supplemental: set[str] = set()
+    for er in snap.evidence_requirement_ids:
+        if er.authority is not None:
+            for grp in er.authority.required_any_of:
+                required |= set(grp.source_classes)
+            supplemental |= set(er.authority.supplemental_only)
+        else:
+            required |= set(er.source_classes)
+    return SupportEligibilityAssessment(
+        aspect_id=snap.aspect_id,
+        policy_version=SUPPORT_ELIGIBILITY_POLICY_VERSION,
+        required_source_classes=tuple(sorted(required)),
+        supplemental_only_source_classes=tuple(sorted(supplemental)),
+    )
+
+
+def recompute_sufficiency(aspect: AspectResearchResult,
+                          facts: tuple[SupportedFact, ...],
+                          source_policy: FrozenSourcePolicySnapshot | None) -> SufficiencyAssessment | None:
+    """确定性复算 sufficiency（Fix 4）。规则来源 = 冻结输入，绝不硬编码 Topic 名单。
+
+    优先级：transmission_layers（四层各判）> key_industry_topics（key_conclusion_ab_c）> 无门。
+    复算 threshold_met / independent_c_count / supporting ids 全部来自 facts 的真实 authority
+    grade / canonical domain / source class；调用方自填 SufficiencyAssessment 必须与本函数一致。
+    """
+    snap = aspect.requirement_snapshot
+    layers = snap.transmission_layers
+    layer = layers[0] if layers else None
+
+    fact_ids = tuple(f.fact_id for f in facts)
+    source_ids = tuple(authority_source_identity(f.source_authority) for f in facts)
+    fact_types = tuple(f.fact_type for f in facts)
+    triples = [(authority_source_class(f.source_authority),
+                authority_source_grade(f.source_authority),
+                authority_independence_domain(f.source_authority))
+               for f in facts]
+
+    def build(rule: str, rule_version: str, threshold_met: bool,
+              independent_c_count: int) -> SufficiencyAssessment:
+        return SufficiencyAssessment(
+            aspect_id=aspect.aspect_id, conclusion_id=None,
+            supporting_fact_ids=fact_ids, supporting_source_ids=source_ids,
+            rule=rule, rule_version=rule_version, threshold_met=threshold_met,
+            independent_c_count=independent_c_count, assessor_version=SUFFICIENCY_ASSESSOR_VERSION,
+        )
+
+    if layer in TRANSMISSION_SUFFICIENCY_RULES:
+        rule, rule_version = TRANSMISSION_SUFFICIENCY_RULES[layer]
+        if layer in ("company_exposure", "actual_company_impact"):
+            # 公司暴露 / 实际影响必须由公司披露（非 external）支撑；external 仅 supplemental。
+            non_external = any(sc != "external" for sc, _g, _d in triples)
+            return build(rule, rule_version, non_external, 0)
+        if layer == "conditional_transmission":
+            # 需 external / company_industry 的 verified inference fact（fact_type=inference 且带类型化血缘）。
+            ok = any(sc in ("external", "company_industry") and g != "D" and ft == "inference"
+                     and f.inference_lineage is not None
+                     for (sc, g, _d), ft, f in zip(triples, fact_types, facts))
+            return build(rule, rule_version, ok, 0)
+        # industry_background：external A/B/C（权威门已排除 D）。
+        ok = any(g in ("A", "B", "C") for _sc, g, _d in triples)
+        return build(rule, rule_version, ok, 0)
+
+    if source_policy is not None and snap.topic_id in source_policy.key_industry_topics:
+        ab = any(g in ("A", "B") for _sc, g, _d in triples)
+        c_domains = {d for _sc, g, d in triples if g == "C" and d}
+        independent_c_count = len(c_domains)
+        threshold_met = ab or independent_c_count >= 2
+        return build(source_policy.key_conclusion_rule, source_policy.key_conclusion_rule_version,
+                     threshold_met, independent_c_count)
+
+    return None
+
+
+@dataclass(frozen=True)
 class SufficiencyAssessment:
     """sufficiency-gate 记录（绑定 aspect/conclusion + 实际事实/来源 + 规则版本）。"""
 
@@ -1887,6 +2649,8 @@ class AspectResearchResult:
     not_found_audit_id: str | None = None
     authority_assessment: AuthorityAssessment | None = None
     sufficiency_assessment: SufficiencyAssessment | None = None
+    support_eligibility: SupportEligibilityAssessment | None = None
+    set_completeness: SetCompletenessAssessment | None = None
 
     def __post_init__(self) -> None:
         if not self.aspect_id:
@@ -1899,6 +2663,14 @@ class AspectResearchResult:
                 f"requirement_snapshot.aspect_id={self.requirement_snapshot.aspect_id!r} 不一致")
         if self.status == "not_found" and not self.not_found_audit_id:
             raise SchemaValidationError("AspectResearchResult.status=not_found 必须绑定 not_found_audit_id")
+        if self.support_eligibility is not None and self.support_eligibility.aspect_id != self.aspect_id:
+            raise SchemaValidationError(
+                f"AspectResearchResult.support_eligibility.aspect_id={self.support_eligibility.aspect_id!r} "
+                f"与 aspect_id={self.aspect_id!r} 不一致")
+        if self.set_completeness is not None and self.set_completeness.aspect_id != self.aspect_id:
+            raise SchemaValidationError(
+                f"AspectResearchResult.set_completeness.aspect_id={self.set_completeness.aspect_id!r} "
+                f"与 aspect_id={self.aspect_id!r} 不一致")
 
     def to_dict(self) -> dict:
         return {
@@ -1915,6 +2687,10 @@ class AspectResearchResult:
                 if self.authority_assessment is not None else None,
             "sufficiency_assessment": self.sufficiency_assessment.to_dict()
                 if self.sufficiency_assessment is not None else None,
+            "support_eligibility": self.support_eligibility.to_dict()
+                if self.support_eligibility is not None else None,
+            "set_completeness": self.set_completeness.to_dict()
+                if self.set_completeness is not None else None,
         }
 
     @classmethod
@@ -1922,9 +2698,12 @@ class AspectResearchResult:
         d = _reject_unknown(d, {"aspect_id", "question_ids", "requirement_snapshot", "status",
                                 "supported_fact_ids", "material_ids", "attempted_need_ids",
                                 "unresolved_ids", "not_found_audit_id", "authority_assessment",
-                                "sufficiency_assessment"}, "AspectResearchResult")
+                                "sufficiency_assessment", "support_eligibility",
+                                "set_completeness"}, "AspectResearchResult")
         aa = d.get("authority_assessment")
         sa = d.get("sufficiency_assessment")
+        se = d.get("support_eligibility")
+        sc = d.get("set_completeness")
         return cls(
             aspect_id=_get_str(d, "aspect_id", "AspectResearchResult"),
             question_ids=_get_str_tuple(d, "question_ids", "AspectResearchResult"),
@@ -1938,6 +2717,8 @@ class AspectResearchResult:
             not_found_audit_id=_get_str(d, "not_found_audit_id", "AspectResearchResult", allow_none=True),
             authority_assessment=authority_from_dict(aa) if aa is not None else None,
             sufficiency_assessment=SufficiencyAssessment.from_dict(sa) if sa is not None else None,
+            support_eligibility=SupportEligibilityAssessment.from_dict(se) if se is not None else None,
+            set_completeness=SetCompletenessAssessment.from_dict(sc) if sc is not None else None,
         )
 
 
