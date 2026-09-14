@@ -432,7 +432,7 @@ Section Evaluator 除既有安全规则外，新增以下章级确定性/半确�
 
 **出口：** 52 问映射审计；Contract v2、来源 policy 和迁移方案经人工确认并通过兼容验证；唯一 Pack 类型；canonical WritingSpec/PresentationProfile 资产、schema/loader/validator、版本与依赖指纹方案；序列化/反序列化、内容寻址、幂等、冲突、current、只读加载、依赖变化失效和 migration 测试全绿。R1 未通过不得进入 R2。
 
-**R1-A 状态（2026-09-13，已批准并冻结）：** 已按授权书 §二/§五～§十一 生成并冻结资产，由用户与 Codex 批准；**已冻结、已按职责提交、未接线正式运行时**。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、每 aspect 22 字段、49 evidence 需求）、`templates/policies/source_policy_v1.yaml`（A/B/C/D 分级 + 关键结论支撑 + 行业风险传导四层）、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary_reference）、`templates/presentation_profiles/interview_demo_v1.yaml`（呈现边界硬约束）、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项全绿，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1 其余出口（唯一 Pack 类型、migration/兼容验证、序列化/幂等/冲突/current/只读/migration 测试）留待 R1-B。
+**R1-A 状态（2026-09-13，已批准并冻结）：** 已按授权书 §二/§五～§十一 生成并冻结资产，由用户与 Codex 批准；**已冻结、已按职责提交、未接线正式运行时**。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、每 aspect 22 字段、49 evidence 需求）、`templates/policies/source_policy_v1.yaml`（A/B/C/D 分级 + 关键结论支撑 + 行业风险传导四层）、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary_reference）、`templates/presentation_profiles/interview_demo_v1.yaml`（呈现边界硬约束）、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项全绿，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1 其余出口（唯一 Pack 类型、migration/兼容验证、序列化/幂等/冲突/current/只读/migration 测试）留待 R1-B（已于 2026-09-14 正式关闭）。
 
 ### R2：材料构建与受控上下文扩读
 
@@ -541,9 +541,9 @@ R7 的人工确认是验收人员对持久化产物的离线检查，不是产�
 
 ## 10. 当前批次计划与人工门
 
-R0 已关闭，不得重新盘点或实现。R1-A 已批准并冻结、已按职责提交、尚未接线正式运行时。Claude Code 在进入下一批前，先完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`、两份 confirmed Contract review、正式 Contract、当前 worktree/diff（如有），以及 P3/P4 相关实现。**先不调用真实 LLM/博查；R1-B 计划须先经人工 + Codex 审批后才可编码。R1-B～R7 每批仍须先输出计划并等待批准。** 当前计划必须逐项回答：
+R0 已关闭，不得重新盘点或实现。R1-A 已批准并冻结、已按职责提交、尚未接线正式运行时；R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举 + SourcePolicyRef 唯一绑定，完整离线 eval 4467/0/0）。Claude Code 在进入下一批前，先完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`、两份 confirmed Contract review、正式 Contract、当前 worktree/diff（如有），以及 P3/P4 相关实现。**先不调用真实 LLM/博查；R2 计划已获人工 + Codex 批准、进入编码。R3～R7 每批仍须先输出计划并等待批准。** 当前计划必须逐项回答：
 
-1. R1-A 已冻结、已按职责提交；当前等待 R1-B 计划批准。R1-B 计划的逐文件归属、52 问业务语义和架构边界是否符合上位设计、哪些项仍需业务确认；
+1. R1-A 已冻结、已按职责提交、R1-B 已正式关闭；R2 计划已获批准、进入编码。R2 计划的逐文件归属、材料构建/扩读语义和架构边界是否符合上位设计、哪些项仍需业务确认；
 2. 三套相近材料对象的逐字段映射，以及最终唯一对象放在哪个模块；
 3. 52 问 aspect/evidence/display 审计产物格式；现有 Contract 过粗项如何通用拆分；`standard_v3.yaml`/`contract_version=v2`（或有充分迁移理由的等价新文件）及历史 manifest/loader 兼容方式；search/fetch capability 与 Rules-internal snapshot 如何表达；
 4. Pack schema、Store/migration、稳定 ID、指纹、checkpoint、系统故障恢复和只读加载；其中恢复接口不得暴露为当前 UI 的用户续跑动作；

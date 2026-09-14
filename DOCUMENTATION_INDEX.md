@@ -1,6 +1,6 @@
 # 文档治理与权威索引
 
-> 版本：v1.1 · 2026-09-13
+> 版本：v1.2 · 2026-09-14
 > 用途：告诉开发者和开发代理“当前应读什么、什么只是历史、冲突时听谁的”。
 > 本文件不定义业务规则或代码接口；具体规则以对应权威文档为准。
 
@@ -106,11 +106,11 @@ SectionContract / SectionTask
 
 ## 4. 当前开放决定与 R1-A 冻结资产
 
-R1-A 已由用户与 Codex 批准并正式冻结、按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 / 187 aspect / 49 evidence / 28·13·3·8 生产者）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（187 primary + 6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`。Contract v2 尚未接线正式 runtime；R1-B 尚未编码（计划待审批）。
+R1-A 已由用户与 Codex 批准并正式冻结、按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。冻结资产：`templates/contracts/standard_v3.yaml`（Contract v2，52 问 / 187 aspect / 49 evidence / 28·13·3·8 生产者）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（187 primary + 6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`。Contract v2 尚未接线正式 runtime。R1-B 已正式关闭（唯一 `TopicResearchPack` schema v2 + 追加式 migration 2 + `set_complete` 独立枚举接口 + SourcePolicyRef Pack 内唯一绑定）；完整离线 eval 4467 passed / 0 failed / 0 skipped；正式 `SetEnumerationVerifier` 由 R2 实现并接线。R2 当前为「实施计划已批准、开始编码」；R3～R7、Phase 5/6 未进入。
 
 以下事项仍为“待实现阶段用证据决定”，不得由开发代理自行拍板：
 
-1. **R1-B 计划审批与实施**：唯一 `TopicResearchPack` schema/Store/checkpoint、`data/harness.db` 兼容迁移、状态适配、身份/指纹/失效规则与离线测试；计划须先获人工 + Codex 批准后才可编码。
+1. **R2 计划审批与实施**：R1-B 已正式关闭（唯一 `TopicResearchPack` schema/Store/checkpoint、`data/harness.db` 兼容迁移、状态适配、身份/指纹/失效规则与离线测试）；R2 材料构建/受控上下文扩读计划已获人工 + Codex 批准、进入编码。
 2. **Topic 预算具体数值**：S/M/L/XL 只是初始分档，须由合成测试和少量真实纵向样本校准；不得按 300750 或 case id 调参。
 3. **搜索 Provider 是否更换**：当前正式运行时仍为博查；先区分查询规划、候选排序、fetch 可达性和 Provider 召回，再决定是否单独做对照。
 4. **统一数字事实层的物理存储**：方向是统一只读 Fact Registry/语义身份，不是立即把 FinancialSnapshot、Evidence 附注和 ExternalSnapshot 合并进一张权威表。

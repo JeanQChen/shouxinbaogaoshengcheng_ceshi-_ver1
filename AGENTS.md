@@ -145,8 +145,8 @@ The only active implementation task is `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TA
 
 At this point:
 
-- R0 is closed and R1-A is frozen (approved, committed by responsibility). R1-B must be planned and approved before coding; exact worktree/test status belongs only in `V2_TODO.md`.
-- Execute the remaining R1–R7 work in the approved order; do not skip directly to report polishing or full 41-question reruns.
+- R0 is closed; R1-A is frozen (approved, committed by responsibility); R1-B is closed (TopicResearchPack schema v2 + migration 2 + set_complete independent enumeration + SourcePolicyRef unique binding). The formal, versioned, deterministic `SetEnumerationVerifier` is still pending R2. R2 plan is approved and coding has started; R3–R7 and Phase 5/6 are not entered. Exact worktree/test status belongs only in `V2_TODO.md`.
+- Execute the remaining R2–R7 work in the approved order; do not skip directly to report polishing or full 41-question reruns.
 - Do not start Phase 5 or Phase 6 product work while the P3R/P4R gate is open.
 
 Common checks:

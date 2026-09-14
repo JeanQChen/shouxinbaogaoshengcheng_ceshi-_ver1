@@ -1,8 +1,8 @@
 # 授信报告生成器 V2 总实施路线图
 
-> 版本：v0.5 · 2026-09-13
-> 状态：Phase 0A～3 的历史关闭记录保留；Phase 4 基础设施已交付，但 P3→P4 内容完整性门未通过，现重开 P3R/P4R 全局重整。Phase 5 暂不进入。
-> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.7
+> 版本：v0.6 · 2026-09-14
+> 状态：Phase 0A～3 的历史关闭记录保留；Phase 4 基础设施已交付，但 P3→P4 内容完整性门未通过，现重开 P3R/P4R 全局重整。R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举）；R2 实施计划已批准、开始编码；R3～R7、Phase 5 暂不进入。
+> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.8
 > 工程规则：[AGENTS.md](./AGENTS.md)
 > 文档索引：[DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -80,7 +80,7 @@
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 已关闭 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 基础能力已交付；内容完整性关闭撤回 |
-| 3R/4R | TopicResearchPack、覆盖驱动研究与章节表达重整 | 3、4 的正式唯一主链 | **R1-A 已批准并冻结（已提交，未接线）；R1-B 计划待审批；R2～R7 待实施** |
+| 3R/4R | TopicResearchPack、覆盖驱动研究与章节表达重整 | 3、4 的正式唯一主链 | **R1-A 已批准并冻结（已提交，未接线）；R1-B 已正式关闭；R2 计划已批准、开始编码；R3～R7 待实施** |
 | 5 + 1F-B | 综合、内容完整性前置门、完整 Assurance 与财务终检 | 3R/4R、1F-A | 未进入 |
 | 6 | 全流程集成、演示稳定性与交付 | 5 与 1F-B 均通过 | 未进入 |
 
@@ -274,7 +274,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 **先决基线：** R0 的正式主链收敛及对应集成测试先独立 review、复验和 commit。它只锁定调用链和实验路径零调用，不算 P3R/P4R 完成；实际工作区状态见 `V2_TODO.md`。
 
-**R1-A 状态（2026-09-13，已批准并冻结）：** 已生成 52 问 × aspect × evidence 审计与版本化资产，由用户与 Codex 批准并冻结，**已按职责提交、未接线正式运行时**。冻结资产 `templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、49 evidence）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）；R1-B、R2～R7、Phase 5/6 未进入。绿灯只证明资产自洽，不宣称内容完整性关闭。
+**R1-A 状态（2026-09-13，已批准并冻结）：** 已生成 52 问 × aspect × evidence 审计与版本化资产，由用户与 Codex 批准并冻结，**已按职责提交、未接线正式运行时**。冻结资产 `templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、49 evidence）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）；R1-B 已于 2026-09-14 正式关闭；R2～R7、Phase 5/6 未进入。绿灯只证明资产自洽，不宣称内容完整性关闭。
 
 **验收出口：**
 
@@ -366,6 +366,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - [x] 4：章节 Worker、Evaluator、Store 与 UI 基础代码通过历史验收。
 - [ ] 3R/4R：TopicResearchPack、覆盖驱动研究与章节内容完整性通过。
 - [x] 3R/4R · R1-A：52 问 aspect/evidence/display 审计 + Contract v2 + 唯一版本化 source policy / WritingSpec / PresentationProfile 资产已批准并冻结、按职责提交（未接线正式运行时）。
+- [x] 3R/4R · R1-B：唯一 `TopicResearchPack` schema v2 + append-only Pack Store + 追加式 migration 2 + `set_complete` 独立枚举接口 + SourcePolicyRef 唯一绑定已正式关闭（完整离线 eval 4467/0/0）；正式 `SetEnumerationVerifier` 尚待 R2 实现与接线。
 - [ ] 5 与 1F-B：内容完整性前置门、完整 Assurance Controller、财务终检和版本化系统审核状态通过。
 - [ ] 6：端到端演示与交付验收通过。
 

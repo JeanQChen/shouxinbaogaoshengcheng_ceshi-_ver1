@@ -2,7 +2,7 @@
 
 > 更新时间：2026-09-13
 > 用途：记录 V2 已完成、正在进行和下一步工作。
-> 上位依据：`DESIGN_V2.md` v0.7；阶段顺序：`V2_IMPLEMENTATION_PLAN.md` v0.5；文档角色见 `DOCUMENTATION_INDEX.md`；当前具体实施以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.2 为准。
+> 上位依据：`DESIGN_V2.md` v0.8；阶段顺序：`V2_IMPLEMENTATION_PLAN.md` v0.6；文档角色见 `DOCUMENTATION_INDEX.md`；当前具体实施以 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.2 为准。
 
 ## 一、当前结论
 
@@ -268,7 +268,7 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
 
 ## 六、当前最近的动作
 
-> **当前动作（2026-09-14）**：R1-B 三接口定点收口（schema v2 + migration 2、set_complete 独立枚举、SourcePolicyRef 唯一绑定）已正式关闭并分责提交 `4bd728f`/`099cb5a`，完整离线 eval 4467 passed / 0 failed / 0 skipped 全绿；正式 `SetEnumerationVerifier` 尚待 R2 实现并唯一正式组合入口接线，接线前生产运行链不得完成 `set_complete` aspect，枚举器版本须进入 R2 dependency fingerprint。下一步进入 R2（材料构建/受控上下文扩读），进入前需输出 R2 编码前实施计划并获批。本轮未跑真实 LLM/博查/网络/真实报告生成。
+> **当前动作（2026-09-14）**：R1-B 三接口定点收口（schema v2 + migration 2、set_complete 独立枚举、SourcePolicyRef 唯一绑定）已正式关闭并分责提交 `4bd728f`/`099cb5a`，完整离线 eval 4467 passed / 0 failed / 0 skipped 全绿；正式 `SetEnumerationVerifier` 尚待 R2 实现并唯一正式组合入口接线，接线前生产运行链不得完成 `set_complete` aspect，枚举器版本须进入 R2 dependency fingerprint。下一步进入 R2（材料构建/受控上下文扩读）。R2 编码前最后一次架构闭环已本轮完成（docs-only）：同步权威文档 R1-B 状态，并依六项架构问题 + schema 裁决（`set_enumerator` 键、`TOPIC_PACK_SCHEMA_VERSION` 2→3、`STORE_SCHEMA_VERSION` 3 独立维度）+ commit 重排 + 墙钟工时，修订 `R2_IMPLEMENTATION_PLAN.md`，待用户与 Codex 批准。本轮未跑真实 LLM/博查/网络/真实报告生成、未编码、未 commit。
 
 1. **当前面试版交互与审核范围已确认（2026-09-13）**：报告生成后只读展示缺失事项、已查范围、原因、影响和建议材料类型；不实现用户补件、缺口绑定、Evidence 更新、集中确认提交或继续生成。状态栏区分流程完成、草稿预览、系统审核和人工最终确认。Phase 5 采用内容完整性前置门 + 六类 Assurance + 受限 Controller，LLM 只返回有证据定位的结构化 issue，最高自动状态为“可供人工确认”。
 2. **R1-A 已批准并冻结（2026-09-13，已按职责提交，未接线）**：完成 52 问 × aspect × evidence
@@ -316,9 +316,9 @@ FinancialSnapshot；LLM 不计算任何数字（全部由 Python Decimal 算好�
    注入实现「内部确实读取过 payload bytes」）；SourcePolicyRef Pack 内唯一绑定。专项 `test_topic_pack_store`
    213/0/0、`test_topic_pack_contract_reachability` 36/0/0、完整离线 eval 4467/0/0；`standard_v2.yaml`（v1）
    固定 SHA256 不变。分责 commit：`4bd728f`（harness）、`099cb5a`（测试）。
-7. **下一开发动作**：输出 R2（材料构建/受控上下文扩读）编码前实施计划并等待批准；R2 须实现正式、版本化、
+7. **下一开发动作**：R2（材料构建/受控上下文扩读）实施计划已获人工 + Codex 批准、进入编码；R2 须实现正式、版本化、
    确定性的 `SetEnumerationVerifier` 并由唯一正式组合入口注入，枚举器版本纳入 R2 dependency fingerprint；
-   接线前生产运行链不得完成 `set_complete` aspect。批准前不编码 R2、不重跑真实 LLM/博查/网络。
+   接线前生产运行链不得完成 `set_complete` aspect。R2 编码期间不重跑真实 LLM/博查/网络。
 8. **Phase 5 门禁**：P3R/P4R 未通过前保持未进入，不继续在旧发布层压缩或润色不完整 Claims。
 9. **历史状态**：Phase 3 frozen_final、unseen、财务 Demo 恢复、Batch A/B/C 和既有 Phase 4
    验收产物全部原样保留，只作为回归和安全基线，不回写、不重标、不覆盖。

@@ -1,6 +1,6 @@
 # 授信报告生成器 V2 设计文档
 
-> 状态：实施纲领 v0.7（2026-09-13：文档治理、TopicResearchPack、覆盖驱动研究、只读缺口展示、状态栏与独立全报告 Assurance）
+> 状态：实施纲领 v0.8（2026-09-14：R1-B 关闭、R2 编码前架构闭环；文档治理、TopicResearchPack、覆盖驱动研究、只读缺口展示、状态栏与独立全报告 Assurance）
 > 基线：历史 V1 `DESIGN.md`、已交付的 V2 基础能力与当前代码
 > 目的：定义 V2 的产品边界、报告契约、Evidence 架构、检索、Research Harness、评测与全报告质量保障。本文首先用于确认设计，不代表所有模块已经实现。
 > 实现状态：Phase 0A～3 的历史验收和冻结结果原样保留；Phase 3 frozen_final 是安全性、路由与单题实际路径基线，不等于已经满足完整主题研究。Phase 4 的规划、Worker、Evaluator、Store 与 UI 基础已实现，但因 P3→P4 信息吞吐和内容完整性不足，于 2026-09-12 重开 P3R/P4R 内容能力门；Phase 5 暂不进入。§4.3 财务指标口径仍以 `FORMULA_REVIEW.md` 为准。
@@ -98,7 +98,7 @@ R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计
 | 只读代码 | `contracts/loader_v2.py` `validator_v2.py` `source_policy.py` `sections/writing_spec.py` `presentation_profile.py` `contracts/review/topic_aspect_evidence_review.py` | 纯声明式，不 import Router/Harness/Worker/Writer |
 | 离线测试 | `evals/test_contract_v2_assets.py`（已注册 `run_evals`） | 153 项全绿 |
 
-硬边界：`standard_v2.yaml`（v1）未被覆盖（固定 SHA256 `23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45`）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1-B、R2～R7、Phase 5/6 未进入。R1-A 专项 153 passed / 0 failed、完整 eval 4218 passed / 0 failed / 0 skipped 全绿，但只证明资产自洽，不宣称 P3R/P4R 或 Phase 4 内容关闭。
+硬边界：`standard_v2.yaml`（v1）未被覆盖（固定 SHA256 `23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45`）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1-B 已于 2026-09-14 正式关闭（见 §0.8）；R2～R7、Phase 5/6 未进入。R1-A 专项 153 passed / 0 failed、完整 eval 4218 passed / 0 failed / 0 skipped 全绿，但只证明资产自洽，不宣称 P3R/P4R 或 Phase 4 内容关闭。
 
 ### 0.7 2026-09-13 面试版交互、状态栏与最终审核边界（现行）
 
@@ -111,6 +111,14 @@ R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计
 | V-05 | 系统最高状态是“已通过系统审核，可供人工确认” | 报告版本、输入、Pack、Claim、引用、规则和审核结果必须绑定；报告变化使旧审核失效；主体、重大负面、关键财务冲突和授信方案仍由人工最终确认 |
 
 本次范围修订不删除历史 checkpoint、ResolutionRecord、财务确认或依赖失效代码，也不禁止未来产品版本实现补件闭环；只是将它们从当前面试版 Phase 5/6 出口中移除。当前缺口是只读审计产物，不是待用户在线处理的工作队列。预算耗尽、来源不足和必须人工判断均应形成明确状态，但页面不提供“继续研究”或“补充材料”动作。
+
+### 0.8 2026-09-14 R1-B 关闭与 R2 编码前状态（现行）
+
+R1-B 已正式关闭：唯一 `TopicResearchPack` schema（v2）+ append-only Pack Store + 追加式 migration 2 + `set_complete` 独立枚举接口（`SetEnumerationVerifier`）+ SourcePolicyRef Pack 内唯一绑定；旧 v1 Pack 的 current/checkpoint/历史默认读一律 fail-closed，历史不 UPDATE/DELETE。完整离线 eval 基线 4467 passed / 0 failed / 0 skipped 全绿；`standard_v2.yaml`（v1）固定 SHA256 不变、未接 runtime/真实 LLM/博查/网络、未生成真实报告。
+
+正式、版本化、确定性的 `SetEnumerationVerifier` **实现**尚待 R2，由唯一正式组合入口注入后，才建立「内部确实读取过 payload bytes」的信任；接线前生产运行链不得完成 `set_complete` aspect，枚举器版本必须进入 R2 dependency fingerprint。
+
+R2（材料构建 / 受控上下文扩读）当前为「实施计划已批准、开始编码」；R3～R7、Phase 5/6 未进入。精确工作区 / 测试数字只记录在 `V2_TODO.md`。
 
 ---
 
@@ -2086,8 +2094,8 @@ python -m evaluation.run_baseline \
 
 推荐按以下顺序推进：
 
-1. R0 已关闭、R1-A 已批准并冻结（已按职责提交，未接线）。当前动作是完成 R1-B 计划架构复核并等待批准；测试全绿不等于批准。
-2. R1-B 获批后在 Harness 内落地唯一 `TopicResearchPack` schema/Store/checkpoint 与兼容迁移；不回写 v1、不接正式链。
+1. R0 已关闭、R1-A 已批准并冻结（已按职责提交，未接线）、R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举 + SourcePolicyRef 唯一绑定，完整离线 eval 4467/0/0）。当前动作是完成 R2 编码前架构闭环并等待 R2 计划批准；测试全绿不等于批准。
+2. R2 获批后实现材料构建与受控上下文扩读：所有扩读读取经现有 ToolRegistry 正式链、bounded Evidence 只读适配器、正式 `SetEnumerationVerifier`、atomic `ResearchMaterial` + `MaterialAssembly`/`TableAssembly`；不回写 v1、不接 R3 调度。
 3. 按 R2～R4 实现受控上下文扩读、aspect 缺口调度、Topic 级动态有界预算和外部研究漏斗；内部恢复保留累计预算，但当前 UI 不提供用户续跑。
 4. 按 R5 改造 P4 公司/行业 Worker，使其只从 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
 5. 按 R6/R7 先跑跨主题合成集和少量真实纵向切片，覆盖本地叙述、表格/附注、结构化财务、外部时效、事件/负面核验；内容完整性门通过后再生成完整 Demo。Phase 5 在此之前保持未进入。
