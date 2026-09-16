@@ -1,0 +1,39 @@
+{
+  "slice_version": "phase4-vertical-slice-v1",
+  "run_id": "budget_fix_check",
+  "company_id": "300750",
+  "real_llm": false,
+  "model": "deepseek-v4-pro",
+  "samples": [
+    {
+      "sample": "company_business_main",
+      "pack_id": "pack_c24aa733eca732e640ece7829fda3094",
+      "obtained_aspects": 5,
+      "total_aspects": 5,
+      "chapter_ok": true,
+      "external_source_count": 0,
+      "external_fact_count": 0,
+      "evidence_fact_count": 30
+    },
+    {
+      "sample": "industry_scale_cycle",
+      "pack_id": "pack_86f2525ba8f9bb437d5f12b663b59871",
+      "obtained_aspects": 0,
+      "total_aspects": 3,
+      "chapter_ok": true,
+      "external_source_count": 2,
+      "external_fact_count": 0,
+      "evidence_fact_count": 0
+    },
+    {
+      "sample": "industry_risk_transmission",
+      "pack_id": "pack_ab38bc704350f3f100415d2be6f854e4",
+      "obtained_aspects": 0,
+      "total_aspects": 3,
+      "chapter_ok": true,
+      "external_source_count": 1,
+      "external_fact_count": 0,
+      "evidence_fact_count": 0
+    }
+  ]
+}

@@ -1,0 +1,272 @@
+{
+  "topic_id": "company_business",
+  "question_id": "company_business_main",
+  "kind": "business",
+  "title": "主营业务构成",
+  "tables": [
+    {
+      "table_id": "business_segments",
+      "caption": "主营业务构成（分板块）",
+      "header": [
+        "业务板块",
+        "营业收入(亿元)",
+        "收入占比",
+        "营业成本(亿元)",
+        "毛利率"
+      ],
+      "rows": [
+        [
+          "动力电池系统",
+          "3,165.06",
+          "74.7%",
+          "2,410.64",
+          "23.8%"
+        ],
+        [
+          "储能电池系统",
+          "624.40",
+          "14.7%",
+          "457.64",
+          "26.7%"
+        ],
+        [
+          "电池材料及回收",
+          "218.61",
+          "5.2%",
+          "159.00",
+          "27.3%"
+        ],
+        [
+          "其他业务",
+          "169.17",
+          "4.0%",
+          "—",
+          "—"
+        ],
+        [
+          "电池矿产资源",
+          "59.78",
+          "1.4%",
+          "53.06",
+          "11.2%"
+        ]
+      ]
+    }
+  ],
+  "paragraphs": [
+    {
+      "topic_id": "business",
+      "question_id": "business",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "报告期内，公司主营业务以动力电池系统为核心，近三年该板块营业收入分别为{{fact:ef-552d5d7991cb8f7e3e772537b6f0d79a}}、{{fact:ef-1088933d2da5e30c12ca83c10412c4c5}}和{{fact:ef-a58bd34363208900dbba34046fa522e3}}。",
+          "fact_ids": [
+            "ef-552d5d7991cb8f7e3e772537b6f0d79a",
+            "ef-1088933d2da5e30c12ca83c10412c4c5",
+            "ef-a58bd34363208900dbba34046fa522e3"
+          ]
+        },
+        {
+          "type": "calculation",
+          "text": "最近一期动力电池系统收入占主营业务收入合计的比重为{{calc:share_0}}，仍是收入增长的主要来源。",
+          "fact_ids": []
+        },
+        {
+          "type": "inference",
+          "text": "动力电池系统板块收入在最近一年恢复增长，且高于此前年度水平，显示核心业务收入具备一定韧性。",
+          "fact_ids": [
+            "ef-a58bd34363208900dbba34046fa522e3",
+            "ef-1088933d2da5e30c12ca83c10412c4c5",
+            "ef-552d5d7991cb8f7e3e772537b6f0d79a"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "business",
+      "question_id": "business",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "储能电池系统最近三年营业收入分别为{{fact:ef-dbd7f0367d43bc0909b6636be0c68bf7}}、{{fact:ef-dfe8b4a7f30f8d0ceeddfa3e573ac98e}}和{{fact:ef-d667ca6d6cfeb9511c43950f5d2edef7}}。",
+          "fact_ids": [
+            "ef-dbd7f0367d43bc0909b6636be0c68bf7",
+            "ef-dfe8b4a7f30f8d0ceeddfa3e573ac98e",
+            "ef-d667ca6d6cfeb9511c43950f5d2edef7"
+          ]
+        },
+        {
+          "type": "calculation",
+          "text": "最近一期储能电池系统收入占比为{{calc:share_1}}，毛利率为{{calc:margin_1}}，为仅次于动力电池系统的第二大业务板块。",
+          "fact_ids": []
+        },
+        {
+          "type": "inference",
+          "text": "储能板块收入保持增长，盈利表现相对稳定，对主营业务结构形成一定补充。",
+          "fact_ids": [
+            "ef-d667ca6d6cfeb9511c43950f5d2edef7",
+            "ef-dfe8b4a7f30f8d0ceeddfa3e573ac98e",
+            "ef-dbd7f0367d43bc0909b6636be0c68bf7"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "business",
+      "question_id": "business",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "电池材料及回收板块最近三年营业收入分别为{{fact:ef-e94fbbabefddc21dfe337e72b56eb8df}}、{{fact:ef-5dcaba0719355cf2b5a09aad145ae3f0}}和{{fact:ef-426b3234d436836ec159a7d9a388f526}}。",
+          "fact_ids": [
+            "ef-e94fbbabefddc21dfe337e72b56eb8df",
+            "ef-5dcaba0719355cf2b5a09aad145ae3f0",
+            "ef-426b3234d436836ec159a7d9a388f526"
+          ]
+        },
+        {
+          "type": "calculation",
+          "text": "最近一期该板块收入占比为{{calc:share_2}}，毛利率为{{calc:margin_2}}。",
+          "fact_ids": []
+        },
+        {
+          "type": "inference",
+          "text": "电池材料及回收板块收入逐年下降，与动力电池及储能板块的规模变化形成一定分化。",
+          "fact_ids": [
+            "ef-e94fbbabefddc21dfe337e72b56eb8df",
+            "ef-5dcaba0719355cf2b5a09aad145ae3f0",
+            "ef-426b3234d436836ec159a7d9a388f526"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "business",
+      "question_id": "business",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "电池矿产资源板块最近三年营业收入分别为{{fact:ef-4817d068a03ec1e53e144ca848e81c0b}}、{{fact:ef-755d0d6a9292074ba1283f1b789b16d9}}和{{fact:ef-c40cbd5058a256f79985fa6e5abce3cd}}；其他业务最近三年营业收入分别为{{fact:ef-67c2fed149b884863ae3965bdbb64518}}、{{fact:ef-4e4f4bc382794931b3ac3bb9d85e976d}}和{{fact:ef-7660f65994d938506ed7163d6bbd5422}}。",
+          "fact_ids": [
+            "ef-4817d068a03ec1e53e144ca848e81c0b",
+            "ef-755d0d6a9292074ba1283f1b789b16d9",
+            "ef-c40cbd5058a256f79985fa6e5abce3cd",
+            "ef-67c2fed149b884863ae3965bdbb64518",
+            "ef-4e4f4bc382794931b3ac3bb9d85e976d",
+            "ef-7660f65994d938506ed7163d6bbd5422"
+          ]
+        },
+        {
+          "type": "calculation",
+          "text": "最近一期电池矿产资源收入占比为{{calc:share_4}}，其他业务收入占比为{{calc:share_3}}。",
+          "fact_ids": []
+        },
+        {
+          "type": "inference",
+          "text": "电池矿产资源与其他业务收入规模相对较小，对主营业务收入的整体贡献有限。",
+          "fact_ids": [
+            "ef-c40cbd5058a256f79985fa6e5abce3cd",
+            "ef-7660f65994d938506ed7163d6bbd5422"
+          ]
+        }
+      ]
+    }
+  ],
+  "calc_display": {
+    "total_revenue": "4,237.02 亿元",
+    "share_0": "74.7%",
+    "margin_0": "23.8%",
+    "revenue_0": "3,165.06 亿元",
+    "segment_0": "动力电池系统",
+    "share_1": "14.7%",
+    "margin_1": "26.7%",
+    "revenue_1": "624.40 亿元",
+    "segment_1": "储能电池系统",
+    "share_2": "5.2%",
+    "margin_2": "27.3%",
+    "revenue_2": "218.61 亿元",
+    "segment_2": "电池材料及回收",
+    "share_3": "4.0%",
+    "margin_3": "—",
+    "revenue_3": "169.17 亿元",
+    "segment_3": "其他业务",
+    "share_4": "1.4%",
+    "margin_4": "11.2%",
+    "revenue_4": "59.78 亿元",
+    "segment_4": "电池矿产资源"
+  },
+  "fact_display": {
+    "ef-a58bd34363208900dbba34046fa522e3": "3,165.06 亿元",
+    "ef-1088933d2da5e30c12ca83c10412c4c5": "2,530.41 亿元",
+    "ef-552d5d7991cb8f7e3e772537b6f0d79a": "2,852.53 亿元",
+    "ef-d667ca6d6cfeb9511c43950f5d2edef7": "624.40 亿元",
+    "ef-dfe8b4a7f30f8d0ceeddfa3e573ac98e": "572.90 亿元",
+    "ef-dbd7f0367d43bc0909b6636be0c68bf7": "599.01 亿元",
+    "ef-426b3234d436836ec159a7d9a388f526": "218.61 亿元",
+    "ef-5dcaba0719355cf2b5a09aad145ae3f0": "287.00 亿元",
+    "ef-e94fbbabefddc21dfe337e72b56eb8df": "336.02 亿元",
+    "ef-c40cbd5058a256f79985fa6e5abce3cd": "59.78 亿元",
+    "ef-755d0d6a9292074ba1283f1b789b16d9": "54.93 亿元",
+    "ef-4817d068a03ec1e53e144ca848e81c0b": "77.34 亿元",
+    "ef-7660f65994d938506ed7163d6bbd5422": "169.17 亿元",
+    "ef-4e4f4bc382794931b3ac3bb9d85e976d": "174.88 亿元",
+    "ef-67c2fed149b884863ae3965bdbb64518": "144.27 亿元",
+    "ef-e34d71010fffc742761f19023451e11a": "2,410.64 亿元",
+    "ef-438d0f736cbe69d73a808377dd4892dd": "1,924.61 亿元",
+    "ef-6a7e75c9f1216bed3c5d1e357f86dd18": "2,217.14 亿元",
+    "ef-daab38e28bf9074ab79a0e1ed23e79ee": "457.64 亿元",
+    "ef-4d1a879fa78fb1f176d788e3cc40abe1": "419.14 亿元",
+    "ef-d377ee9dc22ea4f3c23a2b99c57c1535": "456.48 亿元",
+    "ef-4748d449b9d131c6f7ff2ef62b22b73f": "159.00 亿元",
+    "ef-61e80000d27f2e1dac483462618d4ee7": "256.83 亿元",
+    "ef-f0577ccb6632f5bde59fc0c403747c33": "297.78 亿元",
+    "ef-7062d6cb92638a753a4bd6a063b24687": "53.06 亿元",
+    "ef-90354ffdd811e3fcdae28be97636ac86": "50.25 亿元",
+    "ef-a709bba2de76bf7ed7ce60bc0453a42b": "61.98 亿元",
+    "ef-f68d195e5f0eed16ced1dbe5640ed450": "43.50 亿元",
+    "ef-6c45797afd90754bdfc61ef89b5f2884": "84.36 亿元",
+    "ef-a7a85a6643cf7cd4e7b5eb3cf1a8e061": "57.33 亿元"
+  },
+  "verdict": {
+    "ok": true,
+    "content_ok": true,
+    "issues": [],
+    "rendered_sentences": 12
+  },
+  "adopted_fact_ids": [
+    "ef-a58bd34363208900dbba34046fa522e3",
+    "ef-1088933d2da5e30c12ca83c10412c4c5",
+    "ef-552d5d7991cb8f7e3e772537b6f0d79a",
+    "ef-d667ca6d6cfeb9511c43950f5d2edef7",
+    "ef-dfe8b4a7f30f8d0ceeddfa3e573ac98e",
+    "ef-dbd7f0367d43bc0909b6636be0c68bf7",
+    "ef-426b3234d436836ec159a7d9a388f526",
+    "ef-5dcaba0719355cf2b5a09aad145ae3f0",
+    "ef-e94fbbabefddc21dfe337e72b56eb8df",
+    "ef-c40cbd5058a256f79985fa6e5abce3cd",
+    "ef-755d0d6a9292074ba1283f1b789b16d9",
+    "ef-4817d068a03ec1e53e144ca848e81c0b",
+    "ef-7660f65994d938506ed7163d6bbd5422",
+    "ef-4e4f4bc382794931b3ac3bb9d85e976d",
+    "ef-67c2fed149b884863ae3965bdbb64518",
+    "ef-e34d71010fffc742761f19023451e11a",
+    "ef-438d0f736cbe69d73a808377dd4892dd",
+    "ef-6a7e75c9f1216bed3c5d1e357f86dd18",
+    "ef-daab38e28bf9074ab79a0e1ed23e79ee",
+    "ef-4d1a879fa78fb1f176d788e3cc40abe1",
+    "ef-d377ee9dc22ea4f3c23a2b99c57c1535",
+    "ef-4748d449b9d131c6f7ff2ef62b22b73f",
+    "ef-61e80000d27f2e1dac483462618d4ee7",
+    "ef-f0577ccb6632f5bde59fc0c403747c33",
+    "ef-7062d6cb92638a753a4bd6a063b24687",
+    "ef-90354ffdd811e3fcdae28be97636ac86",
+    "ef-a709bba2de76bf7ed7ce60bc0453a42b",
+    "ef-f68d195e5f0eed16ced1dbe5640ed450",
+    "ef-6c45797afd90754bdfc61ef89b5f2884",
+    "ef-a7a85a6643cf7cd4e7b5eb3cf1a8e061"
+  ],
+  "chapter_ok": true,
+  "markdown": "# 主营业务构成\n\n**主营业务构成（分板块）**\n\n| 业务板块 | 营业收入(亿元) | 收入占比 | 营业成本(亿元) | 毛利率 |\n|---|---|---|---|---|\n| 动力电池系统 | 3,165.06 | 74.7% | 2,410.64 | 23.8% |\n| 储能电池系统 | 624.40 | 14.7% | 457.64 | 26.7% |\n| 电池材料及回收 | 218.61 | 5.2% | 159.00 | 27.3% |\n| 其他业务 | 169.17 | 4.0% | — | — |\n| 电池矿产资源 | 59.78 | 1.4% | 53.06 | 11.2% |\n\n报告期内，公司主营业务以动力电池系统为核心，近三年该板块营业收入分别为2,852.53 亿元、2,530.41 亿元和3,165.06 亿元。最近一期动力电池系统收入占主营业务收入合计的比重为74.7%，仍是收入增长的主要来源。动力电池系统板块收入在最近一年恢复增长，且高于此前年度水平，显示核心业务收入具备一定韧性。\n\n储能电池系统最近三年营业收入分别为599.01 亿元、572.90 亿元和624.40 亿元。最近一期储能电池系统收入占比为14.7%，毛利率为26.7%，为仅次于动力电池系统的第二大业务板块。储能板块收入保持增长，盈利表现相对稳定，对主营业务结构形成一定补充。\n\n电池材料及回收板块最近三年营业收入分别为336.02 亿元、287.00 亿元和218.61 亿元。最近一期该板块收入占比为5.2%，毛利率为27.3%。电池材料及回收板块收入逐年下降，与动力电池及储能板块的规模变化形成一定分化。\n\n电池矿产资源板块最近三年营业收入分别为77.34 亿元、54.93 亿元和59.78 亿元；其他业务最近三年营业收入分别为144.27 亿元、174.88 亿元和169.17 亿元。最近一期电池矿产资源收入占比为1.4%，其他业务收入占比为4.0%。电池矿产资源与其他业务收入规模相对较小，对主营业务收入的整体贡献有限。\n",
+  "version": "chapter-writer-v1"
+}

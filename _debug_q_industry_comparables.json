@@ -1,0 +1,21 @@
+{
+  "section_id": "industry",
+  "question_id": "industry_comparables",
+  "question": "选择 3～5 家可比公司并做相对比较（3~5 家是目标不是门禁：1~2 家说明限制、无直接可比用相近、无合理可比说明不可比，不强行选不可比公司）",
+  "evidence_requirements": [
+    {
+      "requirement_id": "er_ind_comparables",
+      "evidence_kind": "web",
+      "source_classes": [
+        "external"
+      ],
+      "minimum_sources": 1,
+      "freshness_policy": null,
+      "required_fields": []
+    }
+  ],
+  "required_aspects": [
+    "可比公司选择",
+    "相对比较"
+  ]
+}

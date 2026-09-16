@@ -1,0 +1,50 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，见 per_version）",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "source_boundary": "管理层讨论与分析",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "枚举边界未闭合: 预算耗尽提前停止"
+        }
+      },
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "source_boundary": "公司竞争优势",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "core_competitiveness 散文无清晰条目边界（无法识别披露边界）"
+        }
+      }
+    ]
+  }
+}

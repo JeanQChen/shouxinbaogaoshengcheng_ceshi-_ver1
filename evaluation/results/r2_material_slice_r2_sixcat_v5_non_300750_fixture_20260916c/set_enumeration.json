@@ -1,0 +1,72 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失)",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_DEMO",
+        "document_version": "v-demo-001",
+        "source_boundary": "主营业务分析",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失)",
+          "source_object_inventory": {
+            "version": "1",
+            "aspect_id": "company_business_main.main_business",
+            "expected_source_objects": [
+              {
+                "object_id": "title:(二)主营业务情况",
+                "kind": "table_start_signal",
+                "label": "（二）主营业务情况",
+                "source_text_index": 0,
+                "line_index": 0
+              },
+              {
+                "object_id": "table:1",
+                "kind": "table_number",
+                "label": "表 1 主营业务收入构成表",
+                "source_text_index": 0,
+                "line_index": 1
+              }
+            ],
+            "recovery_results": [
+              {
+                "object_id": "title:(二)主营业务情况",
+                "result": "target_not_obtained",
+                "matched_table": "",
+                "issue": "通用表题 '（二）主营业务情况' 在恢复结果中缺失"
+              },
+              {
+                "object_id": "table:1",
+                "result": "recovered_ok",
+                "matched_table": "表 1 主营业务收入构成表",
+                "issue": ""
+              }
+            ],
+            "unmatched_recovered_tables": []
+          }
+        }
+      }
+    ]
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

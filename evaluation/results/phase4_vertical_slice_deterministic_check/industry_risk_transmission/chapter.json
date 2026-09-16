@@ -1,0 +1,17 @@
+{
+  "topic_id": "industry_risk_transmission",
+  "question_id": "industry_risk_transmission",
+  "kind": "transmission",
+  "title": "行业风险传导",
+  "tables": [],
+  "paragraphs": [],
+  "calc_display": {},
+  "fact_display": {},
+  "verdict": {
+    "ok": true,
+    "issues": [],
+    "rendered_sentences": 0
+  },
+  "markdown": "# 行业风险传导\n",
+  "version": "chapter-writer-v1"
+}

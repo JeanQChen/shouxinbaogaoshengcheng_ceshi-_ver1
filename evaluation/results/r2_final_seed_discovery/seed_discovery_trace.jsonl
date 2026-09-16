@@ -1,0 +1,6 @@
+{"tool_name": "search_evidence", "aspect_id": "company_business_main.main_business", "query": "主营业务", "status": "PARTIAL", "error_code": null, "message": null, "trace_id": "3e007f9fb77a485b95d72558348b1551"}
+{"tool_name": "search_tables", "aspect_id": "company_business_main.main_business", "query": "主营业务", "status": "EMPTY", "error_code": "UNSUPPORTED_FOR_DOCUMENT", "message": "无表格结构证据", "trace_id": "358e9d832b7a4cbc8fb4b027bbbe0af6"}
+{"tool_name": "search_evidence", "aspect_id": "company_competitiveness.core_competitiveness", "query": "核心竞争力", "status": "PARTIAL", "error_code": null, "message": null, "trace_id": "ef76878503ff484a9fb2fb3e8a85d701"}
+{"tool_name": "search_tables", "aspect_id": "company_competitiveness.core_competitiveness", "query": "核心竞争力", "status": "EMPTY", "error_code": "UNSUPPORTED_FOR_DOCUMENT", "message": "无表格结构证据", "trace_id": "c7e9ef069c5a4bbd98597fa82ecaa64a"}
+{"tool_name": "search_evidence", "aspect_id": "company_subsidiaries.major_subsidiaries", "query": "主要子公司", "status": "PARTIAL", "error_code": null, "message": null, "trace_id": "6c65874a718148889706c9b4b994f4ea"}
+{"tool_name": "search_tables", "aspect_id": "company_subsidiaries.major_subsidiaries", "query": "主要子公司", "status": "EMPTY", "error_code": "UNSUPPORTED_FOR_DOCUMENT", "message": "无表格结构证据", "trace_id": "472f726d0d05495b97336e2ee0cac8bf"}

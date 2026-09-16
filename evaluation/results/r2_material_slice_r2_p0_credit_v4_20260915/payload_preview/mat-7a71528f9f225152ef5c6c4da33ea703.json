@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-7a71528f9f225152ef5c6c4da33ea703",
+  "component_evidence_id": "dddc9873b0cbaa9fcdcda424f6021e64",
+  "source_content_hash": "8efc29287dd52c0546b83d5796120cd92cb4410abebe47f600301ee5bd3a7aba",
+  "payload_hash": "b5a374f8347dca39fa56ade9af2f184f8d436c710b3ee9c8839063ee387f4a94",
+  "payload": "{\"authority_identity\":\"evidence:dddc9873b0cbaa9fcdcda424f6021e64\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"本公司以资产负债率（即总负债除以总资产）为基础对资本结构进行监控。于  2025年12月31日，\\n\\n211\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"dddc9873b0cbaa9fcdcda424f6021e64\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":211,\"section_path\":\"与金融工具相关的风险\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"8efc29287dd52c0546b83d5796120cd92cb4410abebe47f600301ee5bd3a7aba\"}"
+}

@@ -1,0 +1,495 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "mixed_block",
+        "（4）郑舒先生，财务总监，1979  年出生，中国国籍，无境外永久居留权，福州大"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "ec634bbe01cff45df14e2e1d0e3c0eb5",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_boundary_out_of_topic",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 48,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "b7f61530d18c11f4ca2b6be3564cacf3b986d5a1eaf5e2b0ba30c94f26ee16b8",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "topic_boundary",
+        "2、高级管理人员",
+        "stop_direction",
+        "true",
+        "relevant_prefix",
+        "山保税港区倍道投资管理有限公司执行董事及总经理。\n  （7）吴育辉先生，独立非执行董事，1978  年出生，中国国籍，无境外永久居留权，\n博士学历。曾任福耀玻璃工业集团股份有限公司独立董事，曾任深圳顺络电子股份有限\n\n公司独立董事，合力泰科技股份有限公司独立董事。现任本公司独立董事，厦门大学管\n理学院副院长，财务学系主任，教授，兼任厦门建发股份有限公司独立董事、青岛征和\n\n工业股份有限公司独立董事"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "3、主营业务毛利润及毛利率分析"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（2）销售情况"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 53,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "2、储能电池系统板块"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "568819859a093a3fbd8049f340b806fa",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_boundary_out_of_topic",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 54,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a5ff5bd48f52132d6d09c388e5547b501f5e48384d920761998e53c4741616f7",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "topic_boundary",
+        "（四）安全生产情况",
+        "stop_direction",
+        "true",
+        "relevant_prefix",
+        "废旧电池中的镍、钴、锰、锂、磷、铁、铝、铜等金属材料及其他材料进行加工、提纯、\n合成等工艺，生产锂电池生产所需的正极材料、三元前驱体、磷铁前驱体、锂盐等材料，\n并将收集后的铜、铝等金属材料通过第三方回收利用，使电池生产所需的关键金属资源\n\n实现有效循环利用。\n  此外，为进一步保障电池生产所需的上游关键资源及材料供应，公司通过自建、参\n\n股、合资等多种方式参与锂、镍、钴、磷等电池矿产资源及相关产品"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "1、主营业务收入分析"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "mixed_block",
+        "（4）郑舒先生，财务总监，1979  年出生，中国国籍，无境外永久居留权，福州大"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "ec634bbe01cff45df14e2e1d0e3c0eb5",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_boundary_out_of_topic",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 48,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "b7f61530d18c11f4ca2b6be3564cacf3b986d5a1eaf5e2b0ba30c94f26ee16b8",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "topic_boundary",
+        "2、高级管理人员",
+        "stop_direction",
+        "true",
+        "relevant_prefix",
+        "山保税港区倍道投资管理有限公司执行董事及总经理。\n  （7）吴育辉先生，独立非执行董事，1978  年出生，中国国籍，无境外永久居留权，\n博士学历。曾任福耀玻璃工业集团股份有限公司独立董事，曾任深圳顺络电子股份有限\n\n公司独立董事，合力泰科技股份有限公司独立董事。现任本公司独立董事，厦门大学管\n理学院副院长，财务学系主任，教授，兼任厦门建发股份有限公司独立董事、青岛征和\n\n工业股份有限公司独立董事"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（2）销售情况"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 53,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "2、储能电池系统板块"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "568819859a093a3fbd8049f340b806fa",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_boundary_out_of_topic",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 54,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a5ff5bd48f52132d6d09c388e5547b501f5e48384d920761998e53c4741616f7",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "topic_boundary",
+        "（四）安全生产情况",
+        "stop_direction",
+        "true",
+        "relevant_prefix",
+        "废旧电池中的镍、钴、锰、锂、磷、铁、铝、铜等金属材料及其他材料进行加工、提纯、\n合成等工艺，生产锂电池生产所需的正极材料、三元前驱体、磷铁前驱体、锂盐等材料，\n并将收集后的铜、铝等金属材料通过第三方回收利用，使电池生产所需的关键金属资源\n\n实现有效循环利用。\n  此外，为进一步保障电池生产所需的上游关键资源及材料供应，公司通过自建、参\n\n股、合资等多种方式参与锂、镍、钴、磷等电池矿产资源及相关产品"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "company_competitiveness.core_competitiveness": {
+    "version": "1",
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(四)公司竞争优势",
+        "kind": "table_start_signal",
+        "label": "（四）公司竞争优势",
+        "source_text_index": 1,
+        "line_index": 2
+      },
+      {
+        "object_id": "title:分地区",
+        "kind": "table_start_signal",
+        "label": "分地区",
+        "source_text_index": 2,
+        "line_index": 2
+      },
+      {
+        "object_id": "title:1)营业收入及营业成本整体情况",
+        "kind": "table_start_signal",
+        "label": "1）营业收入及营业成本整体情况",
+        "source_text_index": 2,
+        "line_index": 23
+      },
+      {
+        "object_id": "title:分业务",
+        "kind": "table_start_signal",
+        "label": "分业务",
+        "source_text_index": 2,
+        "line_index": 28
+      },
+      {
+        "object_id": "title:分产品",
+        "kind": "table_start_signal",
+        "label": "分产品",
+        "source_text_index": 2,
+        "line_index": 33
+      },
+      {
+        "object_id": "title:5)不同产品或业务的产销情况",
+        "kind": "table_start_signal",
+        "label": "5）不同产品或业务的产销情况",
+        "source_text_index": 4,
+        "line_index": 45
+      },
+      {
+        "object_id": "title:(3)公司实物销售收入是否大于劳务收入",
+        "kind": "table_start_signal",
+        "label": "（3） 公司实物销售收入是否大于劳务收入",
+        "source_text_index": 4,
+        "line_index": 51
+      },
+      {
+        "object_id": "title:(1)营业收入构成",
+        "kind": "table_start_signal",
+        "label": "（1） 营业收入构成",
+        "source_text_index": 6,
+        "line_index": 24
+      },
+      {
+        "object_id": "title:1)营业收入整体情况",
+        "kind": "table_start_signal",
+        "label": "1）营业收入整体情况",
+        "source_text_index": 6,
+        "line_index": 26
+      },
+      {
+        "object_id": "title:分行业",
+        "kind": "table_start_signal",
+        "label": "分行业",
+        "source_text_index": 6,
+        "line_index": 34
+      },
+      {
+        "object_id": "title:(1)动力业务",
+        "kind": "table_start_signal",
+        "label": "（1）动力业务",
+        "source_text_index": 11,
+        "line_index": 0
+      },
+      {
+        "object_id": "title:3)锂离子电池产业链各环节主要产品或业务相关的关",
+        "kind": "table_start_signal",
+        "label": "3）锂离子电池产业链各环节主要产品或业务相关的关键技术或性能指标",
+        "source_text_index": 15,
+        "line_index": 4
+      },
+      {
+        "object_id": "title:(2)储能业务",
+        "kind": "table_start_signal",
+        "label": "（2）储能业务",
+        "source_text_index": 16,
+        "line_index": 0
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(四)公司竞争优势",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（四）公司竞争优势' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:分地区",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '分地区' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:1)营业收入及营业成本整体情况",
+        "result": "recovered_ok",
+        "matched_table": "1）营业收入及营业成本整体情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:分业务",
+        "result": "recovered_ok",
+        "matched_table": "分业务",
+        "issue": ""
+      },
+      {
+        "object_id": "title:分产品",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '分产品' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:5)不同产品或业务的产销情况",
+        "result": "recovered_ok",
+        "matched_table": "5）不同产品或业务的产销情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(3)公司实物销售收入是否大于劳务收入",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（3） 公司实物销售收入是否大于劳务收入' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(1)营业收入构成",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（1） 营业收入构成' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:1)营业收入整体情况",
+        "result": "recovered_ok",
+        "matched_table": "1）营业收入整体情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:分行业",
+        "result": "recovered_ok",
+        "matched_table": "分行业",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(1)动力业务",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（1）动力业务' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:3)锂离子电池产业链各环节主要产品或业务相关的关",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '3）锂离子电池产业链各环节主要产品或业务相关的关键技术或性能指标' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)储能业务",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2）储能业务' 在恢复结果中缺失"
+      }
+    ],
+    "unmatched_recovered_tables": [
+      "分产品",
+      "分地区"
+    ]
+  }
+}

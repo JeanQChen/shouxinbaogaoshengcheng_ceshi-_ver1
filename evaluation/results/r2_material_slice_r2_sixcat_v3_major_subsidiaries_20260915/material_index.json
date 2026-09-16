@@ -1,0 +1,785 @@
+[
+  {
+    "material_id": "mat-ab5a80ea99bc023e70e7fedf1abbd36a",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:8e408f5cfdea4ce78876c409d7c99f51",
+    "component_evidence_id": "8e408f5cfdea4ce78876c409d7c99f51",
+    "source_content_hash": "6a13d5535d37037be4911ffcc34710467c94eb1c065a236078b72064661cb62f",
+    "payload_hash": "ef98a7e48bf502ed5fc16aff77344e3c1130a04035c6ffe49ef7b92449708138",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "离职后福利-设定  5,803  1,528,334  1,527,762  6,375",
+    "page": 205,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-3ba0d5b3ff59238904a70df459b07145",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:cdb9b812323e5812c35cf605df8f7c21",
+    "component_evidence_id": "cdb9b812323e5812c35cf605df8f7c21",
+    "source_content_hash": "5ce1622437c8919cbb1c4267e2105bab0fa314648676147446f29644ad0d33f8",
+    "payload_hash": "52696c60080667159cce21e7708b5556f3bfbad88a1ba8d4c6f99561178b0d7e",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "离职后福利-设定  5,803  1,528,334  1,527,762  6,375",
+    "page": 206,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-c71b006c0e837d35b478e9819d8ffeda",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:e02f783179254174984733b254ae0ad0",
+    "component_evidence_id": "e02f783179254174984733b254ae0ad0",
+    "source_content_hash": "b8ac863875abaa8effc3f1d2ffbad0e29b613e95d885cb49de4c3cdaffb18376",
+    "payload_hash": "8755c871d117c191e5ebe1da201f56a51fa2cc8eb4841cb494c6a7e4df741989",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "离职后福利-设定  5,803  1,528,334  1,527,762  6,375",
+    "page": 207,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-ed5864af2be07d3c2f194451474a52b3",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:22a0cb787b74296d2f067d9eeda33aaa",
+    "component_evidence_id": "22a0cb787b74296d2f067d9eeda33aaa",
+    "source_content_hash": "547979c919d7c8e7a6fa3426d1615ead3e9b194517945fe498c91ddaef12b93f",
+    "payload_hash": "38e054adbcb8e3ce423cde770f498c5148e4af3eb3acb75060f0df1f8c2e0c3a",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "离职后福利-设定  5,803  1,528,334  1,527,762  6,375",
+    "page": 207,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-08f8fea94173dd4834c87ab0374a9f9c",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:839629761564bc0555b19061e9da80a5",
+    "component_evidence_id": "839629761564bc0555b19061e9da80a5",
+    "source_content_hash": "72d1824ff3a9c0c5747e953c2b85db1465c87a6241f809cc6d72e77484fac738",
+    "payload_hash": "74dfba66f8ea4e39e2932eee2b8e5c4de1eb0c68695d1792c1f75bbae48d6283",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 208,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:467120b8407bbbea6a6684303b632147",
+    "component_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "source_content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41",
+    "payload_hash": "e2e3107fc534d81d1ba16bf5c183e7c9f13f99b6536af6913e83a6b067bdcd59",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 208,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-da63a0e53e2478f0dc4624e3fdd4194e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:dc211fa242f7a8e6466c2de7d6029fca",
+    "component_evidence_id": "dc211fa242f7a8e6466c2de7d6029fca",
+    "source_content_hash": "c213cc832e663442bd621c0276166a6ef7eb06d75d8ef64e965ca7ee99a1dfdb",
+    "payload_hash": "a44e94806ffaf0ce1019e77c8caca3d89d0c45cb92eb174cf3566c87295d4f47",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 209,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-36169f7287cc1903bfac8e27d565c67f",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:55930d6c3f2f494e657a54919ae79f3c",
+    "component_evidence_id": "55930d6c3f2f494e657a54919ae79f3c",
+    "source_content_hash": "958aacc496c1abc2580678b358107c8e384b9bad5eb0ecbdbe0e22fa24edbfee",
+    "payload_hash": "decf722da23ac48da7a341df31e4c37a486566677a126ae595bdf4a6d56c30b2",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 210,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-7c9b2315805a040c561ce8d85d2a3008",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b2d561dd92256f5e446ba8152c41e328",
+    "component_evidence_id": "b2d561dd92256f5e446ba8152c41e328",
+    "source_content_hash": "d2e0adb681d75d64c8bcf422349d3d0fc7adcd733da3ba7d2aa1c2fe4d12e4af",
+    "payload_hash": "febab283ff220afee299f545953f75a905de011d9c74e193b9732e2c58dfcaa5",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 210,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:20e9cb77ac4009c40160f5801c42af97",
+    "component_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "source_content_hash": "e1f004ff92416a8be1212df2edd0474ee485f3a65258a5de5f2d786826aa13ac",
+    "payload_hash": "a4637847c4005da03dfcd133cedae56840d1aabf2cf9b36159dde4f249b9ce88",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 211,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-e64d10dd5eddde88b1e435da85fd3c91",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:4b2ca7f6fed6994754f3263f52e4f193",
+    "component_evidence_id": "4b2ca7f6fed6994754f3263f52e4f193",
+    "source_content_hash": "982ef97388998f830a9695945c91b4f11ed031393d080c9fcf5ddfce9404c573",
+    "payload_hash": "7eba54ed7703e1107105f1e167d345ba83acd74eba2496c418796e345dcffbbe",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 211,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-328ce788821bef3fbd03af4b6580e9ec",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:7c6480d2d587a3ef2e8e323844372d0f",
+    "component_evidence_id": "7c6480d2d587a3ef2e8e323844372d0f",
+    "source_content_hash": "dc83498457501e35bc041b2e2faafd6d62eb601e81830a30ecb2820d74cddc4d",
+    "payload_hash": "4501791af140f69f03af41d3739fb68adb5fd50a395fbee0443e2bcdf6e870da",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 212,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-4db6800a8495d353b0565bb3f050ef0e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:db913eb6ae9338fb6c7987424e4b9d42",
+    "component_evidence_id": "db913eb6ae9338fb6c7987424e4b9d42",
+    "source_content_hash": "9a3dea23f106914a20eef71073e106733bd4314a2c7c6c679f6fe2b8a2858ba8",
+    "payload_hash": "defd9965fbfb1086ba992665b84adbaedcd6a641170ecfa8739a76d0ba1b0848",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 212,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-207a90c07e4b06758e5c64c3caa19eec",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:451ed0528c0ae5229797f0d41c40b1f6",
+    "component_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+    "source_content_hash": "d17300fd7b17059096d2745bac1b41113a6ef5e4a2e4ed3ed312dd89ebc414e6",
+    "payload_hash": "4daff99e0e9e4d214c2ae9ba27969c6d857e309f619fe2ab6229d993c5f74633",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 213,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-0680fb3e738dd8372fd69088d2bd7377",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:1f811b970e762918ab4447f86457ba3c",
+    "component_evidence_id": "1f811b970e762918ab4447f86457ba3c",
+    "source_content_hash": "877b3cca2e25c44512daad51c338a0e2537fb2da202bbdcf97b58288acd7ea24",
+    "payload_hash": "58b8b53c024a6c1613e634722aba9f5d9b51087bd9b0f414b6173b19fcd193a4",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "持续的公允价值计量  --  --  --  --",
+    "page": 214,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-529b518a9bd7d414aaba59a290cbe88a",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:ca2fe4b1bd3a77b683ac0b11947f1768",
+    "component_evidence_id": "ca2fe4b1bd3a77b683ac0b11947f1768",
+    "source_content_hash": "06d497c9b0160e1a9261ea6ee418ac44fcf879cc96fdb47899bcba9a703c0d48",
+    "payload_hash": "53bf63d5ec7d34f5c3a550e7b1b57a1a364b8c1042be945656d3b42c291bfb36",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "持续的公允价值计量  --  --  --  --",
+    "page": 215,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-40a814b5680b51ae6ed60400ca33cfd1",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:f24d88eb4c65b96d21bed9bf197daeb0",
+    "component_evidence_id": "f24d88eb4c65b96d21bed9bf197daeb0",
+    "source_content_hash": "e4f6696c5900af8d654450cc1abd515fd0a0d408dbd660e020801273d03cbda2",
+    "payload_hash": "65c6f66e5d7993acaab1f06eba0a777777cdae1ec3f9d480a8f508adc9379451",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "持续的公允价值计量  --  --  --  --",
+    "page": 216,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-11ef8135f725541931950349c82a5146",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:5c3b5449b6322ba3725cb6d054d94a41",
+    "component_evidence_id": "5c3b5449b6322ba3725cb6d054d94a41",
+    "source_content_hash": "18e145503fb68970662abe084fc7894eec5a169d124c79a649a0cd553e63ecf1",
+    "payload_hash": "201b8d9e169b4f3329dd96369ef9815dd87a14dac67a9996c33ef6700c7ced88",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "持续的公允价值计量  --  --  --  --",
+    "page": 217,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-ebdaf54a45f4400ebcfac002cd05212c",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:13692affac2f03cfaf343806db085035",
+    "component_evidence_id": "13692affac2f03cfaf343806db085035",
+    "source_content_hash": "f3b055ca0cf074c01aea2336acabbeb9af30ade3c687faea09e4ff8d0ae8ac84",
+    "payload_hash": "92e8247407cc22230620096b94973a8bed1b585c9b96bd891a05c53979c96269",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "持续的公允价值计量  --  --  --  --",
+    "page": 218,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:c783f2277baa5eda1659bc5c3fab5d46",
+    "component_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+    "payload_hash": "0cb51a596392db9dc72607b1596d10de10d418ae24329ad28dff3c53005241ed",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 41,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-fd69747ace75228e36054fab09feaab5",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:2d6cde3c2658626b9b60022c04c3ef66",
+    "component_evidence_id": "2d6cde3c2658626b9b60022c04c3ef66",
+    "source_content_hash": "4c31fe228a3f56e4802cb993a065833990bf952bac30fdac917961148ad6e768",
+    "payload_hash": "d939918fa91903133cd8461f9dcbca5fc2dd07fb078e3ed15fb2fb79095a8697",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 42,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-af87f339b162b419086ddde2e2c0cd1f",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:049de1a26d73f3e89611679694ff4f06",
+    "component_evidence_id": "049de1a26d73f3e89611679694ff4f06",
+    "source_content_hash": "d15dc11964ee1cf0c755a7aff7dba7a91159d06ec8ec4aff69448867422d3093",
+    "payload_hash": "23b1a978fa6c859fcee97122ea8f440ceab69e4283d4befb07f04a83eec1b053",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 43,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-8a971c779356df6000e5453d080f4798",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:3d332773492496c4aa1174765cc3ed43",
+    "component_evidence_id": "3d332773492496c4aa1174765cc3ed43",
+    "source_content_hash": "a63620a9db12032ceae04c64216301f1a5c25acd45b6ab6e0f4fa5f2f60007bc",
+    "payload_hash": "ef1a35ac14dc5e6c13abd7ba16a13f8b6d07a49196ce22a616744a57dc8558b8",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 44,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "section_path_unreliable",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-11e314704e0187e873127a10c400ba5e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:134a41ecd910340f24bbf99858b44b1a",
+    "component_evidence_id": "134a41ecd910340f24bbf99858b44b1a",
+    "source_content_hash": "096b24002953da8fa3578d4e89db116950d4376d65f26f8746306910f4f75978",
+    "payload_hash": "04d269733ce8477e74886525b0f0d5498fd25064eaa77ce8fdac9071e24bb290",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 45,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-46ee6e665af801010996806c0ff8b6af",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:c4b1f3b42375691e0223f04ab4093759",
+    "component_evidence_id": "c4b1f3b42375691e0223f04ab4093759",
+    "source_content_hash": "a9c5cfe1fc2821a0a34042cc35a5b54171b4f85c0551d7275131fd3baceb4104",
+    "payload_hash": "1eb666d597d934398f546ee3a946c06a033ddb7c0ec43bdd0ad48a5472bcd5cf",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 46,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-c4f907c2326454f2cdcfa5b59e3fa725",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:a8c89b4d4c331356fcdcb5dd66e02028",
+    "component_evidence_id": "a8c89b4d4c331356fcdcb5dd66e02028",
+    "source_content_hash": "22ecd8ab63330b3cd181ec01b6719ffceeff35ae527ba8b0c9d0d422491eb5bd",
+    "payload_hash": "33144a8a50aa1180a9ebd9897043d4a6e59b56ca499690966a36873902679c1f",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 46,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-56b061ffa277ef6fc16e901dc80c82da",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b1dbb73d1481b1b7e104d43afbc3ffd8",
+    "component_evidence_id": "b1dbb73d1481b1b7e104d43afbc3ffd8",
+    "source_content_hash": "ad11dd00545d35eeaa12e40c7eb3c4ba9971b15ed8b522cbd65fb84c23073712",
+    "payload_hash": "9b5237e38d76c2a29585b7fb4837b4ab578bd7ec96d6e5a7024dba72d0e85b82",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 47,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-222b4c9dbacac85449fefe9dba7a7c7c",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:ec634bbe01cff45df14e2e1d0e3c0eb5",
+    "component_evidence_id": "ec634bbe01cff45df14e2e1d0e3c0eb5",
+    "source_content_hash": "b7f61530d18c11f4ca2b6be3564cacf3b986d5a1eaf5e2b0ba30c94f26ee16b8",
+    "payload_hash": "c72b89165abf28a58cf800b6d6ce30cbf05a9c902a380b946bcab817e38f2e0f",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 48,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-faf8adf17f9611d6abb5bf86ddb936b9",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:079cd0d80d660e2da39250746c025937",
+    "component_evidence_id": "079cd0d80d660e2da39250746c025937",
+    "source_content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+    "payload_hash": "cd204f188f09f68656e9a058d12057f8b3f9a39e7c6348c2b84146cdd43b8255",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 49,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  }
+]

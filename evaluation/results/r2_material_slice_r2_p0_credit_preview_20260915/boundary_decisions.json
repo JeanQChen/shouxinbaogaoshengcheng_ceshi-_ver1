@@ -1,0 +1,251 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 111,
+      "block_index": 0,
+      "section_path": [
+        "发行人资信状况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1488457170381d4421cfe764aac34628d82b14a1f50707a997cc4b01626bd289",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "发行人资信状况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "seed_evidence_id": "548c6db7bd22273b2103065d705c11c7"
+    },
+    {
+      "evidence_id": "81ac458a104b275c3403ff31fad08931",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 110,
+      "block_index": 0,
+      "section_path": [
+        "重大投资理财产品"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "f3dadcfedb87d9a143731aaa1919b826aa08df84f97b18c01584b5041576eaa4",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "发行人资信状况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "发行人资信状况"
+        ],
+        [
+          "重大投资理财产品"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "seed_evidence_id": "548c6db7bd22273b2103065d705c11c7"
+    },
+    {
+      "evidence_id": "663ad0ceefe05ce2ce83c311b1270994",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 112,
+      "block_index": 0,
+      "section_path": [
+        "发行人资信状况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "685ab768a90fefb250abdf68a2b8bed14952b8432612aa41b1dd9adfc4c3b335",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "发行人资信状况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "seed_evidence_id": "548c6db7bd22273b2103065d705c11c7"
+    },
+    {
+      "evidence_id": "23a02da569470ba03c38994faa02bc6a",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 113,
+      "block_index": 0,
+      "section_path": [
+        "债务融资工具信用增进"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "416b27974d6d06903d742af279b9cbc8cca490503f32089dc2da1ab1733fad9d",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "发行人资信状况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "发行人资信状况"
+        ],
+        [
+          "债务融资工具信用增进"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "seed_evidence_id": "548c6db7bd22273b2103065d705c11c7"
+    },
+    {
+      "evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 210,
+      "block_index": 0,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "8ba9685e21cfdd944e5e989fa7a86015adcbb2ea3577c63df5545be37086249b",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "与金融工具相关的风险"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_debt_credit.unused_credit",
+      "seed_evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    },
+    {
+      "evidence_id": "7747a575543aea0e1beba422379e3206",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 209,
+      "block_index": 1,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "32fd3176a8ece209a1abf6d73b4bff396dc0bdbe38b680e410be5a9c5dedffb1",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "与金融工具相关的风险"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_debt_credit.unused_credit",
+      "seed_evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    },
+    {
+      "evidence_id": "7afa4dcd189b95ce58baa32489736f5c",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_boundary_after",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 209,
+      "block_index": 0,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e43c78b0764d5a1daac59bc5234ff1ad01f7d71e91a74d4eefd58b7ac6a4b1d0",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "与金融工具相关的风险"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "boundary_after_block",
+        "1、金融工具产生的各类风险"
+      ],
+      "aspect_id": "company_debt_credit.unused_credit",
+      "seed_evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    },
+    {
+      "evidence_id": "87d404600e0025d40ddd1fe3f198b641",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 210,
+      "block_index": 1,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "cb7071a33ef0499c24ccb81e873c0e4368021cc67a51b2874ce4b367a1c96d7b",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "与金融工具相关的风险"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_debt_credit.unused_credit",
+      "seed_evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    },
+    {
+      "evidence_id": "9c956bcd92bc51cdf2e79cc71512d820",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_boundary_after",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 211,
+      "block_index": 0,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "5ab5c566bdad279954c7e8f8d5a1d207f85bc7063f265d7ec024fed3de550d9d",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "与金融工具相关的风险"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "boundary_after_block",
+        "2、资本管理"
+      ],
+      "aspect_id": "company_debt_credit.unused_credit",
+      "seed_evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    }
+  ]
+}

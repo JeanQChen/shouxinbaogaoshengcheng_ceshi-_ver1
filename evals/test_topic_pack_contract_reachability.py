@@ -55,6 +55,10 @@ def _sha(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+# §五.7 / item 7：set_complete 依赖束必须携带 set_enumerator 版本（依赖指纹锁步一致）。
+_SET_ENUM_DV = {"set_enumerator": TS.SET_ENUMERATION_VERIFIER_VERSION}
+
+
 # ---------------------------------------------------------------------------
 # 冻结资产投影
 # ---------------------------------------------------------------------------
@@ -159,8 +163,9 @@ def _sp_snapshot(sp: SP.SourcePolicy, sp_fp: str) -> TS.FrozenSourcePolicySnapsh
 # 离线最小真实闭合链工厂（不生成业务结论，只证明 schema/Store 合法路径）
 # ---------------------------------------------------------------------------
 
-def _payload_ref(material_type: str, locator: TS.MaterialLocator) -> TS.MaterialPayloadRef:
-    return TS.MaterialPayloadRef(object_type=material_type, authority_identity="aid",
+def _payload_ref(material_type: str, locator: TS.MaterialLocator,
+                 authority_identity: str = "aid") -> TS.MaterialPayloadRef:
+    return TS.MaterialPayloadRef(object_type=material_type, authority_identity=authority_identity,
                                  version="v1", content_hash=_sha("payload"),
                                  locator=locator, created_dependency_fingerprint=_sha("cdep"))
 
@@ -216,10 +221,12 @@ def _chain(snap: TS.TopicAspectRequirementSnapshot, source: str):
     else:
         raise AssertionError(f"未知来源类 {source!r}")
 
+    auth_id = TS.authority_source_identity(auth)
+    pref = _payload_ref(material_type, loc, auth_id)
     material = TS.ResearchMaterial(
-        material_id="m-" + aid, material_type=material_type, source_identity="src-" + aid,
-        locator=loc, payload_ref=_payload_ref(material_type, loc),
-        content_hash=_sha("mat:" + aid), authority_assessment=auth)
+        material_id="m-" + aid, material_type=material_type, source_identity=auth_id,
+        locator=loc, payload_ref=pref,
+        content_hash=pref.content_hash, authority_assessment=auth)
     fact = TS.SupportedFact(
         fact_id="f-" + aid, text="fact text", fact_type="fact", aspect_ids=(aid,),
         citation_refs=(citation,), source_authority=auth, obtained_fields=snap.required_fields)
@@ -244,20 +251,32 @@ def _build_conditional_chain(snap: TS.TopicAspectRequirementSnapshot, source: st
 
 def _set_complete(aid: str, material: TS.ResearchMaterial, fact_id: str, contract_sha256: str,
                   scope_complete: bool = True) -> TS.SetCompletenessAssessment:
-    """set_complete 类型化证明：绑定 material 真实 document_version/source_boundary + 当前 Pack 依赖指纹。"""
+    """set_complete 类型化证明：绑定 material 真实 document_id/document_version/source_boundary
+    + 当前 Pack 依赖指纹；seed_evidence_ids 取自 material 的真实 Evidence identity（非 fact id）。"""
     mid = material.material_id
     loc = material.locator
+    sid = material.source_identity or ""
+    evidence_id = sid[len("evidence:"):] if sid.startswith("evidence:") else "ev-" + aid
     if isinstance(loc, TS.EvidenceLocator):
+        doc_id = loc.document_id
         doc_version = loc.document_version
         boundary = loc.section_path or loc.table_title or ""
     elif isinstance(loc, TS.FinancialLocator):
-        doc_version = loc.snapshot_id
+        doc_id, doc_version = "doc1", loc.snapshot_id
         boundary = loc.scope or ""
     elif isinstance(loc, TS.ExternalLocator):
-        doc_version = loc.source_snapshot_id
+        doc_id, doc_version = "doc1", loc.source_snapshot_id
         boundary = loc.canonical_url or ""
     else:
-        doc_version, boundary = "", ""
+        doc_id, doc_version, boundary = "doc1", "", ""
+    dep_fp = TS.compute_dependency_fingerprint(contract_sha256, "v1", _SET_ENUM_DV)
+    boundary_proof = TS.EnumerationBoundaryProof(
+        aspect_id=aid, seed_evidence_ids=(evidence_id,), document_id=doc_id,
+        document_version=doc_version, evidence_set_version="set1",
+        source_boundary_identity=boundary, component_material_ids=(mid,),
+        trace_fingerprint=_sha("trace"), direction_stop_reasons=(),
+        unread_candidate_refs=(), unresolved_explicit_refs=(), unclosed_continuations=(),
+        tool_errors=(), budget_exhausted=False, dependency_fingerprint=dep_fp)
     return TS.SetCompletenessAssessment(
         aspect_id=aid, rule_version=TS.SET_COMPLETENESS_RULE_VERSION, source_material_ids=(mid,),
         document_version=doc_version, source_boundary=boundary,
@@ -265,8 +284,8 @@ def _set_complete(aid: str, material: TS.ResearchMaterial, fact_id: str, contrac
         excluded_member_ids=(), exclusion_reasons=(),
         supporting_material_ids=(mid,), supporting_fact_ids=(fact_id,),
         scope_complete=scope_complete, assessor_version=TS.SET_COMPLETENESS_ASSESSOR_VERSION,
-        contract_sha256=contract_sha256,
-        dependency_fingerprint=TS.compute_dependency_fingerprint(contract_sha256, "v1", {}))
+        contract_sha256=contract_sha256, boundary_proof=boundary_proof,
+        dependency_fingerprint=dep_fp)
 
 
 def _usage() -> TS.TopicUsageSnapshot:
@@ -282,7 +301,7 @@ def _build_pack(snap: TS.TopicAspectRequirementSnapshot, contract_sha256: str,
                 facts: tuple[TS.SupportedFact, ...]) -> TS.TopicResearchPack:
     aid = snap.aspect_id
     process, coverage, derivation = TS.derive_pack_status((aid,), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(contract_sha256, "v1", {})
+    dep = TS.compute_dependency_fingerprint(contract_sha256, "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="reach-test",
         task_id="reach-test", company_id="300750", report_as_of=None, contract_version="v2",
@@ -329,7 +348,8 @@ def _build_covered(snap: TS.TopicAspectRequirementSnapshot, contract_sha256: str
                     version=material.payload_ref.version,
                     content_hash=_sha_bytes(pb),
                     locator=material.payload_ref.locator,
-                    created_dependency_fingerprint=material.payload_ref.created_dependency_fingerprint))
+                    created_dependency_fingerprint=material.payload_ref.created_dependency_fingerprint),
+                content_hash=_sha_bytes(pb))
         sc = (_set_complete(aid, material, fact.fact_id, contract_sha256)
               if "set_complete" in set(snap.coverage_rules) else None)
     result = dataclasses.replace(result0, sufficiency_assessment=sa, set_completeness=sc)
@@ -402,6 +422,8 @@ class _GoodSetEnumerationVerifier:
     """受信任的测试枚举器：从合成 payload 确定性枚举成员（只证明接口与 Store 绑定，不代表
     正式文档枚举已实现；正式枚举器由 R2 唯一正式组合入口注入）。"""
 
+    verifier_version = TS.SET_ENUMERATION_VERIFIER_VERSION
+
     def enumerate(self, assessment: TS.SetCompletenessAssessment,
                   materials: tuple[TS.ResearchMaterial, ...],
                   resolved_payloads: tuple[TS.ResolvedPayload, ...],
@@ -437,7 +459,7 @@ def _requirement(snaps: tuple[TS.TopicAspectRequirementSnapshot, ...], topic_id:
         task_id="reach-test", company_id="300750", report_as_of=None, contract_version="v2",
         contract_fingerprint=contract_sha256, source_policy_version="v1",
         section_id=topic_id, topic_id=topic_id, question_ids=tuple(s.question_id for s in snaps),
-        aspects=snaps, allowed_capabilities=("evidence",), dependency_versions={})
+        aspects=snaps, allowed_capabilities=("evidence",), dependency_versions=_SET_ENUM_DV)
 
 
 # ---------------------------------------------------------------------------

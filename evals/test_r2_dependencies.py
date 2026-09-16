@@ -103,6 +103,14 @@ def _usage() -> TS.TopicUsageSnapshot:
 
 
 def _set_complete(expected: tuple[str, ...] = ("sub1", "sub2")) -> TS.SetCompletenessAssessment:
+    dep_fp = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    boundary_proof = TS.EnumerationBoundaryProof(
+        aspect_id="a1", seed_evidence_ids=("f-a1",), document_id="doc1",
+        document_version="v1", evidence_set_version="set1", source_boundary_identity="s1",
+        component_material_ids=("m-a1",), trace_fingerprint=_sha("trace"),
+        direction_stop_reasons=(), unread_candidate_refs=(), unresolved_explicit_refs=(),
+        unclosed_continuations=(), tool_errors=(), budget_exhausted=False,
+        dependency_fingerprint=dep_fp)
     return TS.SetCompletenessAssessment(
         aspect_id="a1", rule_version=TS.SET_COMPLETENESS_RULE_VERSION,
         source_material_ids=("m-a1",), document_version="v1", source_boundary="s1",
@@ -110,21 +118,22 @@ def _set_complete(expected: tuple[str, ...] = ("sub1", "sub2")) -> TS.SetComplet
         excluded_member_ids=(), exclusion_reasons=(),
         supporting_material_ids=("m-a1",), supporting_fact_ids=("f-a1",),
         scope_complete=True, assessor_version=TS.SET_COMPLETENESS_ASSESSOR_VERSION,
-        contract_sha256=_sha("contract"),
-        dependency_fingerprint=TS.compute_dependency_fingerprint(_sha("contract"), "v1", {}))
+        contract_sha256=_sha("contract"), boundary_proof=boundary_proof,
+        dependency_fingerprint=dep_fp)
 
 
 def _build_set_complete_covered():
     """构造 set_complete covered Pack + 冻结投影（合成 payload，不落库）。"""
     payload_bytes = b'{"content":{"text":"synthetic"}}'
+    ev_auth_id = TS.authority_source_identity(_evidence_authority())
     payload_ref = TS.MaterialPayloadRef(
-        object_type="evidence_span", authority_identity="aid", version="v1",
+        object_type="evidence_span", authority_identity=ev_auth_id, version="v1",
         content_hash=_sha_bytes(payload_bytes), locator=_evidence_locator(),
         created_dependency_fingerprint=_sha("cdep"))
     material = TS.ResearchMaterial(
-        material_id="m-a1", material_type="evidence_span", source_identity="src",
+        material_id="m-a1", material_type="evidence_span", source_identity=ev_auth_id,
         locator=_evidence_locator(), payload_ref=payload_ref,
-        content_hash=_sha("mat:m-a1"), authority_assessment=_evidence_authority())
+        content_hash=payload_ref.content_hash, authority_assessment=_evidence_authority())
     fact = _closed_fact("f-a1", ("a1",))
     snap = dataclasses.replace(_aspect_snapshot("a1", "t1"), coverage_rules=("set_complete",))
     result = TS.AspectResearchResult(

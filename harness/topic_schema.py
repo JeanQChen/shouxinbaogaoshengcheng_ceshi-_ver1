@@ -44,7 +44,9 @@ from harness.schema import CITATION_TYPES, COMPLETION_STATUSES, ENTAILMENT_VERDI
 #     无新增 SQLite 列；由迁移 2 记录该解释语义升级（见 topic_store.topic_schema_migrations）。
 # v3：DEPENDENCY_VERSION_KEYS 增 set_enumerator（正式 SetEnumerationVerifier 进入依赖指纹），
 #     与 Store schema v3（topic_material_payload 表）是两个独立版本维度，不重新耦合。
-TOPIC_PACK_SCHEMA_VERSION = "3"
+# v4：SetCompletenessAssessment 增 boundary_proof（EnumerationBoundaryProof 进入正式 typed schema
+#     与 Pack content identity；历史 v3 Pack 只读保留，读取时 fail-closed 不静默补证）。
+TOPIC_PACK_SCHEMA_VERSION = "4"
 # Store 结构 schema 版本（独立维度，与 TOPIC_PACK_SCHEMA_VERSION 解耦；断言
 # init_topic_store 时 STORE_SCHEMA_VERSION == MIGRATIONS[-1][0]）。
 STORE_SCHEMA_VERSION = "3"
@@ -1453,6 +1455,23 @@ class ResearchMaterial:
                 f"payload_ref.object_type={self.payload_ref.object_type!r} 不一致")
         if self.payload_ref.locator.to_dict() != self.locator.to_dict():
             raise SchemaValidationError("ResearchMaterial.locator 与 payload_ref.locator 不一致")
+        # §三.1：material 载体层哈希必须与 payload_ref.content_hash 严格一致（== payload_hash ==
+        #       sha256(payload_bytes)）；两者不一致立即 fail-closed，绝不把载体身份与引用身份拆开。
+        if self.content_hash != self.payload_ref.content_hash:
+            raise SchemaValidationError(
+                f"ResearchMaterial.content_hash={self.content_hash!r} 与 "
+                f"payload_ref.content_hash={self.payload_ref.content_hash!r} 不一致")
+        # §四.1：来源身份三方严格一致（source_identity == payload_ref.authority_identity
+        #       == authority_source_identity(authority_assessment)）。
+        auth_identity = authority_source_identity(self.authority_assessment)
+        if self.source_identity != self.payload_ref.authority_identity:
+            raise SchemaValidationError(
+                f"ResearchMaterial.source_identity={self.source_identity!r} 与 "
+                f"payload_ref.authority_identity={self.payload_ref.authority_identity!r} 不一致")
+        if self.source_identity != auth_identity:
+            raise SchemaValidationError(
+                f"ResearchMaterial.source_identity={self.source_identity!r} 与 "
+                f"authority_source_identity={auth_identity!r} 不一致")
 
     def to_dict(self) -> dict:
         return {
@@ -2246,12 +2265,158 @@ class SupportEligibilityAssessment:
         )
 
 
+# 空扩读（expansions == ()）产生的 trace 指纹 == sha256("")：不得被当作「真实扩读已执行」的
+# 闭合证明。§三：空证明缺口——violation() 必须拒绝该指纹。
+_EMPTY_TRACE_FINGERPRINT = hashlib.sha256(b"").hexdigest()
+
+
+@dataclass(frozen=True)
+class EnumerationBoundaryProof:
+    """typed、确定性、可审计的枚举边界闭合输入（§六 / R2 item 6）。
+
+    由真实 ``ExpansionResult/Trace/UnreadScope`` 经 set_enumeration.derive_enumeration_boundary_proof
+    派生，绑定「该 aspect 的声明披露边界是否已读尽」所需的结构信号。``FormalSetEnumerationVerifier``
+    只有在 ``violation() is None``（边界可确定 + 无未读候选 + 无工具错误 + 无预算耗尽 +
+    无 dangling 显式引用 + 无未闭合续表）且枚举成员与实际 payload 一致时才返回
+    ``material_type_supported=True``。不把调用者自报 ``scope_complete=True`` 或「同 section_path」
+    当证明。
+
+    指纹确定性（§三）：本 dataclass 与 ``trace_fingerprint`` 绝不绑定随机 trace_id/run_id/call_id/
+    result_trace_id/timestamp/日志路径；只绑定工具身份、归一化参数、输出身份、逐块结果、结果状态/
+    错误码、停止原因、未读范围、component material IDs 与 dependency fingerprint。
+    """
+
+    aspect_id: str
+    seed_evidence_ids: tuple[str, ...]
+    document_id: str
+    document_version: str
+    evidence_set_version: str
+    source_boundary_identity: str
+    component_material_ids: tuple[str, ...]
+    trace_fingerprint: str
+    direction_stop_reasons: tuple[tuple[str, str], ...]
+    unread_candidate_refs: tuple[str, ...]
+    unresolved_explicit_refs: tuple[str, ...]
+    unclosed_continuations: tuple[str, ...]
+    tool_errors: tuple[str, ...]
+    budget_exhausted: bool
+    dependency_fingerprint: str
+
+    def __post_init__(self) -> None:
+        if not self.aspect_id:
+            raise SchemaValidationError("EnumerationBoundaryProof.aspect_id 必须非空")
+        if not _is_sha256_hex(self.trace_fingerprint):
+            raise SchemaValidationError(
+                "EnumerationBoundaryProof.trace_fingerprint 必须为 64 位 sha256 hex")
+        if not _is_sha256_hex(self.dependency_fingerprint):
+            raise SchemaValidationError(
+                "EnumerationBoundaryProof.dependency_fingerprint 必须为 64 位 sha256 hex")
+
+    def violation(self) -> str | None:
+        """返回第一条不满足的闭合条件（None == 边界闭合输入自洽，可继续枚举）。
+
+        §三（空证明缺口）：除工具错误/预算/未读/未闭合/dangling 外，还必须拒绝空的
+        document_id/document_version/evidence_set_version/source_boundary_identity/
+        seed_evidence_ids/component_material_ids，以及「空扩读」（expansions == ()）产生的
+        空 trace 指纹（== sha256("")），否则调用者可用空字段或空扩读伪造「已闭合」。
+        """
+        if not self.document_id:
+            return "来源边界不可确定（缺 document_id）"
+        if not self.document_version:
+            return "来源边界不可确定（缺 document_version）"
+        if not self.evidence_set_version:
+            return "来源边界不可确定（缺 evidence_set_version）"
+        if not self.source_boundary_identity:
+            return "来源边界不可确定（缺 source_boundary_identity）"
+        if not self.seed_evidence_ids:
+            return "无种子证据（缺 seed_evidence_ids）"
+        if not self.component_material_ids:
+            return "无组件材料（缺 component_material_ids）"
+        if self.trace_fingerprint == _EMPTY_TRACE_FINGERPRINT:
+            return "trace 指纹为空扩读（无真实 expansion 输入，不得视为已闭合）"
+        if self.tool_errors:
+            return f"存在工具错误: {self.tool_errors[0]}"
+        if self.budget_exhausted:
+            return "预算耗尽提前停止"
+        if self.unresolved_explicit_refs:
+            return f"存在 dangling explicit reference: {self.unresolved_explicit_refs[0]}"
+        if self.unclosed_continuations:
+            return f"存在未闭合 table continuation: {self.unclosed_continuations[0]}"
+        if self.unread_candidate_refs:
+            return f"边界内仍有未读候选: {self.unread_candidate_refs[0]}"
+        return None
+
+    def to_dict(self) -> dict:
+        return {
+            "aspect_id": self.aspect_id,
+            "seed_evidence_ids": list(self.seed_evidence_ids),
+            "document_id": self.document_id,
+            "document_version": self.document_version,
+            "evidence_set_version": self.evidence_set_version,
+            "source_boundary_identity": self.source_boundary_identity,
+            "component_material_ids": list(self.component_material_ids),
+            "trace_fingerprint": self.trace_fingerprint,
+            "direction_stop_reasons": [list(p) for p in self.direction_stop_reasons],
+            "unread_candidate_refs": list(self.unread_candidate_refs),
+            "unresolved_explicit_refs": list(self.unresolved_explicit_refs),
+            "unclosed_continuations": list(self.unclosed_continuations),
+            "tool_errors": list(self.tool_errors),
+            "budget_exhausted": self.budget_exhausted,
+            "dependency_fingerprint": self.dependency_fingerprint,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "EnumerationBoundaryProof":
+        d = _reject_unknown(d, {
+            "aspect_id", "seed_evidence_ids", "document_id", "document_version",
+            "evidence_set_version", "source_boundary_identity", "component_material_ids",
+            "trace_fingerprint", "direction_stop_reasons", "unread_candidate_refs",
+            "unresolved_explicit_refs", "unclosed_continuations", "tool_errors",
+            "budget_exhausted", "dependency_fingerprint",
+        }, "EnumerationBoundaryProof")
+        stops_raw = d.get("direction_stop_reasons")
+        if stops_raw is None:
+            stops_raw = []
+        if not isinstance(stops_raw, list) or not all(
+                isinstance(p, list) and len(p) == 2
+                and all(isinstance(x, str) for x in p) for p in stops_raw):
+            raise SchemaValidationError(
+                "EnumerationBoundaryProof.direction_stop_reasons 必须为 [[str, str], ...]")
+        return cls(
+            aspect_id=_get_str(d, "aspect_id", "EnumerationBoundaryProof"),
+            seed_evidence_ids=_get_str_tuple(d, "seed_evidence_ids", "EnumerationBoundaryProof"),
+            document_id=_get_str(d, "document_id", "EnumerationBoundaryProof",
+                                 allow_empty=True) or "",
+            document_version=_get_str(d, "document_version", "EnumerationBoundaryProof",
+                                      allow_empty=True) or "",
+            evidence_set_version=_get_str(d, "evidence_set_version", "EnumerationBoundaryProof",
+                                          allow_empty=True) or "",
+            source_boundary_identity=_get_str(d, "source_boundary_identity",
+                                              "EnumerationBoundaryProof", allow_empty=True) or "",
+            component_material_ids=_get_str_tuple(d, "component_material_ids",
+                                                  "EnumerationBoundaryProof"),
+            trace_fingerprint=_get_str(d, "trace_fingerprint", "EnumerationBoundaryProof"),
+            direction_stop_reasons=tuple((p[0], p[1]) for p in stops_raw),
+            unread_candidate_refs=_get_str_tuple(d, "unread_candidate_refs",
+                                                 "EnumerationBoundaryProof"),
+            unresolved_explicit_refs=_get_str_tuple(d, "unresolved_explicit_refs",
+                                                    "EnumerationBoundaryProof"),
+            unclosed_continuations=_get_str_tuple(d, "unclosed_continuations",
+                                                  "EnumerationBoundaryProof"),
+            tool_errors=_get_str_tuple(d, "tool_errors", "EnumerationBoundaryProof"),
+            budget_exhausted=_get_bool(d, "budget_exhausted", "EnumerationBoundaryProof"),
+            dependency_fingerprint=_get_str(d, "dependency_fingerprint", "EnumerationBoundaryProof"),
+        )
+
+
 @dataclass(frozen=True)
 class SetCompletenessAssessment:
     """set_complete 的类型化证明（Fix 3）：在明确权威披露范围内完整归拢枚举。
 
     绑定 material 身份 + 文档版本 + 章节/表边界 + expected/observed 成员 + 排除理由 +
-    supporting material/fact + scope_complete + 评估器/推导版本 + Contract/dependency 指纹。
+    supporting material/fact + scope_complete + 评估器/推导版本 + Contract/dependency 指纹 +
+    boundary_proof（§六：枚举边界闭合输入，set_complete 必须携带；Store 与 verifier 对缺失
+    fail-closed）。非 set_complete aspect 可为 None。
     """
 
     aspect_id: str
@@ -2269,6 +2434,7 @@ class SetCompletenessAssessment:
     assessor_version: str
     contract_sha256: str
     dependency_fingerprint: str
+    boundary_proof: "EnumerationBoundaryProof | None" = None
 
     def __post_init__(self) -> None:
         if not self.aspect_id:
@@ -2306,6 +2472,8 @@ class SetCompletenessAssessment:
             "assessor_version": self.assessor_version,
             "contract_sha256": self.contract_sha256,
             "dependency_fingerprint": self.dependency_fingerprint,
+            "boundary_proof": (self.boundary_proof.to_dict()
+                               if self.boundary_proof is not None else None),
         }
 
     @classmethod
@@ -2314,8 +2482,10 @@ class SetCompletenessAssessment:
             "aspect_id", "rule_version", "source_material_ids", "document_version",
             "source_boundary", "expected_member_ids", "observed_member_ids", "excluded_member_ids",
             "exclusion_reasons", "supporting_material_ids", "supporting_fact_ids", "scope_complete",
-            "assessor_version", "contract_sha256", "dependency_fingerprint",
+            "assessor_version", "contract_sha256", "dependency_fingerprint", "boundary_proof",
         }, "SetCompletenessAssessment")
+        bp_raw = d.get("boundary_proof")
+        boundary_proof = EnumerationBoundaryProof.from_dict(bp_raw) if bp_raw is not None else None
         return cls(
             aspect_id=_get_str(d, "aspect_id", "SetCompletenessAssessment"),
             rule_version=_get_str(d, "rule_version", "SetCompletenessAssessment"),
@@ -2333,6 +2503,7 @@ class SetCompletenessAssessment:
                                       allow_empty=True) or "",
             contract_sha256=_get_str(d, "contract_sha256", "SetCompletenessAssessment"),
             dependency_fingerprint=_get_str(d, "dependency_fingerprint", "SetCompletenessAssessment"),
+            boundary_proof=boundary_proof,
         )
 
 
@@ -2416,6 +2587,9 @@ class SetEnumerationResult:
     boundary_identity: str = ""
     verifier_version: str = ""
     reason: str = ""
+    # 修复 B：源对象清单 → 恢复结果 闭环（ExpectedSourceObjectInventory.to_dict()）。
+    # 仅 set_complete 摊平恢复路径产出；结构式枚举或不可枚举时为 None。
+    source_object_inventory: dict | None = None
 
     def __post_init__(self) -> None:
         if not self.verifier_version:
@@ -2439,13 +2613,15 @@ class SetEnumerationResult:
             "boundary_identity": self.boundary_identity,
             "verifier_version": self.verifier_version,
             "reason": self.reason,
+            "source_object_inventory": self.source_object_inventory,
         }
 
     @classmethod
     def from_dict(cls, d: Any) -> "SetEnumerationResult":
         d = _reject_unknown(d, {
             "material_type_supported", "enumerated_member_ids", "payload_hash",
-            "boundary_identity", "verifier_version", "reason"}, "SetEnumerationResult")
+            "boundary_identity", "verifier_version", "reason",
+            "source_object_inventory"}, "SetEnumerationResult")
         return cls(
             material_type_supported=_get_bool(d, "material_type_supported", "SetEnumerationResult"),
             enumerated_member_ids=_get_str_tuple(d, "enumerated_member_ids", "SetEnumerationResult"),
@@ -2454,6 +2630,7 @@ class SetEnumerationResult:
                                        allow_empty=True) or "",
             verifier_version=_get_str(d, "verifier_version", "SetEnumerationResult"),
             reason=_get_str(d, "reason", "SetEnumerationResult", allow_empty=True) or "",
+            source_object_inventory=d.get("source_object_inventory"),
         )
 
 
@@ -2473,7 +2650,13 @@ class SetEnumerationVerifier(Protocol):
     正式枚举器接线之前，生产运行链不得将 set_complete aspect 提升为 covered。R2 后续计划必须
     把枚举器版本纳入 dependency fingerprint（本轮只记录该硬门，不实现 R2）。测试 fake 只证明
     接口与 Store 绑定关系成立，不代表正式文档枚举已实现。
+
+    版本绑定（§五.7 / item 7）：实现必须暴露 ``verifier_version == SET_ENUMERATION_VERIFIER_VERSION``，
+    Store 门禁据此与 ``requirement.dependency_versions["set_enumerator"]`` 精确比对；缺键/空/不匹配
+    → fail-closed。测试 fake 亦须携带该版本（否则 Store 拒绝 set_complete 提交）。
     """
+
+    verifier_version: str
 
     def enumerate(self, assessment: "SetCompletenessAssessment",
                   materials: tuple["ResearchMaterial", ...],

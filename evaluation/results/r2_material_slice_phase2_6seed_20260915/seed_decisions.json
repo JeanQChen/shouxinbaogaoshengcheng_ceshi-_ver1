@@ -1,0 +1,257 @@
+{
+  "decision_source": "CODEX_REVIEW",
+  "decision_scope": "evaluation seed selection（选种，非业务事实裁决；不改变任何 Evidence/Pack 的 authority/status）",
+  "generated_at": "20260915T000526Z",
+  "input_manifest": "evaluation\\results\\r2_final_seed_discovery\\candidate_seed_manifest.json",
+  "input_fingerprint": "0dfa35e7aabcc1f767c3b8f79e0970a9216e61147b131823538469089b76e996",
+  "confirmed": [
+    {
+      "case_id": "candidate-1",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "reason": "主营业务收入构成锚点（当前材料 NDSD_KCZ_2026 p50）"
+    },
+    {
+      "case_id": "candidate-3",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "reason": "主营业务收入构成下一页延续（NDSD_KCZ_2026 p51）"
+    },
+    {
+      "case_id": "candidate-7",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 59,
+      "block_index": 0,
+      "section_path": [
+        "公司竞争优势"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+      "reason": "核心竞争力披露（当前材料 NDSD_KCZ_2026 p59）"
+    },
+    {
+      "case_id": "candidate-8",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 20,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0",
+      "reason": "核心竞争力披露（当前材料 NDSD_2025_year p20）"
+    },
+    {
+      "case_id": "candidate-13",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 41,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+      "reason": "主要子公司表行（异常 section_path，保留为扩读边界压力样本，不静默修正路径）"
+    },
+    {
+      "case_id": "candidate-15",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 208,
+      "block_index": 0,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41",
+      "reason": "主要子公司情况（NDSD_2024_year p208，表形式）"
+    }
+  ],
+  "rejected": [
+    {
+      "case_id": "candidate-2",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "1e58e6c97a0da7012747731ff885ba07",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 25,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "3d47a385d5fd80150ca98169e11081e243ae358cd9e4c87c25450310b0469499",
+      "reason": "内容属于口径/技术指标，不是主营业务集合锚点"
+    },
+    {
+      "case_id": "candidate-4",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "abd890e13b9cf92b549f2f3ffa717868",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 69,
+      "block_index": 0,
+      "section_path": [
+        "重要事项"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "855b6e309430dab6e7c961f1e46442d69f57a34c60399825c9dc023585500244",
+      "reason": "承诺事项误召回"
+    },
+    {
+      "case_id": "candidate-5",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "15a574972c1d52dbfa9edfed8fd81b55",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 76,
+      "block_index": 0,
+      "section_path": [
+        "重要事项"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "25a580903a2ca11bebb2d3786a828c52d43753d4fd3cde979837a7af0bc4c655",
+      "reason": "承诺事项误召回"
+    },
+    {
+      "case_id": "candidate-6",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 19,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "eafe288c3438d57cfd89e8235d1222059bf24a1764d48ba037ae92d0b43b2873",
+      "reason": "欧盟政策误召回"
+    },
+    {
+      "case_id": "candidate-9",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "fffd6bd432166edc43246fd204ebfe18",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 39,
+      "block_index": 0,
+      "section_path": [
+        "重大资产和股权出售"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "2caa8806d1e973dc65daee31e6d80dc1568d4c408bdcc5c94942d1719063b5c5",
+      "reason": "仅战略展望补充，不作为核心竞争力枚举 seed"
+    },
+    {
+      "case_id": "candidate-10",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "7ee5ea68d9df2ba4618c9af420f1849a",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 16,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "74c88dfc78be051aab619a8010a684b3aab81acfc7259f2df514b23075934694",
+      "reason": "相关但属于较早年度，与本次已选当前材料重复"
+    },
+    {
+      "case_id": "candidate-11",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "8080da6dbede07c335162abe5d6535a7",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 40,
+      "block_index": 0,
+      "section_path": [
+        "人员独立方面"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "163b11e6a801007b89141d3153bf4f6955db0167511c7ebaa77dc316f14dd9d2",
+      "reason": "人员独立性误召回"
+    },
+    {
+      "case_id": "candidate-12",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "077c15e9ca623b0c7b6306d5507763d3",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 57,
+      "block_index": 0,
+      "section_path": [
+        "公司员工情况"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "57550872b7267d9f8decd3f91843f56ad4a54e70cef813f7ff051c71ad71b748",
+      "reason": "子公司员工人数，不能枚举主要子公司"
+    },
+    {
+      "case_id": "candidate-14",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "ec64e38eb6305e5485b063b7290b091e",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 56,
+      "block_index": 0,
+      "section_path": [
+        "公司治理、环境和社会"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "0e31e4f01ae9b88797fd913515e0e867eb1b124f4c5eb97a24b3e76d18ce593f",
+      "reason": "股权激励/治理事项误召回"
+    }
+  ],
+  "candidate_13_note": "candidate-13 的 section_path 为表格行摊平文本（子公司名称/注册地/注册资本/持股比例/取得方式），非正常章节标题；本次按原样保留作为扩读边界压力样本，不静默修正路径。",
+  "summary": {
+    "total": 15,
+    "confirmed": 6,
+    "rejected": 9
+  }
+}

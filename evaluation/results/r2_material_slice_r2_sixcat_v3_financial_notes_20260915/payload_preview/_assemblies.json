@@ -1,0 +1,1496 @@
+[
+  {
+    "assembly_id": "asm-0bf615fb21beeaff12ff64437823b7ed",
+    "context_parent_id": "mat-ee55c04fe4f0aebd9df0f7f432f2d779",
+    "component_material_ids": [
+      "mat-ee55c04fe4f0aebd9df0f7f432f2d779",
+      "mat-d4c94189b8b3feec64c4a0efd8813cfe",
+      "mat-34ba40bc8b93bb2e178b04bf1cf34220"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P162–P163"
+  },
+  {
+    "assembly_id": "asm-0f06d1a73e36062a297af4e243bf1d7c",
+    "context_parent_id": "mat-b1bd6df27d68aa7569794eb89bdeb814",
+    "component_material_ids": [
+      "mat-b1bd6df27d68aa7569794eb89bdeb814"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P175",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "5485690eee120fccb418c079c728046c",
+    "body_evidence_ids": [
+      "5485690eee120fccb418c079c728046c"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "期末余额",
+      "项目",
+      "账面余额",
+      "坏账准备",
+      "账面价值",
+      "账面余额",
+      "坏账准备",
+      "账面价值",
+      "折现率区间"
+    ],
+    "rows": [
+      [
+        "融资租赁款",
+        "232,090",
+        "7,777",
+        "224,314",
+        "66,667",
+        "66,667 4.15%-11.04%"
+      ],
+      [
+        "其中：未实",
+        "-13,710",
+        "-13,710",
+        "-3,052",
+        "-3,052"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-1454113622a7540f7c3fec1e6b18f2c0",
+    "context_parent_id": "mat-d4c94189b8b3feec64c4a0efd8813cfe",
+    "component_material_ids": [
+      "mat-d4c94189b8b3feec64c4a0efd8813cfe"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P163",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "a360e346127808b0471760c8da8cc2fd",
+    "body_evidence_ids": [
+      "a360e346127808b0471760c8da8cc2fd"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "企业所得税",
+      "应纳税所得额",
+      "注"
+    ],
+    "rows": [
+      [
+        "教育费附加",
+        "实际缴纳的流转税额",
+        "3"
+      ],
+      [
+        "地方教育费附加",
+        "实际缴纳的流转税额",
+        "2"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-1eee75dc540bbb017732b98ae652db74",
+    "context_parent_id": "mat-3e9367762df9b629018ed7fb9ec13754",
+    "component_material_ids": [
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P170",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+    "body_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "continuation_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "应收股利",
+        "65,217",
+        "425,985"
+      ],
+      [
+        "其他应收款",
+        "2,141,729",
+        "3,012,579"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "2,206,947",
+      "3,438,564"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-2360e29d77a5effa65fe1a36406bb1cc",
+    "context_parent_id": "mat-6a858c02a9226b31a56d4dd81aa546e5",
+    "component_material_ids": [
+      "mat-6a858c02a9226b31a56d4dd81aa546e5",
+      "mat-a2c9a62e8a54147457b6678de66fdd31"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P167–P168",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+    "body_evidence_ids": [
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "continuation_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "headers": [
+      "名称",
+      "账面余额",
+      "坏账准备",
+      "计提比例（%）"
+    ],
+    "rows": [
+      [
+        "第一名",
+        "18,002",
+        "18,002",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第二名",
+        "16,338",
+        "16,338",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第三名",
+        "16,337",
+        "16,337",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第四名",
+        "13,928",
+        "13,928",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第五名",
+        "13,879",
+        "13,879",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "其他",
+        "6,650",
+        "6,650",
+        "100.00",
+        "预计无法收回"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "85,135",
+      "85,135"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致"
+  },
+  {
+    "assembly_id": "asm-24264271d23d37584c322579c62e6d9b",
+    "context_parent_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "component_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "库存现金",
+        "373",
+        "1,277"
+      ],
+      [
+        "银行存款",
+        "274,816,769",
+        "238,458,317"
+      ],
+      [
+        "其他货币资金",
+        "28,694,852",
+        "25,846,921"
+      ],
+      [
+        "其中：存放在境外的款项总额",
+        "35,198,866",
+        "20,416,787"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "303,511,993",
+      "264,306,515"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-24bb3533d2cfddffffa730cd72cb057e",
+    "context_parent_id": "mat-b1bd6df27d68aa7569794eb89bdeb814",
+    "component_material_ids": [
+      "mat-b1bd6df27d68aa7569794eb89bdeb814"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P175",
+    "table_title": "（3） 本期实际核销的长期应收款情况",
+    "unit": "千元",
+    "header_evidence_id": "5485690eee120fccb418c079c728046c",
+    "body_evidence_ids": [
+      "5485690eee120fccb418c079c728046c"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "核销金额"
+    ],
+    "rows": [
+      [
+        "实际核销的长期应收款",
+        "111,785"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-2d809873b248d1bf5a0f042a1c9e4fe2",
+    "context_parent_id": "mat-3e9367762df9b629018ed7fb9ec13754",
+    "component_material_ids": [
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P170",
+    "table_title": "（1） 应收股利",
+    "unit": "千元",
+    "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+    "body_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "continuation_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "headers": [
+      "项目(或被投资单位)",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "被投资单位",
+        "1",
+        "64,696"
+      ],
+      [
+        "被投资单位",
+        "2",
+        "522"
+      ],
+      [
+        "被投资单位",
+        "3",
+        "419,862"
+      ],
+      [
+        "被投资单位",
+        "4",
+        "6,122"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "65,217",
+      "425,985"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-2fd027f50051cc962f836cdf27cae7e5",
+    "context_parent_id": "mat-6a858c02a9226b31a56d4dd81aa546e5",
+    "component_material_ids": [
+      "mat-6a858c02a9226b31a56d4dd81aa546e5"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P167",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+    "body_evidence_ids": [
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "continuation_evidence_ids": [
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "headers": [
+      "账龄",
+      "期末账面余额",
+      "期初账面余额"
+    ],
+    "rows": [
+      [
+        "1 年以内（含",
+        "1 年）",
+        "64,578,043",
+        "64,337,084"
+      ],
+      [
+        "1 至",
+        "2 年",
+        "1,237,842",
+        "917,161"
+      ],
+      [
+        "2 至",
+        "3 年",
+        "185,572",
+        "38,290"
+      ],
+      [
+        "3 年以上",
+        "774,946",
+        "772,922"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "66,776,402",
+      "66,065,457"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-3b3a1127fa3d0dbbd05bf248134fd642",
+    "context_parent_id": "mat-5eaa00c66bc0d9e4162e66b73cc32547",
+    "component_material_ids": [
+      "mat-5eaa00c66bc0d9e4162e66b73cc32547"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P173",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+    "body_evidence_ids": [
+      "0a4cc683d60904f1dc23e03457c96241"
+    ],
+    "continuation_evidence_ids": [
+      "0a4cc683d60904f1dc23e03457c96241"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "一年内到期的长期应收款",
+        "72,972",
+        "56,828"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "72,972",
+      "56,828"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-466b28b524cc82c97825c808a693623d",
+    "context_parent_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "component_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "（2） 期末公司已质押的应收票据",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末已质押金额"
+    ],
+    "rows": [
+      [
+        "银行承兑票据",
+        "130,403"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "130,403"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-5dd9af98d3a381ba0e7d977360530e2f",
+    "context_parent_id": "mat-a2c9a62e8a54147457b6678de66fdd31",
+    "component_material_ids": [
+      "mat-a2c9a62e8a54147457b6678de66fdd31"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P168",
+    "table_title": "（4） 本期实际核销的应收账款情况",
+    "unit": "千元",
+    "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+    "body_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "核销金额"
+    ],
+    "rows": [
+      [
+        "实际核销的应收账款",
+        "13,998"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-6c3d2152ad285604f506b565fc77b27b",
+    "context_parent_id": "mat-34ba40bc8b93bb2e178b04bf1cf34220",
+    "component_material_ids": [
+      "mat-34ba40bc8b93bb2e178b04bf1cf34220"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P163",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "b517c63666b8a0d1a4d1e870189af09a",
+    "body_evidence_ids": [
+      "b517c63666b8a0d1a4d1e870189af09a"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "纳税主体名称",
+      "所得税税率（%）"
+    ],
+    "rows": [
+      [
+        "Contemporary Amperex Technology Holding LLC BELGRADE(Serbia)",
+        "15"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-75c5e8a6446482bdc58aaa1d5cfc8bf6",
+    "context_parent_id": "mat-5eaa00c66bc0d9e4162e66b73cc32547",
+    "component_material_ids": [
+      "mat-5eaa00c66bc0d9e4162e66b73cc32547"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P173",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+    "body_evidence_ids": [
+      "0a4cc683d60904f1dc23e03457c96241"
+    ],
+    "continuation_evidence_ids": [
+      "0a4cc683d60904f1dc23e03457c96241"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "进项税额",
+        "6,168,120",
+        "7,860,084"
+      ],
+      [
+        "其他",
+        "118,346",
+        "425,941"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "6,286,465",
+      "8,286,025"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-7655548cefc68cf706e1ab8e873d95f0",
+    "context_parent_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "component_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "（1） 应收票据分类列示",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "银行承兑票据",
+        "130,403",
+        "1,751,725"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "130,403",
+      "1,751,725"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-8569db5faae2127a7a309deb4cc10701",
+    "context_parent_id": "mat-3e9367762df9b629018ed7fb9ec13754",
+    "component_material_ids": [
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P170",
+    "table_title": "1） 其他应收款按款项性质分类情况",
+    "unit": "千元",
+    "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+    "body_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "continuation_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "headers": [
+      "款项性质",
+      "期末账面余额",
+      "期初账面余额"
+    ],
+    "rows": [
+      [
+        "应收员工款项",
+        "196,639",
+        "273,609"
+      ],
+      [
+        "应收保证金或押金",
+        "1,214,364",
+        "1,357,117"
+      ],
+      [
+        "应收其他款项",
+        "1,114,735",
+        "1,591,845"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "2,525,738",
+      "3,222,571"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-85f989eefc3607068b3d0bf9cb1c3c4e",
+    "context_parent_id": "mat-a2c9a62e8a54147457b6678de66fdd31",
+    "component_material_ids": [
+      "mat-a2c9a62e8a54147457b6678de66fdd31"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P168",
+    "table_title": "名称",
+    "unit": null,
+    "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+    "body_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "continuation_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "headers": [
+      "账面余额",
+      "坏账准备",
+      "计提比例（%）"
+    ],
+    "rows": [
+      [
+        "1 年以内",
+        "64,452,484",
+        "752,810",
+        "1.17"
+      ],
+      [
+        "1 至",
+        "2 年",
+        "610,440",
+        "214,287",
+        "35.10"
+      ],
+      [
+        "2 至",
+        "3 年",
+        "147,031",
+        "126,013",
+        "85.71"
+      ],
+      [
+        "3 年以上",
+        "706,377",
+        "706,377",
+        "100.00"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "65,916,331",
+      "1,799,487"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-87d3e8906b47f2cfe696033e7bb8f69c",
+    "context_parent_id": "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+    "component_material_ids": [
+      "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+      "mat-5eaa00c66bc0d9e4162e66b73cc32547"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P172–P173",
+    "table_title": "（2） 存货跌价准备和合同履约成本减值准备",
+    "unit": "千元",
+    "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+    "body_evidence_ids": [],
+    "continuation_evidence_ids": [
+      "0a4cc683d60904f1dc23e03457c96241"
+    ],
+    "headers": [
+      "项目",
+      "计提",
+      "其他",
+      "转回或转销",
+      "其他"
+    ],
+    "rows": [
+      [
+        "原材料",
+        "318,173",
+        "1,862,792",
+        "987,315",
+        "2,154",
+        "1,191,496"
+      ],
+      [
+        "在产品",
+        "20,736",
+        "560",
+        "4,072",
+        "17,225"
+      ],
+      [
+        "库存商品",
+        "3,360,095",
+        "3,179,708",
+        "5,499",
+        "3,052,629",
+        "3,492,673"
+      ],
+      [
+        "周转材料",
+        "32,091",
+        "20,663",
+        "19,358",
+        "33,396"
+      ],
+      [
+        "发出商品",
+        "337,930",
+        "853,195",
+        "349,157",
+        "1,060",
+        "840,908"
+      ],
+      [
+        "委托加工物资",
+        "19,110",
+        "385,700",
+        "371,896",
+        "32,913"
+      ],
+      [
+        "自制半成品",
+        "495,039",
+        "289,317",
+        "333,600",
+        "182",
+        "450,573"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "4,583,174",
+      "6,591,934",
+      "5,499",
+      "5,113,956",
+      "7,469",
+      "6,059,183"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-8b650935da8fdeda5fec7dd7faf958ad",
+    "context_parent_id": "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+    "component_material_ids": [
+      "mat-36721d81d70d3a2d3d764d48dcfc8ac8"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P172",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+    "body_evidence_ids": [
+      "2dd5a621b5b40a8bfc337d1afbfeac54"
+    ],
+    "continuation_evidence_ids": [
+      "2dd5a621b5b40a8bfc337d1afbfeac54"
+    ],
+    "headers": [
+      "账龄",
+      "金额",
+      "比例（%）",
+      "金额",
+      "比例（%）"
+    ],
+    "rows": [
+      [
+        "1年以内",
+        "5,246,232",
+        "87.88",
+        "5,796,094",
+        "83.24"
+      ],
+      [
+        "1年以上",
+        "723,454",
+        "12.12",
+        "1,166,778",
+        "16.76"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "5,969,685",
+      "6,962,873"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "合计 3 列 vs 数据行 5 列 不一致"
+  },
+  {
+    "assembly_id": "asm-92ff1776c00c1beabd987e349e5df8eb",
+    "context_parent_id": "mat-6a858c02a9226b31a56d4dd81aa546e5",
+    "component_material_ids": [
+      "mat-6a858c02a9226b31a56d4dd81aa546e5"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P167",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+    "body_evidence_ids": [
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "continuation_evidence_ids": [
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "headers": [
+      "名称",
+      "账面余额",
+      "坏账准备",
+      "计提比例（%）"
+    ],
+    "rows": [
+      [
+        "第一名",
+        "449,885",
+        "449,885",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第二名",
+        "213,383",
+        "213,383",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第三名",
+        "46,621",
+        "46,621",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第四名",
+        "45,389",
+        "45,389",
+        "100.00",
+        "预计无法收回"
+      ],
+      [
+        "第五名",
+        "25,465",
+        "6,798",
+        "26.70",
+        "预计无法全额收回"
+      ],
+      [
+        "其他",
+        "79,328",
+        "79,328",
+        "100.00",
+        "预计无法收回"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "860,071",
+      "841,405"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致"
+  },
+  {
+    "assembly_id": "asm-9b1abc20c105368d98747bad0bd62679",
+    "context_parent_id": "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+    "component_material_ids": [
+      "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+      "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+      "mat-5eaa00c66bc0d9e4162e66b73cc32547",
+      "mat-377fcda630a5484eb18bed6e4478ae5b",
+      "mat-a244a3560419786e28e59e407bd04c67",
+      "mat-b1bd6df27d68aa7569794eb89bdeb814",
+      "mat-41c69464b4d309559a86eb5fc1c61990"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P171–P176"
+  },
+  {
+    "assembly_id": "asm-a1417dde1c9f1e62c4a9c80f68f8c9d5",
+    "context_parent_id": "mat-13cb6dc20082053978d9d1df44f862e8",
+    "component_material_ids": [
+      "mat-13cb6dc20082053978d9d1df44f862e8",
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P169–P170",
+    "table_title": "（1） 应收款项融资分类列示",
+    "unit": "千元",
+    "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+    "body_evidence_ids": [
+      "fd526dd25edec2e2ee342325c508d404"
+    ],
+    "continuation_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "应收票据",
+        "53,427,774",
+        "55,589,171"
+      ],
+      [
+        "减：其他综合收益-公允价值变动",
+        "118,073",
+        "299,852"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "53,309,701",
+      "55,289,319"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-afcd780134296b599b4e7b9c3c16814a",
+    "context_parent_id": "mat-6a858c02a9226b31a56d4dd81aa546e5",
+    "component_material_ids": [
+      "mat-6a858c02a9226b31a56d4dd81aa546e5",
+      "mat-a2c9a62e8a54147457b6678de66fdd31",
+      "mat-13cb6dc20082053978d9d1df44f862e8",
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P167–P170"
+  },
+  {
+    "assembly_id": "asm-b0a42b51ea407b8bf0fd98ce3ed329d1",
+    "context_parent_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "component_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "银行理财产品及结构性存款",
+        "14,282,253",
+        "7,767"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "14,282,253",
+      "7,767"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-b0d43fc7fc1818424cf01ff4ce1b6d54",
+    "context_parent_id": "mat-13cb6dc20082053978d9d1df44f862e8",
+    "component_material_ids": [
+      "mat-13cb6dc20082053978d9d1df44f862e8"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P169",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+    "body_evidence_ids": [
+      "fd526dd25edec2e2ee342325c508d404"
+    ],
+    "continuation_evidence_ids": [
+      "fd526dd25edec2e2ee342325c508d404"
+    ],
+    "headers": [
+      "项目",
+      "本期计提",
+      "本期收回或转回",
+      "本期转销/核销",
+      "原因"
+    ],
+    "rows": [
+      [
+        "合同资产减值准备",
+        "17,627"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "17,627",
+      "——"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 2 列 不一致"
+  },
+  {
+    "assembly_id": "asm-b519f5f5d87404eaa6739951728d1927",
+    "context_parent_id": "mat-ee55c04fe4f0aebd9df0f7f432f2d779",
+    "component_material_ids": [
+      "mat-ee55c04fe4f0aebd9df0f7f432f2d779"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P162",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "d4d2aa0a0e42a553e9fe95c29d653628",
+    "body_evidence_ids": [
+      "d4d2aa0a0e42a553e9fe95c29d653628"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "2）企业会计准则解释第",
+      "18号"
+    ],
+    "rows": [
+      [
+        "2024年12月，财政部发布《企业会计准则解释第",
+        "18号》（财会〔2024〕24 号，以下简称“解释第",
+        "18"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 3 列 不一致"
+  },
+  {
+    "assembly_id": "asm-ba69ef7c98babaf2abfbf84a24d61fa6",
+    "context_parent_id": "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+    "component_material_ids": [
+      "mat-0f86d6a0a73c7a9d86a964b37d00a0b9"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P171",
+    "table_title": "（德国时代新能源科技有限公司）等注册于德国的公司",
+    "unit": null,
+    "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+    "body_evidence_ids": [
+      "0e07d55cdd98a15f4789f04865359597"
+    ],
+    "continuation_evidence_ids": [
+      "0e07d55cdd98a15f4789f04865359597"
+    ],
+    "headers": [
+      "账龄",
+      "期末账面余额",
+      "期初账面余额"
+    ],
+    "rows": [
+      [
+        "1 年以内（含",
+        "1 年）",
+        "1,061,727",
+        "2,496,698"
+      ],
+      [
+        "1 至",
+        "2年",
+        "1,128,718",
+        "427,825"
+      ],
+      [
+        "2 至",
+        "3年",
+        "55,388",
+        "162,970"
+      ],
+      [
+        "3 年以上",
+        "279,905",
+        "135,077"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "2,525,738",
+      "3,222,571"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-bd69b0dee45e099901ed22231817a475",
+    "context_parent_id": "mat-3e9367762df9b629018ed7fb9ec13754",
+    "component_material_ids": [
+      "mat-3e9367762df9b629018ed7fb9ec13754"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P170",
+    "table_title": "（2） 期末公司已背书或贴现且在资产负债表日尚未到期的应收款项融资",
+    "unit": "千元",
+    "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+    "body_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "continuation_evidence_ids": [
+      "e860159f5b33417d2d9759e450879801"
+    ],
+    "headers": [
+      "项目",
+      "期末终止确认金额",
+      "期末未终止确认金额"
+    ],
+    "rows": [
+      [
+        "银行承兑票据",
+        "35,348,142"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "35,348,142"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 2 列 不一致"
+  },
+  {
+    "assembly_id": "asm-c4c505577286df5b4f332534034b92d5",
+    "context_parent_id": "mat-a244a3560419786e28e59e407bd04c67",
+    "component_material_ids": [
+      "mat-a244a3560419786e28e59e407bd04c67",
+      "mat-b1bd6df27d68aa7569794eb89bdeb814"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P174–P175",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "594134f7d30a33e63dff917f9209075b",
+    "body_evidence_ids": [
+      "594134f7d30a33e63dff917f9209075b"
+    ],
+    "continuation_evidence_ids": [
+      "5485690eee120fccb418c079c728046c"
+    ],
+    "headers": [
+      "重庆蚂蚁消费金融有限公司",
+      "长期持有"
+    ],
+    "rows": [
+      [
+        "奇瑞汽车股份有限公司",
+        "3,722",
+        "长期持有"
+      ],
+      [
+        "北京天科合达半导体股份有限公司",
+        "197,796",
+        "长期持有"
+      ],
+      [
+        "福建金石能源有限公司",
+        "128,415",
+        "长期持有"
+      ],
+      [
+        "宁波力勤资源科技股份有限公司",
+        "9,934",
+        "421,476",
+        "长期持有"
+      ],
+      [
+        "深圳市首航新能源股份有限公司",
+        "24,626",
+        "长期持有"
+      ],
+      [
+        "其他汇总",
+        "8,371",
+        "516,485",
+        "1,359,383",
+        "72,577",
+        "长期持有",
+        "处置"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "43,321",
+      "3,358,645 2,925,648",
+      "72,577"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-d76dd4c6a083223eb082d3f6ed069844",
+    "context_parent_id": "mat-b1bd6df27d68aa7569794eb89bdeb814",
+    "component_material_ids": [
+      "mat-b1bd6df27d68aa7569794eb89bdeb814"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P175",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "5485690eee120fccb418c079c728046c",
+    "body_evidence_ids": [
+      "5485690eee120fccb418c079c728046c"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "类别",
+      "计提",
+      "收回或转回",
+      "转销或核销",
+      "其他"
+    ],
+    "rows": [
+      [
+        "长期应收款",
+        "87,032",
+        "-111,785",
+        "31,185",
+        "6,432"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-e5cef85797fdcac0d7fd4c1a27fd6d12",
+    "context_parent_id": "mat-a2c9a62e8a54147457b6678de66fdd31",
+    "component_material_ids": [
+      "mat-a2c9a62e8a54147457b6678de66fdd31"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P168",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+    "body_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "continuation_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "headers": [
+      "名称",
+      "账面余额",
+      "坏账准备",
+      "计提比例（%）"
+    ],
+    "rows": [
+      [
+        "1 年以内",
+        "64,339,466",
+        "897,028",
+        "1.39"
+      ],
+      [
+        "1 至",
+        "2 年",
+        "914,779",
+        "341,562",
+        "37.34"
+      ],
+      [
+        "2 至",
+        "3 年",
+        "38,290",
+        "33,411",
+        "87.26"
+      ],
+      [
+        "3 年以上",
+        "687,786",
+        "687,786",
+        "100.00"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "65,980,321",
+      "1,959,788"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-efc9da9ea1a1a2011c48eb260b7aa9db",
+    "context_parent_id": "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+    "component_material_ids": [
+      "mat-0f86d6a0a73c7a9d86a964b37d00a0b9"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P171",
+    "table_title": "本期变动金额",
+    "unit": "千元",
+    "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+    "body_evidence_ids": [
+      "0e07d55cdd98a15f4789f04865359597"
+    ],
+    "continuation_evidence_ids": [
+      "0e07d55cdd98a15f4789f04865359597"
+    ],
+    "headers": [
+      "类别",
+      "计提",
+      "收回或转回",
+      "转销或核销",
+      "其他"
+    ],
+    "rows": [
+      [
+        "其他应收款坏账准备",
+        "209,992",
+        "174,453",
+        "-23",
+        "-413",
+        "384,009"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "209,992",
+      "174,453",
+      "-23",
+      "-413",
+      "384,009"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 6 列 不一致"
+  },
+  {
+    "assembly_id": "asm-f891ec15079a347389ea9e26adbe93bd",
+    "context_parent_id": "mat-a2c9a62e8a54147457b6678de66fdd31",
+    "component_material_ids": [
+      "mat-a2c9a62e8a54147457b6678de66fdd31"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P168",
+    "table_title": "本期变动金额",
+    "unit": "千元",
+    "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+    "body_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "continuation_evidence_ids": [
+      "9871967c234ff60054d05026a4bdfdfd"
+    ],
+    "headers": [
+      "类别",
+      "期初余额",
+      "计提",
+      "收回或转回",
+      "核销",
+      "其他",
+      "期末余额"
+    ],
+    "rows": [
+      [
+        "应收账款坏账准备",
+        "2,044,923",
+        "611,041",
+        "-13,998",
+        "-1,074",
+        "2,640,892"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "2,044,923",
+      "611,041",
+      "-13,998",
+      "-1,074",
+      "2,640,892"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "表头 7 列 vs 数据行 6 列 不一致"
+  },
+  {
+    "assembly_id": "asm-fa91e3401b541710fb164a526f42aadf",
+    "context_parent_id": "mat-13cb6dc20082053978d9d1df44f862e8",
+    "component_material_ids": [
+      "mat-13cb6dc20082053978d9d1df44f862e8"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P169",
+    "table_title": "（1） 合同资产情况",
+    "unit": "千元",
+    "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+    "body_evidence_ids": [
+      "fd526dd25edec2e2ee342325c508d404"
+    ],
+    "continuation_evidence_ids": [
+      "fd526dd25edec2e2ee342325c508d404"
+    ],
+    "headers": [
+      "项目",
+      "账面余额",
+      "坏账准备",
+      "账面价值",
+      "账面余额",
+      "坏账准备",
+      "账面价值"
+    ],
+    "rows": [
+      [
+        "合同资产",
+        "450,546",
+        "49,920",
+        "400,626",
+        "266,257",
+        "32,293",
+        "233,964"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "450,546",
+      "49,920",
+      "400,626",
+      "266,257",
+      "32,293",
+      "233,964"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "003ef075df73b79290db4dc51db67c1484ee3b40a3d5c1703ecbd8c8bba01d98",
+  "entries": [
+    {
+      "case_id": "candidate-1",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "topic boundary (out-of-topic heading)",
+      "material_count": 9
+    },
+    {
+      "case_id": "candidate-3",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "topic boundary (out-of-topic heading)",
+      "material_count": 9
+    }
+  ]
+}

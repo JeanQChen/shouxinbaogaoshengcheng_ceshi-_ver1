@@ -1,0 +1,44 @@
+[
+  {
+    "assembly_id": "asm-b0f0d7a61974ec34c4da75e13b890a7b",
+    "context_parent_id": "mat-af55be316eb53661a2abd589378b922e",
+    "component_material_ids": [
+      "mat-af55be316eb53661a2abd589378b922e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P1",
+    "table_title": "表 1 主营业务收入构成表",
+    "unit": "万元",
+    "header_evidence_id": "2109887f173b802cef307a5328356ead",
+    "body_evidence_ids": [
+      "2109887f173b802cef307a5328356ead"
+    ],
+    "continuation_evidence_ids": [
+      "2109887f173b802cef307a5328356ead"
+    ],
+    "headers": [
+      "项目",
+      "2025年",
+      "2024年"
+    ],
+    "rows": [
+      [
+        "智能装备",
+        "12,000",
+        "10,000"
+      ],
+      [
+        "软件服务",
+        "8,000",
+        "6,500"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "20,000",
+      "16,500"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  }
+]

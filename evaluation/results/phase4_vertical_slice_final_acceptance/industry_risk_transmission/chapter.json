@@ -1,0 +1,103 @@
+{
+  "topic_id": "industry_risk_transmission",
+  "question_id": "industry_risk_transmission",
+  "kind": "transmission",
+  "title": "行业风险传导",
+  "tables": [],
+  "paragraphs": [
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "动力电池行业在过去较长时间内保持了较高的复合增速，{{fact:extfact-ext-0d034701c3754d9cabfd-0}}的市场扩容带动了产业链整体扩张。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-0"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "行业高速增长的同时，应收账款占收入比普遍高于{{fact:extfact-ext-0d034701c3754d9cabfd-1}}，显示产业链资金占用较为明显。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-1"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "在扩产和销售快速推进的过程中，授信主体作为产业链环节之一，其现金流与回款质量易受到下游占款及结算周期拉长的传导影响。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-1"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "行业供给端曾出现明显收缩，{{fact:extfact-ext-0d034701c3754d9cabfd-2}}的参与主体数量显著减少，显示竞争格局经历快速出清。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-2"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "供给端集中度提升意味着头部企业议价能力和订单稳定性可能增强，但尾部及配套中小主体的生存空间会被进一步压缩，授信主体面临的竞争烈度取决于其所处梯队及客户结构。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-2"
+          ]
+        },
+        {
+          "type": "limitation",
+          "text": "由于现有事实仅反映行业参与者数量变化，未包含授信主体自身的市场份额和客户集中度信息，因此该路径对授信主体信用风险的具体影响仍需结合其经营数据进行评估。",
+          "fact_ids": []
+        }
+      ]
+    },
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "头部企业市场集中度较高，{{fact:extfact-ext-0d034701c3754d9cabfd-3}}，且{{fact:extfact-ext-0d034701c3754d9cabfd-4}}，龙头份额一度进一步抬升。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-3",
+            "extfact-ext-0d034701c3754d9cabfd-4"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "高集中度格局下，下游电池厂商的信用状况和采购政策将通过订单规模、账期及价格条款向中上游授信主体传导，若授信主体对头部客户依赖较高，其收入波动可能呈同步放大特征。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-3",
+            "extfact-ext-0d034701c3754d9cabfd-4"
+          ]
+        },
+        {
+          "type": "limitation",
+          "text": "现有事实仅覆盖龙头企业整体市占率表现，未提供授信主体客户集中度及前五大客户占比数据，因此头部集中对授信主体经营稳定性的传导程度尚无法量化判断。",
+          "fact_ids": []
+        }
+      ]
+    }
+  ],
+  "calc_display": {},
+  "fact_display": {
+    "extfact-ext-0d034701c3754d9cabfd-0": "5年复合增速33%，10年复合增速22%",
+    "extfact-ext-0d034701c3754d9cabfd-1": "应收账款占收入比普遍高于60%",
+    "extfact-ext-0d034701c3754d9cabfd-2": "从2017年的135家下降至40家",
+    "extfact-ext-0d034701c3754d9cabfd-3": "2019年1-10月，宁德在国内的市占率为51%",
+    "extfact-ext-0d034701c3754d9cabfd-4": "2019年8月市占率一度超过70%"
+  },
+  "verdict": {
+    "ok": true,
+    "issues": [],
+    "rendered_sentences": 9
+  },
+  "markdown": "# 行业风险传导\n\n动力电池行业在过去较长时间内保持了较高的复合增速，5年复合增速33%，10年复合增速22%的市场扩容带动了产业链整体扩张。行业高速增长的同时，应收账款占收入比普遍高于应收账款占收入比普遍高于60%，显示产业链资金占用较为明显。在扩产和销售快速推进的过程中，授信主体作为产业链环节之一，其现金流与回款质量易受到下游占款及结算周期拉长的传导影响。\n\n行业供给端曾出现明显收缩，从2017年的135家下降至40家的参与主体数量显著减少，显示竞争格局经历快速出清。供给端集中度提升意味着头部企业议价能力和订单稳定性可能增强，但尾部及配套中小主体的生存空间会被进一步压缩，授信主体面临的竞争烈度取决于其所处梯队及客户结构。由于现有事实仅反映行业参与者数量变化，未包含授信主体自身的市场份额和客户集中度信息，因此该路径对授信主体信用风险的具体影响仍需结合其经营数据进行评估。\n\n头部企业市场集中度较高，2019年1-10月，宁德在国内的市占率为51%，且2019年8月市占率一度超过70%，龙头份额一度进一步抬升。高集中度格局下，下游电池厂商的信用状况和采购政策将通过订单规模、账期及价格条款向中上游授信主体传导，若授信主体对头部客户依赖较高，其收入波动可能呈同步放大特征。现有事实仅覆盖龙头企业整体市占率表现，未提供授信主体客户集中度及前五大客户占比数据，因此头部集中对授信主体经营稳定性的传导程度尚无法量化判断。\n",
+  "version": "chapter-writer-v1"
+}

@@ -1,0 +1,37 @@
+{
+  "budget_profile_version": "1",
+  "profile_name": "acceptance",
+  "budget_limits": {
+    "adjacent_blocks_before": 4,
+    "adjacent_blocks_after": 16,
+    "adjacent_pages": 10,
+    "table_continuation": 4,
+    "explicit_references": 4,
+    "max_bytes": 262144,
+    "max_tokens": 65536,
+    "no_new_material_steps": 4,
+    "per_seed_cap": 32,
+    "per_request_cap": 128
+  },
+  "seed_budget_records": [
+    {
+      "case_id": "financial-notes-1",
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "budget_consumed": {
+        "adjacent_blocks_before": 1,
+        "adjacent_blocks_after": 11,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 19057,
+        "max_tokens": 11282,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 13
+      },
+      "stop_reason": "previous section heading (backward rollback)",
+      "unread_scope": "停止原因：previous section heading (backward rollback)；未读范围自 P177 第0块。"
+    }
+  ]
+}

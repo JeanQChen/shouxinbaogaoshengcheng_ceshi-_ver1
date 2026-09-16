@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-5b9c649f413d0e2027d7729e7936abfa",
+  "component_evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+  "source_content_hash": "5ce40479badf5fa49ea22ba24307c4b8bfc401481372c743917ef011dcbe0d66",
+  "payload_hash": "573f32e540adcf204e5b5dca257d55d4c9ff0e9d50b01e2e46cef8176e21e095",
+  "payload": "{\"authority_identity\":\"evidence:926198c81c13b25dc545ef1d4e219a34\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"生产量  GWh  748  516  44.96%\\n  库存量  GWh  186  106  75.47%\\n\\n相关数据同比发生变动  30%以上的原因说明\\n适用 □不适用\\n\\n国内外新能源行业持续增长，公司新技术、新产品陆续落地，海外市场拓展加速，客户合作关系进一步深化，公司产品产\\n销两旺。\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"926198c81c13b25dc545ef1d4e219a34\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":150,\"page\":27,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"5ce40479badf5fa49ea22ba24307c4b8bfc401481372c743917ef011dcbe0d66\"}"
+}

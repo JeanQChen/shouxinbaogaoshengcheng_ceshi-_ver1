@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-d86231777a3fd2bdeab1b309d1c3ffac",
+  "component_evidence_id": "7747a575543aea0e1beba422379e3206",
+  "source_content_hash": "32fd3176a8ece209a1abf6d73b4bff396dc0bdbe38b680e410be5a9c5dedffb1",
+  "payload_hash": "993e97ae742ffc1941f5c076fc9a8b9cbcde794c97139bfbd073860e7d8940f8",
+  "payload": "{\"authority_identity\":\"evidence:7747a575543aea0e1beba422379e3206\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"2) 流动性风险\\n  流动性风险，是指本公司在履行以交付现金或其他金融资产结算的义务时遇到资金短缺的风险。\\n\\n209\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"7747a575543aea0e1beba422379e3206\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":209,\"section_path\":\"与金融工具相关的风险\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"32fd3176a8ece209a1abf6d73b4bff396dc0bdbe38b680e410be5a9c5dedffb1\"}"
+}

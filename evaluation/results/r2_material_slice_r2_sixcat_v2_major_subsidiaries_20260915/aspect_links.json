@@ -1,0 +1,182 @@
+[
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-1583802514f9d59454aedec41f17ed2b",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-23d50c94e74212d4d8999cc2bf226a3b",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-30bc904b42bfa4dd1002448d5a0eda45",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-37d9b182a9fe31b3f12dbe6f97990df5",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-43a3b82daf596e6f806e9e00c34bd740",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-44f1dd857d12d2df3cba8701de2bf417",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-5f0ed2562a3c60b666bf9466913ca7ab",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-5fb0757971adab5cdfe9c63d8688553c",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-8e91609224d330bc20a27457bdab5a6d",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-9aa7234ff84234568c4eeb0cc7979a51",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-a41b0071c49fb1f36e8d6c3a1af3f43d",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-b7fbc33831685642fbd33bac95c8bf85",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-d927c8e81ff5cea75f44ef3c3c970422",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-e13924560ab3f7ae28616a54f77717ec",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-ea28f6a6862e98ebaf33e65c1c25ec96",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-efb33e0a18759eb9f83a7f8a941678a0",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-f460d5e5591dfec72b4f4b174ec8445f",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-fdfc51463fca7eebb0a6537b3202d3bf",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  }
+]

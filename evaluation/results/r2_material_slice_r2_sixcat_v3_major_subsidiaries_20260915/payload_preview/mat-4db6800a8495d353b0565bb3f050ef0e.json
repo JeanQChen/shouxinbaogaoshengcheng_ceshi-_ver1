@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-4db6800a8495d353b0565bb3f050ef0e",
+  "component_evidence_id": "db913eb6ae9338fb6c7987424e4b9d42",
+  "source_content_hash": "9a3dea23f106914a20eef71073e106733bd4314a2c7c6c679f6fe2b8a2858ba8",
+  "payload_hash": "defd9965fbfb1086ba992665b84adbaedcd6a641170ecfa8739a76d0ba1b0848",
+  "payload": "{\"authority_identity\":\"evidence:db913eb6ae9338fb6c7987424e4b9d42\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"（ 2）本期公司开展外汇套期保值业务，以远期结售汇等衍生品合约为套期工具，部分预期采购、销\\n售交易涉及的外汇现金流量为被套期项目，以此来规避本公司承担的随着外汇市场价格的波动，预期采\\n购、销售带来的预计未来现金流量发生波动的风险。该类套期为现金流量套期。\\n\\n（ 3）本期公司开展外汇套期保值业务，以远期结售汇等衍生品合约为套期工具，部分外汇存款为被\\n\\n212\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"db913eb6ae9338fb6c7987424e4b9d42\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":212,\"section_path\":\"在其他主体中的权益\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"9a3dea23f106914a20eef71073e106733bd4314a2c7c6c679f6fe2b8a2858ba8\"}"
+}

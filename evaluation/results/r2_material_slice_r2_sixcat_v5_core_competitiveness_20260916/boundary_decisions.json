@@ -1,0 +1,518 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 59,
+      "block_index": 0,
+      "section_path": [
+        "公司竞争优势"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "0de543287aa812c78eb165f694c9580d"
+    },
+    {
+      "evidence_id": "967d7fd24acc17aa7aecb29645adb61d",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 58,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9b644407d7246a496444e135c4f2faacc361497b3c54e57f332dfede15625691",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "公司竞争优势"
+        ],
+        [
+          "主营业务情况"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "0de543287aa812c78eb165f694c9580d"
+    },
+    {
+      "evidence_id": "5f51ec95dc5b0e870ec196e524039207",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 60,
+      "block_index": 0,
+      "section_path": [
+        "发行人主要财务状况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "3491a706df7248b27c9232e747314ebf95135bcf167bd31f5aec7fce4685271c",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "公司竞争优势"
+        ],
+        [
+          "发行人主要财务状况"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "0de543287aa812c78eb165f694c9580d"
+    },
+    {
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 20,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 19,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "eafe288c3438d57cfd89e8235d1222059bf24a1764d48ba037ae92d0b43b2873",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "42.5%以及2030年温室气体净减排  55%等既定目标为牵引，推动成员国加快"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "048e8c7ac66e717215f4b31d57c98b1b",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 19,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "af2661821a46fa70ae73186bdf5e0ab1f3c63cc5c721d6f011452c7243b9c551",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "1. 鼓励成员国实施“社会租赁计划（Social Leasing Scheme）"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "35844493ee2d63fc6bbc94fb0ce501c5",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 18,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "5002ea0d104b34577566c108090b2dbf4fe1708212a9254118e5bfc2f6815de0",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（二）提升利用率：积极开展新型储能与电源协同优化调节。"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "10ea55aaa7d5e68d711dffe77ceff6cf",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 18,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "7b8501a59fc49fad504667ff71154f68f1810d00bf7c12011a5df7abc94deb24",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（二）明确商品编码，规定锂离子电池用再生黑"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "5441c03880d7c9d70f562678e9fbb374",
+      "disposition": "context_candidate",
+      "reason_code": "coarse_section_sub_heading_transition",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 21,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "23eb171a66cd1b7682fd88ffc777c9da436e7ad3dde0d348952b23eca237c57c",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "sub_heading_transition"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "60ceea0ca64a14146bc24abacce5e89f",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 21,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "491da22e4da3f270851d0f32926ac6501e99ea8e53c649b2c94e49e76f5328d3",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "c94b9255f5a0dd6dc5c2e1ecffb1293a",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 22,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "91e757df2af44549f8bc87c40dcfbaa10e8cf7d515a0bfc82c33412fd28fd280",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（3）新兴领域"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "6188ba20a45db986da49cb8357d206d4",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 22,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "922002aa93dfa10feec44b9ab17a500d8db5dfc3271ff4c464c4c46ee81a28f5",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "16028014b760faf0c980965931434b2b",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 23,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "f3ce3e988bf253c8bb3962877dd7c5046b18ff43c8d800eed3e82ab8e676cf1d",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "f54abda86a865b6c98c6f6a9fb9f7cc2",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 24,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "de70c456382478072f58eff19653953fd9373c5759c923362388e9f23be9faf2",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（5）可持续发展"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 25,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "7ed9f57ff0286195e4046d1152cbf9aa8e288216f225f1f03e9517c97506fae5",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（2） 占公司营业收入或营业利润  10%以上的行业、产品、地区、销售模式的情况"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "1e58e6c97a0da7012747731ff885ba07",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 25,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "3d47a385d5fd80150ca98169e11081e243ae358cd9e4c87c25450310b0469499",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 26,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "374a707d25527212a0c51c8e0bf9c25516344ef31eb1d6fbb3d5fda5f299c05d",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（3） 公司实物销售收入是否大于劳务收入"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "26a4455f61bd7deed6a866d613999297",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 26,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "cc149627019b5fac49a52f393206636ab4daa671b22e54542f33d6ade64eeea9",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    },
+    {
+      "evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_boundary_out_of_topic",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 27,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "5ce40479badf5fa49ea22ba24307c4b8bfc401481372c743917ef011dcbe0d66",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "topic_boundary",
+        "（4） 公司已签订的重大销售合同、重大采购合同截至本报告期的履行情况",
+        "stop_direction",
+        "true",
+        "relevant_prefix",
+        "生产量  GWh  748  516  44.96%\n  库存量  GWh  186  106  75.47%\n\n相关数据同比发生变动  30%以上的原因说明\n适用 □不适用\n\n国内外新能源行业持续增长，公司新技术、新产品陆续落地，海外市场拓展加速，客户合作关系进一步深化，公司产品产\n销两旺。"
+      ],
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95"
+    }
+  ]
+}

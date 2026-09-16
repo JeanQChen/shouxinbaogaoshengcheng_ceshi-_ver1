@@ -1,0 +1,42 @@
+{
+  "company_competitiveness.core_competitiveness": {
+    "formal_material_ids": [
+      "mat-06d9d7712a3a95e4a7930b2257f5f128",
+      "mat-82f2e4501f11137dbe763160b0e7ddd6"
+    ],
+    "context_candidate_material_ids": [
+      "mat-052d9220ee93221d125e35e87f4e0aa0",
+      "mat-07a32171769474ec8ea2323147353867",
+      "mat-0b3e918ef629339bd93711b0b0ba3780",
+      "mat-0bfbd925089a76a7b0c7f4feee01f092",
+      "mat-0f0403fbd0408635f37ecc8af4f2f83f",
+      "mat-19138bd82e38bf819e915e2873eb8b63",
+      "mat-31dee94d42a825c1453f1387236fa065",
+      "mat-404d5db7dd1a779648abff2f506a634c",
+      "mat-5998f52d5168428577d2fd5121c3c006",
+      "mat-670ff301db93ba8f20a44fe65f1e4cb3",
+      "mat-6a290194bcebb8314eafb327890f0fbe",
+      "mat-7532318385c3d9494aba0f800fb32bda",
+      "mat-9023f51daf5fa1557b1bd500088abb07",
+      "mat-95ea65c8d6aa9f628b51dce804270d95",
+      "mat-9e684431d30de1f4598be2b8c35338fe",
+      "mat-a29133697a67f465d16617d2cacbbadd",
+      "mat-aba2d489735c6fa4b78fe43a43808c72",
+      "mat-b78f0d4321a7656cb037ed7647ffd532",
+      "mat-cf1ef1ca6b40626cb2542b973df4b7f0",
+      "mat-f3c37afebfc4a7bf38ff72ad8e24cb44"
+    ],
+    "outside_boundary_evidence": [
+      "967d7fd24acc17aa7aecb29645adb61d",
+      "5f51ec95dc5b0e870ec196e524039207"
+    ],
+    "unread_inside_boundary": [
+      "ee59be43226b9fb047e05080b5c36190",
+      "94768d6670fec5e1a2db0b0e64a13ccc"
+    ],
+    "seed_evidence_ids": [
+      "0de543287aa812c78eb165f694c9580d",
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  }
+}

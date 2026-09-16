@@ -1,0 +1,299 @@
+{
+  "topic_id": "industry_scale_cycle",
+  "question_id": "industry_scale_cycle",
+  "kind": "industry",
+  "title": "行业规模与周期",
+  "tables": [
+    {
+      "table_id": "industry_sources",
+      "caption": "行业数据来源与统计口径",
+      "header": [
+        "来源等级",
+        "发布日期",
+        "统计口径 / 事实",
+        "来源"
+      ],
+      "rows": [
+        [
+          "D",
+          "2025-08-11T08:00:00+08:00",
+          "2023年，全球动力电池市场规模达到111.64亿元（人民币）",
+          "https://changsha.11467.com/info/36544108.htm"
+        ],
+        [
+          "D",
+          "2025-08-11T08:00:00+08:00",
+          "报告预测至2029年，全球动力电池市场规模将会达到157.17亿元",
+          "https://changsha.11467.com/info/36544108.htm"
+        ],
+        [
+          "D",
+          "2025-08-11T08:00:00+08:00",
+          "预测期间内将达到5.87%的年均复合增长率",
+          "https://changsha.11467.com/info/36544108.htm"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "2021年全球动力电池装机量增长至293.4GWh",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "年平均复合增长率约为45.92%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "由2017年的63.89 GWh增长至2021年的293.4 GWh",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "到2023年将有望达到约512.8 GWh",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "在2020年全球动力电池的市场规模约为582.5亿元",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "较上年同比增长了约24.1%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "到2021年增长至726.5亿元左右",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "到2026年市场规模将会达到1250亿元",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "在2020年韩国的市场占比约为38.2%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "其次是中国占比约为29.35%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "其他国家和地区的市场占比约为32.45%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "其中宁德时代的市场比重约为31.82%，稳居首位",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "其次是LG新能源占比约为20.5%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "松下和比亚迪的市场占比分别为12.68%和8.82%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "松下和比亚迪的市场占比分别为12.68%和8.82%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "排名前四位的企业市场占比总计达到73.82%",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ],
+        [
+          "D",
+          "2022-08-25T14:50:00+08:00",
+          "市场进一步向头部企业集中",
+          "https://gongyi.sohu.com/a/579748480_120700738"
+        ]
+      ]
+    }
+  ],
+  "paragraphs": [
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "行业规模在测算区间起点已形成百亿级体量，{{fact:extfact-ext-abe48aae77c0476a8523-0}}为基准年规模。",
+          "fact_ids": [
+            "extfact-ext-abe48aae77c0476a8523-0"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "至测算期末，行业规模预计升至{{fact:extfact-ext-abe48aae77c0476a8523-1}}，对应年均复合增速约{{fact:extfact-ext-abe48aae77c0476a8523-2}}。",
+          "fact_ids": [
+            "extfact-ext-abe48aae77c0476a8523-1",
+            "extfact-ext-abe48aae77c0476a8523-2"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "从规模走势看，该行业处于稳步扩张阶段，中期增长斜率温和，未呈现爆发式或收缩态势。",
+          "fact_ids": [
+            "extfact-ext-abe48aae77c0476a8523-0",
+            "extfact-ext-abe48aae77c0476a8523-1",
+            "extfact-ext-abe48aae77c0476a8523-2"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "相关能源产品出货规模由{{fact:extfact-ext-9e66df56398943bc9ae5-5}}增长至{{fact:extfact-ext-9e66df56398943bc9ae5-6}}，期间出现阶段性高增长，其中一年同比增速达{{fact:extfact-ext-9e66df56398943bc9ae5-4}}。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-5",
+            "extfact-ext-9e66df56398943bc9ae5-6",
+            "extfact-ext-9e66df56398943bc9ae5-3",
+            "extfact-ext-9e66df56398943bc9ae5-4"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "同口径下，行业收入规模从{{fact:extfact-ext-9e66df56398943bc9ae5-7}}增至{{fact:extfact-ext-9e66df56398943bc9ae5-9}}，并预计于测算期末达到{{fact:extfact-ext-9e66df56398943bc9ae5-10}}。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-7",
+            "extfact-ext-9e66df56398943bc9ae5-9",
+            "extfact-ext-9e66df56398943bc9ae5-10"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "出货与收入两端同步放大，表明行业当前处于需求驱动的规模扩张期，成长性仍有延续基础。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-5",
+            "extfact-ext-9e66df56398943bc9ae5-6",
+            "extfact-ext-9e66df56398943bc9ae5-7",
+            "extfact-ext-9e66df56398943bc9ae5-9",
+            "extfact-ext-9e66df56398943bc9ae5-10"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "头部集中趋势已现，{{fact:extfact-ext-9e66df56398943bc9ae5-19}}。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-19"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "主要企业市场占有率指标显示，领先企业份额已升至{{fact:extfact-ext-9e66df56398943bc9ae5-18}}，其余梯队份额相对分散。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-18"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "市场向头部集中叠加总体规模仍保持增长，反映行业已从早期分散扩张进入结构优化阶段，但尚未进入存量收缩周期。",
+          "fact_ids": [
+            "extfact-ext-9e66df56398943bc9ae5-19",
+            "extfact-ext-9e66df56398943bc9ae5-18",
+            "extfact-ext-abe48aae77c0476a8523-2"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry_scale_cycle",
+      "question_id": "industry_scale_cycle",
+      "sentences": [
+        {
+          "type": "inference",
+          "text": "（推断）综合 growth、scale、supply_demand 类可核查事实，行业当前处于成长期向成熟期过渡阶段；周期位置为基于公开数据的研判，非直接披露结论。",
+          "fact_ids": [
+            "extfact-ext-abe48aae77c0476a8523-0",
+            "extfact-ext-abe48aae77c0476a8523-1",
+            "extfact-ext-abe48aae77c0476a8523-2",
+            "extfact-ext-9e66df56398943bc9ae5-3",
+            "extfact-ext-9e66df56398943bc9ae5-4",
+            "extfact-ext-9e66df56398943bc9ae5-5",
+            "extfact-ext-9e66df56398943bc9ae5-6",
+            "extfact-ext-9e66df56398943bc9ae5-7",
+            "extfact-ext-9e66df56398943bc9ae5-8",
+            "extfact-ext-9e66df56398943bc9ae5-9",
+            "extfact-ext-9e66df56398943bc9ae5-10",
+            "extfact-ext-9e66df56398943bc9ae5-11",
+            "extfact-ext-9e66df56398943bc9ae5-12",
+            "extfact-ext-9e66df56398943bc9ae5-13",
+            "extfact-ext-9e66df56398943bc9ae5-14",
+            "extfact-ext-9e66df56398943bc9ae5-15",
+            "extfact-ext-9e66df56398943bc9ae5-16",
+            "extfact-ext-9e66df56398943bc9ae5-17",
+            "extfact-ext-9e66df56398943bc9ae5-18",
+            "extfact-ext-9e66df56398943bc9ae5-19"
+          ]
+        }
+      ]
+    }
+  ],
+  "calc_display": {},
+  "fact_display": {
+    "extfact-ext-abe48aae77c0476a8523-0": "111.64亿元（人民币）",
+    "extfact-ext-abe48aae77c0476a8523-1": "157.17亿元",
+    "extfact-ext-abe48aae77c0476a8523-2": "5.87%",
+    "extfact-ext-9e66df56398943bc9ae5-3": "293.4GWh",
+    "extfact-ext-9e66df56398943bc9ae5-4": "45.92%",
+    "extfact-ext-9e66df56398943bc9ae5-5": "63.89 GWh",
+    "extfact-ext-9e66df56398943bc9ae5-6": "512.8 GWh",
+    "extfact-ext-9e66df56398943bc9ae5-7": "582.5亿元",
+    "extfact-ext-9e66df56398943bc9ae5-8": "24.1%",
+    "extfact-ext-9e66df56398943bc9ae5-9": "726.5亿元",
+    "extfact-ext-9e66df56398943bc9ae5-10": "1250亿元",
+    "extfact-ext-9e66df56398943bc9ae5-11": "38.2%",
+    "extfact-ext-9e66df56398943bc9ae5-12": "29.35%",
+    "extfact-ext-9e66df56398943bc9ae5-13": "32.45%",
+    "extfact-ext-9e66df56398943bc9ae5-14": "31.82%",
+    "extfact-ext-9e66df56398943bc9ae5-15": "20.5%",
+    "extfact-ext-9e66df56398943bc9ae5-16": "12.68%",
+    "extfact-ext-9e66df56398943bc9ae5-17": "8.82%",
+    "extfact-ext-9e66df56398943bc9ae5-18": "73.82%",
+    "extfact-ext-9e66df56398943bc9ae5-19": "市场进一步向头部企业集中"
+  },
+  "verdict": {
+    "ok": true,
+    "issues": [],
+    "rendered_sentences": 10
+  },
+  "markdown": "# 行业规模与周期\n\n**行业数据来源与统计口径**\n\n| 来源等级 | 发布日期 | 统计口径 / 事实 | 来源 |\n|---|---|---|---|\n| D | 2025-08-11T08:00:00+08:00 | 2023年，全球动力电池市场规模达到111.64亿元（人民币） | https://changsha.11467.com/info/36544108.htm |\n| D | 2025-08-11T08:00:00+08:00 | 报告预测至2029年，全球动力电池市场规模将会达到157.17亿元 | https://changsha.11467.com/info/36544108.htm |\n| D | 2025-08-11T08:00:00+08:00 | 预测期间内将达到5.87%的年均复合增长率 | https://changsha.11467.com/info/36544108.htm |\n| D | 2022-08-25T14:50:00+08:00 | 2021年全球动力电池装机量增长至293.4GWh | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 年平均复合增长率约为45.92% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 由2017年的63.89 GWh增长至2021年的293.4 GWh | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 到2023年将有望达到约512.8 GWh | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 在2020年全球动力电池的市场规模约为582.5亿元 | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 较上年同比增长了约24.1% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 到2021年增长至726.5亿元左右 | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 到2026年市场规模将会达到1250亿元 | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 在2020年韩国的市场占比约为38.2% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 其次是中国占比约为29.35% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 其他国家和地区的市场占比约为32.45% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 其中宁德时代的市场比重约为31.82%，稳居首位 | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 其次是LG新能源占比约为20.5% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 松下和比亚迪的市场占比分别为12.68%和8.82% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 松下和比亚迪的市场占比分别为12.68%和8.82% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 排名前四位的企业市场占比总计达到73.82% | https://gongyi.sohu.com/a/579748480_120700738 |\n| D | 2022-08-25T14:50:00+08:00 | 市场进一步向头部企业集中 | https://gongyi.sohu.com/a/579748480_120700738 |\n\n行业规模在测算区间起点已形成百亿级体量，111.64亿元（人民币）为基准年规模。至测算期末，行业规模预计升至157.17亿元，对应年均复合增速约5.87%。从规模走势看，该行业处于稳步扩张阶段，中期增长斜率温和，未呈现爆发式或收缩态势。\n\n相关能源产品出货规模由63.89 GWh增长至512.8 GWh，期间出现阶段性高增长，其中一年同比增速达45.92%。同口径下，行业收入规模从582.5亿元增至726.5亿元，并预计于测算期末达到1250亿元。出货与收入两端同步放大，表明行业当前处于需求驱动的规模扩张期，成长性仍有延续基础。\n\n头部集中趋势已现，市场进一步向头部企业集中。主要企业市场占有率指标显示，领先企业份额已升至73.82%，其余梯队份额相对分散。市场向头部集中叠加总体规模仍保持增长，反映行业已从早期分散扩张进入结构优化阶段，但尚未进入存量收缩周期。\n\n（推断）综合 growth、scale、supply_demand 类可核查事实，行业当前处于成长期向成熟期过渡阶段；周期位置为基于公开数据的研判，非直接披露结论。\n",
+  "version": "chapter-writer-v1"
+}

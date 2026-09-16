@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "8f044711374eb08979006a096a50a89cd3e9766c0e5d93bc77f92051920676bb",
+  "entries": [
+    {
+      "case_id": "candidate-13",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 10
+    },
+    {
+      "case_id": "candidate-15",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "hard budget (adjacent_blocks_before)",
+      "material_count": 19
+    }
+  ]
+}

@@ -29,7 +29,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from evidence import ids
 from harness import topic_schema as TS
+from harness._readonly_sqlite import open_readonly_conn
 
 DEFAULT_DB_PATH = Path("data/harness.db")
 
@@ -196,7 +198,7 @@ def _material_payload_ddl_statements() -> list[str]:
     """topic_material_payload 建表语句（fresh init 与 migration 3 共用，单源）。"""
     stmts: list[str] = [
         "CREATE TABLE IF NOT EXISTS topic_material_payload ("
-        "payload_id TEXT PRIMARY KEY, object_type TEXT NOT NULL, "
+        "payload_id TEXT NOT NULL PRIMARY KEY, object_type TEXT NOT NULL, "
         "authority_identity TEXT NOT NULL, version TEXT NOT NULL, "
         "locator_json TEXT NOT NULL, source_content_hash TEXT NOT NULL, "
         "payload_hash TEXT NOT NULL, payload_bytes BLOB NOT NULL, "
@@ -252,6 +254,9 @@ def _run_migration(conn: sqlite3.Connection, version: str, fn: Callable[[sqlite3
             bad = conn.execute("PRAGMA foreign_key_check").fetchall()
             if bad:
                 raise RuntimeError(f"迁移 {version} 后外键校验失败: {bad[:5]}")
+            # §五：最终迁移的结构校验纳入同一事务（COMMIT 前），失败整体回滚（迁移原子性）。
+            if version == MIGRATIONS[-1][0]:
+                _verify_structure_matches_latest(conn)
         except Exception:
             conn.execute("ROLLBACK")
             raise
@@ -291,6 +296,28 @@ def _verify_structure_matches_latest(conn: sqlite3.Connection) -> None:
             if not exists:
                 raise RuntimeError(f"结构校验失败：缺不可变触发器 {trig}")
 
+    # §五：topic_material_payload 全量列 / 主键 / NOT NULL / 索引校验。
+    payload_rows = [dict(r) for r in conn.execute("PRAGMA table_info(topic_material_payload)")]
+    payload_cols = {r["name"] for r in payload_rows}
+    if payload_cols != _MATERIAL_PAYLOAD_COLUMNS:
+        raise RuntimeError(
+            f"结构校验失败：topic_material_payload 列集 {sorted(payload_cols)} 与期望 "
+            f"{sorted(_MATERIAL_PAYLOAD_COLUMNS)} 不一致")
+    pk_cols = [r["name"] for r in payload_rows if r["pk"]]
+    if pk_cols != ["payload_id"]:
+        raise RuntimeError(
+            f"结构校验失败：topic_material_payload 主键 {pk_cols} != [payload_id]")
+    for r in payload_rows:
+        if r["notnull"] != 1:
+            raise RuntimeError(
+                f"结构校验失败：topic_material_payload 列 {r['name']} 未声明 NOT NULL")
+    for idx in _MATERIAL_PAYLOAD_INDEXES:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (idx,)
+        ).fetchone() is not None
+        if not exists:
+            raise RuntimeError(f"结构校验失败：缺索引 {idx}")
+
 
 # topic_pack 的 v1 物理列集（迁移 2 只读复核：解释语义升级不得改动物理列）。
 _V1_TOPIC_PACK_COLUMNS = {
@@ -300,6 +327,14 @@ _V1_TOPIC_PACK_COLUMNS = {
     "uncertain_calls", "process_status", "coverage_status", "status_derivation",
     "dependency_fingerprint", "content_fingerprint", "created_at",
 }
+
+# topic_material_payload 的 v3 物理列集（迁移 3 全量列/索引/约束/触发器校验基准）。
+_MATERIAL_PAYLOAD_COLUMNS = {
+    "payload_id", "object_type", "authority_identity", "version", "locator_json",
+    "source_content_hash", "payload_hash", "payload_bytes",
+    "created_dependency_fingerprint", "created_at",
+}
+_MATERIAL_PAYLOAD_INDEXES = ("idx_topic_material_payload_lookup",)
 
 
 def _migration_2_json_semantics(conn: sqlite3.Connection) -> None:
@@ -667,10 +702,27 @@ def _material_source_boundary(m: TS.ResearchMaterial) -> str:
     return ""
 
 
+def _payload_document_identity(rp: TS.ResolvedPayload) -> dict:
+    """从已解析 payload 信封提取 document_identity（evidence_set_version 仅存在于信封，
+    EvidenceLocator 无此字段）。信封缺失/非法 JSON/无 document_identity → {}（Store 无法从
+    该 payload 复验 evidence_set_version，属信任边界，不静默伪造）。"""
+    if not rp.payload_bytes:
+        return {}
+    try:
+        env = json.loads(rp.payload_bytes.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return {}
+    if not isinstance(env, dict):
+        return {}
+    doc_id = env.get("document_identity")
+    return doc_id if isinstance(doc_id, dict) else {}
+
+
 def _validate_set_completeness(r: TS.AspectResearchResult,
                                materials: tuple[TS.ResearchMaterial, ...],
                                fact_by_id: dict, material_by_id: dict,
                                pack: TS.TopicResearchPack,
+                               requirement: TS.TopicResearchRequirement,
                                set_completeness_verifier: TS.SetCompletenessVerifier | None,
                                resolver: TS.PayloadResolver | None,
                                set_enumeration_verifier: TS.SetEnumerationVerifier | None) -> None:
@@ -690,6 +742,10 @@ def _validate_set_completeness(r: TS.AspectResearchResult,
       payload 缺失/bytes 不可用/不支持类型/枚举器缺失 → fail-closed（set_complete 不得靠自证
       集合升为 covered）。注意：Store 无法证明该枚举器内部确实读取过 payload bytes，仅能校验
       其自报结果与真实 payload 身份一致；正式枚举器由 R2 唯一正式组合入口注入后建立该信任。
+    - §五.7 / item 7 枚举器版本门：set_complete Pack 的 requirement.dependency_versions
+      ["set_enumerator"] 必须存在、非空、且 == 注入 SetEnumerationVerifier.verifier_version
+      == TS.SET_ENUMERATION_VERIFIER_VERSION；缺键/空/任一不匹配 → fail-closed。非 set_complete
+      Pack 不受影响（本函数只对 coverage_rule=set_complete 的 aspect 调用）。
     """
     snap = r.requirement_snapshot
     sc = r.set_completeness
@@ -747,6 +803,39 @@ def _validate_set_completeness(r: TS.AspectResearchResult,
         if r.aspect_id not in fact_by_id[fid].aspect_ids:
             raise TopicStoreValidationError(
                 f"aspect {r.aspect_id!r} set_complete 的 supporting_fact {fid!r} 不回指该 aspect")
+    # §六 BoundaryProof（item 6）：set_complete 必须携带 typed 枚举边界闭合输入，且与
+    # assessment/pack 的 aspect/boundary/materials/dependency 严格一致；缺失/类型不符/违规
+    # （未读候选/工具错误/预算耗尽/dangling 引用/未闭合续表）→ fail-closed，绝不静默补证。
+    bp = sc.boundary_proof
+    if bp is None:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 缺 boundary_proof（枚举边界闭合输入，fail-closed）")
+    if not isinstance(bp, TS.EnumerationBoundaryProof):
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof 类型不符（fail-closed）")
+    bp_violation = bp.violation()
+    if bp_violation is not None:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof 未闭合: {bp_violation}")
+    if bp.aspect_id != r.aspect_id:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.aspect_id={bp.aspect_id!r} 不一致")
+    if bp.document_version != sc.document_version:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.document_version="
+            f"{bp.document_version!r} 与 assessment {sc.document_version!r} 不一致")
+    if bp.source_boundary_identity != sc.source_boundary:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.source_boundary_identity="
+            f"{bp.source_boundary_identity!r} 与 assessment {sc.source_boundary!r} 不一致")
+    if tuple(sorted(bp.component_material_ids)) != tuple(sorted(sc.source_material_ids)):
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.component_material_ids 与 "
+            f"assessment.source_material_ids 不一致")
+    if bp.dependency_fingerprint != pack.dependency_fingerprint:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.dependency_fingerprint "
+            f"与当前 Pack 依赖指纹不一致")
     # 注入 verifier 确定性复算（不信任 scope_complete 布尔）。
     if set_completeness_verifier is None:
         raise TopicStoreValidationError(
@@ -788,9 +877,88 @@ def _validate_set_completeness(r: TS.AspectResearchResult,
                 f"aspect {r.aspect_id!r} set_complete 的 source_material {m.material_id!r} "
                 f"payload bytes 不可用（无法独立枚举成员，fail-closed）")
         resolved_payloads.append(rp)
+    # ---- §三（新）：boundary_proof 空证明缺口交叉校验（Store 层）----
+    # proof 的 document_id/document_version/evidence_set_version 必须与 source materials 的
+    # 真实 Evidence 身份及已解析 payload 信封（document_identity）一致；seed_evidence_ids 必须
+    # 属于 source materials 的真实 Evidence identity；边界不得跨越 document-version/evidence-set。
+    source_evidence_ids: set[str] = set()
+    source_doc_ids: set[str] = set()
+    source_doc_versions: set[str] = set()
+    for m in source_materials:
+        sid = m.source_identity or ""
+        if sid.startswith("evidence:"):
+            source_evidence_ids.add(sid[len("evidence:"):])
+        loc = m.locator
+        if isinstance(loc, TS.EvidenceLocator):
+            if loc.document_id:
+                source_doc_ids.add(loc.document_id)
+            if loc.document_version:
+                source_doc_versions.add(loc.document_version)
+    payload_doc_ids: set[str] = set()
+    payload_doc_versions: set[str] = set()
+    payload_set_versions: set[str] = set()
+    for rp in resolved_payloads:
+        doc_id = _payload_document_identity(rp)
+        if doc_id.get("document_id"):
+            payload_doc_ids.add(doc_id["document_id"])
+        if doc_id.get("document_version"):
+            payload_doc_versions.add(doc_id["document_version"])
+        if doc_id.get("evidence_set_version"):
+            payload_set_versions.add(doc_id["evidence_set_version"])
+    # 1) 单一边界：source materials 不得跨 document_id / document_version。
+    if len(source_doc_ids) > 1:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 source materials 跨 document_id 边界")
+    if len(source_doc_versions) > 1:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 source materials 跨 document_version 边界")
+    # 2) proof.document_id/document_version 必须与 source material locator 一致。
+    if source_doc_ids and bp.document_id not in source_doc_ids:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.document_id="
+            f"{bp.document_id!r} 与 source material 文档身份不一致")
+    if source_doc_versions and bp.document_version not in source_doc_versions:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.document_version="
+            f"{bp.document_version!r} 与 source material 文档版本不一致")
+    # 3) proof.document_id/document_version/evidence_set_version 与已解析 payload 信封一致。
+    if payload_doc_ids and bp.document_id not in payload_doc_ids:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.document_id="
+            f"{bp.document_id!r} 与 payload 信封 document_identity 不一致")
+    if payload_doc_versions and bp.document_version not in payload_doc_versions:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.document_version="
+            f"{bp.document_version!r} 与 payload 信封 document_identity 不一致")
+    if payload_set_versions and bp.evidence_set_version not in payload_set_versions:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.evidence_set_version="
+            f"{bp.evidence_set_version!r} 与 payload 信封 document_identity 不一致")
+    # 4) seed_evidence_ids 必须属于 source materials 的真实 Evidence identity（不得引用外部/伪造种子）。
+    if not set(bp.seed_evidence_ids).issubset(source_evidence_ids):
+        missing = sorted(set(bp.seed_evidence_ids) - source_evidence_ids)
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 boundary_proof.seed_evidence_ids "
+            f"含不属于 source materials 的 Evidence identity: {missing}")
     if set_enumeration_verifier is None:
         raise TopicStoreValidationError(
             f"aspect {r.aspect_id!r} set_complete 必须注入 SetEnumerationVerifier（fail-closed）")
+    # §五.7 / item 7：枚举器版本门（requirement 依赖版本 ↔ 注入枚举器版本 ↔ 实现版本三方一致）。
+    # 缺键/空/任一不匹配 → fail-closed；非 set_complete Pack 不受影响（本函数只对
+    # coverage_rule=set_complete 的 aspect 调用）。
+    req_versions = requirement.dependency_versions
+    if "set_enumerator" not in req_versions or not req_versions["set_enumerator"]:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 缺 set_enumerator 依赖版本（fail-closed）")
+    enum_ver_version = getattr(set_enumeration_verifier, "verifier_version", None)
+    if enum_ver_version != TS.SET_ENUMERATION_VERIFIER_VERSION:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 注入 SetEnumerationVerifier 版本="
+            f"{enum_ver_version!r} 与实现版本 {TS.SET_ENUMERATION_VERIFIER_VERSION!r} 不一致")
+    if req_versions["set_enumerator"] != TS.SET_ENUMERATION_VERIFIER_VERSION:
+        raise TopicStoreValidationError(
+            f"aspect {r.aspect_id!r} set_complete 的 dependency_versions['set_enumerator']="
+            f"{req_versions['set_enumerator']!r} 与实现版本 {TS.SET_ENUMERATION_VERIFIER_VERSION!r} 不一致")
     enum = set_enumeration_verifier.enumerate(
         sc, source_materials, tuple(resolved_payloads), pack.dependency_fingerprint)
     if enum is None:
@@ -1012,6 +1180,7 @@ def _validate_structured_fact_identity(f: TS.SupportedFact,
 
 
 def _validate_aspect_semantics(pack: TS.TopicResearchPack,
+                               requirement: TS.TopicResearchRequirement,
                                source_policy: TS.FrozenSourcePolicySnapshot | None,
                                set_completeness_verifier: TS.SetCompletenessVerifier | None,
                                resolver: TS.PayloadResolver | None = None,
@@ -1109,8 +1278,8 @@ def _validate_aspect_semantics(pack: TS.TopicResearchPack,
             # set_complete 类型化证明（Fix 4 集合关系 + Fix 2 独立枚举）。
             if "set_complete" in set(r.requirement_snapshot.coverage_rules):
                 _validate_set_completeness(r, materials, fact_by_id, material_by_id,
-                                           pack, set_completeness_verifier, resolver,
-                                           set_enumeration_verifier)
+                                           pack, requirement, set_completeness_verifier,
+                                           resolver, set_enumeration_verifier)
             # sufficiency gate 确定性复算（Fix 4；与 authority gate 独立）。
             _validate_sufficiency_recompute(r, facts, source_policy)
         elif r.status == "not_found":
@@ -1412,7 +1581,7 @@ def commit_pack(pack: TS.TopicResearchPack,
     _validate_requirement_self_consistency(requirement)
     _validate_requirement_matches(pack, requirement)
     source_policy = _resolve_source_policy(pack, source_policy_resolver)
-    _validate_aspect_semantics(pack, source_policy, set_completeness_verifier,
+    _validate_aspect_semantics(pack, requirement, source_policy, set_completeness_verifier,
                                resolver, set_enumeration_verifier)
     _recompute_status_consistency(pack, requirement)
     if pack.materials:
@@ -1689,7 +1858,12 @@ class TopicMaterialPayloadResolver:
     def __init__(self, db_path: str | Path):
         self._db_path = Path(db_path)
 
-    def _conn(self) -> sqlite3.Connection:
+    def _read_conn(self) -> sqlite3.Connection | None:
+        # resolve 严格只读：mode=ro + query_only，缺库返回 None（dangling），绝不建库。
+        return open_readonly_conn(self._db_path)
+
+    def _write_conn(self) -> sqlite3.Connection:
+        # 仅 commit_payload_batch 使用独立写连接；建目录/建连接由写路径负责。
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(self._db_path))
         conn.row_factory = sqlite3.Row
@@ -1700,7 +1874,9 @@ class TopicMaterialPayloadResolver:
         if payload_ref.object_type not in ("evidence_span", "table_context"):
             return None  # R2 只构建这两类；后两类 R4 扩展，不永久 fail-closed
         payload_id = payload_ref.content_hash
-        conn = self._conn()
+        conn = self._read_conn()
+        if conn is None:
+            return None  # 缺库 → dangling：交给上层作未读/缺口
         try:
             row = conn.execute(
                 "SELECT * FROM topic_material_payload WHERE payload_id=?", (payload_id,)
@@ -1708,6 +1884,19 @@ class TopicMaterialPayloadResolver:
             if row is None:
                 return None  # dangling：交给上层作未读/缺口
             self._assert_row_matches(row, payload_ref)
+            # §五.1：Resolver 读回必须重跑信封完整性（含 evidence_id 正式重算 + company_id
+            # + page/block/section），损坏信封 fail-closed（不把损坏伪装成 dangling）。
+            self._validate_envelope(MaterialPayloadRecord(
+                payload_id=row["payload_id"],
+                object_type=row["object_type"],
+                authority_identity=row["authority_identity"],
+                version=row["version"],
+                locator_json=row["locator_json"],
+                source_content_hash=row["source_content_hash"],
+                payload_hash=row["payload_hash"],
+                payload_bytes=bytes(row["payload_bytes"]),
+                created_dependency_fingerprint=row["created_dependency_fingerprint"],
+            ))
             return TS.ResolvedPayload(
                 object_type=row["object_type"],
                 authority_identity=row["authority_identity"],
@@ -1744,11 +1933,109 @@ class TopicMaterialPayloadResolver:
             raise StorageCorruptionError(
                 f"payload {payload_ref.content_hash} payload_bytes 重算哈希 ≠ payload_hash")
 
+    def _validate_envelope(self, rec: MaterialPayloadRecord) -> None:
+        """§五.1：payload 信封解析 + 关键字段闭合校验。
+
+        不只校验 ``payload_id == sha256(payload_bytes)``；还校验信封 object_type /
+        authority_identity / evidence_id / source_content_hash / locator /
+        created_dependency_fingerprint 与 record 自洽，且 source_content_hash 与信封
+        content（text + structured_payload）经 ``evidence.ids.content_hash`` 重算一致；
+        并把 evidence_id 与 ``evidence.ids.make_evidence_id``（含 company_id/document/
+        version/set/page/block/section）正式重算严格比对（跨公司/文档串读 fail-closed）。
+        """
+        try:
+            env = json.loads(rec.payload_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封非合法 JSON: {e}") from e
+        if not isinstance(env, dict):
+            raise StorageCorruptionError(f"payload {rec.payload_id} 信封非对象")
+        if env.get("material_payload_version") != 1:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} material_payload_version 不符")
+        if env.get("object_type") != rec.object_type:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封 object_type 与 record 不符")
+        authority_identity = env.get("authority_identity")
+        if authority_identity != rec.authority_identity:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封 authority_identity 与 record 不符")
+        evidence_id = env.get("evidence_id")
+        if authority_identity != f"evidence:{evidence_id}":
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} authority_identity 与 evidence_id 不自洽")
+        if env.get("source_content_hash") != rec.source_content_hash:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封 source_content_hash 与 record 不符")
+        if env.get("created_dependency_fingerprint") != rec.created_dependency_fingerprint:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封 created_dependency_fingerprint 与 record 不符")
+        env_locator = env.get("locator")
+        if env_locator is None or not isinstance(env_locator, dict):
+            raise StorageCorruptionError(f"payload {rec.payload_id} 信封缺 locator")
+        if _locator_to_dict_norm(json.dumps(env_locator, ensure_ascii=False,
+                                            separators=(",", ":"), sort_keys=True)) != \
+                _locator_to_dict_norm(rec.locator_json):
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封 locator 与 record 不符")
+        content = env.get("content")
+        if not isinstance(content, dict):
+            raise StorageCorruptionError(f"payload {rec.payload_id} 信封缺 content")
+        # 片段投影（修复 A）：locator.offset 非空时，content.text 是主题内前缀（非完整块正文），
+        # 故 source_content_hash（== 完整块 content_hash）≠ content_hash(前缀) 是**预期**的；
+        # 该材料的来源身份由下方 evidence_id 正式重算（make_evidence_id(source_content_hash)）
+        # 绑定到完整原子块。仅对非片段（offset 为空）执行「content 重算 == source_content_hash」。
+        if env_locator.get("offset") is None:
+            recomputed_ch = ids.content_hash(
+                str(content.get("text", "")), content.get("structured_payload"))
+            if rec.source_content_hash != recomputed_ch:
+                raise StorageCorruptionError(
+                    f"payload {rec.payload_id} source_content_hash 与 content 重算不一致")
+
+        # §五.1：evidence_id 正式重算（含 company_id）。信封必须携带
+        # document_identity{company_id,document_id,document_version,evidence_set_version}，
+        # 并用 locator 的 page + block_range[0] + source_content_hash 经
+        # evidence.ids.make_evidence_id 重算，与信封 evidence_id 严格一致。
+        # 缺任一字段 → fail-closed（宁可拒绝也不放行伪身份/跨公司串读）。
+        doc_identity = env.get("document_identity")
+        if not isinstance(doc_identity, dict):
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} 信封缺 document_identity")
+        company_id = str(doc_identity.get("company_id", "") or "")
+        document_id = str(doc_identity.get("document_id", "") or "")
+        document_version = str(doc_identity.get("document_version", "") or "")
+        evidence_set_version = str(doc_identity.get("evidence_set_version", "") or "")
+        if not (company_id and document_id and document_version and evidence_set_version):
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} document_identity 缺 company_id/document_id/"
+                f"document_version/evidence_set_version（fail-closed）")
+        page = env_locator.get("page")
+        block_range = env_locator.get("block_range")
+        block_index = block_range[0] if isinstance(block_range, (list, tuple)) and block_range else None
+        if page is None or block_index is None:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} locator 缺 page/block_range（无法正式重算 evidence_id）")
+        loc_doc_id = env_locator.get("document_id")
+        loc_doc_ver = env_locator.get("document_version")
+        if loc_doc_id not in (None, "") and str(loc_doc_id) != document_id:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} locator.document_id 与 document_identity 不一致")
+        if loc_doc_ver not in (None, "") and str(loc_doc_ver) != document_version:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} locator.document_version 与 document_identity 不一致")
+        recomputed_eid = ids.make_evidence_id(
+            company_id, document_id, document_version, evidence_set_version,
+            int(page), int(block_index), rec.source_content_hash)
+        if evidence_id != recomputed_eid:
+            raise StorageCorruptionError(
+                f"payload {rec.payload_id} evidence_id 与正式重算不一致: "
+                f"{evidence_id!r} != {recomputed_eid!r}")
+
     def commit_payload_batch(self, records: tuple[MaterialPayloadRecord, ...]) -> None:
         """单事务原子提交一批新增 payload；任一失败整体回滚、无残留。"""
         if not records:
             return
-        conn = self._conn()
+        conn = self._write_conn()
         try:
             conn.execute("BEGIN")
             try:
@@ -1769,6 +2056,9 @@ class TopicMaterialPayloadResolver:
         if hashlib.sha256(rec.payload_bytes).hexdigest() != rec.payload_hash:
             raise StorageCorruptionError(
                 f"MaterialPayloadRecord payload_hash 与 payload_bytes 重算不一致: {rec.payload_id}")
+
+        # §五.1：payload 信封完整性校验（不只校验 payload_id == sha256(bytes)）。
+        self._validate_envelope(rec)
 
         row = conn.execute(
             "SELECT * FROM topic_material_payload WHERE payload_id=?", (rec.payload_id,)

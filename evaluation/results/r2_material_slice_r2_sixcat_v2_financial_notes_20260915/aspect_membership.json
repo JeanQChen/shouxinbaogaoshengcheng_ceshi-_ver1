@@ -1,0 +1,16 @@
+{
+  "company_finance.notes_to_financial_statements": {
+    "formal_material_ids": [
+      "mat-f03ba0cd246adf8b84514b7d7bd5ef66"
+    ],
+    "context_candidate_material_ids": [],
+    "outside_boundary_evidence": [
+      "b517c63666b8a0d1a4d1e870189af09a",
+      "3a11aad05be81c8848610941c1dcf8fa"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ]
+  }
+}

@@ -1,0 +1,918 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ]
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "主营业务情况"
+        ],
+        [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "continuity_break",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 53,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "page_distance",
+        50,
+        53
+      ]
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ]
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "context_candidate",
+      "reason_code": "coarse_section_sub_heading_transition",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "sub_heading_transition"
+      ]
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "主营业务情况"
+        ],
+        [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 53,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "568819859a093a3fbd8049f340b806fa",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "continuity_break",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 54,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a5ff5bd48f52132d6d09c388e5547b501f5e48384d920761998e53c4741616f7",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "page_distance",
+        51,
+        54
+      ]
+    },
+    {
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 59,
+      "block_index": 0,
+      "section_path": [
+        "公司竞争优势"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ]
+    },
+    {
+      "evidence_id": "967d7fd24acc17aa7aecb29645adb61d",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 58,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9b644407d7246a496444e135c4f2faacc361497b3c54e57f332dfede15625691",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "公司竞争优势"
+        ],
+        [
+          "主营业务情况"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "5f51ec95dc5b0e870ec196e524039207",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 60,
+      "block_index": 0,
+      "section_path": [
+        "发行人主要财务状况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "3491a706df7248b27c9232e747314ebf95135bcf167bd31f5aec7fce4685271c",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "公司竞争优势"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "公司竞争优势"
+        ],
+        [
+          "发行人主要财务状况"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 20,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ]
+    },
+    {
+      "evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 19,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "eafe288c3438d57cfd89e8235d1222059bf24a1764d48ba037ae92d0b43b2873",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "048e8c7ac66e717215f4b31d57c98b1b",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 19,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "af2661821a46fa70ae73186bdf5e0ab1f3c63cc5c721d6f011452c7243b9c551",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "35844493ee2d63fc6bbc94fb0ce501c5",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 18,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "5002ea0d104b34577566c108090b2dbf4fe1708212a9254118e5bfc2f6815de0",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "5441c03880d7c9d70f562678e9fbb374",
+      "disposition": "context_candidate",
+      "reason_code": "coarse_section_sub_heading_transition",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 21,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "23eb171a66cd1b7682fd88ffc777c9da436e7ad3dde0d348952b23eca237c57c",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "sub_heading_transition"
+      ]
+    },
+    {
+      "evidence_id": "60ceea0ca64a14146bc24abacce5e89f",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 21,
+      "block_index": 1,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "491da22e4da3f270851d0f32926ac6501e99ea8e53c649b2c94e49e76f5328d3",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "c94b9255f5a0dd6dc5c2e1ecffb1293a",
+      "disposition": "unread_inside_boundary",
+      "reason_code": "budget_per_seed_cap",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 22,
+      "block_index": 0,
+      "section_path": [
+        "管理层讨论与分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "91e757df2af44549f8bc87c40dcfbaa10e8cf7d515a0bfc82c33412fd28fd280",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "管理层讨论与分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "budget_axis",
+        "per_seed_cap"
+      ]
+    },
+    {
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 41,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "unreliable"
+      ]
+    },
+    {
+      "evidence_id": "8080da6dbede07c335162abe5d6535a7",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 40,
+      "block_index": 0,
+      "section_path": [
+        "人员独立方面"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "163b11e6a801007b89141d3153bf4f6955db0167511c7ebaa77dc316f14dd9d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        [
+          "人员独立方面"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "2d6cde3c2658626b9b60022c04c3ef66",
+      "disposition": "context_candidate",
+      "reason_code": "section_path_unreliable",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 42,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4c31fe228a3f56e4802cb993a065833990bf952bac30fdac917961148ad6e768",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "seed_section_path_unreliable"
+      ]
+    },
+    {
+      "evidence_id": "049de1a26d73f3e89611679694ff4f06",
+      "disposition": "context_candidate",
+      "reason_code": "section_path_unreliable",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 43,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "d15dc11964ee1cf0c755a7aff7dba7a91159d06ec8ec4aff69448867422d3093",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "seed_section_path_unreliable"
+      ]
+    },
+    {
+      "evidence_id": "3d332773492496c4aa1174765cc3ed43",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "continuity_break",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 44,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a63620a9db12032ceae04c64216301f1a5c25acd45b6ab6e0f4fa5f2f60007bc",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "page_distance",
+        41,
+        44
+      ]
+    },
+    {
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 208,
+      "block_index": 0,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ]
+    },
+    {
+      "evidence_id": "22a0cb787b74296d2f067d9eeda33aaa",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 207,
+      "block_index": 1,
+      "section_path": [
+        "离职后福利-设定  5,803  1,528,334  1,527,762  6,375"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "547979c919d7c8e7a6fa3426d1615ead3e9b194517945fe498c91ddaef12b93f",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "在其他主体中的权益"
+        ],
+        [
+          "离职后福利-设定  5,803  1,528,334  1,527,762  6,375"
+        ],
+        "sibling"
+      ]
+    },
+    {
+      "evidence_id": "839629761564bc0555b19061e9da80a5",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 208,
+      "block_index": 1,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "72d1824ff3a9c0c5747e953c2b85db1465c87a6241f809cc6d72e77484fac738",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "dc211fa242f7a8e6466c2de7d6029fca",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 209,
+      "block_index": 0,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "c213cc832e663442bd621c0276166a6ef7eb06d75d8ef64e965ca7ee99a1dfdb",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "b2d561dd92256f5e446ba8152c41e328",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 210,
+      "block_index": 0,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "d2e0adb681d75d64c8bcf422349d3d0fc7adcd733da3ba7d2aa1c2fe4d12e4af",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "55930d6c3f2f494e657a54919ae79f3c",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 210,
+      "block_index": 1,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "958aacc496c1abc2580678b358107c8e384b9bad5eb0ecbdbe0e22fa24edbfee",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": []
+    },
+    {
+      "evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "continuity_break",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 211,
+      "block_index": 0,
+      "section_path": [
+        "在其他主体中的权益"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e1f004ff92416a8be1212df2edd0474ee485f3a65258a5de5f2d786826aa13ac",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "在其他主体中的权益"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "page_distance",
+        208,
+        211
+      ]
+    }
+  ]
+}

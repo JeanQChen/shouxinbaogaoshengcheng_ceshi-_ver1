@@ -1,0 +1,43 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": true,
+    "verifier_version": "1",
+    "reason": "deterministic structural enumeration",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "source_boundary": "主营业务情况",
+        "result": {
+          "material_type_supported": true,
+          "enumerated_member_ids": [
+            "business_segment:动力电池系统",
+            "business_segment:储能电池系统",
+            "business_segment:电池材料及回收",
+            "business_segment:电池矿产资源",
+            "business_segment:其他业务"
+          ],
+          "payload_hash": "dc63706cde2b7ad64271e76b7e1c47583bec89294ce5c0e0638389288a5e59a8",
+          "boundary_identity": "d2066c1c19a7b9e3e7d0243545c35ede8c4e024e0cae1c105f0c0c44c342a5dd",
+          "verifier_version": "1",
+          "reason": "deterministic structural enumeration"
+        }
+      }
+    ]
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

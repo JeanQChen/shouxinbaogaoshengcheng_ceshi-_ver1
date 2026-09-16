@@ -1,0 +1,158 @@
+{
+  "topic_id": "industry_scale_cycle",
+  "question_id": "industry_scale_cycle",
+  "kind": "industry",
+  "title": "行业规模与周期",
+  "tables": [
+    {
+      "table_id": "industry_sources",
+      "caption": "行业数据来源与统计口径",
+      "header": [
+        "来源等级",
+        "发布日期",
+        "统计口径 / 事实",
+        "来源"
+      ],
+      "rows": [
+        [
+          "A",
+          "2023-02-28T17:28:24+08:00",
+          "截至2022年，我国新能源汽车产销量已经连续8年保持全球第一。",
+          "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+        ],
+        [
+          "A",
+          "2023-02-28T17:28:24+08:00",
+          "按照动力电池4-8年的使用寿命估算，2017年前后国内大规模装机的新能源车动力电池也将在今年迎来回收放量期。",
+          "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+        ],
+        [
+          "A",
+          "2023-02-28T17:28:24+08:00",
+          "部分企业反映，部分电池折扣系数（废料价与新货价的比）已由2021年最低60%上升至2022年的100%以上。",
+          "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+        ],
+        [
+          "A",
+          "2023-02-28T17:28:24+08:00",
+          "有关研究机构测算，到2030年我国动力电池回收市场规模可达1406亿元，比2022年实际市场规模增长近9倍。",
+          "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+        ],
+        [
+          "A",
+          "2023-02-28T17:28:24+08:00",
+          "有关研究机构测算，到2030年我国动力电池回收市场规模可达1406亿元，比2022年实际市场规模增长近9倍。",
+          "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+        ]
+      ]
+    }
+  ],
+  "paragraphs": [
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "行业规模已{{fact:extfact-ext-64cc49c6d973454abd4a-0}}。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-0"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "这一规模地位为行业后续扩容提供了较高的基数基础，也意味着行业波动对整体市场具有较明显的传导影响。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-0"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "中长期看，行业规模预计将达到{{fact:extfact-ext-64cc49c6d973454abd4a-3}}，对应{{fact:extfact-ext-64cc49c6d973454abd4a-4}}。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-3",
+            "extfact-ext-64cc49c6d973454abd4a-4"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "上述增速预期反映行业仍处于扩张通道，未来成长空间尚未充分释放。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-4"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry",
+      "question_id": "industry",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "行业周期长度约为{{fact:extfact-ext-64cc49c6d973454abd4a-1}}。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-1"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "供需格局已从最低水平回升至{{fact:extfact-ext-64cc49c6d973454abd4a-2}}。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-2"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "供需关系的修复表明行业正由阶段性偏紧状态向均衡水平回归，当前或处于周期中段的修复期。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-1",
+            "extfact-ext-64cc49c6d973454abd4a-2"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "industry_scale_cycle",
+      "question_id": "industry_scale_cycle",
+      "sentences": [
+        {
+          "type": "inference",
+          "text": "（推断）综合 cycle、growth、scale、supply_demand 类可核查事实，行业当前处于成长期向成熟期过渡阶段；周期位置为基于公开数据的研判，非直接披露结论。",
+          "fact_ids": [
+            "extfact-ext-64cc49c6d973454abd4a-0",
+            "extfact-ext-64cc49c6d973454abd4a-1",
+            "extfact-ext-64cc49c6d973454abd4a-2",
+            "extfact-ext-64cc49c6d973454abd4a-3",
+            "extfact-ext-64cc49c6d973454abd4a-4"
+          ]
+        }
+      ]
+    }
+  ],
+  "calc_display": {},
+  "fact_display": {
+    "extfact-ext-64cc49c6d973454abd4a-0": "连续8年保持全球第一",
+    "extfact-ext-64cc49c6d973454abd4a-1": "4-8年",
+    "extfact-ext-64cc49c6d973454abd4a-2": "由2021年最低60%上升至2022年的100%以上",
+    "extfact-ext-64cc49c6d973454abd4a-3": "1406亿元",
+    "extfact-ext-64cc49c6d973454abd4a-4": "增长近9倍"
+  },
+  "verdict": {
+    "ok": true,
+    "content_ok": true,
+    "issues": [],
+    "rendered_sentences": 8
+  },
+  "adopted_fact_ids": [
+    "ext-64cc49c6d973454abd4a"
+  ],
+  "chapter_ok": true,
+  "markdown": "# 行业规模与周期\n\n**行业数据来源与统计口径**\n\n| 来源等级 | 发布日期 | 统计口径 / 事实 | 来源 |\n|---|---|---|---|\n| A | 2023-02-28T17:28:24+08:00 | 截至2022年，我国新能源汽车产销量已经连续8年保持全球第一。 | http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html |\n| A | 2023-02-28T17:28:24+08:00 | 按照动力电池4-8年的使用寿命估算，2017年前后国内大规模装机的新能源车动力电池也将在今年迎来回收放量期。 | http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html |\n| A | 2023-02-28T17:28:24+08:00 | 部分企业反映，部分电池折扣系数（废料价与新货价的比）已由2021年最低60%上升至2022年的100%以上。 | http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html |\n| A | 2023-02-28T17:28:24+08:00 | 有关研究机构测算，到2030年我国动力电池回收市场规模可达1406亿元，比2022年实际市场规模增长近9倍。 | http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html |\n| A | 2023-02-28T17:28:24+08:00 | 有关研究机构测算，到2030年我国动力电池回收市场规模可达1406亿元，比2022年实际市场规模增长近9倍。 | http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html |\n\n行业规模已连续8年保持全球第一。这一规模地位为行业后续扩容提供了较高的基数基础，也意味着行业波动对整体市场具有较明显的传导影响。\n\n中长期看，行业规模预计将达到1406亿元，对应增长近9倍。上述增速预期反映行业仍处于扩张通道，未来成长空间尚未充分释放。\n\n行业周期长度约为4-8年。供需格局已从最低水平回升至由2021年最低60%上升至2022年的100%以上。供需关系的修复表明行业正由阶段性偏紧状态向均衡水平回归，当前或处于周期中段的修复期。\n\n（推断）综合 cycle、growth、scale、supply_demand 类可核查事实，行业当前处于成长期向成熟期过渡阶段；周期位置为基于公开数据的研判，非直接披露结论。\n",
+  "version": "chapter-writer-v1"
+}

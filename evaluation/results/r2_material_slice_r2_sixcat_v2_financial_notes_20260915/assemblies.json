@@ -1,0 +1,162 @@
+[
+  {
+    "assembly_id": "asm-044fe846d002b76d118d55adb97dd4af",
+    "context_parent_id": "mat-f03ba0cd246adf8b84514b7d7bd5ef66",
+    "component_material_ids": [
+      "mat-f03ba0cd246adf8b84514b7d7bd5ef66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "库存现金",
+        "373",
+        "1,277"
+      ],
+      [
+        "银行存款",
+        "274,816,769",
+        "238,458,317"
+      ],
+      [
+        "其他货币资金",
+        "28,694,852",
+        "25,846,921"
+      ],
+      [
+        "其中：存放在境外的款项总额",
+        "35,198,866",
+        "20,416,787"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "303,511,993",
+      "264,306,515"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-246f3a4d887a3c8a644d55b6410b9745",
+    "context_parent_id": "mat-f03ba0cd246adf8b84514b7d7bd5ef66",
+    "component_material_ids": [
+      "mat-f03ba0cd246adf8b84514b7d7bd5ef66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "银行理财产品及结构性存款",
+        "14,282,253",
+        "7,767"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "14,282,253",
+      "7,767"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-3ebf8035a58c4bdcdc28cf293ce36aa5",
+    "context_parent_id": "mat-f03ba0cd246adf8b84514b7d7bd5ef66",
+    "component_material_ids": [
+      "mat-f03ba0cd246adf8b84514b7d7bd5ef66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "（1） 应收票据分类列示",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末余额",
+      "期初余额"
+    ],
+    "rows": [
+      [
+        "银行承兑票据",
+        "130,403",
+        "1,751,725"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "130,403",
+      "1,751,725"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-bb75f611133e0c4c9e44f463a20852a7",
+    "context_parent_id": "mat-f03ba0cd246adf8b84514b7d7bd5ef66",
+    "component_material_ids": [
+      "mat-f03ba0cd246adf8b84514b7d7bd5ef66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P166",
+    "table_title": "（2） 期末公司已质押的应收票据",
+    "unit": "千元",
+    "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "body_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "continuation_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ],
+    "headers": [
+      "项目",
+      "期末已质押金额"
+    ],
+    "rows": [
+      [
+        "银行承兑票据",
+        "130,403"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "130,403"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  }
+]

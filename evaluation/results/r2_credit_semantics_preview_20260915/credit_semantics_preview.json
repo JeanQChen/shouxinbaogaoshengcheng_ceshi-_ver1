@@ -1,0 +1,148 @@
+{
+  "preview_version": "credit-semantics-v1",
+  "run_id": "r2_credit_semantics_preview_20260915",
+  "company_id": "300750",
+  "generated_at": "20260915T000000Z",
+  "purpose": "R3 前授信口径 P0 语义预览：把「总授信」从 6000亿（实为拟申请上限）中解耦，显式区分 4 个语义类型；不重写 R2 架构，不进入 R3。",
+  "hard_rules": [
+    "6,000 亿 = authorized_application_ceiling（拟申请综合授信额度上限），NOT actual_granted_total_credit_line、NOT total_credit_line（总授信）",
+    "actual_granted_total_credit_line = 显式缺口（无披露），绝不回填 6000 亿",
+    "绝不计算 used_credit(2918.37) + unused_credit(3655)：两者 entity_scope/facility_scope/document 均不一致",
+    "scope 不一致 → scope_not_reconciled（如实显化，不强行对账）"
+  ],
+  "semantic_types": {
+    "authorized_application_ceiling": {
+      "label": "拟申请综合授信额度上限",
+      "definition": "股东会/董事会批准的、公司及控股子公司拟向银行等金融机构申请的综合授信额度上限（申请口径，非实际获批总额）",
+      "as_of": "2025年度（2025-04-08 股东会批准）/ 2024年度（2024-04-19 股东会批准）",
+      "currency": "CNY",
+      "entity_scope": "公司及控股子公司",
+      "facility_scope": "综合授信额度",
+      "values": [
+        { "period": "2025年度", "value": "6,000亿元", "note": "不超过人民币 6,000亿元" },
+        { "period": "2024年度", "value": "5,600亿元", "note": "不超过人民币 5,600亿元" }
+      ],
+      "source": {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+        "page_number": 111,
+        "block_index": 0,
+        "section_path": ["发行人资信状况"],
+        "locator": "NDSD_KCZ_2026 p111 「发行人资信状况」"
+      },
+      "semantic_status": "obtained",
+      "reconciliation_status": "reconciled（单一来源，申请口径明确，不冒充实际获批总额）"
+    },
+    "actual_granted_total_credit_line": {
+      "label": "实际获批授信总额",
+      "definition": "金融机构实际批准授予公司的授信总额（获批口径，区别于股东会批准的申请上限）",
+      "as_of": null,
+      "currency": "CNY",
+      "entity_scope": null,
+      "facility_scope": null,
+      "values": [],
+      "source": null,
+      "semantic_status": "gap_explicit",
+      "reconciliation_status": "gap_explicit（无披露：6,000亿 是申请上限，不是实际获批总额）"
+    },
+    "used_credit": {
+      "label": "已使用授信额度",
+      "definition": "截至报告期末，公司及控股子公司综合授信额度中已使用的部分",
+      "as_of": "2025年末",
+      "currency": "CNY",
+      "entity_scope": "公司及控股子公司",
+      "facility_scope": "综合授信额度",
+      "values": [
+        { "period": "2025年末", "value": "2,918.37亿元", "note": "授信额度已使用 2918.37 亿" }
+      ],
+      "source": {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+        "page_number": 111,
+        "block_index": 0,
+        "section_path": ["发行人资信状况"],
+        "locator": "NDSD_KCZ_2026 p111 「发行人资信状况」"
+      },
+      "semantic_status": "obtained",
+      "reconciliation_status": "scope_not_reconciled（对 unused_credit：entity_scope 公司及控股子公司 vs 公司、facility_scope 综合授信 vs 银行借款、document NDSD_KCZ_2026 vs NDSD_2025_year）"
+    },
+    "unused_credit": {
+      "label": "未使用授信/借款额度",
+      "definition": "截至报告期末尚未使用的银行借款（授信）额度",
+      "as_of": "2025-12-31 / 2024-12-31",
+      "currency": "CNY",
+      "entity_scope": "公司（本公司）",
+      "facility_scope": "银行借款额度",
+      "values": [
+        { "period": "2025-12-31", "value": "3,655亿元", "note": "尚未使用的银行借款额度为 3,655亿元" },
+        { "period": "2024-12-31", "value": "3,441亿元", "note": "2024年12月31日：3,441亿元（与 p111 2024年末未使用 3,441亿 数值交叉印证，但 facility 标签不同）" }
+      ],
+      "source": {
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+        "page_number": 210,
+        "block_index": 0,
+        "section_path": ["与金融工具相关的风险"],
+        "locator": "NDSD_2025_year p210 「与金融工具相关的风险」"
+      },
+      "semantic_status": "obtained",
+      "reconciliation_status": "scope_not_reconciled（对 used_credit：facility_scope 银行借款 vs 综合授信、entity_scope 公司 vs 公司及控股子公司、document NDSD_2025_year vs NDSD_KCZ_2026）"
+    }
+  },
+  "aspect_states": {
+    "company_debt_credit.total_credit_line": {
+      "state": "authority_failed",
+      "reason": "现有 contract 把 6,000亿 当「整体授信额度」是错误的：6,000亿 是 authorized_application_ceiling，不是 actual_granted_total_credit_line，也不应填入 total_credit_line",
+      "correction": "解耦后 total_credit_line 应由 authorized_application_ceiling + actual_granted_total_credit_line 两个语义取代，或重定义为「拟申请上限」"
+    },
+    "company_debt_credit.used_credit": {
+      "state": "obtained",
+      "reason": "2,918.37亿（2025年末，综合授信口径）"
+    },
+    "company_debt_credit.unused_credit": {
+      "state": "obtained",
+      "reason": "3,655亿（2025-12-31，银行借款口径）/ 3,441亿（2024-12-31）"
+    }
+  },
+  "candidate_semantic": {
+    "new_aspect_id": "company_debt_credit.authorized_application_ceiling",
+    "label": "拟申请综合授信额度上限",
+    "kind": "fact_set",
+    "required_fields": ["拟申请授信额度上限"],
+    "coverage_rules": ["required_fields_complete", "minimum_sources", "direct_support"],
+    "time_scope": "CURRENT_AS_OF_WITH_24M_CHANGES",
+    "blocking_policy": ["REPORT_BLOCKED"],
+    "missing_policy": "transfer_human",
+    "impact_scope": ["solvency"],
+    "rationale": "股东会批准的「不超过 6,000亿元 综合授信额度」是申请上限，与「实际获批授信总额」是两个不同事实，不可合并到 total_credit_line"
+  },
+  "unreconciled_reasons": [
+    "used_credit(2,918.37亿) 与 unused_credit(3,655亿) entity_scope 不一致：公司及控股子公司 vs 公司",
+    "used_credit 与 unused_credit facility_scope 不一致：综合授信额度 vs 银行借款额度",
+    "used_credit 与 unused_credit document 不一致：NDSD_KCZ_2026 p111 vs NDSD_2025_year p210",
+    "actual_granted_total_credit_line 无披露（6000亿 是申请上限）",
+    "2024 未使用 3,441亿 两文档数值一致但 facility 标签不同（综合授信 vs 银行借款），需人工确认是否同口径"
+  ],
+  "citation_locations": [
+    {
+      "semantic": "authorized_application_ceiling(6,000亿) + used_credit(2,918.37亿) + 2024未使用(3,441亿)",
+      "locator": "NDSD_KCZ_2026 p111 「发行人资信状况」block 0",
+      "evidence_id": "548c6db7bd22273b2103065d705c11c7"
+    },
+    {
+      "semantic": "unused_credit(3,655亿/3,441亿)",
+      "locator": "NDSD_2025_year p210 「与金融工具相关的风险」block 0",
+      "evidence_id": "58e54036c0e43227f58e0d2435139a7f"
+    }
+  ],
+  "contract_successor_changelist_corrections": {
+    "before_wrong": "「无需新增 aspect ID」「授信缺口策略为 transfer_human（内部信息人工补充，非 REPORT_BLOCKED）」",
+    "after_correct": [
+      "必须新增独立 aspect_id：company_debt_credit.authorized_application_ceiling（拟申请综合授信额度上限），与 actual_granted_total_credit_line（显式缺口）分离",
+      "transfer_human 与 blocking_policy=[REPORT_BLOCKED] 正交：transfer_human 只描述「材料缺失时的处置路径」，不能覆盖 REPORT_BLOCKED 的报告阻断；缺口即便转人工，报告仍被阻断"
+    ]
+  }
+}

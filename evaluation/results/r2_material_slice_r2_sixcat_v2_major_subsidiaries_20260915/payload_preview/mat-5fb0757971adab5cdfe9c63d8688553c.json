@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-5fb0757971adab5cdfe9c63d8688553c",
+  "component_evidence_id": "4b2ca7f6fed6994754f3263f52e4f193",
+  "source_content_hash": "982ef97388998f830a9695945c91b4f11ed031393d080c9fcf5ddfce9404c573",
+  "payload_hash": "7eba54ed7703e1107105f1e167d345ba83acd74eba2496c418796e345dcffbbe",
+  "payload": "{\"authority_identity\":\"evidence:4b2ca7f6fed6994754f3263f52e4f193\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"本公司的利率风险主要产生于长期银行借款及应付债券等长期带息债务。浮动利率的金融负债使本\\n公司面临现金流量利率风险，固定利率的金融负债使本公司面临公允价值利率风险。本公司根据当时的\\n市场环境来决定固定利率及浮动利率合同的相对比例，并通过定期审阅与监察维持适当的固定和浮动利\\n率工具组合。\\n\\n211\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"4b2ca7f6fed6994754f3263f52e4f193\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":211,\"section_path\":\"在其他主体中的权益\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"982ef97388998f830a9695945c91b4f11ed031393d080c9fcf5ddfce9404c573\"}"
+}

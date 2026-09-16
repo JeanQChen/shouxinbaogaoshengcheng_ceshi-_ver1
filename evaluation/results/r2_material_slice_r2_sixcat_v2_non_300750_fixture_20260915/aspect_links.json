@@ -1,0 +1,11 @@
+[
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-ac75cd93e8ab6ed9ebaa423dbb00b485",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "2109887f173b802cef307a5328356ead"
+    ]
+  }
+]

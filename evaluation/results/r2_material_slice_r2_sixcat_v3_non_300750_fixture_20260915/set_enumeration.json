@@ -1,0 +1,40 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": true,
+    "verifier_version": "1",
+    "reason": "deterministic structural enumeration",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_DEMO",
+        "document_version": "v-demo-001",
+        "source_boundary": "主营业务分析",
+        "result": {
+          "material_type_supported": true,
+          "enumerated_member_ids": [
+            "business_segment:智能装备",
+            "business_segment:软件服务"
+          ],
+          "payload_hash": "536cfa7a609002ca742803cbbfbb2cb4d4ea759524c300c34d707f25f65cf722",
+          "boundary_identity": "5d90384fdbe5785f912c01106594a6f3769026c081dfc268a05ad151f504b1fc",
+          "verifier_version": "1",
+          "reason": "deterministic structural enumeration"
+        }
+      }
+    ]
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

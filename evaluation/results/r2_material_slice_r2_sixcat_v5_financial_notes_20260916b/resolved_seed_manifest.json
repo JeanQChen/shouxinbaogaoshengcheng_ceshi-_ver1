@@ -1,0 +1,15 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "5c71e18b6374e5af01564139db0051b40a130ccc24fc6429dc285b7851cfda97",
+  "entries": [
+    {
+      "case_id": "financial-notes-1",
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "previous section heading (backward rollback)",
+      "material_count": 12
+    }
+  ]
+}

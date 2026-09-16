@@ -1,0 +1,299 @@
+[
+  {
+    "material_id": "mat-46ee6e665af801010996806c0ff8b6af",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:c4b1f3b42375691e0223f04ab4093759",
+    "component_evidence_id": "c4b1f3b42375691e0223f04ab4093759",
+    "source_content_hash": "a9c5cfe1fc2821a0a34042cc35a5b54171b4f85c0551d7275131fd3baceb4104",
+    "payload_hash": "1eb666d597d934398f546ee3a946c06a033ddb7c0ec43bdd0ad48a5472bcd5cf",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 46,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-56b061ffa277ef6fc16e901dc80c82da",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b1dbb73d1481b1b7e104d43afbc3ffd8",
+    "component_evidence_id": "b1dbb73d1481b1b7e104d43afbc3ffd8",
+    "source_content_hash": "ad11dd00545d35eeaa12e40c7eb3c4ba9971b15ed8b522cbd65fb84c23073712",
+    "payload_hash": "9b5237e38d76c2a29585b7fb4837b4ab578bd7ec96d6e5a7024dba72d0e85b82",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 47,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-222b4c9dbacac85449fefe9dba7a7c7c",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:ec634bbe01cff45df14e2e1d0e3c0eb5",
+    "component_evidence_id": "ec634bbe01cff45df14e2e1d0e3c0eb5",
+    "source_content_hash": "b7f61530d18c11f4ca2b6be3564cacf3b986d5a1eaf5e2b0ba30c94f26ee16b8",
+    "payload_hash": "c72b89165abf28a58cf800b6d6ce30cbf05a9c902a380b946bcab817e38f2e0f",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 48,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-faf8adf17f9611d6abb5bf86ddb936b9",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:079cd0d80d660e2da39250746c025937",
+    "component_evidence_id": "079cd0d80d660e2da39250746c025937",
+    "source_content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+    "payload_hash": "cd204f188f09f68656e9a058d12057f8b3f9a39e7c6348c2b84146cdd43b8255",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 49,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-24f27df39d96b0d2e4ad91875c56b732",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:53c9b3721904922b1afa7cff95d39d22",
+    "component_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+    "source_content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+    "payload_hash": "6050a8e58af1c66cbdbb2338dbcb31f2df58adc6e8a8454376f672fe7bfbc2fe",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 50,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_business_main.main_business": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-8919ba3de4b1bb3f94d8eb37efe4d966",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:d1606fc111d0de496c337714ddbb3dfa",
+    "component_evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+    "source_content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+    "payload_hash": "c4f7067395d44d26b51b074ae5a449bd06d49dc8a4173fc7e58751aea2946cd5",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 50,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-3c4ce91ad8058258d6598b71f62e826d",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:c614f024a06bb87fdefa127200b2d503",
+    "component_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+    "source_content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+    "payload_hash": "73435efd58b107a53eb5e0de77598db97b7e008e07db374fdea7f17801eadf82",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 51,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_business_main.main_business": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-cdc36739de683d8b1b980971260e596b",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:dc28a391017b78bc653aeadc6401d2ff",
+    "component_evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+    "source_content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+    "payload_hash": "da037101370e60d3defc1ec227fb6a44ddb90e6210d30e30207e8ee2042d6aa9",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 51,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-57a8cec8c7ce473cb9ceb12e8d00ccc2",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b2d68bb7d99951150e0a4ce40c6df3c7",
+    "component_evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+    "source_content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+    "payload_hash": "174d9ffd99bdc5fcd212a050300f15e1259c18bf390c7d4da3c5dfe3e6c8a372",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 52,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-cc8acdc372221e94fdcaa4aee1c29771",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:efcf4a5cdc3a5311f80e99962d3087ec",
+    "component_evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+    "source_content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+    "payload_hash": "2ac38588d5b21c4a03c1a1557a12318ebe17c27770bf5ff3cfb0806e36f176ce",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 53,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  },
+  {
+    "material_id": "mat-004cd20a69fbeceb423bbf14d97a1dcc",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:568819859a093a3fbd8049f340b806fa",
+    "component_evidence_id": "568819859a093a3fbd8049f340b806fa",
+    "source_content_hash": "a5ff5bd48f52132d6d09c388e5547b501f5e48384d920761998e53c4741616f7",
+    "payload_hash": "2364428293450985681154ef12e5f7c1a5357c0079472167f5e1d0fc950eef6b",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "主营业务情况",
+    "page": 54,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "outside_boundary_sentinel",
+    "boundary_reason_code": "topic_boundary_out_of_topic",
+    "aspect_roles": {
+      "company_business_main.main_business": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  }
+]

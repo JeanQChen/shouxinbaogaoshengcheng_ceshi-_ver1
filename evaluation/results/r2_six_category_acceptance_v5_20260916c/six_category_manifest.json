@@ -1,0 +1,928 @@
+{
+  "manifest_version": "r2-six-category-acceptance-v3",
+  "run_id": "r2_sixcat_v5_20260916c",
+  "generated_at": "20260916T000000Z",
+  "purpose": "R2 §12 六类真实材料验收（修复 B/C：强验收器读真实 run 目录 + 内容寻址指纹）",
+  "categories": {
+    "main_business": {
+      "category_id": "main_business",
+      "name": "主营业务",
+      "description": "主营业务：正文 + 分业务表格 + 跨块/跨页。真实恢复表：表 5-13近三年公司动力电池系统销量、表 5-14近三年公司电池系统产能情况表、表 5-10发行人主营业务收入构成表；恢复状态 ok=3 / partial=0 / failed=0",
+      "verdict": "boundary_incomplete",
+      "reason": "material_type_supported=false（source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失); table:5-12:recovered_partial(多行表头（>2）无法可靠合并); title:(三)各业务板块经营情况:target_not_obtained(通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失); title:(1)整体情况:target_not_obtained(通用表题 '（1）整体情况' 在恢复结果中缺失)）",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent",
+        "main_business.table_recovery_ok",
+        "main_business.topic_boundary_enforced"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "g16.material_type_supported",
+          "detail": "material_type_supported=false（source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失); table:5-12:recovered_partial(多行表头（>2）无法可靠合并); title:(三)各业务板块经营情况:target_not_obtained(通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失); title:(1)整体情况:target_not_obtained(通用表题 '（1）整体情况' 在恢复结果中缺失)）"
+        },
+        {
+          "gate_id": "main_business.source_object_inventory_closed",
+          "detail": "源对象清单未逐项闭合：title:(二)主营业务情况:target_not_obtained; table:5-12:recovered_partial; title:(三)各业务板块经营情况:target_not_obtained; title:(1)整体情况:target_not_obtained; title:(2)销售情况:target_not_obtained; title:(四)安全生产情况:target_not_obtained; title:(3)生产情况:target_not_obtained; table:5-14:recovery_failed"
+        }
+      ],
+      "artifact_fingerprint": "e581731bd9706d40ab8a66d241df4a99c036f4376930af6d587fd07d9b144538",
+      "seed": {
+        "case_id": "candidate-1",
+        "company_id": "300750",
+        "aspect_id": "company_business_main.main_business",
+        "query": "主营业务",
+        "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 50,
+        "block_index": 0,
+        "section_path": [
+          "主营业务情况"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+        "selection_reason": "candidate（待人工确认）",
+        "text": "（二）主营业务情况\n  1、主营业务收入分析\n\n表 5-10发行人主营业务收入构成表\n\n单位：万元，%\n  项目  2025年  2024年  2023年\n  金额  占比  金额  占比  金额  占比\n\n动力电池系统  31,650,636.9 74.7  25,304,133.7  69.9  28,525,291.7  71.2\n\n储能电池系统  6,243,982.0  14.7  5,729,046.0  15.8  5,990,052.2  14.9\n\n电池材料及回收  2,186,093.6  5.2  2,869,993.5  7.9  3,360,228.4  8.4\n\n电池矿产资源  597,809.6  1.4  549,300.3  1.5  773,415.1  1.9\n\n其他业务  1,691,661.2  4.0  1,748,781.8  4.8  1,442,717.1  3.6\n\n合计  42,370,183.3100.0  36,201,255.3 100.0  40,091,704.5 100.0\n\n发行人主要营业收入来自于动力电池系统、储能电池系统、电池材料及回收和电池\n矿产资源四大业务板块。2023-2025  年，发行人营业收入分别为  40,091,704.5万元、\n\n36,201,255.3万元和  42,370,183.3万元，2023-2025 年，发行人营业收入增幅分别为  22.0%、\n-9.7%和 17.04%。发行人  2023 年营业收入增长主要得益于动力电池与储能系统两大核\n心业务的快速增长、海外市场加速拓展和产品结构进一步优化。2024  年营业收入较上\n\n一年有所波动，主要由于碳酸锂等原材料价格下降，销售均价有所下调。发行人  2025\n年，营业收入同比增长  6,168,928.00万元，增幅  17.04%。\n\n2、主营业务成本分析\n\n表 5-11发行人主营业务成本构成表\n\n单位：万元，%",
+        "source_name": "NDSD_KCZ_2026.pdf",
+        "source_tool": "search_evidence",
+        "rank": 1,
+        "score": 0.01639344262295082,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_main_business_20260916c",
+      "material_count": 7,
+      "assembly_count": 4,
+      "recovered_table_count": 3,
+      "recovered_table_titles": [
+        "表 5-13近三年公司动力电池系统销量",
+        "表 5-14近三年公司电池系统产能情况表",
+        "表 5-10发行人主营业务收入构成表"
+      ],
+      "recovered_table_detail": [
+        {
+          "table_title": "表 5-13近三年公司动力电池系统销量",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+          "boundary_desc": "P52"
+        },
+        {
+          "table_title": "表 5-14近三年公司电池系统产能情况表",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+          "boundary_desc": "P53"
+        },
+        {
+          "table_title": "表 5-10发行人主营业务收入构成表",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "boundary_desc": "P50"
+        }
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750, NDSD_KCZ_2026)"
+    },
+    "core_competitiveness": {
+      "category_id": "core_competitiveness",
+      "name": "核心竞争力",
+      "description": "核心竞争力：多个实际披露条目集合归拢（跨 document_version，不合并伪造完整集）",
+      "verdict": "boundary_incomplete",
+      "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "g16.material_type_supported",
+          "detail": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）"
+        }
+      ],
+      "artifact_fingerprint": "8b2e838ebf9d27d8f75fcfc0d639898c7d5d5061cf8ad5b289f4b9918436925b",
+      "seed": {
+        "case_id": "candidate-7",
+        "company_id": "300750",
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "query": "核心竞争力",
+        "evidence_id": "0de543287aa812c78eb165f694c9580d",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 59,
+        "block_index": 0,
+        "section_path": [
+          "公司竞争优势"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+        "selection_reason": "candidate（待人工确认）",
+        "text": "公司已连续 9年（2017-2025年）动力电池使用量排名全球第一。在储能领域，公司已\n连续5年（2021-2025年）储能电池出货量排名全球第一。\n  （四）公司竞争优势\n\n1、宁德时代的长期核心竞争力，根植于以技术创新和领先产品为基石，持续驱动\n商业模式的进化和客户市场的拓展，并形成正向反馈循环，以“飞轮效应”推动公司整\n\n体价值持续增长，不断加固“全球领先的零碳新能源科技公司”的竞争壁垒。具体而言，\n公司核心竞争力体现在以下方面：\n  2、一是研发为核，产品矩阵持续迭代。依托行业顶尖的研发团队与持续高强度的\n\n研发投入，公司构建起覆盖材料、电芯、系统及回收的全链条自主研发能力，是行业唯\n一入选“全球百强创新机构”的企业，助力宁德市跻身全球创新强度第四名。报告期内，\n\n公司拥有及申请的国内外专利总数达  54,538项，创新成果密集落地。基于此，公司相\n继推出“二代神行超充”、“骁遥双核”及“钠新电池”等前沿产品，以全面领先的产\n品力为市场拓展提供坚实支撑。\n\n3、二是市场领跑，全球化根基稳固。公司动力与储能电池市占率已连续多年领跑\n全球。在乘用车领域，中高端市场主导地位稳固，经济型市场持续突破；在储能领域，\n\n系统集成能力不断增强，并与多家全球领先的科技企业建立合作。同时，公司稳步推进\n海外工厂建设，持续完善全球服务网络，以坚实的全球化布局，巩固长期竞争优势。\n  4、三是极限制造，铸就品质与效率标杆。公司拥有全球规模最大的现有及在建产\n\n能，并以严苛的品控标准与自主研发的超级拉线  PSL，持续探索制造效率、质量及安全\n的一致极限，电芯缺陷率水平较同行实现数量级领先。公司拥有行业最多的“灯塔工厂”\n\n及唯一“可持续灯塔工厂”。\n  5、四是全域增量，拓宽生态护城河。公司将电动化延伸至低空、船舶等更广阔领\n域，吨级 eVTOL已完成关键性飞行验证，电动船舶安全运营规模持续扩大。同时，巧\n\n克力换电、骐骥换电等创新解决方案快速拓展，协同产业链伙伴共同构筑开放、共赢的\n产业生态，为全面电动化注入持续动能。五是零碳引领，重构产业价值链条。公司已率\n\n先实现核心运营碳中和，并实现废旧电池的大规模综合回收利用。通过携手多地推进零\n碳示范项目，助力高碳排产业实现新能源转型。公司正以“零碳”理念深度重构产业生\n态，发掘并释放全产业链的绿色价值。\n\n58",
+        "source_name": "NDSD_KCZ_2026.pdf",
+        "source_tool": "search_evidence",
+        "rank": 2,
+        "score": 0.016129032258064516,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_core_competitiveness_20260916c",
+      "material_count": 13,
+      "assembly_count": 4,
+      "recovered_table_count": 2,
+      "recovered_table_titles": [
+        "",
+        "5）不同产品或业务的产销情况"
+      ],
+      "recovered_table_detail": [
+        {
+          "table_title": "分地区",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 2 列 vs 数据行 6 列 不一致",
+          "header_evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+          "boundary_desc": "P25"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "26a4455f61bd7deed6a866d613999297",
+          "boundary_desc": "P26"
+        },
+        {
+          "table_title": "5）不同产品或业务的产销情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+          "boundary_desc": "P26"
+        }
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750, NDSD_KCZ_2026)"
+    },
+    "major_subsidiaries": {
+      "category_id": "major_subsidiaries",
+      "name": "主要子公司",
+      "description": "主要子公司：名单/表格成员枚举（跨 document_version，不合并伪造完整集）",
+      "verdict": "boundary_incomplete",
+      "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "g16.material_type_supported",
+          "detail": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）"
+        }
+      ],
+      "artifact_fingerprint": "2d580451bc182c05e3654ef4dc83d1c8d792bed7277f1093a317096b4ef0565a",
+      "seed": {
+        "case_id": "candidate-13",
+        "company_id": "300750",
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "query": "主要子公司",
+        "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 41,
+        "block_index": 0,
+        "section_path": [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+        "selection_reason": "candidate（待人工确认）",
+        "text": "序号  子公司名称  注册地  注册资本  持股比例  取得方式\n  直接  间接\n4  瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立\n  司\n5  四川时代新能源科技有限公司  宜宾市  530,300.579.2/  设立\n6  广东邦普循环科技有限公司  佛山市  14,747.362.2/  非同一控制下\n  合并\n  （二）发行人重要子公司情况\n  发行人无近一年总资产、净资产、营业收入或净利润任一指标占比超过  35%以上的\n\n重要子公司。\n  （三）发行人参股公司情况\n\n截至 2025年12月末，发行人主要参股及联营、合营企业情况如下表：\n\n表5-5截至2025年12月末发行人主要参股及联营、合营企业情况\n  序号  重要的合营企业或联营企业  注册地  持股比例  对合营企业或联营企业\n  投资的会计处理方法\n  1  洛阳栾川钼业集团股份有限公司  洛阳市  24.9%  权益法\n  1、洛阳栾川钼业集团股份有限公司\n\n洛阳栾川钼业集团股份有限公司成立于  1999年12月22日，注册资本  427886.20352\n  万元，发行人持股比例为  24.9%，法定代表人为刘建锋，经营范围为钨钼系列产品的采\n\n选、冶炼、深加工；钼系列产品，化工产品（不含化学危险品、易燃易爆、易制毒品）\n  的出口；生产所需原辅材料、机械设备、仪器仪表、零配件的进口（上述进出口项目凭\n  资格证书经营）；住宿、饮食（限具有资格的分支机构经营）。\n\n截止 2025年12月31日，该公司总资产  2,009.3亿元，总负债1,011.5亿元，所有\n  者权益 997.9亿元，2025年实现营业收入  2,066.8亿元，净利润240.3亿元。\n  六、公司治理及内控制度\n\n（一）公司治理结构\n  公司严格按照《公司法》《证券法》《上市公司治理准则》《深圳证券交易所创业\n\n板股票上市规则》《深圳证券交易所上市公司自律监管指引第  2号——创业板上市公司\n  规范运作》等法律、法规及规范性文件的要求，不断完善公司法人治理机构，建立健全\n  内部管理和控制制度，促进公司规范运作。公司治理的实际状况符合《上市公司治理准\n\n则》和《深圳证券交易所上市公司自律监管指引第  2号——创业板上市公司规范运作》\n  的要求，具体治理结构如下：\n\n40",
+        "source_name": "NDSD_KCZ_2026.pdf",
+        "source_tool": "search_evidence",
+        "rank": 3,
+        "score": 0.015873015873015872,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_major_subsidiaries_20260916c",
+      "material_count": 13,
+      "assembly_count": 7,
+      "recovered_table_count": 0,
+      "recovered_table_titles": [],
+      "recovered_table_detail": [
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 3 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+          "boundary_desc": "P41"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+          "boundary_desc": "P211"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+          "boundary_desc": "P211"
+        },
+        {
+          "table_title": "现金流量套期",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 3 列 vs 数据行 4 列 不一致",
+          "header_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+          "boundary_desc": "P213"
+        },
+        {
+          "table_title": "限公司",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 2 列 vs 数据行 7 列 不一致",
+          "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+          "boundary_desc": "P208"
+        }
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750, NDSD_KCZ_2026)"
+    },
+    "financial_notes": {
+      "category_id": "financial_notes",
+      "name": "财务附注",
+      "description": "财务附注：真实「合并财务报表项目注释」（货币资金/交易性金融资产/应收票据），表题/单位/表头/表体/合计恢复；来源块数=10，来源页数=14（跨块/跨页续）",
+      "verdict": "boundary_incomplete",
+      "reason": "硬门未过：financial_notes.cross_block_continuation（无有效同表续页证明（continuation_proof.valid==true 数量为 0））",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent",
+        "g16.material_type_supported"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "financial_notes.cross_block_continuation",
+          "detail": "无有效同表续页证明（continuation_proof.valid==true 数量为 0）"
+        }
+      ],
+      "artifact_fingerprint": "9015515d671870e05c5388781f3cfe76106ef07bc45b9b39a703912a38182c54",
+      "seed": {
+        "case_id": "financial-notes-1",
+        "company_id": "300750",
+        "aspect_id": "company_finance.notes_to_financial_statements",
+        "query": "财务附注（合并财务报表项目注释）",
+        "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 166,
+        "block_index": 0,
+        "section_path": [
+          "合并财务报表项目注释"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+        "selection_reason": "真实财务附注：合并财务报表项目注释（货币资金/交易性金融资产/应收票据，含 单位：千元/表头/表体/合计），非主营业务表",
+        "text": "七、合并财务报表项目注释\n\n1、货币资金\n\n单位：千元\n  项目  期末余额  期初余额\n 库存现金  373  1,277\n 银行存款  274,816,769  238,458,317\n\n其他货币资金  28,694,852  25,846,921\n 合计  303,511,993  264,306,515\n  其中：存放在境外的款项总额  35,198,866  20,416,787\n\n说明：期末除保证金  22,319,711千元、质押定期存款  1,019,843千元外，不存在质押或冻结、或存放在境外且资金汇回受到\n限制的款项。\n\n2、交易性金融资产\n\n单位：千元\n  项目  期末余额  期初余额\n 银行理财产品及结构性存款  14,282,253  7,767\n 合计  14,282,253  7,767\n\n3、应收票据\n\n（1） 应收票据分类列示\n\n单位：千元\n  项目  期末余额  期初余额\n 银行承兑票据  130,403  1,751,725\n 合计  130,403  1,751,725\n\n（2） 期末公司已质押的应收票据\n\n单位：千元\n  项目  期末已质押金额\n 银行承兑票据  130,403\n 合计  130,403\n\n说明：期末用于质押或担保的应收票据详见 “第十节 财务报告”之“ 七、合并财务报表项目注释”“24、所有权或使用权受到\n限制的资产”。\n\n4、应收账款\n\n（1） 按账龄披露\n\n单位：千元\n\n166",
+        "source_name": "NDSD_2024_year.pdf",
+        "source_tool": "search_evidence",
+        "rank": 1,
+        "score": 1.0,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_financial_notes_20260916c",
+      "material_count": 12,
+      "assembly_count": 30,
+      "recovered_table_count": 14,
+      "recovered_table_titles": [
+        "",
+        "",
+        "（3） 本期实际核销的长期应收款情况",
+        "（1） 应收股利",
+        "",
+        "（2） 期末公司已质押的应收票据",
+        "（4） 本期实际核销的应收账款情况",
+        "",
+        "（1） 应收票据分类列示",
+        "1） 其他应收款按款项性质分类情况",
+        "（1） 应收款项融资分类列示",
+        "",
+        "",
+        "（1） 合同资产情况"
+      ],
+      "recovered_table_detail": [
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+          "boundary_desc": "P166–P171"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167–P168"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "（3） 本期实际核销的长期应收款情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "（1） 应收股利",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+          "boundary_desc": "P173"
+        },
+        {
+          "table_title": "（2） 期末公司已质押的应收票据",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "（4） 本期实际核销的应收账款情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+          "boundary_desc": "P173"
+        },
+        {
+          "table_title": "（1） 应收票据分类列示",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "1） 其他应收款按款项性质分类情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "名称",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "（2） 存货跌价准备和合同履约成本减值准备",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+          "boundary_desc": "P172–P173"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "合计 3 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+          "boundary_desc": "P172"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167"
+        },
+        {
+          "table_title": "（1） 应收款项融资分类列示",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169–P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 5 列 vs 数据行 2 列 不一致",
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169"
+        },
+        {
+          "table_title": "（2） 期末公司已背书或贴现且在资产负债表日尚未到期的应收款项融资",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 3 列 vs 数据行 2 列 不一致",
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "594134f7d30a33e63dff917f9209075b",
+          "boundary_desc": "P174–P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "本期变动金额",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 5 列 vs 数据行 6 列 不一致",
+          "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+          "boundary_desc": "P171"
+        },
+        {
+          "table_title": "本期变动金额",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 7 列 vs 数据行 6 列 不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "（1） 合同资产情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169"
+        }
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750, NDSD_2024_year)"
+    },
+    "explicit_cross_reference": {
+      "category_id": "explicit_cross_reference",
+      "name": "显式跨页跨章引用",
+      "description": "显式「详见…」引用：真实存在引用标记但目标 dangling（不可解析）；跨页续表不能替代显式引用 → 诚实 sample_not_obtained",
+      "verdict": "sample_not_obtained",
+      "reason": "真实「详见」引用标记存在但引用目标 dangling（不可解析）；跨页续表不能替代显式引用",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent",
+        "g16.material_type_supported"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "explicit_cross_reference.target_resolvable",
+          "detail": "真实「详见」引用标记存在但引用目标 dangling（不可解析）"
+        }
+      ],
+      "artifact_fingerprint": "e8d2439fbc6c126e8cf0650e608b4415e20f4ddd6d25009f421246c91faf57da",
+      "seed": {
+        "case_id": "financial-notes-1",
+        "company_id": "300750",
+        "aspect_id": "company_finance.notes_to_financial_statements",
+        "query": "财务附注（合并财务报表项目注释）",
+        "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 166,
+        "block_index": 0,
+        "section_path": [
+          "合并财务报表项目注释"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+        "selection_reason": "真实财务附注：合并财务报表项目注释（货币资金/交易性金融资产/应收票据，含 单位：千元/表头/表体/合计），非主营业务表",
+        "text": "七、合并财务报表项目注释\n\n1、货币资金\n\n单位：千元\n  项目  期末余额  期初余额\n 库存现金  373  1,277\n 银行存款  274,816,769  238,458,317\n\n其他货币资金  28,694,852  25,846,921\n 合计  303,511,993  264,306,515\n  其中：存放在境外的款项总额  35,198,866  20,416,787\n\n说明：期末除保证金  22,319,711千元、质押定期存款  1,019,843千元外，不存在质押或冻结、或存放在境外且资金汇回受到\n限制的款项。\n\n2、交易性金融资产\n\n单位：千元\n  项目  期末余额  期初余额\n 银行理财产品及结构性存款  14,282,253  7,767\n 合计  14,282,253  7,767\n\n3、应收票据\n\n（1） 应收票据分类列示\n\n单位：千元\n  项目  期末余额  期初余额\n 银行承兑票据  130,403  1,751,725\n 合计  130,403  1,751,725\n\n（2） 期末公司已质押的应收票据\n\n单位：千元\n  项目  期末已质押金额\n 银行承兑票据  130,403\n 合计  130,403\n\n说明：期末用于质押或担保的应收票据详见 “第十节 财务报告”之“ 七、合并财务报表项目注释”“24、所有权或使用权受到\n限制的资产”。\n\n4、应收账款\n\n（1） 按账龄披露\n\n单位：千元\n\n166",
+        "source_name": "NDSD_2024_year.pdf",
+        "source_tool": "search_evidence",
+        "rank": 1,
+        "score": 1.0,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_financial_notes_20260916c",
+      "material_count": 12,
+      "assembly_count": 30,
+      "recovered_table_count": 14,
+      "recovered_table_titles": [
+        "",
+        "",
+        "（3） 本期实际核销的长期应收款情况",
+        "（1） 应收股利",
+        "",
+        "（2） 期末公司已质押的应收票据",
+        "（4） 本期实际核销的应收账款情况",
+        "",
+        "（1） 应收票据分类列示",
+        "1） 其他应收款按款项性质分类情况",
+        "（1） 应收款项融资分类列示",
+        "",
+        "",
+        "（1） 合同资产情况"
+      ],
+      "recovered_table_detail": [
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+          "boundary_desc": "P166–P171"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167–P168"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "（3） 本期实际核销的长期应收款情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "（1） 应收股利",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+          "boundary_desc": "P173"
+        },
+        {
+          "table_title": "（2） 期末公司已质押的应收票据",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "（4） 本期实际核销的应收账款情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+          "boundary_desc": "P173"
+        },
+        {
+          "table_title": "（1） 应收票据分类列示",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "1） 其他应收款按款项性质分类情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "名称",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "（2） 存货跌价准备和合同履约成本减值准备",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+          "boundary_desc": "P172–P173"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "合计 3 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+          "boundary_desc": "P172"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 4 列 vs 数据行 5 列 不一致",
+          "header_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+          "boundary_desc": "P167"
+        },
+        {
+          "table_title": "（1） 应收款项融资分类列示",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169–P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "boundary_desc": "P166"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 5 列 vs 数据行 2 列 不一致",
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169"
+        },
+        {
+          "table_title": "（2） 期末公司已背书或贴现且在资产负债表日尚未到期的应收款项融资",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 3 列 vs 数据行 2 列 不一致",
+          "header_evidence_id": "e860159f5b33417d2d9759e450879801",
+          "boundary_desc": "P170"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "594134f7d30a33e63dff917f9209075b",
+          "boundary_desc": "P174–P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "5485690eee120fccb418c079c728046c",
+          "boundary_desc": "P175"
+        },
+        {
+          "table_title": "",
+          "recovery_status": "failed",
+          "recovery_issue": "数据行内部列数不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "本期变动金额",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 5 列 vs 数据行 6 列 不一致",
+          "header_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+          "boundary_desc": "P171"
+        },
+        {
+          "table_title": "本期变动金额",
+          "recovery_status": "failed",
+          "recovery_issue": "表头 7 列 vs 数据行 6 列 不一致",
+          "header_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+          "boundary_desc": "P168"
+        },
+        {
+          "table_title": "（1） 合同资产情况",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+          "boundary_desc": "P169"
+        }
+      ],
+      "boundary_incomplete": false,
+      "sample_not_obtained": true,
+      "data_source": "local_evidence_db(300750, NDSD_2024_year)"
+    },
+    "non_300750_fixture": {
+      "category_id": "non_300750_fixture",
+      "name": "非 300750 合成 fixture",
+      "description": "非 300750 合成 fixture：通用公司/文档/页码 + 通用分业务表格，独立持久化，证明无公司硬编码",
+      "verdict": "boundary_incomplete",
+      "reason": "material_type_supported=false（source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失)）",
+      "passed_gates": [
+        "g01.artifacts_readable",
+        "g02.seed_resolved",
+        "g03.material_produced",
+        "g04.material_index_wellformed",
+        "g05.material_identity_wellformed",
+        "g06.assembly_wellformed",
+        "g07.boundary_explored",
+        "g08.budget_profiled",
+        "g09.set_enumeration_wellformed",
+        "g10.trace_wellformed",
+        "g11.table_status_explicit",
+        "g12.payload_preview_consistent",
+        "g13.source_object_inventory_present",
+        "g14.aspect_links_no_sentinel",
+        "g15.unread_budget_stop_consistent",
+        "non_300750_fixture.no_company_hardcode"
+      ],
+      "failed_gates": [
+        {
+          "gate_id": "g16.material_type_supported",
+          "detail": "material_type_supported=false（source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失)）"
+        }
+      ],
+      "artifact_fingerprint": "b0cca5a5474b4e77ed3f41dc3946a2e4e6ff1cecaaf8299bbbee04cea080e6be",
+      "seed": {
+        "case_id": "non-300750-1",
+        "company_id": "100001",
+        "aspect_id": "company_business_main.main_business",
+        "query": "主营业务",
+        "evidence_id": "2109887f173b802cef307a5328356ead",
+        "document_id": "NDSD_DEMO",
+        "document_version": "v-demo-001",
+        "evidence_set_version": "set-demo-1",
+        "page_number": 1,
+        "block_index": 0,
+        "section_path": [
+          "主营业务分析"
+        ],
+        "evidence_type": "paragraph",
+        "source_content_hash": "ec2b4f5ab3e084472f263b05da2f3c4a505653ed1517bf515d657c37346cdd0b",
+        "selection_reason": "非 300750 合成 fixture（证明无公司硬编码）",
+        "text": "（二）主营业务情况\n表 1 主营业务收入构成表\n单位：万元\n项目  2025年  2024年\n智能装备  12,000  10,000\n软件服务  8,000  6,500\n合计  20,000  16,500\n公司主营业务收入主要来自智能装备与软件服务两大板块。\n",
+        "source_name": "示例年报.pdf",
+        "source_tool": "synthetic_fixture",
+        "rank": 1,
+        "score": 1.0,
+        "is_current_document": true,
+        "is_current_set": true
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v5_non_300750_fixture_20260916c",
+      "material_count": 1,
+      "assembly_count": 1,
+      "recovered_table_count": 1,
+      "recovered_table_titles": [
+        "表 1 主营业务收入构成表"
+      ],
+      "recovered_table_detail": [
+        {
+          "table_title": "表 1 主营业务收入构成表",
+          "recovery_status": "ok",
+          "recovery_issue": null,
+          "header_evidence_id": "2109887f173b802cef307a5328356ead",
+          "boundary_desc": "P1"
+        }
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(100001, NDSD_DEMO)"
+    }
+  }
+}

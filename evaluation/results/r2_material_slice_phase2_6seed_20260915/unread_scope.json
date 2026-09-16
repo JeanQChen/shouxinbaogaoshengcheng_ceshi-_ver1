@@ -1,0 +1,38 @@
+[
+  {
+    "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+    "reason": "boundary",
+    "scope_desc": "停止原因：unrelated section boundary；未读范围自 P49 第0块 等 2 块。",
+    "stop_reason": "unrelated section boundary"
+  },
+  {
+    "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+    "reason": "boundary",
+    "scope_desc": "停止原因：unrelated section boundary；未读范围自 P49 第0块 等 2 块。",
+    "stop_reason": "unrelated section boundary"
+  },
+  {
+    "evidence_id": "0de543287aa812c78eb165f694c9580d",
+    "reason": "boundary",
+    "scope_desc": "停止原因：unrelated section boundary；未读范围自 P58 第0块 等 2 块。",
+    "stop_reason": "unrelated section boundary"
+  },
+  {
+    "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+    "reason": "budget",
+    "scope_desc": "停止原因：hard budget (per_seed_cap)；未读范围自 P22 第0块（预算轴 per_seed_cap）。",
+    "stop_reason": "hard budget (per_seed_cap)"
+  },
+  {
+    "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "reason": "boundary",
+    "scope_desc": "停止原因：unrelated section boundary；未读范围自 P40 第0块 等 2 块。",
+    "stop_reason": "unrelated section boundary"
+  },
+  {
+    "evidence_id": "467120b8407bbbea6a6684303b632147",
+    "reason": "boundary",
+    "scope_desc": "停止原因：unrelated section boundary；未读范围自 P207 第1块 等 2 块。",
+    "stop_reason": "unrelated section boundary"
+  }
+]

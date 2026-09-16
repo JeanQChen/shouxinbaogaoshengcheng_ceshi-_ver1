@@ -1,0 +1,105 @@
+{
+  "topic_id": "industry_risk_transmission",
+  "question_id": "industry_risk_transmission",
+  "kind": "transmission",
+  "title": "行业风险传导",
+  "tables": [],
+  "paragraphs": [
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "动力电池行业在长周期内保持高速扩张，{{fact:extfact-ext-0d034701c3754d9cabfd-0}}。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-0"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "高速增长吸引大量资本与产能进入，行业竞争重心逐步由单纯扩产转向客户结构、技术路线与现金流质量的分化。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-0"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "行业普遍存在对下游占款较高的问题，{{fact:extfact-ext-0d034701c3754d9cabfd-1}}。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-1"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "头部企业在国内市场的集中度较高，{{fact:extfact-ext-0d034701c3754d9cabfd-3}}。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-3"
+          ]
+        },
+        {
+          "type": "fact",
+          "text": "核心电池厂的配套企业数量出现明显收缩，{{fact:extfact-ext-0d034701c3754d9cabfd-2}}。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-2"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "头部集中叠加配套体系收缩，意味着产业链信用资源与订单份额向少数核心企业集中，非核心环节及中小参与者的回款与订单稳定性更容易受到挤压。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-2",
+            "extfact-ext-0d034701c3754d9cabfd-3"
+          ]
+        }
+      ]
+    },
+    {
+      "topic_id": "transmission",
+      "question_id": "transmission",
+      "sentences": [
+        {
+          "type": "fact",
+          "text": "除头部企业外，其他较为纯正的动力电池厂商经营活动现金净流量长期为负，{{fact:extfact-ext-0d034701c3754d9cabfd-4}}。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-4"
+          ]
+        },
+        {
+          "type": "inference",
+          "text": "若授信主体处于非头部阵营，其经营获现能力可能持续弱于账面收入表现，信用风险沿应收账款与经营性现金流两条路径向自身集中。",
+          "fact_ids": [
+            "extfact-ext-0d034701c3754d9cabfd-1",
+            "extfact-ext-0d034701c3754d9cabfd-4"
+          ]
+        },
+        {
+          "type": "limitation",
+          "text": "上述传导判断主要基于行业整体及头部对比情况，未结合授信主体具体客户结构、账期管理与在手订单质量作差异化修正。",
+          "fact_ids": []
+        }
+      ]
+    }
+  ],
+  "calc_display": {},
+  "fact_display": {
+    "extfact-ext-0d034701c3754d9cabfd-0": "5年复合增速33%，10年复合增速22%",
+    "extfact-ext-0d034701c3754d9cabfd-1": "应收账款占收入比普遍高于60%",
+    "extfact-ext-0d034701c3754d9cabfd-2": "2019年Q3实现配套企业已从2017年的135家下降至40家",
+    "extfact-ext-0d034701c3754d9cabfd-3": "2019年1-10月，宁德在国内的市占率为51%",
+    "extfact-ext-0d034701c3754d9cabfd-4": "除宁德外，其他较为纯正的动力电池厂经营活动现金净流量长期为负"
+  },
+  "verdict": {
+    "ok": true,
+    "issues": [],
+    "rendered_sentences": 9
+  },
+  "markdown": "# 行业风险传导\n\n动力电池行业在长周期内保持高速扩张，5年复合增速33%，10年复合增速22%。高速增长吸引大量资本与产能进入，行业竞争重心逐步由单纯扩产转向客户结构、技术路线与现金流质量的分化。行业普遍存在对下游占款较高的问题，应收账款占收入比普遍高于60%。\n\n头部企业在国内市场的集中度较高，2019年1-10月，宁德在国内的市占率为51%。核心电池厂的配套企业数量出现明显收缩，2019年Q3实现配套企业已从2017年的135家下降至40家。头部集中叠加配套体系收缩，意味着产业链信用资源与订单份额向少数核心企业集中，非核心环节及中小参与者的回款与订单稳定性更容易受到挤压。\n\n除头部企业外，其他较为纯正的动力电池厂商经营活动现金净流量长期为负，除宁德外，其他较为纯正的动力电池厂经营活动现金净流量长期为负。若授信主体处于非头部阵营，其经营获现能力可能持续弱于账面收入表现，信用风险沿应收账款与经营性现金流两条路径向自身集中。上述传导判断主要基于行业整体及头部对比情况，未结合授信主体具体客户结构、账期管理与在手订单质量作差异化修正。\n",
+  "version": "chapter-writer-v1"
+}

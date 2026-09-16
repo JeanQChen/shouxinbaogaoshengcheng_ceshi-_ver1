@@ -1,0 +1,245 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "主营业务情况"
+        ],
+        [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_boundary_after",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "boundary_after_block",
+        "3、主营业务毛利润及毛利率分析"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_boundary_after",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "boundary_after_block",
+        "1、主营业务收入分析"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_boundary_after",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "boundary_after_block",
+        "（2）销售情况"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    }
+  ]
+}

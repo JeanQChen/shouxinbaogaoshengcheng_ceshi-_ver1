@@ -1,0 +1,322 @@
+[
+  {
+    "assembly_id": "asm-71b4c45f0e02eae6d546d2ae4dfed727",
+    "context_parent_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "component_material_ids": [
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+      "mat-e13924560ab3f7ae28616a54f77717ec",
+      "mat-b7fbc33831685642fbd33bac95c8bf85",
+      "mat-23d50c94e74212d4d8999cc2bf226a3b",
+      "mat-9aa7234ff84234568c4eeb0cc7979a51",
+      "mat-43a3b82daf596e6f806e9e00c34bd740",
+      "mat-44f1dd857d12d2df3cba8701de2bf417",
+      "mat-8e91609224d330bc20a27457bdab5a6d",
+      "mat-f460d5e5591dfec72b4f4b174ec8445f",
+      "mat-30bc904b42bfa4dd1002448d5a0eda45"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P49"
+  },
+  {
+    "assembly_id": "asm-c5845ea6faaa5dad85751bedc455fc61",
+    "context_parent_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "component_material_ids": [
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P41",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "body_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "序号",
+      "直接",
+      "间接"
+    ],
+    "rows": [
+      [
+        "4",
+        "瑞庭时代（上海）新能源科技有限公",
+        "上海市",
+        "50,000.0100.0/",
+        "设立"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 5 列 不一致"
+  },
+  {
+    "assembly_id": "asm-50601e723200651609d2082d92e914f4",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "限公司",
+    "unit": null,
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "广东邦普循环科技有限",
+      "非同一"
+    ],
+    "rows": [
+      [
+        "公司",
+        "人民币",
+        "132,741 佛山市",
+        "佛山市",
+        "制造业",
+        "69.08%",
+        "控制下"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 7 列 不一致"
+  },
+  {
+    "assembly_id": "asm-9c6fd5640a7b5a8105f45617a44b5570",
+    "context_parent_id": "mat-1583802514f9d59454aedec41f17ed2b",
+    "component_material_ids": [
+      "mat-1583802514f9d59454aedec41f17ed2b"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "项目",
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "15,181,012",
+        "15,181,012"
+      ],
+      [
+        "衍生金融负债",
+        "3,941,410",
+        "3,941,410"
+      ],
+      [
+        "应付票据",
+        "77,514,941",
+        "77,514,941"
+      ],
+      [
+        "应付账款",
+        "117,038,774",
+        "117,038,774"
+      ],
+      [
+        "其他应付款",
+        "13,624,086",
+        "13,624,086"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "7,008,874",
+        "7,008,874"
+      ],
+      [
+        "长期借款",
+        "55,013,696",
+        "28,435,286",
+        "83,448,982"
+      ],
+      [
+        "应付债券",
+        "15,659,131",
+        "3,577,883",
+        "19,237,014"
+      ],
+      [
+        "租赁负债",
+        "222,694",
+        "60,602",
+        "283,296"
+      ],
+      [
+        "长期应付款",
+        "86,923",
+        "1,433,333",
+        "1,520,256"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "234,309,096",
+      "70,982,445",
+      "33,507,104",
+      "338,798,645"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-a4d735f5f612535c4f0388f75b4968eb",
+    "context_parent_id": "mat-1583802514f9d59454aedec41f17ed2b",
+    "component_material_ids": [
+      "mat-1583802514f9d59454aedec41f17ed2b"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "19,696,282",
+        "19,696,282"
+      ],
+      [
+        "衍生金融负债",
+        "2,116,017",
+        "2,116,017"
+      ],
+      [
+        "应付票据",
+        "67,356,323",
+        "67,356,323"
+      ],
+      [
+        "应付账款",
+        "130,977,408",
+        "130,977,408"
+      ],
+      [
+        "其他应付款",
+        "10,761,762",
+        "10,761,762"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "22,881,417",
+        "22,881,417"
+      ],
+      [
+        "长期借款",
+        "58,995,638",
+        "22,242,818",
+        "81,238,456"
+      ],
+      [
+        "应付债券",
+        "8,414,035",
+        "3,508,589",
+        "11,922,623"
+      ],
+      [
+        "租赁负债",
+        "552,042",
+        "110,772",
+        "662,814"
+      ],
+      [
+        "长期应付款",
+        "768,978",
+        "837,502",
+        "1,606,480"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "253,789,209",
+      "68,730,692",
+      "26,699,681",
+      "349,219,581"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-d829d60525c226b7a6aafd0e015ea187",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138",
+      "mat-fdfc51463fca7eebb0a6537b3202d3bf",
+      "mat-a41b0071c49fb1f36e8d6c3a1af3f43d",
+      "mat-d927c8e81ff5cea75f44ef3c3c970422",
+      "mat-ea28f6a6862e98ebaf33e65c1c25ec96",
+      "mat-1583802514f9d59454aedec41f17ed2b",
+      "mat-5fb0757971adab5cdfe9c63d8688553c",
+      "mat-37d9b182a9fe31b3f12dbe6f97990df5",
+      "mat-5f0ed2562a3c60b666bf9466913ca7ab",
+      "mat-efb33e0a18759eb9f83a7f8a941678a0"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P213"
+  },
+  {
+    "assembly_id": "asm-dac74b49992be7c14da9602d2104aac7",
+    "context_parent_id": "mat-efb33e0a18759eb9f83a7f8a941678a0",
+    "component_material_ids": [
+      "mat-efb33e0a18759eb9f83a7f8a941678a0"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P213",
+    "table_title": "现金流量套期",
+    "unit": null,
+    "header_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+    "body_evidence_ids": [
+      "451ed0528c0ae5229797f0d41c40b1f6"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "外汇风险-预期交易",
+      "USD 4,032,640",
+      "1,814,881 衍生金融负债"
+    ],
+    "rows": [
+      [
+        "外汇风险-预期交易",
+        "IDR 1,434,381,000",
+        "-1,253",
+        "衍生金融负债"
+      ],
+      [
+        "商品价格风险-预期交易",
+        "445,396",
+        "2,962",
+        "衍生金融负债"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 4 列 不一致"
+  }
+]

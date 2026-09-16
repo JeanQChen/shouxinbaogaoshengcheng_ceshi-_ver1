@@ -1,0 +1,41 @@
+{
+  "company_debt_credit.total_credit_line": {
+    "formal_material_ids": [
+      "mat-4bbd78d754852e2f3b5cc9cc36399cdd"
+    ],
+    "context_candidate_material_ids": [
+      "mat-acbd3e06e1b796c93bc5d0f95182dba8"
+    ],
+    "outside_boundary_evidence": [
+      "81ac458a104b275c3403ff31fad08931",
+      "23a02da569470ba03c38994faa02bc6a"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "548c6db7bd22273b2103065d705c11c7"
+    ]
+  },
+  "company_debt_credit.unused_credit": {
+    "formal_material_ids": [
+      "mat-1f750819254812db6bc99098f264ab85"
+    ],
+    "context_candidate_material_ids": [
+      "mat-250d710794854d722245fe83b4ef5b19",
+      "mat-5b0506db47256cb86d7b439ae8f8a663",
+      "mat-6dc03db83f3869e65747be2e2899b73d",
+      "mat-74b5773c9583968eec94f703da079ef4",
+      "mat-7a71528f9f225152ef5c6c4da33ea703",
+      "mat-8b24942e461c95023d531609e4af987e",
+      "mat-996e1d0a5a256d5bb056e7ba2d5364ca",
+      "mat-a6ae1e7a838789e2690ca2b8b4ede0f3"
+    ],
+    "outside_boundary_evidence": [
+      "57f02dc0634fd90cdf9c0399c843f8b1",
+      "9f69905d0f9436097d72ea3b3e11edd0"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  }
+}

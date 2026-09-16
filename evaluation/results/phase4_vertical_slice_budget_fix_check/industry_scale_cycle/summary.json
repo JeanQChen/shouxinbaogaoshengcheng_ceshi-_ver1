@@ -1,0 +1,103 @@
+{
+  "sample": "industry_scale_cycle",
+  "pack_id": "pack_86f2525ba8f9bb437d5f12b663b59871",
+  "matrix": [
+    {
+      "aspect_id": "asp_a9fdf2b6e571a9fa8aae7adb",
+      "aspect_text": "行业规模",
+      "obtained": false,
+      "fact_ids": [
+        "ext-9e66df56398943bc9ae5",
+        "ext-939437f87b8f4d399e87"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-9e66df56398943bc9ae5",
+          "page_number": null
+        },
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-939437f87b8f4d399e87",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:d_only"
+      ],
+      "detail": "valid_sources=2"
+    },
+    {
+      "aspect_id": "asp_2933e5c110c84078ee03faf5",
+      "aspect_text": "增速",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0"
+    },
+    {
+      "aspect_id": "asp_ecadf91883dc021ddf964501",
+      "aspect_text": "当前周期位置",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0"
+    }
+  ],
+  "funnel": {
+    "external_queries": 3,
+    "candidate_urls": 15,
+    "fetched": 2,
+    "snapshotted": 2,
+    "extracted_facts": 2,
+    "validated_facts": 0,
+    "adopted_facts": 0,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_NETWORK_ERROR"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ]
+    ]
+  },
+  "external_source_count": 2,
+  "external_fact_count": 0
+}

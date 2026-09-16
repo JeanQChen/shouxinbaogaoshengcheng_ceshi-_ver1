@@ -1,0 +1,137 @@
+{
+  "company_debt_credit.total_credit_line": {
+    "version": "1",
+    "aspect_id": "company_debt_credit.total_credit_line",
+    "expected_source_objects": [
+      {
+        "object_id": "cross_ref:第七章发行人资信状况",
+        "kind": "cross_reference",
+        "label": "第七章  发行人资信状况",
+        "source_text_index": 0,
+        "line_index": 0
+      },
+      {
+        "object_id": "table:7-1",
+        "kind": "table_number",
+        "label": "表 7-1发行人及其下属子公司债券待偿还情况一览表",
+        "source_text_index": 0,
+        "line_index": 39
+      },
+      {
+        "object_id": "title:份有限公司",
+        "kind": "table_start_signal",
+        "label": "份有限公司",
+        "source_text_index": 1,
+        "line_index": 4
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "cross_ref:第七章发行人资信状况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "跨页/跨章引用未指明目标表号，无法裁决"
+      },
+      {
+        "object_id": "table:7-1",
+        "result": "recovered_ok",
+        "matched_table": "表 7-1发行人及其下属子公司债券待偿还情况一览表",
+        "issue": ""
+      },
+      {
+        "object_id": "title:份有限公司",
+        "result": "recovery_failed",
+        "matched_table": "份有限公司",
+        "issue": "表头 2 列 vs 数据行 4 列 不一致"
+      }
+    ],
+    "unmatched_recovered_tables": []
+  },
+  "company_debt_credit.unused_credit": {
+    "version": "1",
+    "aspect_id": "company_debt_credit.unused_credit",
+    "expected_source_objects": [
+      {
+        "object_id": "title:负债",
+        "kind": "table_start_signal",
+        "label": "负债",
+        "source_text_index": 0,
+        "line_index": 43
+      },
+      {
+        "object_id": "title:第三层级公允价值计量的资产主要包括以公允价值计量",
+        "kind": "table_start_signal",
+        "label": "第三层级公允价值计量的资产主要包括以公允价值计量且其变动计入当期损益以及以公允价值计量",
+        "source_text_index": 1,
+        "line_index": 25
+      },
+      {
+        "object_id": "title:(1)公司开展套期业务进行风险管理",
+        "kind": "table_start_signal",
+        "label": "（ 1）公司开展套期业务进行风险管理",
+        "source_text_index": 2,
+        "line_index": 4
+      },
+      {
+        "object_id": "title:(2)公司开展符合条件套期业务并应用套期会计",
+        "kind": "table_start_signal",
+        "label": "（ 2）公司开展符合条件套期业务并应用套期会计",
+        "source_text_index": 2,
+        "line_index": 22
+      },
+      {
+        "object_id": "title:(2)因转移而终止确认的金融资产",
+        "kind": "table_start_signal",
+        "label": "（2）因转移而终止确认的金融资产",
+        "source_text_index": 3,
+        "line_index": 6
+      },
+      {
+        "object_id": "title:(3)继续涉入的资产转移金融资产",
+        "kind": "table_start_signal",
+        "label": "（3）继续涉入的资产转移金融资产",
+        "source_text_index": 3,
+        "line_index": 10
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:负债",
+        "result": "recovered_ok",
+        "matched_table": "负债",
+        "issue": ""
+      },
+      {
+        "object_id": "title:第三层级公允价值计量的资产主要包括以公允价值计量",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '第三层级公允价值计量的资产主要包括以公允价值计量且其变动计入当期损益以及以公允价值计量' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(1)公司开展套期业务进行风险管理",
+        "result": "recovered_ok",
+        "matched_table": "（ 1）公司开展套期业务进行风险管理",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(2)公司开展符合条件套期业务并应用套期会计",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（ 2）公司开展符合条件套期业务并应用套期会计' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)因转移而终止确认的金融资产",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2）因转移而终止确认的金融资产' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(3)继续涉入的资产转移金融资产",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（3）继续涉入的资产转移金融资产' 在恢复结果中缺失"
+      }
+    ],
+    "unmatched_recovered_tables": []
+  }
+}

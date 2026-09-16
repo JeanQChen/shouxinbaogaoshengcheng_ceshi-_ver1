@@ -1,0 +1,37 @@
+{
+  "company_business_main.main_business": {
+    "version": "1",
+    "aspect_id": "company_business_main.main_business",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(二)主营业务情况",
+        "kind": "table_start_signal",
+        "label": "（二）主营业务情况",
+        "source_text_index": 0,
+        "line_index": 0
+      },
+      {
+        "object_id": "table:1",
+        "kind": "table_number",
+        "label": "表 1 主营业务收入构成表",
+        "source_text_index": 0,
+        "line_index": 1
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(二)主营业务情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（二）主营业务情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "table:1",
+        "result": "recovered_ok",
+        "matched_table": "表 1 主营业务收入构成表",
+        "issue": ""
+      }
+    ],
+    "unmatched_recovered_tables": []
+  }
+}

@@ -1,0 +1,299 @@
+[
+  {
+    "material_id": "mat-996e1d0a5a256d5bb056e7ba2d5364ca",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:7afa4dcd189b95ce58baa32489736f5c",
+    "component_evidence_id": "7afa4dcd189b95ce58baa32489736f5c",
+    "source_content_hash": "e43c78b0764d5a1daac59bc5234ff1ad01f7d71e91a74d4eefd58b7ac6a4b1d0",
+    "payload_hash": "8059d8ae0ef7084777493415fa9f41a1d97a3e1eafaf5378dc8e00b08f4275c9",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 209,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-a6ae1e7a838789e2690ca2b8b4ede0f3",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:7747a575543aea0e1beba422379e3206",
+    "component_evidence_id": "7747a575543aea0e1beba422379e3206",
+    "source_content_hash": "32fd3176a8ece209a1abf6d73b4bff396dc0bdbe38b680e410be5a9c5dedffb1",
+    "payload_hash": "993e97ae742ffc1941f5c076fc9a8b9cbcde794c97139bfbd073860e7d8940f8",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 209,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-1f750819254812db6bc99098f264ab85",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:58e54036c0e43227f58e0d2435139a7f",
+    "component_evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+    "source_content_hash": "8ba9685e21cfdd944e5e989fa7a86015adcbb2ea3577c63df5545be37086249b",
+    "payload_hash": "d91d1cb98221e87238d1405552aebc59cdc2d9b84c535f7d3b5943318669e28b",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 210,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-8b24942e461c95023d531609e4af987e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:87d404600e0025d40ddd1fe3f198b641",
+    "component_evidence_id": "87d404600e0025d40ddd1fe3f198b641",
+    "source_content_hash": "cb7071a33ef0499c24ccb81e873c0e4368021cc67a51b2874ce4b367a1c96d7b",
+    "payload_hash": "bcc69a7c41a64283256ef77edd334e34284b97dd2aa8037a5a516adfbe18a510",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 210,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-74b5773c9583968eec94f703da079ef4",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:9c956bcd92bc51cdf2e79cc71512d820",
+    "component_evidence_id": "9c956bcd92bc51cdf2e79cc71512d820",
+    "source_content_hash": "5ab5c566bdad279954c7e8f8d5a1d207f85bc7063f265d7ec024fed3de550d9d",
+    "payload_hash": "6d1413fa6a9d37300ac439c75d7a596cb903fdde96defa9b5725fdc76e67db68",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 211,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-7a71528f9f225152ef5c6c4da33ea703",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:dddc9873b0cbaa9fcdcda424f6021e64",
+    "component_evidence_id": "dddc9873b0cbaa9fcdcda424f6021e64",
+    "source_content_hash": "8efc29287dd52c0546b83d5796120cd92cb4410abebe47f600301ee5bd3a7aba",
+    "payload_hash": "b5a374f8347dca39fa56ade9af2f184f8d436c710b3ee9c8839063ee387f4a94",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 211,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-5b0506db47256cb86d7b439ae8f8a663",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:ea350d96963b0d8283ed4a12e50ecadd",
+    "component_evidence_id": "ea350d96963b0d8283ed4a12e50ecadd",
+    "source_content_hash": "7b18fe18c277a527c495e9aab6bdb211231c43c7c952b54e7400edfef27ac89d",
+    "payload_hash": "a817d806b09209d6eaafc37bf54933f2bb2b8eea40834c7da299e933b58f0490",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 212,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-6dc03db83f3869e65747be2e2899b73d",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:7f240c3e19e58d4fa6dc2008cef78fda",
+    "component_evidence_id": "7f240c3e19e58d4fa6dc2008cef78fda",
+    "source_content_hash": "c4506c7b64607257a052b8831434bb7cf9522c00ca699de061711180b398ed4d",
+    "payload_hash": "a5797922fcac8909a7d7c4c43cd0307010989b00d02be8a948d54b177a0cc3b1",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 213,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-250d710794854d722245fe83b4ef5b19",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:9f69905d0f9436097d72ea3b3e11edd0",
+    "component_evidence_id": "9f69905d0f9436097d72ea3b3e11edd0",
+    "source_content_hash": "2d462200730377cd8219980b5d3e7f8a2eaeea955252bd3a716189d85db5dd3e",
+    "payload_hash": "57468f3fe0286f880d713422b6a1ae1b2458124b06cfc4402730e3db289a598f",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "与金融工具相关的风险",
+    "page": 214,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "outside_boundary_sentinel",
+    "boundary_reason_code": "topic_boundary_out_of_topic",
+    "aspect_roles": {
+      "company_debt_credit.unused_credit": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.unused_credit"
+    ]
+  },
+  {
+    "material_id": "mat-4bbd78d754852e2f3b5cc9cc36399cdd",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:548c6db7bd22273b2103065d705c11c7",
+    "component_evidence_id": "548c6db7bd22273b2103065d705c11c7",
+    "source_content_hash": "1488457170381d4421cfe764aac34628d82b14a1f50707a997cc4b01626bd289",
+    "payload_hash": "43adf9293674d601b8f155b78d9bd1fdd9db2f88e776f3862b73be2adfd38e4e",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "发行人资信状况",
+    "page": 111,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_debt_credit.total_credit_line": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_debt_credit.total_credit_line"
+    ]
+  },
+  {
+    "material_id": "mat-acbd3e06e1b796c93bc5d0f95182dba8",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:663ad0ceefe05ce2ce83c311b1270994",
+    "component_evidence_id": "663ad0ceefe05ce2ce83c311b1270994",
+    "source_content_hash": "685ab768a90fefb250abdf68a2b8bed14952b8432612aa41b1dd9adfc4c3b335",
+    "payload_hash": "b4477c8824588c9383cdc3f05374102449b6dd5713d9d87c1e3ae5a23b5f0903",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "发行人资信状况",
+    "page": 112,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_debt_credit.total_credit_line": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_debt_credit.total_credit_line"
+    ]
+  }
+]

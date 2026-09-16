@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-7532318385c3d9494aba0f800fb32bda",
+  "component_evidence_id": "48d5a2199d7d9f2e0dd9b885c544859d",
+  "source_content_hash": "5b3af73f502d0325cdc50b524d95e7bc39df5f4db779d76a01cebcc8da4a96f2",
+  "payload_hash": "d67675c1721c6b2c69422d72c09c95b24be884a9d0d709b0f63f0b388c7bc450",
+  "payload": "{\"authority_identity\":\"evidence:48d5a2199d7d9f2e0dd9b885c544859d\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"汇率变动所产生的汇\\n  兑收益增加\\n研发费用  22,146,581  18,606,756  19.02%\\n\\n4、研发投入\\n\\n适用 □不适用\\n\\n（1） 主要研发项目\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"48d5a2199d7d9f2e0dd9b885c544859d\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":29,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"5b3af73f502d0325cdc50b524d95e7bc39df5f4db779d76a01cebcc8da4a96f2\"}"
+}

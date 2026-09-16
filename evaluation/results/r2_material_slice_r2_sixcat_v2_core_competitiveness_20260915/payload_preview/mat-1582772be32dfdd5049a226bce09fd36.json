@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-1582772be32dfdd5049a226bce09fd36",
+  "component_evidence_id": "e35f2fd2e0fa019a4f9deb719918ef87",
+  "source_content_hash": "a86a9e818f5a42b6cf1326f48350490412969015ba6fd7a31e4cb7abfbce5b05",
+  "payload_hash": "f2f5a4b72d8f354f627d3d833957263705d10abd4e39fb37fe066b219626d5d3",
+  "payload": "{\"authority_identity\":\"evidence:e35f2fd2e0fa019a4f9deb719918ef87\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"研发人员数量（人）  22,901  20,346  12.56%\\n研发人员数量占比  12.32%  15.42%  -3.1%\\n研发人员学历\\n\\n本科  9,418  8,247  14.20%\\n硕士  5,242  5,083  3.13%\\n\\n29\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"e35f2fd2e0fa019a4f9deb719918ef87\",\"locator\":{\"block_range\":[2,2],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":29,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"a86a9e818f5a42b6cf1326f48350490412969015ba6fd7a31e4cb7abfbce5b05\"}"
+}

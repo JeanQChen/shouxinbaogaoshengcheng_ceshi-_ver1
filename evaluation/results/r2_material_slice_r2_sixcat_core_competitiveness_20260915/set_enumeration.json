@@ -1,0 +1,26 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）"
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）"
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "payload document_version 'sha256-2b3a1fb3de97f23c' 与边界 'sha256-c15272977147dee7' 不一致"
+  }
+}

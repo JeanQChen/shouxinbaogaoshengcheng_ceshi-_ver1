@@ -1,0 +1,39 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "formal_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138",
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14"
+    ],
+    "context_candidate_material_ids": [
+      "mat-1583802514f9d59454aedec41f17ed2b",
+      "mat-23d50c94e74212d4d8999cc2bf226a3b",
+      "mat-30bc904b42bfa4dd1002448d5a0eda45",
+      "mat-37d9b182a9fe31b3f12dbe6f97990df5",
+      "mat-43a3b82daf596e6f806e9e00c34bd740",
+      "mat-44f1dd857d12d2df3cba8701de2bf417",
+      "mat-5f0ed2562a3c60b666bf9466913ca7ab",
+      "mat-5fb0757971adab5cdfe9c63d8688553c",
+      "mat-8e91609224d330bc20a27457bdab5a6d",
+      "mat-9aa7234ff84234568c4eeb0cc7979a51",
+      "mat-a41b0071c49fb1f36e8d6c3a1af3f43d",
+      "mat-b7fbc33831685642fbd33bac95c8bf85",
+      "mat-d927c8e81ff5cea75f44ef3c3c970422",
+      "mat-e13924560ab3f7ae28616a54f77717ec",
+      "mat-ea28f6a6862e98ebaf33e65c1c25ec96",
+      "mat-efb33e0a18759eb9f83a7f8a941678a0",
+      "mat-f460d5e5591dfec72b4f4b174ec8445f",
+      "mat-fdfc51463fca7eebb0a6537b3202d3bf"
+    ],
+    "outside_boundary_evidence": [
+      "8080da6dbede07c335162abe5d6535a7",
+      "53c9b3721904922b1afa7cff95d39d22",
+      "22a0cb787b74296d2f067d9eeda33aaa",
+      "1f811b970e762918ab4447f86457ba3c"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46",
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  }
+}

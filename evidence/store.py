@@ -808,6 +808,94 @@ def list_document_evidence(
         conn.close()
 
 
+def _open_readonly_conn(db_path: str | Path) -> sqlite3.Connection | None:
+    """严格只读连接（mode=ro + query_only）；缺库返回 None（绝不建库/写库）。
+
+    供 evaluation-only 只读发现路径使用（R2 item 五）：不调 ``init_db()``、不触碰模块级
+    ``_db_path``；任何写操作都会抛 ``sqlite3.OperationalError``。
+    """
+    p = Path(db_path).expanduser().resolve()
+    if not p.exists():
+        return None
+    uri = p.as_uri() + "?mode=ro"
+    conn = sqlite3.connect(uri, uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only = ON")
+    return conn
+
+
+def list_documents_ro(db_path: str | Path, company_id: str) -> list[DocumentRecord]:
+    """只读列出某公司全部文档版本（含 registered/superseded/current）。"""
+    conn = _open_readonly_conn(db_path)
+    if conn is None:
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT * FROM documents WHERE company_id=? ORDER BY document_id, created_at",
+            (company_id,),
+        ).fetchall()
+        return [_row_to_document(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def current_document_version_ro(db_path: str | Path, company_id: str, document_id: str) -> str | None:
+    """只读返回某业务文档当前的（已持久化 Evidence 的）内容版本。"""
+    conn = _open_readonly_conn(db_path)
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT d.document_version FROM documents d "
+            "JOIN evidence_sets es ON es.company_id=d.company_id AND es.document_id=d.document_id "
+            "AND es.document_version=d.document_version AND es.status='current' "
+            "WHERE d.company_id=? AND d.document_id=? AND d.status='current' LIMIT 1",
+            (company_id, document_id),
+        ).fetchone()
+        return row["document_version"] if row else None
+    finally:
+        conn.close()
+
+
+def current_evidence_set_ro(db_path: str | Path, company_id: str, document_id: str,
+                            document_version: str) -> str | None:
+    """只读返回某文档版本的 current evidence set 版本。"""
+    conn = _open_readonly_conn(db_path)
+    if conn is None:
+        return None
+    try:
+        row = conn.execute(
+            "SELECT evidence_set_version FROM evidence_sets "
+            "WHERE company_id=? AND document_id=? AND document_version=? AND status='current' LIMIT 1",
+            (company_id, document_id, document_version),
+        ).fetchone()
+        return row["evidence_set_version"] if row else None
+    finally:
+        conn.close()
+
+
+def list_document_evidence_ro(
+    db_path: str | Path,
+    company_id: str,
+    document_id: str,
+    document_version: str,
+    evidence_set_version: str,
+) -> list[EvidenceBlock]:
+    """只读列出某文档版本 + evidence set 的全部 Evidence 块（按页码/块序）。"""
+    conn = _open_readonly_conn(db_path)
+    if conn is None:
+        return []
+    try:
+        rows = conn.execute(
+            "SELECT * FROM evidence_blocks WHERE company_id=? AND document_id=? "
+            "AND document_version=? AND evidence_set_version=? ORDER BY page_number, block_index",
+            (company_id, document_id, document_version, evidence_set_version),
+        ).fetchall()
+        return [_row_to_evidence(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def count_evidence(company_id: str, document_id: str, document_version: str, evidence_set_version: str) -> int:
     conn = _get_conn()
     try:

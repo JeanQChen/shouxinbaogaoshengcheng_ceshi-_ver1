@@ -1,0 +1,39 @@
+{
+  "slice_version": "phase4-vertical-slice-v1",
+  "run_id": "deterministic_check",
+  "company_id": "300750",
+  "real_llm": false,
+  "model": "deepseek-v4-pro",
+  "samples": [
+    {
+      "sample": "company_business_main",
+      "pack_id": "pack_c24aa733eca732e640ece7829fda3094",
+      "obtained_aspects": 5,
+      "total_aspects": 5,
+      "chapter_ok": true,
+      "external_source_count": 0,
+      "external_fact_count": 0,
+      "evidence_fact_count": 30
+    },
+    {
+      "sample": "industry_scale_cycle",
+      "pack_id": "pack_b9a8cf4c6c86fd7106d0ef147af3d0c6",
+      "obtained_aspects": 0,
+      "total_aspects": 2,
+      "chapter_ok": true,
+      "external_source_count": 4,
+      "external_fact_count": 0,
+      "evidence_fact_count": 0
+    },
+    {
+      "sample": "industry_risk_transmission",
+      "pack_id": "pack_9a5dc5309a0601eb367c8e68b7377b6b",
+      "obtained_aspects": 0,
+      "total_aspects": 3,
+      "chapter_ok": true,
+      "external_source_count": 4,
+      "external_fact_count": 0,
+      "evidence_fact_count": 0
+    }
+  ]
+}

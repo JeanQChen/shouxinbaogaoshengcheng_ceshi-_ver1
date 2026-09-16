@@ -1,0 +1,114 @@
+{
+  "funnel": {
+    "external_queries": 3,
+    "candidate_urls": 15,
+    "fetched": 1,
+    "snapshotted": 1,
+    "extracted_facts": 1,
+    "validated_facts": 1,
+    "adopted_facts": 1,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ]
+    ]
+  },
+  "funnel_trace": [
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.ndrc.gov.cn/fggz/lywzjw/jwtz/202202/t20220228_1317794_ext.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "预计未来几年内全球动力电池镍需求将大幅增加"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/gxsj/tjfx/xfpgy/qg/art/2021/art_2504bb2e846f482b953239659525d8d1.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "2021年1－8月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://www.miit.gov.cn/jgsj/xfpgys/qg/art/2021/art_4b2371152a864633b390f01783677b00.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "2021年1-3月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/jgsj/xfpgys/qg/art/2021/art_8aa59538ef1e49778d4791f505cf1f94.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 行业规模",
+      "title": "2021年1-4月电池行业经济运行情况"
+    },
+    {
+      "stage": "adopted",
+      "url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html",
+      "source_grade": "A",
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "reason": "",
+      "query": "动力电池 行业规模",
+      "title": "【动力电池“退役潮”接踵而至 建立科学规范的回收体系刻不容缓】-国家发展和改革委员会"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/zwgk/zcjd/art/2020/art_5f59519c32c74fd8afb42ad65bb4bb13.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 增速",
+      "title": "关于印发《促进汽车动力电池产业发展行动方案》的通知解读"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/jgsj/zbys/qcgy/art/2026/art_8ebed5dbf0fc40c1aed099f9e96a2684.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 当前周期位置",
+      "title": "公开征求《燃料电池电动汽车 安全要求》强制性国家标准的意见"
+    }
+  ],
+  "source_intent": {
+    "include": "gov.cn|ndrc.gov.cn|miit.gov.cn|stats.gov.cn|cninfo.com.cn",
+    "exclude": null
+  }
+}

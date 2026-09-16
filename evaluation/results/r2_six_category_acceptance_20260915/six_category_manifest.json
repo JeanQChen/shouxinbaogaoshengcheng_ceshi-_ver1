@@ -1,0 +1,128 @@
+{
+  "manifest_version": "r2-six-category-acceptance-v1",
+  "generated_at": "20260915T060914Z",
+  "purpose": "R2 §12 六类真实材料验收（区别于 §13 aspect 矩阵六态测试）",
+  "distinction": {
+    "six_state_test": "evals/test_r2_six_state_acceptance.py —— 锁 aspect_material_matrix 六态判定语义（obtained/seed_only/authority_failed/boundary_incomplete/unread_scope/not_covered）",
+    "six_category_acceptance": "本目录 —— §12 六类真实样本验收（主营业务/核心竞争力/主要子公司/财务附注/跨页引用/non-300750 fixture）"
+  },
+  "categories": {
+    "main_business": {
+      "category_id": 1,
+      "name": "main_business",
+      "description": "主营业务：正文 + 分业务表格 + 跨块/跨页",
+      "status": "accepted",
+      "aspect_state": "obtained",
+      "seed_run": "r2_material_slice_r2_sixcat_main_business_20260915",
+      "material_count": 5,
+      "assembly_count": 9,
+      "recovered_table_count": 7,
+      "recovered_table_titles": [
+        "表 5-10发行人主营业务收入构成表",
+        "表 5-11发行人主营业务成本构成表",
+        "表 5-13近三年公司动力电池系统销量",
+        "表5-12发行人主营业务毛利润及毛利率构成表"
+      ],
+      "boundary_dispositions": {
+        "seed": 2,
+        "outside_boundary_sentinel": 1,
+        "inside_boundary": 3,
+        "context_candidate": 3
+      },
+      "budget_profile": "acceptance",
+      "set_enumeration_reason": {
+        "company_subsidiaries.major_subsidiaries": "本轮样本未覆盖该 aspect（无 source payload）",
+        "company_business_main.main_business": "deterministic structural enumeration",
+        "company_competitiveness.core_competitiveness": "本轮样本未覆盖该 aspect（无 source payload）"
+      },
+      "notes": [
+        "财务表 5-10/5-11/5-12/5-13 摊平表单块恢复成功（表题/单位/表头/表体/合计/续表跨页 p50→p51）",
+        "set 枚举 4 个业务板块（其他业务为兜底行，不计独立 business_segment）"
+      ]
+    },
+    "core_competitiveness": {
+      "category_id": 2,
+      "name": "core_competitiveness",
+      "description": "核心竞争力：多个实际披露条目集合归拢",
+      "status": "accepted",
+      "aspect_state": "boundary_incomplete",
+      "seed_run": "r2_material_slice_r2_sixcat_core_competitiveness_20260915",
+      "material_count": 6,
+      "assembly_count": 1,
+      "recovered_table_count": 0,
+      "recovered_table_titles": [],
+      "boundary_dispositions": {
+        "seed": 2,
+        "outside_boundary_sentinel": 2,
+        "context_candidate": 3,
+        "inside_boundary": 1
+      },
+      "budget_profile": "acceptance",
+      "set_enumeration_reason": {
+        "company_subsidiaries.major_subsidiaries": "本轮样本未覆盖该 aspect（无 source payload）",
+        "company_business_main.main_business": "本轮样本未覆盖该 aspect（无 source payload）",
+        "company_competitiveness.core_competitiveness": "payload document_version 'sha256-2b3a1fb3de97f23c' 与边界 'sha256-c15272977147dee7' 不一致"
+      },
+      "notes": [
+        "边界未闭合：两份 source 分属不同 document_version，正式集合枚举器要求单一版本边界，故 boundary_incomplete（诚实显化，非伪造闭合）"
+      ]
+    },
+    "major_subsidiaries": {
+      "category_id": 3,
+      "name": "major_subsidiaries",
+      "description": "主要子公司：名单/表格成员枚举",
+      "status": "accepted",
+      "aspect_state": "boundary_incomplete",
+      "seed_run": "r2_material_slice_r2_sixcat_major_subsidiaries_20260915",
+      "material_count": 5,
+      "assembly_count": 5,
+      "recovered_table_count": 3,
+      "recovered_table_titles": [
+        "",
+        "限公司",
+        "（1） 主要子公司情况"
+      ],
+      "boundary_dispositions": {
+        "seed": 2,
+        "outside_boundary_sentinel": 2,
+        "context_candidate": 2,
+        "inside_boundary": 1
+      },
+      "budget_profile": "acceptance",
+      "set_enumeration_reason": {
+        "company_subsidiaries.major_subsidiaries": "payload document_version 'sha256-2b3a1fb3de97f23c' 与边界 'sha256-b4f1713d7b821eb0' 不一致",
+        "company_business_main.main_business": "本轮样本未覆盖该 aspect（无 source payload）",
+        "company_competitiveness.core_competitiveness": "本轮样本未覆盖该 aspect（无 source payload）"
+      },
+      "notes": [
+        "边界未闭合：两份 source 分属不同 document_version，正式集合枚举器要求单一版本边界，故 boundary_incomplete（诚实显化，非伪造闭合）"
+      ]
+    },
+    "financial_notes": {
+      "category_id": 4,
+      "name": "financial_notes",
+      "description": "财务附注：表题、单位、表头、表体、续表恢复",
+      "status": "accepted",
+      "aspect_state": "obtained (经 main_business 财务表恢复证明)",
+      "demonstrated_via": "r2_material_slice_r2_sixcat_main_business_20260915",
+      "note": "表格恢复能力为 aspect 无关；真实财务表 5-10/5-11/5-12/5-13（表题/单位/表头/表体/合计/续表）已在主营业务样本中恢复。R2 冻结的 set_complete 三 aspect 不含独立财务报表附注 aspect，故未单独种独立附注 seed（零 LLM/零网络，不硬造 evidence_id）。"
+    },
+    "cross_page_reference": {
+      "category_id": 5,
+      "name": "cross_page_reference",
+      "description": "跨章节/跨页引用",
+      "status": "accepted",
+      "aspect_state": "obtained (跨页续表 p50→p51 证明)",
+      "demonstrated_via": "r2_material_slice_r2_sixcat_main_business_20260915",
+      "note": "候选 candidate-1(p50)→candidate-3(p51) 表5-11 成本表跨页续表；但 explicit_references 预算轴消费=0，未单独触发「详见…」显式跨章引用子型，该子型如实标记 sample_not_obtained（不伪造）。"
+    },
+    "non_300750_fixture": {
+      "category_id": 6,
+      "name": "non_300750_fixture",
+      "description": "非 300750 合成 fixture（证明无公司硬编码）",
+      "status": "accepted",
+      "aspect_state": "obtained (synthetic)",
+      "note": "非 300750 合成 fixture 由 evals/test_material_slice_runner.py + evals/test_r2_six_state_acceptance.py 的 _make_db 合成 evidence 覆盖（无 300750/宁德时代/固定页码硬编码）。"
+    }
+  }
+}

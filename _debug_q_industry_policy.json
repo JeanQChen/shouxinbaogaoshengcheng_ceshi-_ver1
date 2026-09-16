@@ -1,0 +1,22 @@
+{
+  "section_id": "industry",
+  "question_id": "industry_policy",
+  "question": "政策、监管、技术替代与外部冲击",
+  "evidence_requirements": [
+    {
+      "requirement_id": "er_ind_policy",
+      "evidence_kind": "web",
+      "source_classes": [
+        "external"
+      ],
+      "minimum_sources": 1,
+      "freshness_policy": null,
+      "required_fields": []
+    }
+  ],
+  "required_aspects": [
+    "政策与监管",
+    "技术替代",
+    "外部冲击"
+  ]
+}

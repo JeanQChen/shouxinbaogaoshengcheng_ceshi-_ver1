@@ -1,0 +1,22 @@
+{
+  "section_id": "company",
+  "question_id": "company_rd_capacity",
+  "question": "研发能力、发展计划与在建工程",
+  "evidence_requirements": [
+    {
+      "requirement_id": "er_comp_rd",
+      "evidence_kind": "paragraph",
+      "source_classes": [
+        "company_industry"
+      ],
+      "minimum_sources": 1,
+      "freshness_policy": null,
+      "required_fields": []
+    }
+  ],
+  "required_aspects": [
+    "研发能力",
+    "发展计划",
+    "在建工程"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "topic_id": "industry_scale_cycle",
+  "question_id": "industry_scale_cycle",
+  "kind": "industry",
+  "title": "行业规模与周期",
+  "tables": [
+    {
+      "table_id": "industry_sources",
+      "caption": "行业数据来源与统计口径",
+      "header": [
+        "来源等级",
+        "发布日期",
+        "统计口径 / 事实",
+        "来源"
+      ],
+      "rows": []
+    }
+  ],
+  "paragraphs": [],
+  "calc_display": {},
+  "fact_display": {},
+  "verdict": {
+    "ok": true,
+    "issues": [],
+    "rendered_sentences": 0
+  },
+  "markdown": "# 行业规模与周期\n\n**行业数据来源与统计口径**\n\n| 来源等级 | 发布日期 | 统计口径 / 事实 | 来源 |\n|---|---|---|---|\n",
+  "version": "chapter-writer-v1"
+}

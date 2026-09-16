@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-ed5864af2be07d3c2f194451474a52b3",
+  "component_evidence_id": "22a0cb787b74296d2f067d9eeda33aaa",
+  "source_content_hash": "547979c919d7c8e7a6fa3426d1615ead3e9b194517945fe498c91ddaef12b93f",
+  "payload_hash": "38e054adbcb8e3ce423cde770f498c5148e4af3eb3acb75060f0df1f8c2e0c3a",
+  "payload": "{\"authority_identity\":\"evidence:22a0cb787b74296d2f067d9eeda33aaa\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"时代电服科技（辽源）有限公司  注销\\n 宜春时代骐骥数字科技有限公司  注销\\n Singapore Brunp Contemporary Holding PTE.LTD（新加坡邦普时代控股有限公司）  注销\\n Singapore Brunp Contemporary Energy PTE.LTD（新加坡邦普时代能源有限公司）  注销\\n\\n207\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"22a0cb787b74296d2f067d9eeda33aaa\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":207,\"section_path\":\"离职后福利-设定  5,803  1,528,334  1,527,762  6,375\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"547979c919d7c8e7a6fa3426d1615ead3e9b194517945fe498c91ddaef12b93f\"}"
+}

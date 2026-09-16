@@ -27,26 +27,50 @@ import json
 import sys
 import uuid
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
+from contracts import loader_v2 as LV2
+from contracts import schema_v2 as SV2
+from contracts import source_policy as SP
+from contracts import validator_v2 as VV2
 from harness import topic_schema as TS
 from harness import topic_store as Store
 from harness.context_expansion import (
+    BOUNDARY_DISPOSITION_VERSION,
+    BUDGET_PROFILE_VERSION,
+    DISPOSITION_FRAGMENT_PROJECTION,
+    DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL,
+    DISPOSITION_UNREAD_INSIDE_BOUNDARY,
     EXPANSION_DIRECTIONS,
     ContextExpansionRequest,
     ExpansionBudget,
     ExpansionSeed,
+    budget_profile,
     expand,
 )
 from harness.evidence_reader import (
     DEFAULT_EVIDENCE_DB_PATH,
+    RESOLVE_SEED_IDENTITY_TOOL_NAME,
     register_bounded_evidence_tool,
+    register_resolve_seed_identity_tool,
 )
 from harness.set_enumeration import (
     FormalSetEnumerationVerifier,
+    aggregate_per_version_enumeration,
     build_formal_set_enumeration_verifier,
+    build_source_object_inventory,
+    derive_enumeration_boundary_proof,
+    group_materials_by_document_version,
 )
 from harness.topic_materials import build_material_result
+from harness.topic_boundary import (
+    BOUNDARY_POLICY_UNAVAILABLE,
+    TOPIC_BOUNDARY_VERSION,
+    BoundarySemanticsVerification,
+    topic_boundary_coverage,
+    topic_boundary_policy,
+)
 from tools import contracts as C
 from tools.registry import ToolRegistry
 
@@ -98,6 +122,13 @@ class SeedEntry:
     source_content_hash: str
     selection_reason: str
     text: str = ""
+    # 身份复验结果（resolve_seed_identity 完整身份）+ 检索来源（§二 candidate 身份闭环）。
+    source_name: str = ""
+    source_tool: str = ""
+    rank: int | None = None
+    score: float | None = None
+    is_current_document: bool = True
+    is_current_set: bool = True
 
     def to_dict(self) -> dict:
         return {
@@ -116,6 +147,12 @@ class SeedEntry:
             "source_content_hash": self.source_content_hash,
             "selection_reason": self.selection_reason,
             "text": self.text,
+            "source_name": self.source_name,
+            "source_tool": self.source_tool,
+            "rank": self.rank,
+            "score": self.score,
+            "is_current_document": self.is_current_document,
+            "is_current_set": self.is_current_set,
         }
 
     @classmethod
@@ -136,6 +173,12 @@ class SeedEntry:
             source_content_hash=str(d.get("source_content_hash", "")),
             selection_reason=str(d.get("selection_reason", "")),
             text=str(d.get("text", "")),
+            source_name=str(d.get("source_name", "")),
+            source_tool=str(d.get("source_tool", "")),
+            rank=d.get("rank"),
+            score=d.get("score"),
+            is_current_document=bool(d.get("is_current_document", True)),
+            is_current_set=bool(d.get("is_current_set", True)),
         )
 
 
@@ -185,20 +228,139 @@ def load_seed_manifest(path: str | Path) -> SeedManifest:
 # 阶段一：discover-seeds（evaluation-only，可 fail-closed）
 # ---------------------------------------------------------------------------
 
+def _aspect_suggested_use(aspect_id: str) -> str:
+    if aspect_id == "company_business_main.main_business":
+        return "主营业务集合枚举（分产品/分行业）"
+    if aspect_id == "company_subsidiaries.major_subsidiaries":
+        return "主要子公司集合枚举（表名/表行）"
+    if aspect_id == "company_competitiveness.core_competitiveness":
+        return "核心竞争力披露（条目式枚举）"
+    return "set_complete 集合枚举材料"
+
+
+def _text_summary(text: str, limit: int = 80) -> str:
+    t = " ".join(text.split())
+    return t if len(t) <= limit else t[:limit - 1] + "…"
+
+
+def _write_candidate_review_md(path: Path, candidates: tuple[SeedEntry, ...],
+                               company_id: str) -> None:
+    """把系统候选渲染为可读复核表（checkbox 留空，绝不自填人工确认）。"""
+    lines = [
+        f"# 候选 seed 人工复核表（company_id={company_id}）",
+        "",
+        "> 本表由只读发现链（search_evidence/search_tables → resolve_seed_identity）生成，",
+        "> 仅列出**系统候选**，未做任何人工确认。请在 checkbox 处由用户/Codex 显式裁决后，",
+        "> 再据此产生 confirmed_seed_manifest.json（本发现链绝不生成 confirmed 清单）。",
+        "",
+    ]
+    if not candidates:
+        lines.append("（无候选）")
+    for i, e in enumerate(candidates, 1):
+        section = " / ".join(e.section_path) if e.section_path else "（无）"
+        doc_name = e.source_name or "（未知文档名）"
+        score = f"{e.score}" if e.score is not None else "—"
+        lines.append(f"## {i}. {e.aspect_id}")
+        lines.append("")
+        lines.append(f"- [ ] 确认（编号 `{e.case_id}`）")
+        lines.append(f"  - aspect：`{e.aspect_id}`")
+        lines.append(f"  - query：{e.query}")
+        lines.append(f"  - 文档名/版本：{doc_name} / {e.document_version}（doc `{e.document_id}`，set `{e.evidence_set_version}`）")
+        lines.append(f"  - 章节路径：{section}")
+        lines.append(f"  - 页/块：page {e.page_number} / block {e.block_index}")
+        lines.append(f"  - evidence 类型：{e.evidence_type}")
+        lines.append(f"  - 检索来源/名次：{e.source_tool} / rank {e.rank}（score {score}）")
+        lines.append(f"  - 文本摘要：{_text_summary(e.text)}")
+        lines.append(f"  - 建议用途：{_aspect_suggested_use(e.aspect_id)}")
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _resolve_candidate_identity(registry: ToolRegistry, company_id: str, evidence_id: str,
+                                *, self_reported_page: int | None,
+                                self_reported_evidence_type: str, run_id: str) -> dict:
+    """经正式 ``resolve_seed_identity`` 工具复验一个检索命中的完整身份（§二，不调 LLM）。
+
+    - 最小可信输入 company_id + evidence_id；检索命中自报 page_number 作为绑定字段（提供则
+      精确断言，mismatch → resolver fail-closed）。
+    - 成功后再比对检索命中自报 evidence_type 与复验结果；不一致 → fail-closed。
+    - 空文本 / 非 current / 身份重算不符 → fail-closed（由 resolver 或本函数给出原因）。
+    返回 {"ok": bool, "block": dict, "reason": str, "is_current_document": bool,
+          "is_current_set": bool}。
+    """
+    spec = registry.get(RESOLVE_SEED_IDENTITY_TOOL_NAME)
+    if spec is None:
+        return {"ok": False, "reason": "resolve_seed_identity 工具未注册（无法复验身份）",
+                "is_current_document": False, "is_current_set": False}
+    args: dict = {"company_id": company_id, "evidence_id": evidence_id}
+    if self_reported_page is not None:
+        args["page_number"] = self_reported_page
+    call = C.ToolCall(
+        call_id=uuid.uuid4().hex, tool_name=RESOLVE_SEED_IDENTITY_TOOL_NAME,
+        arguments=args, idempotency_key=f"{run_id}:resolve:{evidence_id}",
+        need_id="", batch_id="")
+    try:
+        result = registry.execute(call, route="DIRECT_EVIDENCE", run_id=run_id)
+    except Exception as e:  # noqa: BLE001 - resolver 异常 → fail-closed
+        return {"ok": False, "reason": f"resolve_seed_identity 异常: {type(e).__name__}: {e}",
+                "is_current_document": False, "is_current_set": False}
+    if result.is_error():
+        return {"ok": False,
+                "reason": f"身份复验 fail-closed: {result.message or result.error_code}",
+                "is_current_document": False, "is_current_set": False}
+    if result.status != "SUCCESS":
+        return {"ok": False,
+                "reason": f"身份不可解析（{result.status}）: {result.message or result.error_code}",
+                "is_current_document": False, "is_current_set": False}
+    blocks = result.data.get("blocks", [])
+    if not blocks:
+        return {"ok": False, "reason": "身份复验未返回 block（空）",
+                "is_current_document": False, "is_current_set": False}
+    block = blocks[0]
+    # 检索命中自报 evidence_type vs 复验结果 mismatch → fail-closed。
+    if self_reported_evidence_type and \
+            self_reported_evidence_type != str(block.get("evidence_type", "")):
+        return {"ok": False,
+                "reason": f"检索命中自报 evidence_type={self_reported_evidence_type!r} "
+                          f"与复验 {block.get('evidence_type')!r} 不一致",
+                "is_current_document": False, "is_current_set": False}
+    # 空文本 → 拒绝（不得把空正文当候选材料）。
+    if not str(block.get("text", "")).strip():
+        return {"ok": False, "reason": "候选 block 文本为空",
+                "is_current_document": False, "is_current_set": False}
+    return {"ok": True, "block": block,
+            "is_current_document": bool(result.data.get("is_current_document", False)),
+            "is_current_set": bool(result.data.get("is_current_set", False))}
+
+
 def discover_seeds(company_id: str,
                    aspect_queries: tuple[tuple[str, str], ...],
                    registry: ToolRegistry,
                    out_dir: Path,
                    run_id: str) -> dict:
-    """经现有 ``search_evidence``/``search_tables`` 链派生候选 seed（不调 LLM）。
+    """经 ``search_evidence``/``search_tables`` 链派生候选 seed，并对每个命中经正式
+    ``resolve_seed_identity`` 工具复验完整身份（§二 candidate 身份闭环，不调 LLM）。
 
-    registry 必须已注册 search_evidence/search_tables；缺工具 / 检索链不可用 → fail-closed
-    （输出 ``discovery_failed=true`` 与空 candidate，绝不初始化/迁移 DB、绝不改 ``_db_path``）。
+    - 检索命中 → 逐条 ``resolve_seed_identity``（同 registry，只读 evidence DB）复验完整
+      技术身份；身份缺失/非 current/哈希不符/空文本/自报身份与复验不一致 → fail-closed 进
+      rejected_candidates.json（含原因）。
+    - 确定性去重：``evidence_id + source_content_hash``（同一块被 search_evidence 与
+      search_tables 同时命中只显示一次）。
+    - 绝不把候选标记为「人工确认」：只输出系统候选 ``candidate_seed_manifest.json`` 与
+      ``candidate_review.md``（checkbox 留空）；``confirmed_seed_manifest.json`` 仅由显式人工
+      裁决产生，本函数绝不生成。
+    - 输出四个产物：candidate_seed_manifest.json / candidate_review.md /
+      rejected_candidates.json / seed_discovery_trace.jsonl。
+    - registry 必须已注册 search_evidence/search_tables/resolve_seed_identity；缺工具或检索链
+      不可用 → fail-closed（绝不初始化/迁移 DB、绝不改 ``_db_path``）。
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    entries: list[SeedEntry] = []
+    candidates: list[SeedEntry] = []
+    rejected: list[dict] = []
     trace_lines: list[dict] = []
     discovery_failed = False
+    seen: set[tuple[str, str]] = set()  # (evidence_id, source_content_hash) 确定性去重
+
     for aspect_id, query in aspect_queries:
         for tool_name in ("search_evidence", "search_tables"):
             spec = registry.get(tool_name)
@@ -228,35 +390,159 @@ def discover_seeds(company_id: str,
                 "status": result.status, "error_code": result.error_code,
                 "message": result.message, "trace_id": result.trace_id,
             })
-            if result.status in ("SUCCESS", "PARTIAL"):
-                for item in result.data.get("items", []):
-                    entries.append(SeedEntry(
-                        case_id=f"candidate-{len(entries) + 1}",
-                        company_id=company_id, aspect_id=aspect_id, query=query,
-                        evidence_id=str(item.get("evidence_id", "")),
-                        document_id="", document_version="", evidence_set_version="",
-                        page_number=item.get("page_number"),
-                        block_index=None, section_path=(),
-                        evidence_type=str(item.get("evidence_type", "")),
-                        source_content_hash="",
-                        selection_reason="candidate（待人工确认）",
-                        text=str(item.get("snippet", ""))))
+            if result.is_error():
+                # 检索链不可用（FATAL_ERROR/RETRYABLE_ERROR，如 Evidence DB 未 init）→
+                # fail-closed，绝不据此伪造 candidate；不得用 init_db()/迁移换取可运行。
+                discovery_failed = True
+                continue
+            if result.status not in ("SUCCESS", "PARTIAL"):
+                # EMPTY / UNSUPPORTED_FOR_DOCUMENT：非错误，也无候选。
+                continue
+            for item in (result.data or {}).get("items", []):
+                evidence_id = str(item.get("evidence_id", ""))
+                if not evidence_id:
+                    rejected.append({
+                        "aspect_id": aspect_id, "tool_name": tool_name,
+                        "evidence_id": "", "rank": item.get("rank"),
+                        "score": item.get("score"), "reason": "检索命中缺 evidence_id",
+                    })
+                    trace_lines.append({
+                        "tool_name": RESOLVE_SEED_IDENTITY_TOOL_NAME,
+                        "aspect_id": aspect_id, "status": "REJECTED",
+                        "evidence_id": "", "reason": "检索命中缺 evidence_id",
+                    })
+                    continue
+                resolved = _resolve_candidate_identity(
+                    registry, company_id, evidence_id,
+                    self_reported_page=item.get("page_number"),
+                    self_reported_evidence_type=str(item.get("evidence_type", "") or ""),
+                    run_id=run_id)
+                if not resolved["ok"]:
+                    rejected.append({
+                        "aspect_id": aspect_id, "tool_name": tool_name,
+                        "evidence_id": evidence_id, "rank": item.get("rank"),
+                        "score": item.get("score"), "reason": resolved["reason"],
+                    })
+                    trace_lines.append({
+                        "tool_name": RESOLVE_SEED_IDENTITY_TOOL_NAME,
+                        "aspect_id": aspect_id, "status": "REJECTED",
+                        "evidence_id": evidence_id, "reason": resolved["reason"],
+                    })
+                    continue
+                block = resolved["block"]
+                content_hash = str(block.get("content_hash", ""))
+                key = (evidence_id, content_hash)
+                if key in seen:
+                    trace_lines.append({
+                        "tool_name": RESOLVE_SEED_IDENTITY_TOOL_NAME,
+                        "aspect_id": aspect_id, "status": "DUPLICATE",
+                        "evidence_id": evidence_id,
+                        "reason": "同一 evidence_id+content_hash 已被另一检索工具命中",
+                    })
+                    continue
+                seen.add(key)
+                candidates.append(SeedEntry(
+                    case_id=f"candidate-{len(candidates) + 1}",
+                    company_id=company_id, aspect_id=aspect_id, query=query,
+                    evidence_id=evidence_id,
+                    document_id=str(block.get("document_id", "")),
+                    document_version=str(block.get("document_version", "")),
+                    evidence_set_version=str(block.get("evidence_set_version", "")),
+                    page_number=block.get("page_number"),
+                    block_index=block.get("block_index"),
+                    section_path=tuple(block.get("section_path") or ()),
+                    evidence_type=str(block.get("evidence_type", "")),
+                    source_content_hash=content_hash,
+                    selection_reason="candidate（待人工确认）",
+                    text=str(block.get("text", "")),
+                    source_name=str(block.get("source_name", "")),
+                    source_tool=tool_name,
+                    rank=item.get("rank"),
+                    score=item.get("score"),
+                    is_current_document=bool(resolved.get("is_current_document", False)),
+                    is_current_set=bool(resolved.get("is_current_set", False)),
+                ))
 
-    manifest = _manifest_from_entries(tuple(entries))
-    _write_json(out_dir / "seed_manifest.json", manifest.to_dict())
+    manifest = _manifest_from_entries(tuple(candidates))
+    _write_json(out_dir / "candidate_seed_manifest.json", manifest.to_dict())
+    _write_json(out_dir / "rejected_candidates.json",
+                {"candidate_count": len(candidates), "rejected": rejected})
+    _write_candidate_review_md(out_dir / "candidate_review.md", tuple(candidates), company_id)
     _write_jsonl(out_dir / "seed_discovery_trace.jsonl", trace_lines)
-    return {"discovery_failed": discovery_failed, "candidate_count": len(entries),
-            "out_dir": str(out_dir)}
+    return {"discovery_failed": discovery_failed, "candidate_count": len(candidates),
+            "rejected_count": len(rejected), "out_dir": str(out_dir)}
 
 
 # ---------------------------------------------------------------------------
 # 阶段二：正式材料验收 runner
 # ---------------------------------------------------------------------------
 
+# 冻结 Contract v2（standard_v3.yaml，contract_version=v2）是 R2 材料验收的权威契约载体；
+# 必须经 formal v2 loader + validator 加载/校验（不得退回 standard_v2.yaml / Contract v1）。
+# 依赖指纹绑定真实冻结资产内容指纹（Contract v2 内容指纹 + Source Policy v1 内容指纹）与
+# R2 实现版本，不硬编码占位字符串 / pseudo-SHA。
+_R2_CONTRACT_PATH = Path(SV2.CONTRACT_V2_ASSET)
+_SOURCE_POLICY_PATH = Path("templates/policies/source_policy_v1.yaml")
+
+
+@lru_cache(maxsize=1)
+def _frozen_contract() -> SV2.ContractV2:
+    """经 formal v2 loader 加载 Contract v2 并用 formal v2 validator 校验（fail-closed）。
+
+    ``loader_v2.parse_contract_v2`` 要求 ``contract_version == "v2"``，故 standard_v2.yaml /
+    Contract v1 在此被拦截（ValueError），不可能静默绑定错误契约载体。
+    """
+    contract = LV2.load_contract_v2(str(_R2_CONTRACT_PATH))
+    result = VV2.validate_contract_v2(contract)
+    if not result.valid:
+        raise RuntimeError(
+            f"冻结 Contract v2 校验失败（{len(result.errors)} 处）: {result.errors[:5]}")
+    return contract
+
+
+@lru_cache(maxsize=1)
+def _frozen_source_policy() -> SP.SourcePolicy:
+    """经 formal source_policy loader + validator 加载 source_policy_v1.yaml（fail-closed）。"""
+    policy = SP.load_source_policy(str(_SOURCE_POLICY_PATH))
+    result = SP.validate_source_policy(policy)
+    if not result.valid:
+        raise RuntimeError(
+            f"冻结 Source Policy v1 校验失败（{len(result.errors)} 处）: {result.errors[:5]}")
+    return policy
+
+
+def _contract_content_fingerprint() -> str:
+    """冻结 Contract v2（standard_v3.yaml）的真实内容指纹（排除冻结元数据键）。"""
+    return SV2.content_fingerprint(_frozen_contract().raw)
+
+
+def _source_policy_content_fingerprint() -> str:
+    """冻结 Source Policy v1（source_policy_v1.yaml）的真实内容指纹（排除冻结元数据键）。"""
+    return SV2.content_fingerprint(_frozen_source_policy().raw)
+
+
+def _contract_version() -> str:
+    return _frozen_contract().contract_version
+
+
 def _runner_dependency_fingerprint() -> str:
-    return TS.compute_dependency_fingerprint(
-        _sha("r2-acceptance-contract"), "v1",
-        {"set_enumerator": TS.SET_ENUMERATION_VERIFIER_VERSION})
+    """真实 R2 依赖指纹：全部 6 个 DEPENDENCY_VERSION_KEYS 取真实实现版本常量 +
+    冻结 Contract v2 内容指纹 + 冻结 Source Policy v1 内容指纹 + source_policy 政策版本
+    （不硬编码 _sha("r2-acceptance-contract") / pseudo-SHA）。"""
+    dependency_versions = {
+        "contract": _contract_version(),
+        "source_policy": SP.POLICY_VERSION,
+        "topic_schema": TS.TOPIC_PACK_SCHEMA_VERSION,
+        "assessor": TS.SET_COMPLETENESS_ASSESSOR_VERSION,
+        "validator": TS.SET_COMPLETENESS_VERIFIER_VERSION,
+        "set_enumerator": TS.SET_ENUMERATION_VERIFIER_VERSION,
+    }
+    base = TS.compute_dependency_fingerprint(
+        _contract_content_fingerprint(), SP.POLICY_VERSION, dependency_versions)
+    return TS.sha256_canonical({
+        "base_dependency_fingerprint": base,
+        "source_policy_content_fingerprint": _source_policy_content_fingerprint(),
+    })
 
 
 def _step_to_dict(step) -> dict:
@@ -272,14 +558,30 @@ def _step_to_dict(step) -> dict:
     }
 
 
-def _material_entry(m: TS.ResearchMaterial, aspect_ids: tuple[str, ...]) -> dict:
+def _material_boundary_disposition(m: TS.ResearchMaterial,
+                                   boundary_by_evidence: dict | None) -> str:
+    """修复 A.3：fragment（locator.offset 非 None）的 link disposition 是
+    ``fragment_projection``（独立可关联材料）；raw sentinel 的 ``outside_boundary_sentinel``
+    只属于原始完整 block，绝不落到 fragment 上。"""
+    loc = m.locator
+    if isinstance(loc, TS.EvidenceLocator) and loc.offset is not None:
+        return DISPOSITION_FRAGMENT_PROJECTION
+    evidence_id = getattr(m.authority_assessment, "evidence_id", "")
+    return (boundary_by_evidence or {}).get(evidence_id, {}).get("disposition", "")
+
+
+def _material_entry(m: TS.ResearchMaterial, aspect_ids: tuple[str, ...],
+                    boundary_by_evidence: dict | None = None,
+                    role_by_aspect_material: dict | None = None) -> dict:
     auth = m.authority_assessment
     loc = m.locator
+    evidence_id = getattr(auth, "evidence_id", "")
+    bd = (boundary_by_evidence or {}).get(evidence_id, {})
     return {
         "material_id": m.material_id,
         "material_type": m.material_type,
         "source_identity": m.source_identity,
-        "component_evidence_id": getattr(auth, "evidence_id", ""),
+        "component_evidence_id": evidence_id,
         "source_content_hash": getattr(auth, "content_hash", ""),
         "payload_hash": m.content_hash,
         "document_id": getattr(auth, "document_id", ""),
@@ -289,21 +591,50 @@ def _material_entry(m: TS.ResearchMaterial, aspect_ids: tuple[str, ...]) -> dict
         "block_range": list(loc.block_range) if loc is not None and loc.block_range else None,
         "table_title": loc.table_title if loc is not None else None,
         "authority_verdict": getattr(auth, "verdict", ""),
+        # 权威 / 边界成员 / aspect 资格 / supporting 四者分离（§三/§四）：
+        # 边界处置与 aspect 角色分开呈现，sentinel/拒绝块绝不进入 material library。
+        "boundary_disposition": _material_boundary_disposition(m, boundary_by_evidence),
+        "boundary_reason_code": bd.get("reason_code", ""),
+        # §四修复四：role 键为 (aspect_id, material_id)，同一 material 对 A 可为 source、对 B 可为
+        # context_candidate；按 aspect 输出角色映射，不再用单一 material_id → 单一 role 的扁平键。
+        "aspect_roles": {
+            aspect_id: role
+            for (aspect_id, mid), role in (role_by_aspect_material or {}).items()
+            if mid == m.material_id
+        },
+        # 向后兼容：单一「主导角色」字符串（跨 aspect 取最高 _ROLE_RANK，确定性），仅作展示
+        # 摘要；权威的逐 aspect 角色见 aspect_roles / aspect_links.json。
+        "aspect_role": max(
+            ((role_by_aspect_material or {}).get((aspect_id, m.material_id), "")
+             for aspect_id in aspect_ids
+             if (aspect_id, m.material_id) in (role_by_aspect_material or {})),
+            key=_ROLE_RANK.get, default=""),
         "aspect_ids": list(aspect_ids),
     }
 
 
 def _enumeration_assessment(aspect_id: str, source_material_ids: tuple[str, ...],
                             document_version: str, source_boundary: str,
-                            dep: str) -> TS.SetCompletenessAssessment:
+                            dep: str, member_ids: tuple[str, ...],
+                            boundary_proof: TS.EnumerationBoundaryProof | None = None,
+                            ) -> TS.SetCompletenessAssessment:
+    """构建 set_complete 的完整证明 assessment（不再使用 ``__preview__`` 占位）。
+
+    - expected == observed == 传入 member_ids，excluded 为空：R2 在明确披露边界内枚举，
+      权威完整集合 == 枚举器产出的成员集合（无排除）。
+    - contract_sha256 取 v1 基线 contract 的真实 content_fingerprint（非占位 sha）。
+    - boundary_proof（§六）：由真实扩读 ExpansionResult/Trace/UnreadScope 派生的枚举边界
+      闭合输入；set_complete 必须携带（Store/verifier 对缺失 fail-closed）。
+    """
     return TS.SetCompletenessAssessment(
         aspect_id=aspect_id, rule_version=TS.SET_COMPLETENESS_RULE_VERSION,
         source_material_ids=source_material_ids, document_version=document_version,
-        source_boundary=source_boundary, expected_member_ids=("__preview__",),
-        observed_member_ids=("__preview__",), excluded_member_ids=(), exclusion_reasons=(),
+        source_boundary=source_boundary, expected_member_ids=member_ids,
+        observed_member_ids=member_ids, excluded_member_ids=(), exclusion_reasons=(),
         supporting_material_ids=(), supporting_fact_ids=(), scope_complete=True,
         assessor_version=TS.SET_COMPLETENESS_ASSESSOR_VERSION,
-        contract_sha256=_sha("r2-acceptance-contract"), dependency_fingerprint=dep)
+        contract_sha256=_contract_content_fingerprint(), dependency_fingerprint=dep,
+        boundary_proof=boundary_proof)
 
 
 def _aspect_state(aspect_id: str, *, material_ids: tuple[str, ...],
@@ -328,6 +659,120 @@ def _aspect_state(aspect_id: str, *, material_ids: tuple[str, ...],
     return "obtained"
 
 
+def _enumerate_single_version(aspect_id: str, materials: list,
+                              doc_id: str, doc_ver: str, resolver, enumerator,
+                              exps: tuple, dep: str,
+                              assemblies: tuple = ()) -> tuple[dict, bool]:
+    """P1-4：对单一 (document_id, document_version) 的 source materials 枚举一次。
+
+    返回 ({"result": SetEnumerationResult.to_dict(), "source_boundary": str},
+          boundary_incomplete: bool)。该版本的 boundary_proof 只从同 document_version 的
+    扩读派生（不继承其他版本的 unread/工具错误/预算耗尽），绝不跨版本合并。
+    """
+    source_materials = tuple(materials)
+    mids = tuple(m.material_id for m in source_materials)
+    resolved_payloads: list[TS.ResolvedPayload] = []
+    for m in source_materials:
+        try:
+            rp = TS.verify_material_payload_ref(m.payload_ref, resolver)
+        except TS.SchemaValidationError as e:
+            return ({"result": TS.SetEnumerationResult(
+                material_type_supported=False,
+                verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
+                reason=f"payload 不可解析: {e}").to_dict(),
+                "source_boundary": ""}, True)
+        if rp.payload_bytes is None:
+            return ({"result": TS.SetEnumerationResult(
+                material_type_supported=False,
+                verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
+                reason="payload bytes 不可用").to_dict(),
+                "source_boundary": ""}, True)
+        resolved_payloads.append(rp)
+
+    boundary = getattr(source_materials[0].locator, "section_path", "") or ""
+    if not doc_ver or not boundary:
+        return ({"result": TS.SetEnumerationResult(
+            material_type_supported=False,
+            verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
+            reason="边界/版本缺失，无法枚举").to_dict(),
+            "source_boundary": boundary}, True)
+
+    # 只取同 document_version 的扩读（每版本独立闭合判定，不跨版本继承未读/错误）。
+    version_exps = tuple(
+        e for e in exps if e.trace.request.document_version == doc_ver)
+    boundary_proof = derive_enumeration_boundary_proof(
+        aspect_id, version_exps, document_id=doc_id, document_version=doc_ver,
+        evidence_set_version=(version_exps[0].trace.request.evidence_set_version
+                              if version_exps else ""),
+        source_boundary_identity=boundary, component_material_ids=mids,
+        dependency_fingerprint=dep)
+    request = _enumeration_assessment(
+        aspect_id, mids, doc_ver, boundary, dep, mids, boundary_proof=boundary_proof)
+    enum = enumerator.enumerate(
+        request, source_materials, tuple(resolved_payloads), dep, assemblies)
+    if enum is None:
+        return ({"result": TS.SetEnumerationResult(
+            material_type_supported=False,
+            verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
+            reason="枚举器无法枚举").to_dict(),
+            "source_boundary": boundary}, True)
+    result = enum.to_dict()
+    incomplete = enum.material_type_supported is not True
+    if not incomplete:
+        final_assessment = _enumeration_assessment(
+            aspect_id, mids, doc_ver, boundary, dep, enum.enumerated_member_ids,
+            boundary_proof=boundary_proof)
+        verdict = TS.compute_set_completeness_verdict(final_assessment, dep)
+        if not verdict.set_complete:
+            incomplete = True
+    return ({"result": result, "source_boundary": boundary}, incomplete)
+
+
+def _enumerate_set_by_version(aspect_id: str, mids: tuple[str, ...],
+                              all_materials: dict, resolver, enumerator,
+                              aspect_expansions: dict, dep: str,
+                              assemblies: tuple = ()) -> tuple[dict, bool]:
+    """P1-4：按单一 document_version 逐版本枚举 set_complete aspect，绝不跨版本合并。
+
+    返回 (aggregate_dict, boundary_incomplete)。aggregate_dict 结构：
+    ``{"material_type_supported", "verifier_version", "reason", "merged", "per_version"}``，
+    ``per_version`` 每项 ``{document_id, document_version, source_boundary, result}``。
+    多版本 → material_type_supported=False + merged=False（历史视图共存，不伪造单一完整集合）。
+    """
+    verifier_version = TS.SET_ENUMERATION_VERIFIER_VERSION
+    if not mids:
+        return ({
+            "material_type_supported": False,
+            "verifier_version": verifier_version,
+            "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+            "merged": False,
+            "per_version": [],
+        }, False)
+
+    source_materials = [all_materials[mid] for mid in mids]
+    groups = group_materials_by_document_version(source_materials)
+    exps = tuple(aspect_expansions.get(aspect_id, []))
+
+    per_version: list[dict] = []
+    any_incomplete = False
+    for (doc_id, doc_ver), version_materials in groups:
+        entry, incomplete = _enumerate_single_version(
+            aspect_id, version_materials, doc_id, doc_ver, resolver, enumerator,
+            exps, dep, assemblies)
+        per_version.append({
+            "document_id": doc_id,
+            "document_version": doc_ver,
+            "source_boundary": entry["source_boundary"],
+            "result": entry["result"],
+        })
+        if incomplete:
+            any_incomplete = True
+
+    aggregate = aggregate_per_version_enumeration(per_version, verifier_version)
+    multi_version = len(groups) > 1
+    return aggregate, (any_incomplete or multi_version)
+
+
 def _write_json(path: Path, obj) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)
@@ -339,22 +784,65 @@ def _write_jsonl(path: Path, lines: list[dict]) -> None:
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
+# 边界处置有效值排序（§四：确定性合并，与 seed 处理顺序无关）。
+# source(seed) > inside_boundary > context_candidate > unread > sentinel > rejected > duplicate。
+_BOUNDARY_DISPOSITION_RANK = {
+    "seed": 6,
+    "inside_boundary": 5,
+    "context_candidate": 4,
+    "unread_inside_boundary": 3,
+    "outside_boundary_sentinel": 2,
+    "rejected_boundary_mismatch": 1,
+    # 修复 A.2：已撤回（上一章节）块不再构成有效边界成员，rank 最低，绝不覆盖正当采纳。
+    "rolled_back_previous_section": 0,
+    "duplicate": 0,
+}
+
+# aspect 角色有效值排序（§四：source > supporting(R3 only) > context_candidate）。
+_ROLE_RANK = {"source": 3, "supporting": 2, "context_candidate": 1}
+
+
+def _effective_disposition(existing: dict | None, bd) -> dict:
+    """确定性 effective_disposition 合并（rank-max，first-wins 反例修正）。
+
+    同一 evidence 从多个 seed 得到不同处置时取「更靠内」的处置；绝不因 seed 顺序而漂移。
+    """
+    cand = {"disposition": bd.disposition, "reason_code": bd.reason_code}
+    if existing is None:
+        return cand
+    if _BOUNDARY_DISPOSITION_RANK.get(bd.disposition, -1) > \
+            _BOUNDARY_DISPOSITION_RANK.get(existing.get("disposition", ""), -1):
+        return cand
+    return existing
+
+
+def _append_unique(mapping: dict, key: str, value: str) -> None:
+    lst = mapping.setdefault(key, [])
+    if value not in lst:
+        lst.append(value)
+
+
 def run_material_slice(run_id: str, manifest: SeedManifest, *,
                        evidence_db: str | Path = DEFAULT_EVIDENCE_DB_PATH,
                        harness_db: str | Path = DEFAULT_HARNESS_DB_PATH,
                        out_root: str | Path = DEFAULT_OUT_ROOT,
-                       directions: tuple[str, ...] = EXPANSION_DIRECTIONS) -> dict:
+                       directions: tuple[str, ...] = EXPANSION_DIRECTIONS,
+                       budget_profile_name: str = "production") -> dict:
     """正式材料验收 runner（阶段二，--seed-manifest 必填）。
 
     每个 seed 经 ``expand``（bounded ToolRegistry 链）复验身份 → 受控扩读 → atomic material
     构建 → payload 单事务原子落盘 → （set_complete aspect）正式枚举。seed 不一致 → fail-closed。
     """
     out_dir = Path(out_root) / f"r2_material_slice_{run_id}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # 拒绝覆盖既有 run：产物目录必须全新（防止同一 run_id 残留旧产物被误读为新结果）。
+    if out_dir.exists():
+        raise FileExistsError(f"输出目录已存在，拒绝覆盖既有 run：{out_dir}")
+    out_dir.mkdir(parents=True, exist_ok=False)
 
     dep = _runner_dependency_fingerprint()
     registry = ToolRegistry(audit_dir=out_dir / "tool_audit")
     register_bounded_evidence_tool(registry, db_path=evidence_db)
+    register_resolve_seed_identity_tool(registry, db_path=evidence_db)
 
     Store.init_topic_store(Path(harness_db))
     resolver = Store.TopicMaterialPayloadResolver(Path(harness_db))
@@ -364,16 +852,31 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     resolved_entries: list[dict] = []
     all_materials: dict[str, TS.ResearchMaterial] = {}
     all_assemblies: list = []
-    aspect_materials: dict[str, list[str]] = {}
+    aspect_materials: dict[str, list[str]] = {}        # aspect_id → formal(source) material_ids
+    context_candidate_materials: dict[str, list[str]] = {}  # aspect_id → context_candidate material_ids
+    outside_boundary_evidence: dict[str, list[str]] = {}    # aspect_id → sentinel evidence_ids
+    unread_inside_boundary_evidence: dict[str, list[str]] = {}  # aspect_id → unread evidence_ids
     aspect_seeds: dict[str, list[str]] = {}
+    aspect_expansions: dict[str, list] = {}
     rejected_aspects: set[str] = set()
     unread_aspects: set[str] = set()
+    topic_boundary_unavailable_aspects: set[str] = set()
     seed_before_after: list[dict] = []
+    seed_budget_records: list[dict] = []
     expansion_steps: list[dict] = []
     unread_scopes: list[dict] = []
+    boundary_decisions: list[dict] = []
+    boundary_by_evidence: dict[str, dict] = {}
+    role_by_aspect_material: dict[tuple[str, str], str] = {}
+    # P1-A.2：逐 aspect 的边界资格状态（由扩读路径**实际消费**得到，非事后补写）。
+    boundary_status_by_aspect: dict[str, dict] = {}
 
     for entry in manifest.entries:
         aspect_seeds.setdefault(entry.aspect_id, []).append(entry.evidence_id)
+        # 修复 A：主题边界策略不可用（未知/无法从冻结契约派生的 aspect）→ fail-closed，
+        # 该 aspect 验收保持 boundary_incomplete，绝不默认 ambiguous 无限采纳、绝不静默闭合。
+        if not topic_boundary_policy(entry.aspect_id).available:
+            topic_boundary_unavailable_aspects.add(entry.aspect_id)
         base = {
             "case_id": entry.case_id, "aspect_id": entry.aspect_id,
             "evidence_id": entry.evidence_id,
@@ -398,12 +901,43 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             company_id=entry.company_id, document_id=entry.document_id,
             document_version=entry.document_version,
             evidence_set_version=entry.evidence_set_version, seed=seed,
-            directions=directions, budget=ExpansionBudget(),
-            dependency_fingerprint=dep)
+            directions=directions, budget=budget_profile(budget_profile_name),
+            dependency_fingerprint=dep, aspect_id=entry.aspect_id)
 
         expansion = expand(request, registry, run_id=run_id)
+        seed_budget_records.append({
+            "case_id": entry.case_id,
+            "aspect_id": entry.aspect_id,
+            "evidence_id": entry.evidence_id,
+            "budget_consumed": dict(expansion.budget_consumed),
+            "stop_reason": expansion.stop_reason,
+            "unread_scope": expansion.unread_scope.scope_desc,
+        })
         for step in expansion.trace.steps:
             expansion_steps.append(_step_to_dict(step))
+        # P1-A.2：边界资格状态逐 aspect 落盘（独立验证结论 + 主题小节层级与其来源）。
+        boundary_status_by_aspect[entry.aspect_id] = {
+            "aspect_id": entry.aspect_id,
+            "status": expansion.boundary_status or "not_applicable",
+            "eligible": bool(expansion.boundary_eligible),
+            "reason": expansion.boundary_reason,
+            "topic_level": expansion.topic_level,
+            "topic_level_source": expansion.topic_level_source,
+            "verification": expansion.boundary_verification,
+        }
+        for bd in expansion.boundary_decisions:
+            d = bd.to_dict()
+            # §四：路径化键（aspect_id, seed_evidence_id, evidence_id），保留全部 reachability 决策。
+            d["aspect_id"] = entry.aspect_id
+            d["seed_evidence_id"] = entry.evidence_id
+            boundary_decisions.append(d)
+            # effective_disposition 确定性合并（rank-max，非 first-wins）。
+            boundary_by_evidence[bd.evidence_id] = _effective_disposition(
+                boundary_by_evidence.get(bd.evidence_id), bd)
+            if bd.disposition == DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL:
+                _append_unique(outside_boundary_evidence, entry.aspect_id, bd.evidence_id)
+            elif bd.disposition == DISPOSITION_UNREAD_INSIDE_BOUNDARY:
+                _append_unique(unread_inside_boundary_evidence, entry.aspect_id, bd.evidence_id)
 
         if not expansion.adopted:
             reason = expansion.unread_scope.scope_desc or expansion.stop_reason
@@ -413,12 +947,20 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             unread_scopes.append({
                 "evidence_id": entry.evidence_id, "reason": expansion.unread_scope.reason,
                 "scope_desc": expansion.unread_scope.scope_desc,
-                "stop_reason": expansion.stop_reason})
+                "stop_reason": expansion.unread_scope.stop_reason or expansion.stop_reason})
             continue
 
         result = build_material_result(
-            expansion, dependency_fingerprint=dep,
-            is_current_document=True, is_current_set=True, aspect_id=entry.aspect_id)
+            expansion, dependency_fingerprint=dep, aspect_id=entry.aspect_id)
+        # §四：role 键 (aspect_id, material_id)，source > supporting(R3) > context_candidate；
+        # 确定性合并（source 优先，绝不 last-wins 漂移）。同一 material 可对 aspect A 为
+        # source、对 aspect B 为 context_candidate。
+        for link in result.aspect_links:
+            for mid in link.material_ids:
+                key = (link.aspect_id, mid)
+                prev = role_by_aspect_material.get(key)
+                if prev is None or _ROLE_RANK.get(link.role, 0) > _ROLE_RANK.get(prev, 0):
+                    role_by_aspect_material[key] = link.role
 
         # payload 单事务原子落盘（幂等复用）。
         if result.payload_records:
@@ -426,15 +968,29 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
 
         for m in result.materials:
             all_materials[m.material_id] = m
-        aspect_materials.setdefault(entry.aspect_id, []).extend(
-            m.material_id for m in result.materials)
+        # §四：formal（source）与 context_candidate 分离。context 进全局库/审计，但
+        # 不计为 aspect 正式材料（不推进 coverage、不进矩阵 obtained）；绝不无条件全量
+        # 挂到 aspect（反例：financial risk/credit 片段不再被挂在 major_subsidiaries 下）。
+        formal_ids: list[str] = []
+        context_ids: list[str] = []
+        for link in result.aspect_links:
+            for mid in link.material_ids:
+                if link.role == "source":
+                    formal_ids.append(mid)
+                else:
+                    context_ids.append(mid)
+        for mid in formal_ids:
+            _append_unique(aspect_materials, entry.aspect_id, mid)
+        for mid in context_ids:
+            _append_unique(context_candidate_materials, entry.aspect_id, mid)
+        aspect_expansions.setdefault(entry.aspect_id, []).append(expansion)
         all_assemblies.extend(result.assemblies)
         if result.unread_scope.refs:
             unread_aspects.add(entry.aspect_id)
             unread_scopes.append({
                 "evidence_id": entry.evidence_id, "reason": result.unread_scope.reason,
                 "scope_desc": result.unread_scope.scope_desc,
-                "stop_reason": result.stop_reason})
+                "stop_reason": result.unread_scope.stop_reason or result.stop_reason})
 
         resolved_entries.append({**base, "resolved": True, "resolution": "verified",
                                  "message": result.stop_reason,
@@ -453,70 +1009,108 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             "unread_scope": result.unread_scope.scope_desc,
         })
 
-    # -- set 枚举（三个 set_complete aspect） --
+    # P1-2：按 content-addressed assembly_id 确定性去重（同 ID 同内容 → 一条；同 ID 不同
+    # 内容 → fail-closed 抛错）。多个 seed 可能派生同一组合投影（同 relation + 同 component
+    # material），产物绝不含重复 assembly，且绝不因 seed 顺序漂移。
+    all_assemblies = _dedup_assemblies(all_assemblies)
+    # P1-B.6：清单、枚举门与持久化产物共用**同一份** assembly 记录（单一恢复真相）。
+    all_assemblies_dicts = tuple(_assembly_to_dict(a) for a in all_assemblies)
+
+    # §四（补充）：formal/context 以 source-wins 为唯一依据。同一 material 既是某 seed 的
+    # source、又是另一 seed 的 context_candidate 时，只归 formal（source 优先，绝不重复归入
+    # context_candidate_material_ids）。反例：多 seed 交叉时 source 材料被第二 seed 当作 context
+    # 重复挂入 context 列表，导致 formal∩context 非空、context 计数虚高。
+    for _asp in list(context_candidate_materials.keys()):
+        _formal = set(aspect_materials.get(_asp, []))
+        context_candidate_materials[_asp] = [
+            _m for _m in context_candidate_materials[_asp] if _m not in _formal]
+
+    # §四（补充）：material id 列表稳定排序，保证产物不随 seed 顺序漂移（seed 顺序无关）。
+    for _asp in list(aspect_materials.keys()):
+        aspect_materials[_asp] = sorted(set(aspect_materials[_asp]))
+    for _asp in list(context_candidate_materials.keys()):
+        context_candidate_materials[_asp] = sorted(set(context_candidate_materials[_asp]))
+
+    # -- set 枚举（三个 set_complete aspect；P1-4 按单一 document_version 逐版本枚举） --
     set_results: dict[str, dict] = {}
     boundary_incomplete_aspects: set[str] = set()
+    # 修复 A：主题边界策略不可用的 aspect 一律并入 boundary_incomplete（fail-closed）。
+    boundary_incomplete_aspects |= topic_boundary_unavailable_aspects
     for aspect_id in SET_ASPECTS:
         mids = tuple(dict.fromkeys(aspect_materials.get(aspect_id, [])))
-        if not mids:
-            set_results[aspect_id] = TS.SetEnumerationResult(
-                material_type_supported=False,
-                verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
-                reason="本轮样本未覆盖该 aspect（无 source payload）").to_dict()
-            continue
-        source_materials = tuple(all_materials[mid] for mid in mids)
-        resolved_payloads: list[TS.ResolvedPayload] = []
-        for m in source_materials:
+        aggregate, incomplete = _enumerate_set_by_version(
+            aspect_id, mids, all_materials, resolver, enumerator,
+            aspect_expansions, dep, tuple(all_assemblies_dicts))
+        set_results[aspect_id] = aggregate
+        if incomplete:
+            boundary_incomplete_aspects.add(aspect_id)
+
+    # -- 修复 B：源对象清单（材料管线硬门）—— 对全部边界内 formal+context 材料建立清单，
+    #    独立于 set enumeration / boundary proof 是否闭合，逐 aspect 持久化（绝不 null）。 --
+    source_object_inventories: dict[str, dict] = {}
+    for aspect_id in sorted(set(aspect_materials) | set(context_candidate_materials)):
+        mids = tuple(dict.fromkeys(
+            list(aspect_materials.get(aspect_id, []))
+            + list(context_candidate_materials.get(aspect_id, []))))
+        rps: list[TS.ResolvedPayload] = []
+        for mid in mids:
+            m = all_materials.get(mid)
+            if m is None:
+                continue
             try:
                 rp = TS.verify_material_payload_ref(m.payload_ref, resolver)
-            except TS.SchemaValidationError as e:
-                resolved_payloads = []
-                set_results[aspect_id] = TS.SetEnumerationResult(
-                    material_type_supported=False,
-                    verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
-                    reason=f"payload 不可解析: {e}").to_dict()
-                break
-            if rp.payload_bytes is None:
-                resolved_payloads = []
-                set_results[aspect_id] = TS.SetEnumerationResult(
-                    material_type_supported=False,
-                    verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
-                    reason="payload bytes 不可用").to_dict()
-                break
-            resolved_payloads.append(rp)
-        else:
-            first = source_materials[0]
-            document_version = getattr(first.authority_assessment, "document_version", "")
-            boundary = getattr(first.locator, "section_path", "") or ""
-            if not document_version or not boundary:
-                set_results[aspect_id] = TS.SetEnumerationResult(
-                    material_type_supported=False,
-                    verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
-                    reason="边界/版本缺失，无法枚举").to_dict()
-                boundary_incomplete_aspects.add(aspect_id)
+            except TS.SchemaValidationError:
                 continue
-            assessment = _enumeration_assessment(
-                aspect_id, mids, document_version, boundary, dep)
-            enum = enumerator.enumerate(
-                assessment, tuple(source_materials), tuple(resolved_payloads), dep)
-            if enum is None:
-                set_results[aspect_id] = TS.SetEnumerationResult(
-                    material_type_supported=False,
-                    verifier_version=TS.SET_ENUMERATION_VERIFIER_VERSION,
-                    reason="枚举器无法枚举").to_dict()
-            else:
-                set_results[aspect_id] = enum.to_dict()
-                if enum.material_type_supported is not True:
-                    boundary_incomplete_aspects.add(aspect_id)
+            if rp.payload_bytes is not None:
+                rps.append(rp)
+        # P1-B.1/B.5/B.6：清单按规范源顺序（document_version→page→block_index→offset）建立，
+        # 并对账到**已持久化的 assemblies**（同一份恢复真相）；component 外键必须真实存在。
+        source_object_inventories[aspect_id] = build_source_object_inventory(
+            aspect_id, tuple(rps), all_assemblies_dicts,
+            set(all_materials)).to_dict()
 
     # -- 材料索引 / aspect 矩阵 / before_after / payload 预览 --
+    # aspect_of_material 关联全部 aspect（formal + context_candidate），并稳定去重/排序。
+    # §四修复四：formal 与 context 必须分别遍历做稳定并集，不得用覆盖式 dict 展开
+    # （{**a, **b} 会让同 aspect 的 context 覆盖 formal，导致 source 材料的 aspect 归属丢失）。
     aspect_of_material: dict[str, list[str]] = {}
-    for aspect_id, mids in aspect_materials.items():
+    for aspect_id in sorted(set(aspect_materials) | set(context_candidate_materials)):
+        mids = list(dict.fromkeys(
+            list(aspect_materials.get(aspect_id, []))
+            + list(context_candidate_materials.get(aspect_id, []))))
         for mid in mids:
-            aspect_of_material.setdefault(mid, []).append(aspect_id)
+            aspect_of_material.setdefault(mid, [])
+            if aspect_id not in aspect_of_material[mid]:
+                aspect_of_material[mid].append(aspect_id)
+    for mid in aspect_of_material:
+        aspect_of_material[mid].sort()
+
+    # §四修复四：显式 aspect_links（aspect_id / material_id / role / disposition /
+    # seed_reachability）。role 键 (aspect_id, material_id)；seed_reachability 从
+    # boundary_decisions 的 (aspect_id, evidence_id) 反查可达的 seed evidence_id 集合，
+    # 与 seed 处理顺序无关（确定性排序）。
+    reach_by_aspect_evidence: dict[tuple[str, str], set[str]] = {}
+    for d in boundary_decisions:
+        reach_by_aspect_evidence.setdefault(
+            (d["aspect_id"], d["evidence_id"]), set()).add(d["seed_evidence_id"])
+
+    aspect_links: list[dict] = []
+    for (aspect_id, mid), role in sorted(role_by_aspect_material.items()):
+        m = all_materials.get(mid)
+        evidence_id = getattr(m.authority_assessment, "evidence_id", "") if m else ""
+        aspect_links.append({
+            "aspect_id": aspect_id,
+            "material_id": mid,
+            "role": role,
+            "disposition": _material_boundary_disposition(m, boundary_by_evidence),
+            "seed_reachability": sorted(
+                reach_by_aspect_evidence.get((aspect_id, evidence_id), set())),
+        })
+    aspect_links.sort(key=lambda l: (l["aspect_id"], l["material_id"], l["role"]))
 
     material_entries = [
-        _material_entry(m, tuple(aspect_of_material.get(m.material_id, [])))
+        _material_entry(m, tuple(aspect_of_material.get(m.material_id, [])),
+                        boundary_by_evidence, role_by_aspect_material)
         for m in all_materials.values()
     ]
     material_entries.sort(key=lambda e: (e["material_type"], e["document_id"],
@@ -547,14 +1141,57 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     _write_jsonl(out_dir / "seed_discovery_trace.jsonl", [])
     _write_jsonl(out_dir / "expansion_trace.jsonl", expansion_steps)
     _write_json(out_dir / "unread_scope.json", unread_scopes)
+    _write_json(out_dir / "boundary_decisions.json", {
+        "boundary_disposition_version": BOUNDARY_DISPOSITION_VERSION,
+        "topic_boundary_version": TOPIC_BOUNDARY_VERSION,
+        "decisions": boundary_decisions,
+        "policy_status": boundary_status_by_aspect,
+    })
+    # §四：四类分离（formal / context_candidate / outside_boundary / unread）显式落盘。
+    _write_json(out_dir / "aspect_membership.json", {
+        aspect_id: {
+            "formal_material_ids": aspect_materials.get(aspect_id, []),
+            "context_candidate_material_ids": context_candidate_materials.get(aspect_id, []),
+            "outside_boundary_evidence": outside_boundary_evidence.get(aspect_id, []),
+            "unread_inside_boundary": unread_inside_boundary_evidence.get(aspect_id, []),
+            "seed_evidence_ids": aspect_seeds.get(aspect_id, []),
+        }
+        for aspect_id in aspect_ids
+    })
     _write_json(out_dir / "set_enumeration.json", set_results)
+    # 修复 B：源对象清单独立落盘（六类验收器必须读取；逐 aspect 四态逐项结果）。
+    _write_json(out_dir / "source_object_inventory.json", source_object_inventories)
+    # 修复 A / P1-A.1：全部 115 个 topic_harness aspects 的主题边界策略覆盖审计（四态）。
+    # 本次运行**实际**得到独立验证的 aspect 结论经 verifications 传入，其余 aspect 如实
+    # 记为 policy_self_consistent（绝不冒充 boundary_semantics_verified）。
+    _run_verifications = {}
+    for _aid, _st in boundary_status_by_aspect.items():
+        _vd = _st.get("verification") or {}
+        if _vd:
+            _run_verifications[_aid] = BoundarySemanticsVerification(
+                aspect_id=_aid, verified=bool(_vd.get("verified")),
+                reason=str(_vd.get("reason") or ""),
+                cases=(), policy_version=str(_vd.get("policy_version") or ""))
+    _write_json(out_dir / "topic_boundary_coverage.json",
+                topic_boundary_coverage(verifications=_run_verifications))
     _write_json(out_dir / "aspect_material_matrix.json", matrix_rows)
+    _write_json(out_dir / "aspect_links.json", aspect_links)
+    # §十二 Codex 结论 2：验收所用预算的来源/版本/限制/实际消耗/未读范围显式落盘，
+    # 供验收审计回查（绝不把验收窗口并入生产默认）。
+    _write_json(out_dir / "budget_profile.json", {
+        "budget_profile_version": BUDGET_PROFILE_VERSION,
+        "profile_name": budget_profile_name,
+        "budget_limits": budget_profile(budget_profile_name).as_limits(),
+        "seed_budget_records": seed_budget_records,
+    })
     _write_json(out_dir / "assemblies.json", [
         _assembly_to_dict(a) for a in all_assemblies])
 
-    _write_material_index_md(out_dir, material_entries, all_assemblies)
-    _write_aspect_matrix_md(out_dir, matrix_rows)
-    _write_before_after_md(out_dir, seed_before_after)
+    _write_material_index_md(out_dir, material_entries, all_assemblies,
+                             all_materials, resolver)
+    _write_aspect_matrix_md(out_dir, matrix_rows, aspect_materials,
+                            context_candidate_materials, all_materials, resolver)
+    _write_before_after_md(out_dir, seed_before_after, all_materials, resolver)
 
     preview_dir = out_dir / "payload_preview"
     preview_dir.mkdir(parents=True, exist_ok=True)
@@ -584,6 +1221,34 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     }
 
 
+def _dedup_assemblies(assemblies: list) -> list:
+    """按 content-addressed assembly_id 确定性去重（§四/P1-2）。
+
+    assembly_id = sha256([relation, component_material_ids])（content-addressed 身份）。
+    同 ID 必须同内容（序列化后逐字段一致）；若同 ID 但内容不同 → fail-closed 抛 ValueError
+    （绝不静默丢弃或保留冲突投影）。返回每 ID 一条，按 assembly_id 稳定排序。
+    """
+    by_id: dict[str, list] = {}
+    order: list[str] = []
+    for a in assemblies:
+        aid = a.assembly_id
+        if aid not in by_id:
+            by_id[aid] = [a]
+            order.append(aid)
+        else:
+            by_id[aid].append(a)
+    deduped: list = []
+    for aid in order:
+        group = by_id[aid]
+        canonical = _assembly_to_dict(group[0])
+        for other in group[1:]:
+            if _assembly_to_dict(other) != canonical:
+                raise ValueError(
+                    f"assembly_id 冲突：同一 {aid} 对应不同内容（fail-closed，拒绝覆盖）")
+        deduped.append(group[0])
+    return deduped
+
+
 def _assembly_to_dict(a) -> dict:
     d = {
         "assembly_id": a.assembly_id,
@@ -598,16 +1263,86 @@ def _assembly_to_dict(a) -> dict:
             "header_evidence_id": a.header_evidence_id,
             "body_evidence_ids": list(a.body_evidence_ids),
             "continuation_evidence_ids": list(a.continuation_evidence_ids),
+            # §五修复三：摊平表恢复出的列结构显式落盘（title/unit/header/rows/total）。
+            "headers": list(getattr(a, "headers", ())),
+            "rows": [list(r) for r in getattr(a, "rows", ())],
+            "total_row": list(getattr(a, "total_row", ()))
+            if getattr(a, "total_row", None) is not None else None,
+            # P1-2：严格结构校验结果显式落盘（ok/partial/failed + 原因）。
+            "recovery_status": getattr(a, "recovery_status", "ok"),
+            "recovery_issue": getattr(a, "recovery_issue", None),
+            # §修复 C：跨页续表「同一张表」证明显式落盘（valid/sample_not_obtained/7 条件）。
+            "continuation_proof": _continuation_proof_to_dict(
+                getattr(a, "continuation_proof", None)),
         })
     return d
+
+
+def _continuation_proof_to_dict(proof) -> dict | None:
+    if proof is None:
+        return None
+    return {
+        "proof_version": proof.proof_version,
+        "valid": proof.valid,
+        "sample_not_obtained": proof.sample_not_obtained,
+        "normalized_title": proof.normalized_title,
+        "header_evidence_id": proof.header_evidence_id,
+        "continuation_evidence_ids": list(proof.continuation_evidence_ids),
+        "header_page": proof.header_page,
+        "continuation_pages": list(proof.continuation_pages),
+        "title_compatible": proof.title_compatible,
+        "unit_compatible": proof.unit_compatible,
+        "column_compatible": proof.column_compatible,
+        "row_column_continuity": proof.row_column_continuity,
+        "final_recovery_status": proof.final_recovery_status,
+        "issue": proof.issue,
+    }
 
 
 # ---------------------------------------------------------------------------
 # 人读产物
 # ---------------------------------------------------------------------------
 
+def _material_content_preview(m: TS.ResearchMaterial, resolver) -> str:
+    """解码 payload 信封，返回人读内容摘要（正文文本 + 结构化表格 cells）。
+
+    §八：材料库必须「真正可看」——md 里展示实际内容，而非只列 material_id/hash。
+    """
+    try:
+        rp = resolver.resolve(m.payload_ref)
+    except Store.StorageCorruptionError:
+        return "（payload 损坏，无法预览）"
+    if rp is None or rp.payload_bytes is None:
+        return "（payload 不可用）"
+    try:
+        obj = json.loads(rp.payload_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return "（payload 非法 JSON，无法预览）"
+    content = obj.get("content") if isinstance(obj, dict) else {}
+    if not isinstance(content, dict):
+        return "（payload 无 content）"
+    parts: list[str] = []
+    etype = content.get("evidence_type", "")
+    text = (content.get("text", "") or "").strip()
+    if text:
+        parts.append(f"正文[{etype}]: {text[:600]}")
+    sp = content.get("structured_payload")
+    if isinstance(sp, dict):
+        headers = sp.get("headers")
+        cells = sp.get("cells")
+        if isinstance(cells, list) and cells:
+            hdr = " | ".join(str(h) for h in headers) if isinstance(headers, list) else ""
+            if hdr:
+                parts.append(f"表头: {hdr}")
+            for row in cells[:8]:
+                if isinstance(row, list):
+                    parts.append("  · " + " | ".join(str(c) for c in row))
+    return "\n".join(parts) if parts else "（无正文/结构化内容）"
+
+
 def _write_material_index_md(out_dir: Path, entries: list[dict],
-                             assemblies: list) -> None:
+                             assemblies: list, materials_by_id: dict,
+                             resolver) -> None:
     lines = ["# R2 材料索引（material_index）", ""]
     lines.append("> 每条材料必填字段见 §13；source_content_hash 为来源层身份，"
                  "payload_hash 为载体层身份，component evidence_id 可回查原始 Block。")
@@ -627,7 +1362,19 @@ def _write_material_index_md(out_dir: Path, entries: list[dict],
         if e.get("table_title"):
             lines.append(f"- 表题：`{e['table_title']}`")
         lines.append(f"- authority 状态：`{e['authority_verdict']}`")
-        lines.append(f"- 支撑 aspect：{', '.join(f'`{a}`' for a in e['aspect_ids'])}")
+        lines.append(f"- 边界处置：`{e.get('boundary_disposition') or '—'}`"
+                     f"（`{e.get('boundary_reason_code') or '—'}`）")
+        _aspect_roles = e.get("aspect_roles") or {}
+        _role_str = ", ".join(f"`{a}`={r}" for a, r in sorted(_aspect_roles.items())) or "—"
+        lines.append(f"- aspect 角色（按 aspect）：{_role_str}")
+        lines.append(f"- 关联 aspect：{', '.join(f'`{a}`' for a in e['aspect_ids'])}")
+        m = materials_by_id.get(e["material_id"])
+        if m is not None:
+            lines.append("- 实际内容：")
+            lines.append("")
+            lines.append("  ```")
+            lines.append("  " + _material_content_preview(m, resolver).replace("\n", "\n  "))
+            lines.append("  ```")
         lines.append("")
     lines.append("## 组合投影（MaterialAssembly/TableAssembly）")
     lines.append("")
@@ -638,7 +1385,9 @@ def _write_material_index_md(out_dir: Path, entries: list[dict],
     (out_dir / "material_index.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def _write_aspect_matrix_md(out_dir: Path, rows: list[dict]) -> None:
+def _write_aspect_matrix_md(out_dir: Path, rows: list[dict],
+                            aspect_materials: dict, context_candidate_materials: dict,
+                            materials_by_id: dict, resolver) -> None:
     lines = ["# aspect → 材料覆盖矩阵（六态）", ""]
     lines.append("| 状态 | 含义 |")
     lines.append("|---|---|")
@@ -650,10 +1399,40 @@ def _write_aspect_matrix_md(out_dir: Path, rows: list[dict]) -> None:
     for r in rows:
         lines.append(f"| `{r['aspect_id']}` | `{r['state']}` |")
     lines.append("")
+    # §八：矩阵下附每个 aspect 的实际材料内容，而非只列状态。
+    for r in rows:
+        lines.append(f"## {r['aspect_id']}（状态 `{r['state']}`）")
+        lines.append("")
+        mids = aspect_materials.get(r["aspect_id"], [])
+        if not mids:
+            lines.append("（无正式材料）")
+            lines.append("")
+        else:
+            for mid in mids:
+                m = materials_by_id.get(mid)
+                if m is None:
+                    lines.append(f"- `{mid}`（材料缺失）")
+                    continue
+                lines.append(f"### 正式材料 {mid}")
+                lines.append("")
+                lines.append(f"- 材料类型：`{m.material_type}` · authority："
+                             f"`{getattr(m.authority_assessment, 'verdict', '')}`")
+                lines.append(f"- component evidence_id：`{getattr(m.authority_assessment, 'evidence_id', '')}`")
+                lines.append("")
+                lines.append("```")
+                lines.append(_material_content_preview(m, resolver).replace("\n", "\n  "))
+                lines.append("```")
+                lines.append("")
+        ctx_ids = context_candidate_materials.get(r["aspect_id"], [])
+        if ctx_ids:
+            lines.append("**context_candidate（不推进 coverage、不计正式材料）**："
+                         + ", ".join(f"`{mid}`" for mid in ctx_ids))
+            lines.append("")
     (out_dir / "aspect_material_matrix.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def _write_before_after_md(out_dir: Path, rows: list[dict]) -> None:
+def _write_before_after_md(out_dir: Path, rows: list[dict],
+                           materials_by_id: dict, resolver) -> None:
     lines = ["# seed 命中内容 vs 扩读后完整材料（before/after）", ""]
     if not rows:
         lines.append("（本轮无 seed）")
@@ -670,6 +1449,19 @@ def _write_before_after_md(out_dir: Path, rows: list[dict]) -> None:
         lines.append(f"- 停止原因：`{r['stop_reason']}`")
         lines.append(f"- 未读范围：{r['unread_scope']}")
         lines.append("")
+        # §八：扩读后材料逐条展示实际内容（不只列 material_id）。
+        for mid in r["expanded_material_ids"]:
+            m = materials_by_id.get(mid)
+            if m is None:
+                lines.append(f"### {mid}（材料缺失）")
+                lines.append("")
+                continue
+            lines.append(f"### 扩读材料 {mid}")
+            lines.append("")
+            lines.append("```")
+            lines.append(_material_content_preview(m, resolver).replace("\n", "\n  "))
+            lines.append("```")
+            lines.append("")
     (out_dir / "before_after.md").write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -685,7 +1477,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--company-id", default=None)
     parser.add_argument("--ev-db", default=str(DEFAULT_EVIDENCE_DB_PATH))
     parser.add_argument("--harness-db", default=str(DEFAULT_HARNESS_DB_PATH))
+    parser.add_argument("--chroma-dir", default="data/chroma_v2")
+    parser.add_argument("--sparse-dir", default="data/sparse_v2")
+    parser.add_argument("--manifest-dir", default="data/index_v2")
     parser.add_argument("--out-root", default=str(DEFAULT_OUT_ROOT))
+    parser.add_argument("--budget-profile", default="production",
+                        choices=("production", "acceptance"))
     args = parser.parse_args(argv)
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -697,7 +1494,13 @@ def main(argv: list[str]) -> int:
             return 2
         try:
             from tools import adapters
-            registry = adapters.build_default_registry(audit_dir=Path(args.out_root) / "tool_audit")
+            # §五：evaluation-only 只读发现注册表（复用正式 search_evidence/search_tables
+            # ToolSpec + 现有 ToolRegistry；只读 evidence DB + 索引/向量路径，不 init_db、
+            # 不改 estore._db_path、skip financial、零博查）。
+            registry = adapters.build_readonly_discovery_registry(
+                ev_db=Path(args.ev_db), chroma_dir=Path(args.chroma_dir),
+                sparse_dir=Path(args.sparse_dir), manifest_dir=Path(args.manifest_dir),
+                audit_dir=Path(args.out_root) / "tool_audit")
         except Exception as e:  # noqa: BLE001 - 检索链不可用 → fail-closed
             print(f"discover-seeds fail-closed：检索链不可用（{type(e).__name__}: {e}）；"
                   f"请显式提供已确认 seed manifest。", file=sys.stderr)
@@ -708,7 +1511,7 @@ def main(argv: list[str]) -> int:
         summary = discover_seeds(args.company_id, queries, registry,
                                  Path(args.out_root), args.run_id)
         print(json.dumps(summary, ensure_ascii=False))
-        return 0
+        return 1 if summary.get("discovery_failed") else 0
 
     if not args.seed_manifest:
         print("正式材料验收 runner 需 --seed-manifest（两阶段 seed 修正二）", file=sys.stderr)
@@ -719,9 +1522,14 @@ def main(argv: list[str]) -> int:
         print(f"seed manifest 加载失败：{e}", file=sys.stderr)
         return 2
 
-    summary = run_material_slice(
-        args.run_id, manifest, evidence_db=args.ev_db,
-        harness_db=args.harness_db, out_root=args.out_root)
+    try:
+        summary = run_material_slice(
+            args.run_id, manifest, evidence_db=args.ev_db,
+            harness_db=args.harness_db, out_root=args.out_root,
+            budget_profile_name=args.budget_profile)
+    except FileExistsError as e:
+        print(f"材料验收 runner 拒绝运行（输出目录已存在）：{e}", file=sys.stderr)
+        return 1
     print(json.dumps(summary, ensure_ascii=False))
     return 0
 

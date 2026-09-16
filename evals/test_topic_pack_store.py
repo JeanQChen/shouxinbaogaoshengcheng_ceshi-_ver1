@@ -52,6 +52,11 @@ def _sha(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
+# §五.7 / item 7：set_complete 依赖束必须携带 set_enumerator 版本；本文件所有 pack/requirement
+# 统一用同一 dependency_versions（含 set_enumerator），保证依赖指纹锁步一致。
+_SET_ENUM_DV = {"set_enumerator": TS.SET_ENUMERATION_VERIFIER_VERSION}
+
+
 # ---------------------------------------------------------------------------
 # 工厂
 # ---------------------------------------------------------------------------
@@ -134,8 +139,9 @@ def _external_authority() -> TS.ExternalSnapshotAuthorityAssessment:
         reason="", validator_version="vv1")
 
 
-def _payload_ref(material_type: str, locator: TS.MaterialLocator) -> TS.MaterialPayloadRef:
-    return TS.MaterialPayloadRef(object_type=material_type, authority_identity="aid",
+def _payload_ref(material_type: str, locator: TS.MaterialLocator,
+                 authority_identity: str = "aid") -> TS.MaterialPayloadRef:
+    return TS.MaterialPayloadRef(object_type=material_type, authority_identity=authority_identity,
                                  version="v1", content_hash=_sha("payload"),
                                  locator=locator, created_dependency_fingerprint=_sha("cdep"))
 
@@ -151,10 +157,12 @@ def _material(material_type: str, mid: str) -> TS.ResearchMaterial:
         loc, auth = _external_locator(), _external_authority()
     else:
         raise ValueError(material_type)
+    auth_id = TS.authority_source_identity(auth)
+    pref = _payload_ref(material_type, loc, auth_id)
     return TS.ResearchMaterial(material_id=mid, material_type=material_type,
-                               source_identity="src", locator=loc,
-                               payload_ref=_payload_ref(material_type, loc),
-                               content_hash=_sha("mat:" + mid), authority_assessment=auth)
+                               source_identity=auth_id, locator=loc,
+                               payload_ref=pref,
+                               content_hash=pref.content_hash, authority_assessment=auth)
 
 
 def _fact(fid: str, aspect_ids: tuple[str, ...], text: str = "fact text") -> TS.SupportedFact:
@@ -254,7 +262,7 @@ def _build(topic_id: str = "t1", statuses: dict[str, str] | None = None,
     u = usage or _usage()
     process, coverage, derivation = TS.derive_pack_status(required, tuple(results),
                                                           stop_reason=u.stop_reason)
-    dep = TS.compute_dependency_fingerprint(contract_fp, spv, dep_versions or {})
+    dep = TS.compute_dependency_fingerprint(contract_fp, spv, dep_versions or _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id=run_id,
         task_id=task_id, company_id=company_id, report_as_of=report_as_of,
@@ -322,7 +330,7 @@ def _build_raw(statuses: dict[str, str], topic_id: str = "t1",
     u = _usage(stop_reason=stop_reason)
     process, coverage, derivation = TS.derive_pack_status(required, tuple(results),
                                                           stop_reason=stop_reason)
-    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", {})
+    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -353,7 +361,7 @@ def _forge_blocked_unjustified():
     derivation = TS.StatusDerivation(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, rule_version="forged",
         derivation_fingerprint=_sha("d"), per_aspect=(TS.AspectStatusEntry("a1", "blocked"),))
-    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", {})
+    dep = TS.compute_dependency_fingerprint(contract_fp, "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -378,7 +386,7 @@ def _requirement(aspects: tuple[TS.TopicAspectRequirementSnapshot, ...],
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
         contract_fingerprint=contract_fp or _sha("contract"), source_policy_version=spv,
         section_id="company", topic_id=topic_id, question_ids=("q1",),
-        aspects=aspects, allowed_capabilities=("evidence",), dependency_versions={})
+        aspects=aspects, allowed_capabilities=("evidence",), dependency_versions=_SET_ENUM_DV)
     kw.update(overrides)
     return TS.TopicResearchRequirement(**kw)
 
@@ -405,10 +413,12 @@ def _build_covered_override(snap: TS.TopicAspectRequirementSnapshot | None = Non
             snap, coverage_rules=coverage_rules or snap.coverage_rules,
             required_fields=required_fields or snap.required_fields)
     m_auth = material_authority or _evidence_authority()
+    m_auth_id = TS.authority_source_identity(m_auth)
     material = TS.ResearchMaterial(
-        material_id="m-a1", material_type="evidence_span", source_identity="src",
-        locator=_evidence_locator(), payload_ref=_payload_ref("evidence_span", _evidence_locator()),
-        content_hash=_sha("mat:m-a1"), authority_assessment=m_auth)
+        material_id="m-a1", material_type="evidence_span", source_identity=m_auth_id,
+        locator=_evidence_locator(),
+        payload_ref=_payload_ref("evidence_span", _evidence_locator(), m_auth_id),
+        content_hash=_sha("payload"), authority_assessment=m_auth)
     f_auth = fact_authority or _evidence_authority()
     fact = TS.SupportedFact(
         fact_id="f-a1", text="fact text", fact_type="fact", aspect_ids=("a1",),
@@ -419,7 +429,7 @@ def _build_covered_override(snap: TS.TopicAspectRequirementSnapshot | None = Non
         supported_fact_ids=("f-a1",), material_ids=("m-a1",), attempted_need_ids=(),
         unresolved_ids=(), sufficiency_assessment=sufficiency, set_completeness=set_completeness)
     process, coverage, derivation = TS.derive_pack_status(("a1",), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -443,11 +453,12 @@ def _build_external_covered(snap: TS.TopicAspectRequirementSnapshot,
     """
     ext_auth = dataclasses.replace(_external_authority(), source_grade=fact_grade,
                                    min_grade_met=(fact_grade != "D"))
+    ext_auth_id = TS.authority_source_identity(ext_auth)
     material = TS.ResearchMaterial(
-        material_id="m-a1", material_type="external_snapshot", source_identity="src",
+        material_id="m-a1", material_type="external_snapshot", source_identity=ext_auth_id,
         locator=_external_locator(),
-        payload_ref=_payload_ref("external_snapshot", _external_locator()),
-        content_hash=_sha("mat:m-a1"), authority_assessment=ext_auth)
+        payload_ref=_payload_ref("external_snapshot", _external_locator(), ext_auth_id),
+        content_hash=_sha("payload"), authority_assessment=ext_auth)
     fact = TS.SupportedFact(
         fact_id="f-a1", text="fact text", fact_type="fact", aspect_ids=("a1",),
         citation_refs=(TS.CitationRef(ref_type="external", source_snapshot_id="ext1"),),
@@ -459,7 +470,7 @@ def _build_external_covered(snap: TS.TopicAspectRequirementSnapshot,
     sa = sufficiency if sufficiency_override else TS.recompute_sufficiency(result0, (fact,), source_policy)
     result = dataclasses.replace(result0, sufficiency_assessment=sa)
     process, coverage, derivation = TS.derive_pack_status(("a1",), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -489,12 +500,18 @@ def _build_external_covered_multi(snap: TS.TopicAspectRequirementSnapshot,
         validator_version="vv1")
     loc1 = TS.ExternalLocator(source_snapshot_id="ext1", canonical_url="https://x/1", domain="x.com")
     loc2 = TS.ExternalLocator(source_snapshot_id="ext2", canonical_url="https://y/2", domain="y.com")
-    mat1 = TS.ResearchMaterial(material_id="m-a1", material_type="external_snapshot", source_identity="s1",
-                               locator=loc1, payload_ref=_payload_ref("external_snapshot", loc1),
-                               content_hash=_sha("mat:m-a1"), authority_assessment=auth1)
-    mat2 = TS.ResearchMaterial(material_id="m-a2", material_type="external_snapshot", source_identity="s2",
-                               locator=loc2, payload_ref=_payload_ref("external_snapshot", loc2),
-                               content_hash=_sha("mat:m-a2"), authority_assessment=auth2)
+    mat1 = TS.ResearchMaterial(material_id="m-a1", material_type="external_snapshot",
+                               source_identity=TS.authority_source_identity(auth1),
+                               locator=loc1,
+                               payload_ref=_payload_ref("external_snapshot", loc1,
+                                                       TS.authority_source_identity(auth1)),
+                               content_hash=_sha("payload"), authority_assessment=auth1)
+    mat2 = TS.ResearchMaterial(material_id="m-a2", material_type="external_snapshot",
+                               source_identity=TS.authority_source_identity(auth2),
+                               locator=loc2,
+                               payload_ref=_payload_ref("external_snapshot", loc2,
+                                                       TS.authority_source_identity(auth2)),
+                               content_hash=_sha("payload"), authority_assessment=auth2)
     fact1 = TS.SupportedFact(fact_id="f-a1", text="fact text", fact_type="fact", aspect_ids=("a1",),
                              citation_refs=(TS.CitationRef(ref_type="external", source_snapshot_id="ext1"),),
                              source_authority=auth1, obtained_fields=("f1",))
@@ -508,7 +525,7 @@ def _build_external_covered_multi(snap: TS.TopicAspectRequirementSnapshot,
     sa = TS.recompute_sufficiency(result0, (fact1, fact2), source_policy)
     result = dataclasses.replace(result0, sufficiency_assessment=sa)
     process, coverage, derivation = TS.derive_pack_status(("a1",), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -521,9 +538,42 @@ def _build_external_covered_multi(snap: TS.TopicAspectRequirementSnapshot,
     return TS.finalize_pack(pack), (snap,)
 
 
+def _bp(aspect_id: str = "a1", source_material_ids: tuple[str, ...] = ("m-a1",),
+        document_version: str = "v1", source_boundary: str = "s1",
+        dependency_versions: dict[str, str] | None = None,
+        **overrides) -> TS.EnumerationBoundaryProof:
+    """构造「边界闭合输入自洽」的 EnumerationBoundaryProof（默认无违规）。"""
+    dep_fp = TS.compute_dependency_fingerprint(_sha("contract"), "v1",
+                                               dependency_versions or _SET_ENUM_DV)
+    base = dict(
+        aspect_id=aspect_id,
+        seed_evidence_ids=("ev1",),
+        document_id="doc1",
+        document_version=document_version,
+        evidence_set_version="set1",
+        source_boundary_identity=source_boundary,
+        component_material_ids=source_material_ids,
+        trace_fingerprint=_sha("trace"),
+        direction_stop_reasons=(),
+        unread_candidate_refs=(),
+        unresolved_explicit_refs=(),
+        unclosed_continuations=(),
+        tool_errors=(),
+        budget_exhausted=False,
+        dependency_fingerprint=dep_fp,
+    )
+    base.update(overrides)
+    return TS.EnumerationBoundaryProof(**base)
+
+
 def _set_complete(scope_complete: bool = True,
                   expected: tuple[str, ...] = ("sub1", "sub2"),
-                  observed: tuple[str, ...] = ("sub1", "sub2")) -> TS.SetCompletenessAssessment:
+                  observed: tuple[str, ...] = ("sub1", "sub2"),
+                  dependency_versions: dict[str, str] | None = None,
+                  boundary_proof: TS.EnumerationBoundaryProof | None = None) -> TS.SetCompletenessAssessment:
+    dv = dependency_versions or _SET_ENUM_DV
+    if boundary_proof is None:
+        boundary_proof = _bp(dependency_versions=dv)
     return TS.SetCompletenessAssessment(
         aspect_id="a1", rule_version=TS.SET_COMPLETENESS_RULE_VERSION,
         source_material_ids=("m-a1",), document_version="v1", source_boundary="s1",
@@ -532,7 +582,9 @@ def _set_complete(scope_complete: bool = True,
         supporting_material_ids=("m-a1",), supporting_fact_ids=("f-a1",),
         scope_complete=scope_complete, assessor_version=TS.SET_COMPLETENESS_ASSESSOR_VERSION,
         contract_sha256=_sha("contract"),
-        dependency_fingerprint=TS.compute_dependency_fingerprint(_sha("contract"), "v1", {}))
+        dependency_fingerprint=TS.compute_dependency_fingerprint(
+            _sha("contract"), "v1", dv),
+        boundary_proof=boundary_proof)
 
 
 # -- 最小 typed resolver（R1-B 依赖注入边界；离线 fake） --
@@ -672,6 +724,8 @@ class _GoodSetEnumerationVerifier:
     """Fix 2：受信任的测试枚举器——从合成 payload 字节确定性枚举成员 + 计算 payload_hash/
     boundary_identity。只证明接口与 Store 绑定关系成立，不代表正式文档枚举已实现（R2 才实现）。"""
 
+    verifier_version = TS.SET_ENUMERATION_VERIFIER_VERSION
+
     def enumerate(self, assessment: TS.SetCompletenessAssessment,
                   materials: tuple[TS.ResearchMaterial, ...],
                   resolved_payloads: tuple[TS.ResolvedPayload, ...],
@@ -708,6 +762,8 @@ class _ForgedSetEnumerationVerifier:
     不一致」，不证明 Store 能识别「任意未读取 payload 的实现」（后者在 R2 由唯一正式组合入口
     注入正式枚举器后才建立）。"""
 
+    verifier_version = TS.SET_ENUMERATION_VERIFIER_VERSION
+
     def enumerate(self, assessment: TS.SetCompletenessAssessment,
                   materials: tuple[TS.ResearchMaterial, ...],
                   resolved_payloads: tuple[TS.ResolvedPayload, ...],
@@ -722,18 +778,26 @@ class _ForgedSetEnumerationVerifier:
 
 
 def _build_set_complete_covered(members: tuple[str, ...],
-                                sc: TS.SetCompletenessAssessment | None = None):
+                                sc: TS.SetCompletenessAssessment | None = None,
+                                dependency_versions: dict[str, str] | None = None,
+                                payload_bytes: bytes | None = None):
     """构造带合成 payload 的 set_complete covered Pack（Fix 2：source material payload_ref
-    绑定真实合成成员字节，供独立枚举器确定性枚举）。返回 (pack, aspects, payload_bytes)。"""
-    payload_bytes = _set_members_payload(members)
+    绑定真实合成成员字节，供独立枚举器确定性枚举）。返回 (pack, aspects, payload_bytes)。
+
+    ``payload_bytes`` 可由调用方注入（如含与材料身份不一致的 document_identity 信封），用于
+    §三 boundary_proof 交叉校验反例；默认 == _set_members_payload(members)。
+    """
+    if payload_bytes is None:
+        payload_bytes = _set_members_payload(members)
+    ev_auth_id = TS.authority_source_identity(_evidence_authority())
     payload_ref = TS.MaterialPayloadRef(
-        object_type="evidence_span", authority_identity="aid", version="v1",
+        object_type="evidence_span", authority_identity=ev_auth_id, version="v1",
         content_hash=_sha_bytes(payload_bytes), locator=_evidence_locator(),
         created_dependency_fingerprint=_sha("cdep"))
     material = TS.ResearchMaterial(
-        material_id="m-a1", material_type="evidence_span", source_identity="src",
+        material_id="m-a1", material_type="evidence_span", source_identity=ev_auth_id,
         locator=_evidence_locator(), payload_ref=payload_ref,
-        content_hash=_sha("mat:m-a1"), authority_assessment=_evidence_authority())
+        content_hash=payload_ref.content_hash, authority_assessment=_evidence_authority())
     fact = _closed_fact("f-a1", ("a1",))
     snap = dataclasses.replace(_aspect_snapshot("a1", "t1"), coverage_rules=("set_complete",))
     result = TS.AspectResearchResult(
@@ -741,7 +805,8 @@ def _build_set_complete_covered(members: tuple[str, ...],
         supported_fact_ids=("f-a1",), material_ids=("m-a1",), attempted_need_ids=(),
         unresolved_ids=(), set_completeness=sc)
     process, coverage, derivation = TS.derive_pack_status(("a1",), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1",
+                                            dependency_versions or _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -773,7 +838,7 @@ def _build_two_ref_pack(policy_id: str = "sp2", content_fingerprint: str | None 
                                  status="covered", supported_fact_ids=("f-a2",), material_ids=("m-a2",),
                                  attempted_need_ids=(), unresolved_ids=())
     process, coverage, derivation = TS.derive_pack_status(("a1", "a2"), (r1, r2), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -864,10 +929,12 @@ def _build_conditional_transmission(channel: str = "ch1",
                     required_any_of=(TS.SourceClassGroup(source_classes=("external",)),),
                     supplemental_only=(), inference_lineage_required=True)),))
     ext_auth = _external_authority()  # grade A
+    ext_auth_id = TS.authority_source_identity(ext_auth)
     material = TS.ResearchMaterial(
-        material_id="m-a1", material_type="external_snapshot", source_identity="src",
-        locator=_external_locator(), payload_ref=_payload_ref("external_snapshot", _external_locator()),
-        content_hash=_sha("mat:m-a1"), authority_assessment=ext_auth)
+        material_id="m-a1", material_type="external_snapshot", source_identity=ext_auth_id,
+        locator=_external_locator(),
+        payload_ref=_payload_ref("external_snapshot", _external_locator(), ext_auth_id),
+        content_hash=_sha("payload"), authority_assessment=ext_auth)
     facts: list[TS.SupportedFact] = []
     if include_base:
         b_auth = base_authority or ext_auth
@@ -889,7 +956,7 @@ def _build_conditional_transmission(channel: str = "ch1",
     sa = TS.recompute_sufficiency(result0, (inf,), _source_policy())
     result = dataclasses.replace(result0, sufficiency_assessment=sa)
     process, coverage, derivation = TS.derive_pack_status(("a1",), (result,), stop_reason=None)
-    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", {})
+    dep = TS.compute_dependency_fingerprint(_sha("contract"), "v1", _SET_ENUM_DV)
     pack = TS.TopicResearchPack(
         schema_version=TS.TOPIC_PACK_SCHEMA_VERSION, pack_id="", run_id="run-1",
         task_id="task1", company_id="300750", report_as_of=None, contract_version="v1",
@@ -1204,17 +1271,21 @@ def main() -> dict:
           "external locator 往返")
 
     try:
-        TS.ResearchMaterial(material_id="m", material_type="evidence_span", source_identity="s",
-                            locator=_financial_locator(), payload_ref=_payload_ref("evidence_span", _financial_locator()),
-                            content_hash=_sha("x"), authority_assessment=_evidence_authority())
+        TS.ResearchMaterial(material_id="m", material_type="evidence_span",
+                            source_identity="evidence:ev1",
+                            locator=_financial_locator(),
+                            payload_ref=_payload_ref("evidence_span", _financial_locator(), "evidence:ev1"),
+                            content_hash=_sha("payload"), authority_assessment=_evidence_authority())
         check(False, "material_type/locator mismatch 应 fail-closed")
     except TS.SchemaValidationError:
         check(True, "material_type=evidence_span + financial locator → SchemaValidationError")
 
     try:
-        TS.ResearchMaterial(material_id="m", material_type="structured", source_identity="s",
-                            locator=_financial_locator(), payload_ref=_payload_ref("structured", _financial_locator()),
-                            content_hash=_sha("x"), authority_assessment=_evidence_authority())
+        TS.ResearchMaterial(material_id="m", material_type="structured",
+                            source_identity="evidence:ev1",
+                            locator=_financial_locator(),
+                            payload_ref=_payload_ref("structured", _financial_locator(), "evidence:ev1"),
+                            content_hash=_sha("payload"), authority_assessment=_evidence_authority())
         check(False, "material_type/authority mismatch 应 fail-closed")
     except TS.SchemaValidationError:
         check(True, "material_type=structured + evidence authority → SchemaValidationError")
@@ -1627,22 +1698,36 @@ def main() -> dict:
 
     # material↔payload_ref typed 身份（构造期即拒绝）
     try:
-        TS.ResearchMaterial(material_id="m", material_type="evidence_span", source_identity="s",
+        TS.ResearchMaterial(material_id="m", material_type="evidence_span",
+                            source_identity="evidence:ev1",
                             locator=_evidence_locator(),
-                            payload_ref=_payload_ref("structured", _financial_locator()),
-                            content_hash=_sha("x"), authority_assessment=_evidence_authority())
+                            payload_ref=_payload_ref("structured", _financial_locator(), "evidence:ev1"),
+                            content_hash=_sha("payload"), authority_assessment=_evidence_authority())
         check(False, "N3 material_type 与 payload_ref.object_type 不一致应拒绝")
     except TS.SchemaValidationError:
         check(True, "N3 material_type≠payload_ref.object_type → SchemaValidationError")
 
     try:
-        TS.ResearchMaterial(material_id="m", material_type="evidence_span", source_identity="s",
+        TS.ResearchMaterial(material_id="m", material_type="evidence_span",
+                            source_identity="evidence:ev1",
                             locator=_evidence_locator(),
-                            payload_ref=_payload_ref("evidence_span", _financial_locator()),
-                            content_hash=_sha("x"), authority_assessment=_evidence_authority())
+                            payload_ref=_payload_ref("evidence_span", _financial_locator(), "evidence:ev1"),
+                            content_hash=_sha("payload"), authority_assessment=_evidence_authority())
         check(False, "N4 material.locator 与 payload_ref.locator 不一致应拒绝")
     except TS.SchemaValidationError:
         check(True, "N4 material.locator≠payload_ref.locator → SchemaValidationError")
+
+    # item 4 / 反例#11：material.content_hash 与 payload_ref.content_hash 不一致 → 构造期 fail-closed
+    #（载体层哈希 == payload_hash == sha256(payload_bytes) 的身份链不得拆开）。
+    try:
+        TS.ResearchMaterial(material_id="m", material_type="evidence_span",
+                            source_identity="evidence:ev1",
+                            locator=_evidence_locator(),
+                            payload_ref=_payload_ref("evidence_span", _evidence_locator(), "evidence:ev1"),
+                            content_hash=_sha("carrier-mismatch"), authority_assessment=_evidence_authority())
+        check(False, "N4b material.content_hash 与 payload_ref.content_hash 不一致应拒绝")
+    except TS.SchemaValidationError:
+        check(True, "N4b content_hash≠payload_ref.content_hash → SchemaValidationError（fail-closed）")
 
     for bad_fp in ("", "not-hex"):
         try:
@@ -1787,9 +1872,9 @@ def main() -> dict:
         == "rejected", "N17 item+formula 皆缺 → rejected")
     try:
         TS.ResearchMaterial(
-            material_id="m", material_type="structured", source_identity="s",
+            material_id="m", material_type="structured", source_identity="financial_snapshot:snap1",
             locator=_financial_locator(),  # item_code="ic1"
-            payload_ref=_payload_ref("structured", _financial_locator()),
+            payload_ref=_payload_ref("structured", _financial_locator(), "financial_snapshot:snap1"),
             content_hash=_sha("x"),
             authority_assessment=dataclasses.replace(_financial_authority(), item_code="ic-other"))
         check(False, "N17 locator.item_code 与 authority.item_code 不一致应拒绝")
@@ -1999,6 +2084,158 @@ def main() -> dict:
             check(False, "E5 set_complete 缺 SetEnumerationVerifier 应拒绝")
         except Store.TopicStoreValidationError:
             check(True, "E5 缺独立枚举 verifier → fail-closed（不得靠自填集合升 covered）")
+
+        # §五.7/item 7 反例#19：requirement.dependency_versions 缺/错 set_enumerator → fail-closed。
+        # 注意：pack + assessment 的 dependency_fingerprint 必须与 requirement 锁步一致（否则
+        # 会在更早的 _validate_requirement_matches 失败，掩盖 item 7 门禁），故三处都用同一
+        # dependency_versions（缺 set_enumerator 键 / 版本错误）。
+        dv_missing = {"contract": "v1"}  # 无 set_enumerator 键
+        p6, asp6, pb6 = _build_set_complete_covered(
+            members=("sub1", "sub2"), sc=_set_complete(dependency_versions=dv_missing),
+            dependency_versions=dv_missing)
+        try:
+            Store.commit_pack(p6, _requirement(asp6, dependency_versions=dv_missing),
+                              _SetBytesResolver(pb6),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E6 set_complete 缺 set_enumerator 依赖版本应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E6 requirement 缺 set_enumerator 依赖版本 → fail-closed（item 7）")
+
+        dv_wrong = {"set_enumerator": "v-wrong"}
+        p7, asp7, pb7 = _build_set_complete_covered(
+            members=("sub1", "sub2"), sc=_set_complete(dependency_versions=dv_wrong),
+            dependency_versions=dv_wrong)
+        try:
+            Store.commit_pack(p7, _requirement(asp7, dependency_versions=dv_wrong),
+                              _SetBytesResolver(pb7),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E7 set_complete set_enumerator 版本错误应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E7 requirement set_enumerator 版本错误 → fail-closed（item 7）")
+
+        # --- §六 BoundaryProof 反例（item 6）：set_complete 缺/违规 boundary_proof → fail-closed ---
+        # E8 缺 boundary_proof → 拒绝（不保留自报兼容路径）。
+        sc_no_bp = dataclasses.replace(_set_complete(), boundary_proof=None)
+        p8, asp8, pb8 = _build_set_complete_covered(members=("sub1", "sub2"), sc=sc_no_bp)
+        try:
+            Store.commit_pack(p8, _requirement(asp8), _SetBytesResolver(pb8),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E8 set_complete 缺 boundary_proof 应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E8 set_complete 缺 boundary_proof → fail-closed（item 6）")
+
+        # E9 边界内仍有未读候选 → 拒绝。
+        p9, asp9, pb9 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(unread_candidate_refs=("ev-u",))))
+        try:
+            Store.commit_pack(p9, _requirement(asp9), _SetBytesResolver(pb9),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E9 boundary_proof 仍有未读候选应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E9 boundary_proof 未读候选 → fail-closed")
+
+        # E10 扩读存在工具错误 → 拒绝。
+        p10, asp10, pb10 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(tool_errors=("tool error:boom",))))
+        try:
+            Store.commit_pack(p10, _requirement(asp10), _SetBytesResolver(pb10),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E10 boundary_proof 工具错误应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E10 boundary_proof 工具错误 → fail-closed")
+
+        # E11 预算耗尽提前停止 → 拒绝。
+        p11, asp11, pb11 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(budget_exhausted=True)))
+        try:
+            Store.commit_pack(p11, _requirement(asp11), _SetBytesResolver(pb11),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E11 boundary_proof 预算耗尽应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E11 boundary_proof 预算耗尽 → fail-closed")
+
+        # E12 dangling 显式引用 / 未闭合续表 → 拒绝。
+        p12, asp12, pb12 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(unresolved_explicit_refs=("ev-ref",))))
+        try:
+            Store.commit_pack(p12, _requirement(asp12), _SetBytesResolver(pb12),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E12 boundary_proof dangling 引用应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E12 boundary_proof dangling 引用 → fail-closed")
+
+        p13, asp13, pb13 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(unclosed_continuations=("ev-cont",))))
+        try:
+            Store.commit_pack(p13, _requirement(asp13), _SetBytesResolver(pb13),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E13 boundary_proof 未闭合续表应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E13 boundary_proof 未闭合续表 → fail-closed")
+
+        # E14 boundary_proof 与 assessment 边界/材料不一致 → 拒绝。
+        p14, asp14, pb14 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(component_material_ids=("m-other",))))
+        try:
+            Store.commit_pack(p14, _requirement(asp14), _SetBytesResolver(pb14),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E14 boundary_proof component_material_ids 不一致应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E14 boundary_proof 材料不一致 → fail-closed")
+
+        # E15 boundary_proof.seed_evidence_ids 不属于 source materials 的 Evidence identity → 拒绝。
+        p15, asp15, pb15 = _build_set_complete_covered(
+            members=("sub1", "sub2"),
+            sc=_set_complete(boundary_proof=_bp(seed_evidence_ids=("ev-other",))))
+        try:
+            Store.commit_pack(p15, _requirement(asp15), _SetBytesResolver(pb15),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E15 boundary_proof seed 不属于 source materials 应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E15 boundary_proof seed 不属于 source materials → fail-closed")
+
+        # E16 boundary_proof 文档身份与 payload 信封 document_identity 不一致 → 拒绝。
+        payload_env16 = {"members": ["sub1", "sub2"],
+                         "document_identity": {"document_id": "doc1",
+                                               "document_version": "v-other",
+                                               "evidence_set_version": "set1"}}
+        payload_bytes16 = json.dumps(payload_env16, ensure_ascii=False).encode("utf-8")
+        p16, asp16, pb16 = _build_set_complete_covered(
+            members=("sub1", "sub2"), sc=_set_complete(), payload_bytes=payload_bytes16)
+        try:
+            Store.commit_pack(p16, _requirement(asp16), _SetBytesResolver(pb16),
+                              source_policy_resolver=_GoodSourcePolicyResolver(),
+                              set_completeness_verifier=_GoodSetCompletenessVerifier(),
+                              set_enumeration_verifier=_GoodSetEnumerationVerifier())
+            check(False, "E16 boundary_proof 文档身份与 payload 信封不一致应拒绝")
+        except Store.TopicStoreValidationError:
+            check(True, "E16 boundary_proof 文档身份与 payload 信封不一致 → fail-closed")
 
     # --- Fix 1：migration 2→3 升级路径 + v1 旧数据不静默消费 ---
     with tempfile.TemporaryDirectory() as tdM:

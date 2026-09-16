@@ -1,0 +1,123 @@
+[
+  {
+    "assembly_id": "asm-8dd23295ab3abe47651d143a27762301",
+    "context_parent_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "component_material_ids": [
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+      "mat-e13924560ab3f7ae28616a54f77717ec"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P42"
+  },
+  {
+    "assembly_id": "asm-e0ebf4d45a09d0562044201a6a00d789",
+    "context_parent_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "component_material_ids": [
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P41",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "body_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "序号",
+      "子公司名称",
+      "注册地",
+      "注册资本",
+      "持股比例",
+      "取得方式"
+    ],
+    "rows": [
+      [
+        "4",
+        "瑞庭时代（上海）新能源科技有限公",
+        "上海市",
+        "50,000.0100.0/",
+        "设立"
+      ]
+    ],
+    "total_row": null
+  },
+  {
+    "assembly_id": "asm-6488ecbaf8d1f0ef95e0636a3ca635a0",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138",
+      "mat-fdfc51463fca7eebb0a6537b3202d3bf",
+      "mat-a41b0071c49fb1f36e8d6c3a1af3f43d"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P209"
+  },
+  {
+    "assembly_id": "asm-69b2ce0ca8b66e47ad45bc7e2cdaa3dd",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "（1） 主要子公司情况",
+    "unit": "千元",
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "主要经",
+      "业务性",
+      "持股比例",
+      "取得方"
+    ],
+    "rows": [
+      [
+        "江苏时代新能源科技有",
+        "人民币",
+        "1,000,000 溧阳市",
+        "溧阳市",
+        "制造业",
+        "100.00%",
+        "设立"
+      ]
+    ],
+    "total_row": null
+  },
+  {
+    "assembly_id": "asm-69b2ce0ca8b66e47ad45bc7e2cdaa3dd",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "限公司",
+    "unit": null,
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "广东邦普循环科技有限",
+      "非同一"
+    ],
+    "rows": [
+      [
+        "公司",
+        "人民币",
+        "132,741 佛山市",
+        "佛山市",
+        "制造业",
+        "69.08%",
+        "控制下"
+      ]
+    ],
+    "total_row": null
+  }
+]

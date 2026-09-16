@@ -1,0 +1,20 @@
+{
+  "topic_id": "industry_risk_transmission",
+  "question_id": "industry_risk_transmission",
+  "kind": "transmission",
+  "title": "行业风险传导",
+  "tables": [],
+  "paragraphs": [],
+  "calc_display": {},
+  "fact_display": {},
+  "verdict": {
+    "ok": true,
+    "content_ok": false,
+    "issues": [],
+    "rendered_sentences": 0
+  },
+  "adopted_fact_ids": [],
+  "chapter_ok": false,
+  "markdown": "# 行业风险传导\n\n> 本章节无可采纳事实（adopted_facts=0），未生成正式正文。\n\n**数据缺口（DATA_GAP）**：本章节缺少通过权威性与来源政策校验的事实，无法支撑任何正式结论。本章不得视为完整章节，需补齐来源后重新生成。\n",
+  "version": "chapter-writer-v1"
+}

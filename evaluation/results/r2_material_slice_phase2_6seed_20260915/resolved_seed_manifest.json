@@ -1,0 +1,60 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "026bc33d53b91d5dcf6321429c3e4b5d2e5ec516173a9aebbaffa320c54dfcee",
+  "entries": [
+    {
+      "case_id": "candidate-1",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 5
+    },
+    {
+      "case_id": "candidate-3",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 6
+    },
+    {
+      "case_id": "candidate-7",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 1
+    },
+    {
+      "case_id": "candidate-8",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "hard budget (per_seed_cap)",
+      "material_count": 6
+    },
+    {
+      "case_id": "candidate-13",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 3
+    },
+    {
+      "case_id": "candidate-15",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "unrelated section boundary",
+      "material_count": 5
+    }
+  ]
+}

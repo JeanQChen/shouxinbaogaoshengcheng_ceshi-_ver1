@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness import topic_schema as TS
 from harness import topic_store as Store
+from evidence import ids as evidence_ids
 
 
 def _sha(s: str) -> str:
@@ -40,36 +41,97 @@ def _sha_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
-def _locator(page: int = 5) -> TS.EvidenceLocator:
+# 信封身份坐标（§五.1）：document_identity + locator(page/block_range) 需与
+# evidence.ids.make_evidence_id 的七元组严格一致，跨公司/跨文档串读 fail-closed。
+_COMPANY_ID = "300750"
+_DOC_ID = "doc1"
+_DOC_VERSION = "v1"
+_EVIDENCE_SET_VERSION = "v1"
+_BLOCK_INDEX = 0
+_PAGE = 5
+
+
+def _locator(page: int = _PAGE) -> TS.EvidenceLocator:
     return TS.EvidenceLocator(
-        document_id="doc1", document_version="v1",
-        section_path="主营业务分析", page=page)
+        document_id=_DOC_ID, document_version=_DOC_VERSION,
+        section_path="主营业务分析", page=page, block_range=(_BLOCK_INDEX, _BLOCK_INDEX + 1))
 
 
 def _locator_json(loc: TS.MaterialLocator) -> str:
     return json.dumps(loc.to_dict(), ensure_ascii=False, separators=(",", ":"))
 
 
+def _make_payload(text: str = "动力电池", structured_payload: dict | None = None,
+                  object_type: str = "evidence_span",
+                  company_id: str = _COMPANY_ID,
+                  document_id: str = _DOC_ID,
+                  document_version: str = _DOC_VERSION,
+                  evidence_set_version: str = _EVIDENCE_SET_VERSION,
+                  page: int = _PAGE,
+                  source_content_hash: str | None = None,
+                  created_dependency_fingerprint: str | None = None) -> bytes:
+    """构造 §五.1 合法 payload 信封（material_payload_version=1 + 关键字段闭合）。
+
+    evidence_id 由 evidence.ids.make_evidence_id(company_id, document_id,
+    document_version, evidence_set_version, page, block_index, source_content_hash)
+    确定性派生，authority_identity == f"evidence:{evidence_id}"。
+    """
+    ch = source_content_hash or evidence_ids.content_hash(text, structured_payload)
+    eid = evidence_ids.make_evidence_id(
+        company_id, document_id, document_version, evidence_set_version,
+        page, _BLOCK_INDEX, ch)
+    env = {
+        "material_payload_version": 1,
+        "object_type": object_type,
+        "authority_identity": f"evidence:{eid}",
+        "evidence_id": eid,
+        "source_content_hash": ch,
+        "created_dependency_fingerprint": created_dependency_fingerprint or _sha("dep"),
+        "content": {"text": text, "structured_payload": structured_payload},
+        "locator": _locator(page=page).to_dict(),
+        "document_identity": {
+            "company_id": company_id,
+            "document_id": document_id,
+            "document_version": document_version,
+            "evidence_set_version": evidence_set_version,
+        },
+    }
+    return json.dumps(env, ensure_ascii=False).encode("utf-8")
+
+
 def _record(payload_bytes: bytes, object_type: str = "evidence_span",
             source_content_hash: str | None = None,
-            authority_identity: str = "evidence:ev-1", version: str = "v1",
+            authority_identity: str | None = None, version: str = "v1",
             created_dependency_fingerprint: str | None = None) -> Store.MaterialPayloadRecord:
     payload_hash = _sha_bytes(payload_bytes)
+    env = json.loads(payload_bytes.decode("utf-8"))
+    if authority_identity is None:
+        authority_identity = env["authority_identity"]
+    if source_content_hash is None:
+        content = env["content"]
+        source_content_hash = evidence_ids.content_hash(
+            str(content.get("text", "")), content.get("structured_payload"))
     return Store.MaterialPayloadRecord(
         payload_id=payload_hash,
         object_type=object_type,
         authority_identity=authority_identity,
         version=version,
-        locator_json=_locator_json(_locator()),
-        source_content_hash=source_content_hash or _sha("src"),
+        locator_json=json.dumps(env["locator"], ensure_ascii=False, separators=(",", ":")),
+        source_content_hash=source_content_hash,
         payload_hash=payload_hash,
         payload_bytes=payload_bytes,
         created_dependency_fingerprint=created_dependency_fingerprint or _sha("dep"))
 
 
 def _ref(payload_bytes: bytes, object_type: str = "evidence_span",
-         authority_identity: str = "evidence:ev-1", version: str = "v1",
+         authority_identity: str | None = None, version: str = "v1",
          created_dependency_fingerprint: str | None = None) -> TS.MaterialPayloadRef:
+    if authority_identity is None:
+        try:
+            env = json.loads(payload_bytes.decode("utf-8"))
+            authority_identity = env.get("authority_identity") or "evidence:ev-1"
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            authority_identity = "evidence:ev-1"
     return TS.MaterialPayloadRef(
         object_type=object_type,
         authority_identity=authority_identity,
@@ -106,7 +168,7 @@ def main() -> dict:
     # 1. Store schema v3 常量一致性 + fresh init 结构
     # ------------------------------------------------------------------
     check(TS.STORE_SCHEMA_VERSION == "3", "STORE_SCHEMA_VERSION == 3")
-    check(TS.TOPIC_PACK_SCHEMA_VERSION == "3", "TOPIC_PACK_SCHEMA_VERSION == 3")
+    check(TS.TOPIC_PACK_SCHEMA_VERSION == "4", "TOPIC_PACK_SCHEMA_VERSION == 4")
     check(Store.MIGRATIONS[-1][0] == "3", "MIGRATIONS[-1][0] == 3")
     check(Store.MIGRATIONS[-1][0] == TS.STORE_SCHEMA_VERSION,
           "Store schema v3 == Pack 迁移表最新版本（独立维度断言成立）")
@@ -153,9 +215,9 @@ def main() -> dict:
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
 
-        payload = '{"text":"动力电池"}'.encode("utf-8")
+        payload = _make_payload("动力电池")
         ph = _sha_bytes(payload)
-        rec = _record(payload, source_content_hash=_sha("src-hash"))
+        rec = _record(payload)
         # 双哈希：source_content_hash 独立于 payload_hash。
         check(rec.payload_id == rec.payload_hash == ph, "payload_id == payload_hash == sha256(bytes)")
         check(rec.source_content_hash != rec.payload_hash, "source_content_hash 独立于 payload_hash")
@@ -196,7 +258,7 @@ def main() -> dict:
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
 
-        payload = b'{"a":1}'
+        payload = _make_payload("idem")
         rec = _record(payload)
         resolver.commit_payload_batch((rec,))
         resolver.commit_payload_batch((rec,))  # 幂等复用，不新增行
@@ -226,7 +288,7 @@ def main() -> dict:
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
 
-        good = _record(b'{"ok":1}')
+        good = _record(_make_payload("ok"))
         bad = Store.MaterialPayloadRecord(
             payload_id=_sha("bad-id"), object_type="evidence_span",
             authority_identity="evidence:ev-2", version="v1",
@@ -254,7 +316,7 @@ def main() -> dict:
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
 
-        payload = b'{"x":1}'
+        payload = _make_payload("x")
         rec = _record(payload)
         resolver.commit_payload_batch((rec,))
 
@@ -293,7 +355,7 @@ def main() -> dict:
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
 
-        payload = b'{"y":2}'
+        payload = _make_payload("y")
         resolver.commit_payload_batch((_record(payload, version="v1"),))
         ref_wrong_version = TS.MaterialPayloadRef(
             object_type="evidence_span", authority_identity="evidence:ev-1", version="v9",
@@ -322,7 +384,7 @@ def main() -> dict:
         db = Path(td) / "h.db"
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
-        payload = b'{"z":3}'
+        payload = _make_payload("z")
         resolver.commit_payload_batch((_record(payload),))
         for ot in ("structured", "external_snapshot"):
             ref = TS.MaterialPayloadRef(
@@ -380,7 +442,7 @@ def main() -> dict:
         db = Path(td) / "h.db"
         Store.init_topic_store(db)
         resolver = Store.TopicMaterialPayloadResolver(db)
-        payload = b'{"v":4}'
+        payload = _make_payload("v")
         resolver.commit_payload_batch((_record(payload),))
 
         ok = TS.verify_material_payload_ref(_ref(payload), resolver)
@@ -392,6 +454,71 @@ def main() -> dict:
             check(False, "verify_material_payload_ref dangling 应抛 SchemaValidationError")
         except TS.SchemaValidationError:
             check(True, "verify_material_payload_ref dangling → SchemaValidationError")
+
+    # ------------------------------------------------------------------
+    # 11. §五.1 反例#12：信封 evidence_id 与正式重算不一致 → fail-closed
+    # ------------------------------------------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "h.db"
+        Store.init_topic_store(db)
+        resolver = Store.TopicMaterialPayloadResolver(db)
+        env = json.loads(_make_payload("动力电池").decode("utf-8"))
+        env["evidence_id"] = "forged-evidence-id"
+        env["authority_identity"] = "evidence:forged-evidence-id"
+        tampered = json.dumps(env, ensure_ascii=False).encode("utf-8")
+        try:
+            resolver.commit_payload_batch((_record(tampered),))
+            check(False, "信封 evidence_id 与正式重算不一致应 fail-closed")
+        except Store.StorageCorruptionError:
+            check(True, "信封 evidence_id 与 make_evidence_id 正式重算不一致 → StorageCorruptionError")
+
+    # ------------------------------------------------------------------
+    # 12. §五.1 反例#13：信封 source_content_hash 与 content 重算不一致 → fail-closed
+    # ------------------------------------------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "h.db"
+        Store.init_topic_store(db)
+        resolver = Store.TopicMaterialPayloadResolver(db)
+        env = json.loads(_make_payload("动力电池").decode("utf-8"))
+        forged_ch = _sha("forged-source")
+        env["source_content_hash"] = forged_ch
+        tampered = json.dumps(env, ensure_ascii=False).encode("utf-8")
+        try:
+            resolver.commit_payload_batch((_record(tampered, source_content_hash=forged_ch),))
+            check(False, "信封 source_content_hash 与 content 重算不一致应 fail-closed")
+        except Store.StorageCorruptionError:
+            check(True, "信封 source_content_hash 与 content_hash 重算不一致 → StorageCorruptionError")
+
+    # ------------------------------------------------------------------
+    # 13. §五.1 反例#14：Resolver 读回损坏信封（缺 document_identity）→ fail-closed（非 dangling）
+    # ------------------------------------------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "h.db"
+        Store.init_topic_store(db)
+        resolver = Store.TopicMaterialPayloadResolver(db)
+        env = json.loads(_make_payload("w").decode("utf-8"))
+        env.pop("document_identity")
+        bad_bytes = json.dumps(env, ensure_ascii=False).encode("utf-8")
+        bad_hash = _sha_bytes(bad_bytes)
+        conn = sqlite3.connect(str(db))
+        conn.execute(
+            "INSERT INTO topic_material_payload (payload_id, object_type, authority_identity, "
+            "version, locator_json, source_content_hash, payload_hash, payload_bytes, "
+            "created_dependency_fingerprint, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (bad_hash, "evidence_span", env["authority_identity"], "v1",
+             json.dumps(env["locator"], ensure_ascii=False, separators=(",", ":")),
+             env["source_content_hash"], bad_hash, bad_bytes, _sha("dep"),
+             "2026-01-01T00:00:00Z"))
+        conn.commit()
+        conn.close()
+        ref = TS.MaterialPayloadRef(
+            object_type="evidence_span", authority_identity=env["authority_identity"], version="v1",
+            content_hash=bad_hash, locator=_locator(), created_dependency_fingerprint=_sha("dep"))
+        try:
+            resolver.resolve(ref)
+            check(False, "Resolver 读回损坏信封应 fail-closed")
+        except Store.StorageCorruptionError:
+            check(True, "Resolver 读回损坏信封（缺 document_identity）→ StorageCorruptionError（非 None）")
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 

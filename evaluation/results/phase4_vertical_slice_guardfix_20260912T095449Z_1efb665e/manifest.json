@@ -1,0 +1,52 @@
+{
+  "slice_version": "phase4-vertical-slice-guardfix-v1",
+  "run_id": "20260912T095449Z_1efb665e",
+  "company_id": "300750",
+  "real_llm": true,
+  "model": "deepseek-v4-pro",
+  "before_dir": "evaluation\\results\\phase4_vertical_slice_final_acceptance_v2",
+  "samples": [
+    {
+      "sample": "company_business_main",
+      "pack_id": "pack_9eee2789187bdf53c69680c572b7faff",
+      "obtained_aspects": 3,
+      "total_aspects": 5,
+      "chapter_ok": true,
+      "adopted_fact_count": 30,
+      "external_source_count": 0,
+      "external_fact_count": 0,
+      "evidence_fact_count": 30,
+      "rejected_source_count": 0,
+      "rejected_fact_count": 0,
+      "exposure_fact_count": 0
+    },
+    {
+      "sample": "industry_scale_cycle",
+      "pack_id": "pack_fbcddc5c0dda244f8824f4887cb5263b",
+      "obtained_aspects": 1,
+      "total_aspects": 3,
+      "chapter_ok": true,
+      "adopted_fact_count": 1,
+      "external_source_count": 1,
+      "external_fact_count": 5,
+      "evidence_fact_count": 0,
+      "rejected_source_count": 0,
+      "rejected_fact_count": 0,
+      "exposure_fact_count": 0
+    },
+    {
+      "sample": "industry_risk_transmission",
+      "pack_id": "pack_c16eaba755ed0ffc25af8bfbd3a91031",
+      "obtained_aspects": 0,
+      "total_aspects": 3,
+      "chapter_ok": false,
+      "adopted_fact_count": 0,
+      "external_source_count": 0,
+      "external_fact_count": 0,
+      "evidence_fact_count": 0,
+      "rejected_source_count": 0,
+      "rejected_fact_count": 0,
+      "exposure_fact_count": 30
+    }
+  ]
+}

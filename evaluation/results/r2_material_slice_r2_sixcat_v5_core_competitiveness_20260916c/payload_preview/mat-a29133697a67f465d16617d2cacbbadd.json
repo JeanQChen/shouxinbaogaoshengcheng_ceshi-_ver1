@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-a29133697a67f465d16617d2cacbbadd",
+  "component_evidence_id": "26a4455f61bd7deed6a866d613999297",
+  "source_content_hash": "cc149627019b5fac49a52f393206636ab4daa671b22e54542f33d6ade64eeea9",
+  "payload_hash": "23c78b9cc8d863ec8b673778f25f098e5002fdfd2eaff8d4263c8bf595096c3f",
+  "payload": "{\"authority_identity\":\"evidence:26a4455f61bd7deed6a866d613999297\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"行业分类  项目  单位  2025年  2024年  同比增减\\n 电池系统  销售量  GWh  661  475  39.16%\\n\\n26\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"26a4455f61bd7deed6a866d613999297\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":26,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"cc149627019b5fac49a52f393206636ab4daa671b22e54542f33d6ade64eeea9\"}"
+}

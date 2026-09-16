@@ -1,0 +1,200 @@
+[
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-0041c130fa0f2ff40578343cbe0af5cb",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-00b6612cd8c7d1b5bc4343b50098208f",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-074b83f55c776665ed4d70a7f5915f85",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-1582772be32dfdd5049a226bce09fd36",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-2ae3ead9b5bfd7409d099f94fade5da5",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-2e64c0d92eaddb7468e74124ce822e9a",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-40da75614a0718b30ca06445d6b55bf3",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5255605abe26b76d7c9b7607e3a3004d",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-547f5ffd676e8686fb2a920c9a3710f3",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5798b2039a4159b31ecb11186a3496cc",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5abce697d40ffd32290d55c17a9e3f5f",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-6b1f45377ee2f3bb18d4a93134be32cd",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-72306df50aee790db5604a778677f534",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-7862a64bd57f05141b6c4b694eb55128",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-83cc88de5ae738930fe71217135c0f2b",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "0de543287aa812c78eb165f694c9580d"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-9e79ad8ff5f593e18906cbb968fc007e",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-c766880a1edc7483f68e554ed6871980",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-ce3dc6736a9f2079cdf4bfcfd835ca63",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-cf1de2ea58649fec330fa2d02159629c",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-d6ce98342b92714fd76a8a03b2ae8621",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-d8e60df3fa0d6ee21de9d017177abb4b",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  }
+]

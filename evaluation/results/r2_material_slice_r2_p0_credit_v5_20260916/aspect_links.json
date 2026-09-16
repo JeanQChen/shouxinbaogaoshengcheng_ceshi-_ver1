@@ -1,0 +1,101 @@
+[
+  {
+    "aspect_id": "company_debt_credit.total_credit_line",
+    "material_id": "mat-4bbd78d754852e2f3b5cc9cc36399cdd",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "548c6db7bd22273b2103065d705c11c7"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.total_credit_line",
+    "material_id": "mat-acbd3e06e1b796c93bc5d0f95182dba8",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "548c6db7bd22273b2103065d705c11c7"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-1f750819254812db6bc99098f264ab85",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-250d710794854d722245fe83b4ef5b19",
+    "role": "context_candidate",
+    "disposition": "fragment_projection",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-5b0506db47256cb86d7b439ae8f8a663",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-6dc03db83f3869e65747be2e2899b73d",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-74b5773c9583968eec94f703da079ef4",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-7a71528f9f225152ef5c6c4da33ea703",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-8b24942e461c95023d531609e4af987e",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-996e1d0a5a256d5bb056e7ba2d5364ca",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "material_id": "mat-a6ae1e7a838789e2690ca2b8b4ede0f3",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ]
+  }
+]

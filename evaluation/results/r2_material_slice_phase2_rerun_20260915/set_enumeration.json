@@ -1,0 +1,26 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "payload document_version 'sha256-b4f1713d7b821eb0' 与边界 'sha256-2b3a1fb3de97f23c' 不一致"
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "main_business 段落为表格摊平，缺结构化 table/table_row（不可枚举）"
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "enumerated_member_ids": [],
+    "payload_hash": "",
+    "boundary_identity": "",
+    "verifier_version": "1",
+    "reason": "枚举边界未闭合: 预算耗尽提前停止"
+  }
+}

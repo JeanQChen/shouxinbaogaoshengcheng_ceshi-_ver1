@@ -19,6 +19,7 @@
 - **依赖版本/schema 裁决**：`DEPENDENCY_VERSION_KEYS` 增 `set_enumerator`（非 `enumerator`）；`TOPIC_PACK_SCHEMA_VERSION` 2→3；新增 `STORE_SCHEMA_VERSION = "3"` 独立维度；SQLite migration 3 只负责 Store 结构（`topic_material_payload` 表）。Pack schema v3 与 Store schema v3 是两个独立版本维度，即使数字相同也不得重新耦合。
 - **修订说明（v3.1 相对 v3，最后三项定点校正）**：(1) **双哈希设计**——原始来源哈希 `source_content_hash = EvidenceBlock.content_hash` 与材料 payload 哈希 `payload_hash = sha256(payload_bytes)` 是两个不同身份层，不再要求二者相等，payload 信封不包含自身最终 `payload_hash`（消除自引用）；(2) **seed 两阶段**——正式验收 runner `--seed-manifest` 必填、不信任自报值经 bounded ToolRegistry 复检，seed discovery 独立为 evaluation-only `discover-seeds`；(3) 同步 `CLAUDE.md` R1-B 状态。
 - **硬约束（本轮不变）**：不调真实 LLM/博查/网络、不生成真实报告、不进入 R3/R4/R5。本文件是计划产物；R2 编码、测试与分责提交按 §三～§七 执行。
+- **执行状态（2026-09-15，任务书「R2 真实材料完整性最终返修 + R3 前授信口径准备」已执行完毕）**：修复一 rolling frontier（`do_rolling_read` 持续扩读 + `limit+1` probe has_more + 相邻页/块数降为预算轴，未读范围内块 `unread_inside_boundary` 非哨兵，混合块判 context_candidate）；修复二 多 seed 聚合（`_effective_disposition` rank-max + `_ROLE_RANK` source-wins + `_append_unique` 去重 + source-wins post-pass，单 seed 恒 `seed_only`）；修复三 `recover_flattened_table` 摊平表确定性恢复 + `_build_flattened_table_assemblies`（缺表头/缺数据行 fail-closed）。六态验收 `evals/test_r2_six_state_acceptance.py`（R2 能力切片，aspect 矩阵六态全覆盖，13/0/0，已注册 run_evals；非 §12 六类材料验收）；P0 授信预览 `evaluation/results/r2_material_slice_r2_p0_credit_preview_20260915/`（真实 seed 复核 2/2、7 material，evidence_id 笔误修正 `…9a7`→`…9a7f`；该预览「总授信」映射有误，已由 `r2_credit_semantics_preview_20260915` 语义解耦修正）。回归：`test_context_expansion` 66 / `test_material_slice_runner` 111 / `test_set_enumeration` 57 / `test_topic_materials` 53 / `test_r2_boundary_semantics` 44。完整离线 eval **4925 passed / 0 failed / 0 skipped**（基线 4779，+146，无回归）。**未 commit、未进入 R3/R4/R5、未接线 set_complete 到 commit_pack、未生成报告正文、未修改冻结资产**；R2 未关闭，待用户+Codex 复核。
 
 ## 1. 术语
 
@@ -654,6 +655,42 @@ material_id = "mat-" + sha256(canonical_json(material_identity))[:32]
 4. 预算轴初值（§7.2）为待真实样本校准的初始值，作为版本化 policy 冻结，不按公司/case 调参。
 5. `set_enumerator` 键名、`TOPIC_PACK_SCHEMA_VERSION=3`、`STORE_SCHEMA_VERSION=3` 为本轮 schema 裁决，已与 R1-B 兼容规则核对无冲突。
 
+## 19. 验收后补充记录（2026-09-15 R2 验收判定器与真实产物一致性定点返修后追加，不改变上文计划正文）
+
+以 Codex 对真实产物的独立审计结论为准，不再宣称「最后一次」，不重新设计 R2，不进入 R3。13 项记录：
+
+1. **裁定**：本轮以 Codex 独立审计的六项不一致为唯一返修依据；不重新设计 R2、不进入 R3/R4/R5。
+2. **修复 A（主营块级真实边界）**：`harness/topic_boundary.py` 主题分类器区分题内/题外（题外含 安全生产/在建工程/未来规划/行业分析/公司治理/董监高等），混合块逐块判题内/题外、题外标题即停止；规则通用/版本化/公司无关，不写 300750 专用规则。
+3. **修复 B（表状态/计数/描述一致）**：`recovered_table_count` 只计 `recovery_status=="ok"`；逐表 ok/partial/failed 明细；删除「表5-10/5-11/5-12 已恢复」等静态宣称。
+4. **修复 C（六类类别专属强验收器）**：`harness/six_category_acceptance.verify_category` 读真实 run 目录派生 common gates + per-category gates + `passed_gates`/`failed_gates`/`artifact_fingerprint`；绝不信任调用方组装的 material_count/description/verdict。
+5. **修复 D（财务附注续写 + 显式引用）**：跨块/跨页续写样本 + 同文档标题/编号引用解析器（`_parse_section_reference` 取叶子编号 + 空白归一化）；「详见 24、所有权或使用权受到限制的资产」在真实 Evidence 中无该节（p187 递延所得税资产 与 p188 25、短期借款 之间缺失），如实 `sample_not_obtained`，不得伪造引用可达。
+6. **修复 E（授信双轴 v2 预览）**：由 `harness.credit_semantics` 形式函数重生成（新 run_id，不覆盖历史旧预览）；`total_credit_line` valid+not_obtained 非 authority_failed，`blocking_policy=supporting` 非 REPORT_BLOCKED。
+7. **修复 八（重生成 8 项 v3 产物）**：main_business / core_competitiveness（逐版本）/ major_subsidiaries（逐版本）/ financial_notes（续写）/ explicit_reference / non_300750 fixture / 六类 strong-gate manifest / 授信双轴 v2 预览，均新 run_id、不覆盖历史产物。
+8. **修复 九（文档 + 停止报告）**：V2_TODO.md 与 R2_IMPLEMENTATION_PLAN.md 如实更新，移除「最后一次」表述。
+9. **六类 v3 裁决（如实显化）**：main_business=accepted / financial_notes=accepted / non_300750_fixture=accepted / core_competitiveness=boundary_incomplete / major_subsidiaries=boundary_incomplete / explicit_cross_reference=sample_not_obtained；`boundary_incomplete`/`sample_not_obtained` 绝不标 accepted。
+10. **R2 关闭状态**：R2 **仍未关闭、未 commit、未进入 R3/R4/R5**；正式 `SetEnumerationVerifier` 尚未由唯一正式组合入口接线到 `commit_pack`（R3 职责），接线前生产运行链不得完成 `set_complete` aspect。
+11. **R3 范围**：R3 scope = **115 个 `topic_harness` aspects**（非全部 187：187 = topic_harness 115 + financial_workflow 49 + phase4_section_derived 7 + phase5_synthesizer 16）。
+12. **授信口径（非阻断语义）**：`company_debt_credit.authorized_application_ceiling`（拟申请/授权申请额度上限）为**新增后续 aspect**；其作为 supporting fact 缺失时**不阻断报告**（NOT REPORT_BLOCKED）。`actual_granted_total_credit_line`/`used_credit`/`unused_credit` 仍为核心事实，绝不回填 6000 亿、绝不把口径不一致的 used/unused 求和（→ `scope_not_reconciled`）。
+13. **冻结资产零修改**：本轮未修改任何冻结 Contract / SourcePolicy / WritingSpec / PresentationProfile；`standard_v2.yaml`（v1）固定 SHA256 不变。
+
+## 20. 验收后补充记录（2026-09-15 R2 全局化边界与独立验收闭环返修后追加，不改变上文计划正文）
+
+以 Codex 独立审计的「R2 全局化边界与独立验收闭环」为唯一返修依据；目标是修复作用于**全部 R2 材料构建场景的业务不变量**（不再按某个页面、某张表或某个样例做局部补丁）。不重写实施计划、不重新泛化大审计、不进入 R3/R4/R5。13 项记录：
+
+1. **裁定**：本轮五项全局修复（A–E）全部面向业务不变量，counter-example 测试先行，真实验收以新 run_id + 新 v4 目录重跑；未 commit、未进入 R3/R4/R5。
+2. **修复 A（主题边界全局机制）**：`harness/topic_boundary.py` 作为全局机制作用于全部 topic_harness aspects；未知 aspect / 无法从冻结契约派生的 aspect → `boundary_policy_unavailable`（fail-closed）→ 并入 `boundary_incomplete`，绝不默认 ambiguous 无限采纳、绝不静默视为边界闭合。
+3. **修复 B（源对象清单 → 恢复结果闭环）**：`harness/set_enumeration.py` 的 `_enumerate_business` 返回三元素 `(members, strategy_issue, source_object_inventory)`，源对象清单与恢复结果闭环可追溯；新增 `evals/test_source_object_inventory.py`（17 项）。
+4. **修复 C（跨页续表证明改为「同一张表」证明）**：`harness/topic_materials.py` 的跨页/跨块续表证明不再按「页码」证明，改为「同一张表」身份证明（表题/单位/表头/表体/合计 content-addressed 身份对齐），作用于全部 set 材料恢复场景。
+5. **修复 D（六类验收器改为独立强校验器）**：`harness/six_category_acceptance.py` 落 11 fail-closed gates（g01–g11）；`_read_json`/`_read_jsonl` fail-closed（缺/损坏 → 报错，绝不静默空）；`_derive_verdict` 顺序 g01 tamper → boundary_incomplete、seed/material 缺失 → sample_not_obtained、boundary_incomplete 优先；新增 tamper 反例（corrupt material_index / 缺 budget_profile / 重复 material_id / source==payload hash / 非法 recovery_status）。
+6. **修复 E（授信语义预览从真实材料派生）**：`_gen_credit_dual_axis_v2_preview.py` 删除手写 `_FACTS`，事实由 `harness/credit_fact_extraction.py` 从真实 R2 材料 `material_index.json` + `payload_preview/*.json` 确定性派生；authority 从真实 Evidence 身份/版本/locator/source_content_hash/payload_hash 重算；每条事实携带 provenance；标量不可靠提取 → `not_obtained`（绝不回填）。
+7. **counter-example tests 先行**：`test_six_category_acceptance` 35 项（含 tamper 反例）、`test_credit_fact_extraction` 25 项、`test_source_object_inventory` 17 项、`test_topic_boundary` 25 项；并修正两处因全局机制导致的测试语义更新——`test_r2_boundary_semantics` 三元素解包、`test_r2_six_state_acceptance` 端到端#4 改用真实契约 aspect（`company_debt_guarantee.financial_institution_loans`，未知 aspect `overall_guarantee` 现被 Fix A 如实 fail-closed 为 boundary_incomplete）。
+8. **v4 真实样本重跑**：六类真实材料切片（main_business / core_competitiveness / major_subsidiaries / financial_notes / credit / non_300750_fixture）以新 run_id + 新 v4 目录落 `evaluation/results/r2_material_slice_r2_sixcat_v4_*_20260915/`，绝不覆盖历史 v2/v3 目录；授信双轴 v4 预览落 `r2_credit_dual_axis_v2_preview_v4_20260915/`。
+9. **六类 v4 裁决（如实显化）**：main_business=accepted / financial_notes=accepted / non_300750_fixture=accepted / core_competitiveness=boundary_incomplete / major_subsidiaries=boundary_incomplete（多 document_version 不合并伪造完整集、每版本独立枚举）/ explicit_cross_reference=sample_not_obtained（真实「详见」引用标记存在但目标 dangling，跨页续表不能替代显式引用）。
+10. **R2 关闭状态**：R2 **仍未关闭、未 commit、未进入 R3/R4/R5**；正式 `SetEnumerationVerifier` 尚未由唯一正式组合入口接线到 `commit_pack`（R3 职责），接线前生产运行链不得完成 `set_complete` aspect。
+11. **R3 范围**：R3 scope = 115 个 `topic_harness` aspects（非全部 187：187 = topic_harness 115 + financial_workflow 49 + phase4_section_derived 7 + phase5_synthesizer 16）。
+12. **授信口径（非阻断语义）**：`company_debt_credit.authorized_application_ceiling`（拟申请额度上限）为新增后续 aspect，缺失不阻断报告（NOT REPORT_BLOCKED）；`total_credit_line` = not_obtained（实际获批总额无披露，绝不 authority_failed、绝不回填 6000 亿）；used/unused 口径不一致绝不求和（→ `scope_not_reconciled`）。
+13. **冻结资产零修改**：本轮未修改任何冻结 Contract / SourcePolicy / WritingSpec / PresentationProfile；`standard_v2.yaml`（v1）固定 SHA256 不变；真实案例的页码/表号/evidence_id 只出现在 evaluation fixture、测试断言与真实验收产物，未写入生产代码。
+
 ---
 
-**计划输出完毕，停止。** 本轮未编码、未改运行时代码、未迁移、未调真实 LLM/博查/网络、未生成报告、未 commit、未进入 R3/R4/R5。
+**计划输出完毕，停止。** 本轮未调真实 LLM/博查/网络、未迁移/写入 Evidence/Financial DB、未新建第二套 Router/Harness/Retriever/ToolRegistry、未 commit、未进入 R3/R4/R5；真实材料读取全部经既有 ToolRegistry 与只读 Evidence reader。

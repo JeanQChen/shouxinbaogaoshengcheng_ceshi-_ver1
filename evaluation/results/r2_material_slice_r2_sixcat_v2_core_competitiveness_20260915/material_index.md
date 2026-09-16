@@ -1,0 +1,808 @@
+# R2 材料索引（material_index）
+
+> 每条材料必填字段见 §13；source_content_hash 为来源层身份，payload_hash 为载体层身份，component evidence_id 可回查原始 Block。
+
+## mat-00b6612cd8c7d1b5bc4343b50098208f
+
+- 材料类型：`evidence_span`
+- component evidence_id：`35844493ee2d63fc6bbc94fb0ce501c5`
+- source_content_hash（来源层）：`5002ea0d104b34577566c108090b2dbf4fe1708212a9254118e5bfc2f6815de0`
+- payload_hash（载体层）：`1cee029d0bb991114d318b4600c0d443ae570e7198b7e6e7db7a8f703bc6fceb`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：18 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 主要内容：提出到  2027年全国新型储能装机规模达到  1.8亿千瓦以上，带动直接投
+    资约 2,500亿元。重点包括：
+    国家发展改革  （一）场景应用：电源侧促进新能源电站与配建新型储能联合运行；电网侧推进构
+  2025年9月  委、国家能源局  网型储能在高比例新能源电网、弱电网和孤岛电网中应用；推进绿电直连、虚拟电
+    厂、智能微电网、源网荷储一体化、车网互动等模式；探索“人工智能+”应用场景。
+    （二）提升利用率：积极开展新型储能与电源协同优化调节。（三）推进创新融
+    合：依托试点促进技术多元化发展。（四）完善市场机制：推动“新能源+储能”一体
+    化参与电能量市场交易；完善容量电价机制和容量补偿机制；推动各类调节资源规
+    范参与市场。
+  
+  文件名称：《关于开展汽车动力电池碳足迹申报工作的通知》
+  
+  2025年12月 工业和信息化部  主要内容：按照“需求牵引、系统推进、开放合作、持续完善”原则，明确动力电池
+    碳足迹核算规则；建立健全运行管理体系；协同推进标准规范、背景数据、监测计
+    量和评价认证建设；促进规则、标准与数据等的国际互认；推动形成碳足迹核算、
+    数据报送、核查认证的运行体系；助力动力电池产业高质量发展。
+  
+  18
+  ```
+
+## mat-7862a64bd57f05141b6c4b694eb55128
+
+- 材料类型：`evidence_span`
+- component evidence_id：`10ea55aaa7d5e68d711dffe77ceff6cf`
+- source_content_hash（来源层）：`7b8501a59fc49fad504667ff71154f68f1810d00bf7c12011a5df7abc94deb24`
+- payload_hash（载体层）：`e937875a8b5f17036541fdf683e38994ddcdb8549eb9ae1b4ae4cc6ef105d98f`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：18 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 3、主要法律法规及行业政策
+  
+  2025年以来国内有关的行业主要法律法规及政策如下表所示：
+  
+  时间  颁布单位  文件名称及主要内容
+  
+  文件名称：《关于  2025年加力扩围实施大规模设备更新和消费品以旧换新政策的通
+    知》
+    国家发展改革
+  2025年1月  委、财政部  主要内容：推动设备更新升级，扩围支持  老旧营运货车报废更新，将补贴范围扩大
+    至国四及以下排放标准营运货车；提高新能源城市公交车及动力电池更新补贴标
+    准；扩大汽车报废更新支持范围，将符合条件的国四排放标准乘用车纳入支持；完
+    善汽车置换更新补贴标准。
+    文件名称：《关于深化新能源上网电价市场化改革 促进新能源高质量发展的通知》
+  
+  主要内容：取消“强制配储”政策，即不得将配置储能作为新建新能源项目核准、并
+  2025年1月  国家发展改革  网、上网等的前置条件；推动新能源上网电量全面进入电力市场，通过市场交易形
+    委、国家能源局  成价格；完善适应新能源发展的现货交易机制、中长期交易机制和绿色电力交易政
+    策；推动新能源公平参与市场交易；建立新能源可持续发展价格结算机制，区分存
+    量与增量项目，保持政策衔接并稳定收益预期；完善电力市场体系，更好支撑新能
+    源发展规划目标实现。
+    文件名称：《关于全面加快电力现货市场建设工作的通知》
+  
+  主要内容：围绕构建全国统一大市场要求，建设全国统一电  力
+  ```
+
+## mat-547f5ffd676e8686fb2a920c9a3710f3
+
+- 材料类型：`evidence_span`
+- component evidence_id：`bbf28063a8cf896b348bbbf0792c62cb`
+- source_content_hash（来源层）：`eafe288c3438d57cfd89e8235d1222059bf24a1764d48ba037ae92d0b43b2873`
+- payload_hash（载体层）：`9cbfd0defa9b575d00fcccf97a114ae70ce09155690d8932b35ce491d4dca94d`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：19 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 主要内容：系欧盟成员国为实现  2030年气候与能源目标而编制并提交的十年期国家
+  2025年5月  欧盟委员会  规划工具。在可再生能源与电力系统转型方面，成员国普遍在  NECPs中强调通过长
+    期合同机制（例如购电协议，PPA）提升项目收益确定性，并结合储能、需求响应
+    等灵活性资源强化系统调节能力。欧盟委员会在对  NECPs的评估与政策引导中亦强
+    调，应进一步完善市场设计与监管安排，降低储能、需求响应等主体参与电力市场
+    与系统服务的制度性障碍，以支撑可再生能源的规模化并网与消纳。
+    文件名称：《电网一揽子计划》（European Grids Package）
+  
+  主要内容：加快电网基础设施扩容与现代化改造，以提升电力系统对可再生能源、
+  2025年12月  欧盟委员会  电气化负荷增长及灵活性资源接入的承载能力。以实现  2030年可再生能源占比
+    42.5%以及2030年温室气体净减排  55%等既定目标为牵引，推动成员国加快关键基
+    础设施项目落地。同时，通过提出加速许可授予与并网效率提升的政策组合，缓解
+    电网建设与接入环节的周期性瓶颈，支撑  2040年前电网全面现代化。
+  
+  三、核心竞争力分析
+  
+  宁德时代的长期核心竞争力，根植于以技术创新和领先产品为基石，持续驱动商业模式的进化和客
+  
+  19
+  ```
+
+## mat-9e79ad8ff5f593e18906cbb968fc007e
+
+- 材料类型：`evidence_span`
+- component evidence_id：`048e8c7ac66e717215f4b31d57c98b1b`
+- source_content_hash（来源层）：`af2661821a46fa70ae73186bdf5e0ab1f3c63cc5c721d6f011452c7243b9c551`
+- payload_hash（载体层）：`bcd0ffca916cc243913db5dad320adb06bb51158506ece9063c05f3c989f0341`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：19 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 文件名称：《关于  2026年实施大规模设备更新和消费品以旧换新政策的通知》
+  
+  2025年12月  国家发展改革  主要内容：2026 年汽车“以旧换新”补贴方案在保持汽车补贴上限不变的基础上，将
+    委、财政部  定额补贴调整为按车价比例进行补贴；明确新能源乘用车、燃油乘用车的补贴比例
+    与对应上限；并提出在整体政策框架下持续实施大规模设备更新和消费品以旧换新
+    政策。
+  
+  文件名称：《关于印发国家级零碳园区建设名单（第一批）的通知》
+    国家发展改革
+    委、工业和信息  主要内容：公布国家级零碳园区  建设名单（第一批），并通知各地区发展改革委、
+  2025年12月  化部、国家能源  工业和信息化主管部门、能源局要会同有关方面加强对建设名单内园区的指导、要
+    局  积极支持本地区国家级零碳园区建设。各地区发展改革委要会同有关方面加强对国
+    家级零碳园区建设进展的跟踪调度。各地区发展改革委、工业和信息化主管部门、
+    能源局要加强经验总结，发挥国家级零碳园区示范引领作用。
+  
+  2025年以来海外有关的行业主要法律法规及政策如下表所示：
+  
+  时间  颁布单位  文件名称及主要内容
+    文件名称：《欧洲汽车行业工业行动计划》（Industrial Action Plan for the European
+    automotive sector）
+  
+  主要内容：为解决欧洲汽车行业面临
+  ```
+
+## mat-2e64c0d92eaddb7468e74124ce822e9a
+
+- 材料类型：`evidence_span`
+- component evidence_id：`b6a54ec22e3f44d1a521faf7bb176d95`
+- source_content_hash（来源层）：`9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0`
+- payload_hash（载体层）：`388f50a0812c169978a0fd406cafb9d5e1c03dfcb5e1e826074d6f900ea90b33`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：20 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`seed`（`seed`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=source
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 户市场的拓展，并形成正向反馈循环，以“飞轮效应”推动公司整体价值持续增长，不断加固“全球领先的
+  
+  零碳新能源科技公司”的竞争壁垒。
+  
+  具体而言，公司核心竞争力体现在以下方面：一是研发为核，产品矩阵持续迭代。依托行业顶尖的
+  
+  研发团队与持续高强度的研发投入，公司构建起覆盖材料、电芯、系统及回收的全链条自主研发能力，
+  
+  是行业唯一入选“全球百强创新机构”的企业，助力宁德市跻身全球创新强度第四名。报告期内，公司拥有
+  
+  及申请的国内外专利总数达  54,538项，创新成果密集落地。基于此，公司相继推出“二代神行超充”、“骁
+  
+  遥双核”及“钠新电池”等前沿产品，以全面领先的产品力为市场拓展提供坚实支撑。二是市场领跑，全球
+  
+  化根基稳固。公司动力与储能电池市占率已连续多年领跑全球。在乘用车领域，中高端市场主导地位稳
+  
+  固，经济型市场持续突破；在储能领域，系统集成能力不断增强，并与多家全球领先的科技企业建立合
+  
+  作。同时，公司稳步推进海外工厂建设，持续完善全球服务网络，以坚实的全球化布局，巩固长期竞争
+  
+  优势。三是极限制造，铸就品质与效率标杆。公司拥有全球规模最大的现有及在建产能，并以严苛的品
+  
+  控标准与自主研发的超级拉线PSL，持续探索制造效率、质量及安全的一致极限，电芯缺陷率水平较同行
+  
+  实现数量级领先。公司拥有行业最多的“灯塔工厂”及唯一“可持续灯塔工厂”。四是全域增量，拓宽生态护
+  
+  城河
+  ```
+
+## mat-0041c130fa0f2ff40578343cbe0af5cb
+
+- 材料类型：`evidence_span`
+- component evidence_id：`5441c03880d7c9d70f562678e9fbb374`
+- source_content_hash（来源层）：`23eb171a66cd1b7682fd88ffc777c9da436e7ad3dde0d348952b23eca237c57c`
+- payload_hash（载体层）：`7c012e035798afc96b4a69941b2e1425ee17a5b3d33337a00ee66c3a68f25062`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：21 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`coarse_section_sub_heading_transition`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: （1）动力业务
+  
+  报告期内，公司实现动力电池销量  541GWh，同比增长  41.85%，全球市占率突破历史新高。根据
+  SNE Research统计，2025年公司全球动力电池使用量市占率提升 1.2个百分点至 39.2%，连续9年市占率
+  位居全球第一。国内方面，根据中国汽车动力电池产业创新联盟统计，  2025年公司国内动力电池装机量
+  市占率 43.42%。海外方面，根据 SNE Research统计，2025年公司海外动力电池使用量市占率实现突破，
+  提升至 30.0%。
+  
+  前沿技术引领全球，创新产品持续落地。乘用车领域，公司发布了二代神行超充电池、神行  Pro电池、
+  骁遥双核电池、钠新乘用车动力电池等新产品。其中，二代神行超充电池是全球首款兼具  800公里续航和
+  峰值12C超充速度的磷酸铁锂电池；神行  Pro电池搭载了先进的  NP3.0技术，针对欧洲市场低温、长途、
+  租赁等多元化的需求可提供百万公里长寿命版本和  12C超充版本；骁遥双核开创了跨化学体系的全新设
+  计，通过在电池包里组合不同化学体系电芯，实现电池包综合性能全面提升，可满足用户的定制化需求；
+  钠新乘用车动力电池拥有优异的低温能量保持率与安全表现，凭借钠的丰富储量可有效降低对锂资源的
+  依赖。公司推出超混电池，通过材  料层级混合创新，超越单一化学体系实现性能全面提升，可满足乘用
+  车细分市场的性价比需求。商用
+  ```
+
+## mat-72306df50aee790db5604a778677f534
+
+- 材料类型：`evidence_span`
+- component evidence_id：`60ceea0ca64a14146bc24abacce5e89f`
+- source_content_hash（来源层）：`491da22e4da3f270851d0f32926ac6501e99ea8e53c649b2c94e49e76f5328d3`
+- payload_hash（载体层）：`87a12abf83985b22967681cbd121a8fcf7af03f8478330aaf5db0056c7ce45cc`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：21 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 海外业务稳步推进，售后体系持续完善。随着公司海外基地建设、运营的逐渐成熟，及与海外客户
+  战略合作的逐渐深入，报告期内，公司海外市场份额及交付能力稳步提升，并以领先的产品及优质的服
+  务，持续获得VW、BMW、Stellantis、Volvo、DMG等海外客户诸多定点。为支持业务发展，公司持续完
+  善售后服务体系。截至报告期末，公司售后服务网络覆盖  75个国家或地区、约  1,200家售后服务站。公
+  司设有全球“宁家服务”直营体验中心  11家，依托于“宁家服务”品牌，将售后服务延伸至整车端，为用户
+  提供包括维修、电池保养、健康检测、年检及移动救援等在内的一站式的全方位服务。
+  
+  21
+  ```
+
+## mat-40da75614a0718b30ca06445d6b55bf3
+
+- 材料类型：`evidence_span`
+- component evidence_id：`6188ba20a45db986da49cb8357d206d4`
+- source_content_hash（来源层）：`922002aa93dfa10feec44b9ab17a500d8db5dfc3271ff4c464c4c46ee81a28f5`
+- payload_hash（载体层）：`11391b6fd75a30dee58aeb8a9194555250a72a3a91c908e1148465cc21798a16`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：22 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 为提升补能效率，优化用户体验，公司携手产业各方加速构建巧克力换电生态。截至报告期末，公
+  司巧克力换电建站超  1,000座，分布于全国 45座城市，涵盖长三角、京津冀、川渝、大湾区四大核心经
+  济带，并已率先在重庆实现盈利；公司已与广汽、长安、一汽、上汽、奇瑞等多家车企达成换电战略合
+  作，上述车企已发布  20款以上换电车型，包括埃安  UT super等多款轿车及SUV，覆盖营运出行、家庭
+  出行、行政商务、年轻化代步等多元场景；报告期内，公司与中石化、国网、南网、滴滴、京东、神州
+  
+  22
+  ```
+
+## mat-6b1f45377ee2f3bb18d4a93134be32cd
+
+- 材料类型：`evidence_span`
+- component evidence_id：`c94b9255f5a0dd6dc5c2e1ecffb1293a`
+- source_content_hash（来源层）：`91e757df2af44549f8bc87c40dcfbaa10e8cf7d515a0bfc82c33412fd28fd280`
+- payload_hash（载体层）：`b3030de6b119ff1809b690c61addbdd0c239bb269714911d24168394f3205fd5`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：22 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: （2）储能业务
+  
+  报告期内，公司实现储能电池销量  121GWh，同比增长 29.13%，持续构建储能系统解决方案和服务
+  能力。根据 SNE Research统计，2025年公司储能电池出货量连续5年位居全球第一。公司在维持领先地
+  位的基础上，秉承“合作共赢”理念，深度整合全球供应链资源，提升储能系统整站优化与工程设计能力，
+  系统集成业务全球共计交付超  70个项目，出货规模同比增长超  160%。
+  
+  持续推出创新产品，引领行业标准。国内市场，公司天恒  6.25MWh集装箱式液冷电池舱实现批量交
+  付并网，相对上一代系统单位面积能量密度提升  30%，整站占地面积减少  20%，其搭载的 587Ah大容量
+  储能专用电芯在安全可靠性、能量密度、寿命衰减及系统效率等核心性能指标实现全面升级  ；海外市场，
+  公司发布全球首款可量产的  9MWh超大容量储能系统解决方案  TENER Stack，可大幅提升体积利用率及
+  能量密度；公司推出适配高温场景的  TENER H集装箱系统，采用行业领先的高温电池技术，可降低电站
+  运营过程中的辅源消耗，助力项目收益率提升。
+  
+  推进生态协同，开放合作实现共赢。  公司秉承“开放共赢”的合作理念，与全球系统集成商、投资商、
+  开发商、电网公司及  EPC总包商、核心供应链企业等客户及伙伴推进生态共建及合作共赢，并探索通过
+  投资方式开展储能电站建设。报告期内
+  ```
+
+## mat-c766880a1edc7483f68e554ed6871980
+
+- 材料类型：`evidence_span`
+- component evidence_id：`16028014b760faf0c980965931434b2b`
+- source_content_hash（来源层）：`f3ce3e988bf253c8bb3962877dd7c5046b18ff43c8d800eed3e82ab8e676cf1d`
+- payload_hash（载体层）：`0ec9a325385f5f55dd2d0dbc7aafd8da6ae062ace11bee4a9261a45b0dc0e8ca`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：23 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 租车、招银金租等生态伙伴达成战略合作，在换电网络建设、运营车辆应用、电池租赁方案优化等领域
+  合作，形成资源共享、优势互补的生态协同效应。
+  
+  在商用车领域，公司骐骥换电业务截至报告期末建站超  300座，分布于全国  26个省份，实现多条国
+  家高速公路关键节点覆盖，为核心物流线路的电动化转型提供了基础支撑。报告期内，骐骥换电与整车
+  企业的战略合作持续深化，与一汽解放、陕重汽等  10余家企业，共同推出  30余款标准化换电车型，涵盖
+  牵引车、载货车等多品系车辆，为实现重卡全场景电动化提供产品保障。公司还与重庆高速、赣粤高速、
+  河南交投等全国  30多家高速及交投公司建立战略合作，共同布局重卡换电网络新基建。
+  
+  报告期内，巧克力换电及骐骥换电为用户提供的换电服务合计超  115万次，累计换电量约  8,000万度。
+  
+  推进零碳生态建设
+  
+  公司凭借产品和业务的优势，结合自身降碳实践，  致力于打造绿电直供、零碳园区、源网荷储、构
+  网型储能等全景式、一体化的零碳解决方案。
+  
+  截至报告期末，公司已与海南省、山东东营、福建厦门、江苏盐城、福建宁德等政府签订了合作协
+  议，推进零碳项目示范建设。福建宁德福鼎工业园区、四川宜宾临港经济开发区东部产业园、山东东营
+  垦利经济开发区、海南海口国家高  新技术产业开发区等项目被列入国家级零碳园区建设名单  。福建省宁
+  德市宁德时代虚拟电厂项目被列入国家能源局
+  ```
+
+## mat-074b83f55c776665ed4d70a7f5915f85
+
+- 材料类型：`evidence_span`
+- component evidence_id：`f54abda86a865b6c98c6f6a9fb9f7cc2`
+- source_content_hash（来源层）：`de70c456382478072f58eff19653953fd9373c5759c923362388e9f23be9faf2`
+- payload_hash（载体层）：`2f53b19777188353d81ac7eb9c29a40750bededb12bab46d19791109a2a015cb`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：24 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: （4）供应链及产能
+  
+  公司致力于打造高效敏捷、技术创新、持续降本、绿色低碳的韧性供应链。公司推动技术、采购及
+  质量体系紧密配合，通过搭建快速导入机制、签订长期协议、合资合作等方式保障供应稳定，通过强化
+  大宗金属管理、推进低成本替代方案落地、助力供应商工艺优化升级等方式实现降低成本。此外，为进
+  一步保障电池生产所需的上游关键资源及材料供应，公司亦积极推动自有及合作矿产资源项目的投资、
+  建设及运营。
+  
+  为满足市场及客户需求，报告期内，公司加大境内外锂电池生产基地建设投入，持续提升交付能力。
+  公司稳步推进中州基地、济宁基地、福鼎基地、溧阳基地、宜宾基地、匈牙利工厂及印尼电池产业链等
+  项目的建设。报告期内公司锂电池产能  772GWh，期末在建产能  321GWh。
+  
+  （5）可持续发展
+  
+  公司高度重视可持续发展及履行社会责任。报告期内，  ESG 评级持续提升，管理成效获得广泛国际
+  认可，MSCI ESG 评级维持  AA级，EcoVadis荣获可持续发展银牌认证。公司首次入选标普《可持续发展
+  年鉴（全球版）》及富时罗素  FTSE4GOOD 新兴市场指数。同时，公司有序推进“零碳战略”，以零碳电力
+  和工厂能效优化等零碳科技为抓手，实现核心运营碳中和，郑重兑现气候承诺，并持续深化价值链绿色
+  低碳，推动实现价值链碳中和目标。公司领衔发起全球能源循环计划（  GECC），开展针对电池循环经济
+  
+  ```
+
+## mat-cf1de2ea58649fec330fa2d02159629c
+
+- 材料类型：`evidence_span`
+- component evidence_id：`5bc9db3b7023dffd19ba1f5ff2e4b295`
+- source_content_hash（来源层）：`7ed9f57ff0286195e4046d1152cbf9aa8e288216f225f1f03e9517c97506fae5`
+- payload_hash（载体层）：`2cf110f6026181165c734508108acbdcf4a48efc8170532c734d12f23926d7b0`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：25 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 电池矿产资源  5,978,096  1.41%  5,493,003  1.52%  8.83%
+   其他业务  16,916,612  3.99%  17,487,818  4.83%  -3.27%
+   分地区
+  
+  境内  294,060,576  69.40%  251,677,045  69.52%  16.84%
+   境外  129,641,258  30.60%  110,335,509  30.48%  17.50%
+  
+  公司需遵守《深圳证券交易所上市公司自律监管指引第  4号——创业板行业信息披露》中的“锂离子电池产业链相关业务”
+  的披露要求
+  
+  2）报告期内上市公司从事锂离子电池产业链相关业务的海外销售收入占同期营业收入  30%以上
+  
+  适用 □不适用
+  
+  报告期内，公司销售境外的主要产品为电池系统，较上年同期相比未发生明显变化。公司境外收入  129,641,258千元，占本
+  期营业收入  30.60%。公司主要业务地区的经营环境未发生重大变化，境外客户回款情况正常。
+  
+  （2） 占公司营业收入或营业利润  10%以上的行业、产品、地区、销售模式的情况
+  
+  适用 □不适用
+  公司需遵守《深圳证券交易所上市公司自律监管指引第  4号——创业板行业信息披露》中的“锂离子电池产业链相关业务”
+  的披露要求
+  
+  1）营业收入及营业成本整体情况
+  
+  单位：千元
+    项目  营业收入  营业成
+  ```
+
+## mat-d6ce98342b92714fd76a8a03b2ae8621
+
+- 材料类型：`evidence_span`
+- component evidence_id：`1e58e6c97a0da7012747731ff885ba07`
+- source_content_hash（来源层）：`3d47a385d5fd80150ca98169e11081e243ae358cd9e4c87c25450310b0469499`
+- payload_hash（载体层）：`91ba7f51763c93150dcdb2c0eeeae477a3dc14ba29427413958c37996268b4c7`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：25 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 2）公司主营业务数据统计口径在报告期发生调整的情况下，公司最近1  年按报告期末口径调整后的主营业务数据
+  
+  □适用 不适用
+  
+  3）锂离子电池产业链各环节主要产品或业务相关的关键技术或性能指标
+  
+  适用 □不适用
+  
+  25
+  ```
+
+## mat-2ae3ead9b5bfd7409d099f94fade5da5
+
+- 材料类型：`evidence_span`
+- component evidence_id：`699eed3094e86757d1ad65ff2e57111b`
+- source_content_hash（来源层）：`374a707d25527212a0c51c8e0bf9c25516344ef31eb1d6fbb3d5fda5f299c05d`
+- payload_hash（载体层）：`691bf636c55201d36cd2b3556d9e41bc5c77d9ebb3642aa515efd13ebab11f73`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：26 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 主要  技术参数情况  下游主
+   产品种  技术路线  产品  电芯质量能量  倍率  要应用
+    类  类型  循环寿命  安全性  领域
+    密度  性能
+  
+  220~310Wh/kg  1~5C  2,000~6,000次 满足 GB38031、UN38.3、  乘用
+    方形  HEV：100～  HEV：1C～  ECE R100.3等标准  车、商
+    150Wh/kg  50C  HEV：60,000次  用车
+  
+  三元锂  正极材料  消费无人机：满足  IEC62133
+   离子电  为镍钴锰  2012/2017等标准；  消费无
+    池  的锂离子  软  电动工具：（软包）满足  IEC  人机、
+    电池  包、  180-350Wh/kg  1C~17C  200-4,000次 62133 2012/2017、UL1642、 电动工
+    圆柱  IEC62133、UN38.3等标准；  具、电
+    电动摩托车：满足  GB/T  动摩托
+    36672等标准  车等
+  
+  乘用车、商用车：满足
+    GB38031、GB38032、  乘用
+    UN38.3、ECE R100.3等标准  车、商
+    储能系统：满足  用车、
+    方  GB/T36276、UN38.3，  储能系
+    形、  180～  0.25C～5C  4,000-15,000次 UL9540A
+  ```
+
+## mat-5255605abe26b76d7c9b7607e3a3004d
+
+- 材料类型：`evidence_span`
+- component evidence_id：`26a4455f61bd7deed6a866d613999297`
+- source_content_hash（来源层）：`cc149627019b5fac49a52f393206636ab4daa671b22e54542f33d6ade64eeea9`
+- payload_hash（载体层）：`23c78b9cc8d863ec8b673778f25f098e5002fdfd2eaff8d4263c8bf595096c3f`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：26 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 行业分类  项目  单位  2025年  2024年  同比增减
+   电池系统  销售量  GWh  661  475  39.16%
+  
+  26
+  ```
+
+## mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b
+
+- 材料类型：`evidence_span`
+- component evidence_id：`926198c81c13b25dc545ef1d4e219a34`
+- source_content_hash（来源层）：`5ce40479badf5fa49ea22ba24307c4b8bfc401481372c743917ef011dcbe0d66`
+- payload_hash（载体层）：`af6ec37f2a5269fb7b474032e3791a8f25be848e24b32eb1827a65f71493ced2`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：27 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 生产量  GWh  748  516  44.96%
+    库存量  GWh  186  106  75.47%
+  
+  相关数据同比发生变动  30%以上的原因说明
+  适用 □不适用
+  
+  国内外新能源行业持续增长，公司新技术、新产品陆续落地，海外市场拓展加速，客户合作关系进一步深化，公司产品产
+  销两旺。
+  
+  （4） 公司已签订的重大销售合同、重大采购合同截至本报告期的履行情况
+  
+  适用 □不适用
+  已签订的重大销售合同截至本报告期的履行情况
+  适用 □不适用
+    单位：千元
+    影响重
+    应收  大合同  是否存  合同未
+   合同标  对方当  合同  本报告期履  待履行  本期确认的  账款  是否正常  履行的  在合同  正常履
+    的  事人  总金  行金额  金额  销售收入金  回款  履行  各项条  无法履  行的说
+    额  额  情况  件是否  行的重  明
+    发生重  大风险
+    大变化
+  锂电池  客户 A(1)  -  58,159,202  -  58,159,202 正常是  否  否  不适用
+  供应  回款
+  注：
+  (1) 基于双方保密协议约定，不便披露客户具体名称；
+  
+  (2) 该重大销售合同未明确约定合同总金额，最终销售金额以客户后续发出的订单方式确定。
+  
+  已签订的重大采购合同截至本报告期的履行情况
+  □适用  不适用
+  
+  （5） 营业成本构成
+  
+  行业分类
+  ```
+
+## mat-ce3dc6736a9f2079cdf4bfcfd835ca63
+
+- 材料类型：`evidence_span`
+- component evidence_id：`f4e78f22035655a6df473dc0b60a7595`
+- source_content_hash（来源层）：`85f99c9889c915d1ba6d4a491c74e63fc77dd5214aab6071322dafe5914fe8ac`
+- payload_hash（载体层）：`7171b953f9d9c5297e7126045c26a0124586c6506d424ab1cdd70ba16dc810a3`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：28 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: （8） 主要销售客户和主要供应商情况
+  
+  公司主要销售客户情况
+   前五名客户合计销售金额（千元）  165,061,533
+   前五名客户合计销售金额占年度销售总额比例  38.96%
+   前五名客户销售额中关联方销售额占年度销售总额比例  0.00%
+  
+  公司前  5 大客户资料
+  
+  序号  客户名称  销售额（千元）  占年度销售总额比例
+    1  第一名  58,159,202  13.73%
+    2  第二名  47,127,609  11.12%
+  
+  3  第三名  30,201,701  7.13%
+    4  第四名  15,419,319  3.64%
+    5  第五名  14,153,702  3.34%
+    合计  --  165,061,533  38.96%
+  
+  主要客户其他情况说明
+  □适用 不适用
+  公司主要供应商情况
+   前五名供应商合计采购金额（千元）  59,938,203
+   前五名供应商合计采购金额占年度采购总额比例  10.38%
+   前五名供应商采购额中关联方采购额占年度采购总额比例  0.00%
+  公司前  5 名供应商资料
+    序号  供应商名称  采购额（千元）  占年度采购总额比例
+    1  第一名  23,318,360  4.04%
+    2  第二名  11,601,437  2.01%
+  
+  3  第三名  9,241,133  1.60%
+    4  第四
+  ```
+
+## mat-1582772be32dfdd5049a226bce09fd36
+
+- 材料类型：`evidence_span`
+- component evidence_id：`e35f2fd2e0fa019a4f9deb719918ef87`
+- source_content_hash（来源层）：`a86a9e818f5a42b6cf1326f48350490412969015ba6fd7a31e4cb7abfbce5b05`
+- payload_hash（载体层）：`f2f5a4b72d8f354f627d3d833957263705d10abd4e39fb37fe066b219626d5d3`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：29 · 块范围：[2, 2]
+- authority 状态：`authoritative`
+- 边界处置：`inside_boundary`（`same_section_continuity`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 研发人员数量（人）  22,901  20,346  12.56%
+  研发人员数量占比  12.32%  15.42%  -3.1%
+  研发人员学历
+  
+  本科  9,418  8,247  14.20%
+  硕士  5,242  5,083  3.13%
+  
+  29
+  ```
+
+## mat-5798b2039a4159b31ecb11186a3496cc
+
+- 材料类型：`evidence_span`
+- component evidence_id：`d1c87927ab746a07841598b18d162a0a`
+- source_content_hash（来源层）：`b9018f7ff7e779bdf7f35753b667fd30b27da613f6a91d96d3066f80c061ff3f`
+- payload_hash（载体层）：`96a96dd4b8b7de5d872b49d622efb7cc7d3feedab81ab9c74afad1c0c9235b0c`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：29 · 块范围：[1, 1]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 主要研发项  项目目的  项目进展  拟达到的目标  预计对公司未来发展的影响
+    目名称
+  骁遥双核电  确保动力输出的连续性与安  产品已发布，与  突破单一化学体系边  助力新能源车实现安全冗余
+  池  全性，灵活设计适应不同场  客户推进落地中  界，实现解决方案性能  和多场景的应用突破
+    景  全面提升
+    突破常规锂电体系，推动电  产品已发布，与  通过钠电池实现应用场  为客户提供不同场景差异化
+  钠新电池  化学体系多元化，适用更丰  客户推进落地中  景广域化、加速全面电  产品，提升公司竞争力
+    富应用场景  动化
+    超越常规体系，实现更高比  产品已发布，与  为新能源乘用车、商用  为客户提供差异化产品，提
+  超混电池  能、更长寿命及更加安全  客户推进落地中  车细分市场打造更具竞  升公司竞争力
+    争力产品
+  凝聚态电池  超越常规体系，实现高安  产品已发布，与  为高端新能源车、航空  助力拓展低空、航空等新兴
+    全、高比能、高功率  客户推进落地中  器等提供先进解决方案  应用场景，提升公司竞争力
+    神行二代、神行  助力新能源车实现长续  作为行业快充技术标杆，持
+  神行电池  进一步提升能量密度、快充  Pro产品已发布，  航、长寿命、快补能、  续延展产品能力，提升公司
+    性能、循环寿命等性能  与客户推进落地  高残值  竞争力
+  ```
+
+## mat-5abce697d40ffd32290d55c17a9e3f5f
+
+- 材料类型：`evidence_span`
+- component evidence_id：`48d5a2199d7d9f2e0dd9b885c544859d`
+- source_content_hash（来源层）：`5b3af73f502d0325cdc50b524d95e7bc39df5f4db779d76a01cebcc8da4a96f2`
+- payload_hash（载体层）：`d67675c1721c6b2c69422d72c09c95b24be884a9d0d709b0f63f0b388c7bc450`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：29 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 汇率变动所产生的汇
+    兑收益增加
+  研发费用  22,146,581  18,606,756  19.02%
+  
+  4、研发投入
+  
+  适用 □不适用
+  
+  （1） 主要研发项目
+  ```
+
+## mat-d8e60df3fa0d6ee21de9d017177abb4b
+
+- 材料类型：`evidence_span`
+- component evidence_id：`b1e57d72e8969eaedcc720e3e4ba2ebf`
+- source_content_hash（来源层）：`cdcac0dc3eb3b08351c4f73086880e735d032837760c36a5f51bb602328e6fb9`
+- payload_hash（载体层）：`02324f5a6d124be33193db5185e07064ee228754e594e9a8cfde775b9caa4616`
+- 来源文件/版本：`NDSD_2025_year` / `sha256-c15272977147dee7`
+- 章节路径：`管理层讨论与分析` · 页：30 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`context_candidate`（`mixed_block_context_candidate`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=context_candidate
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 博士  745  573  30.02%
+   研发人员年龄构成
+   30岁以下  11,837  10,408  13.73%
+  
+  30~40 岁  9,740  8,830  10.31%
+   40岁以上  1,324  1,108  19.49%
+  
+  （3）近三年公司研发投入金额及占营业收入的比例
+  
+  项目  2025年  2024年  2023 年
+  
+  研发投入金额（千元）  22,146,581  18,606,756  18,356,108
+   研发投入占营业收入比例  5.23%  5.14%  4.58%
+  
+  □适用 不适用
+  研发投入总额占营业收入的比重较上年发生显著变化的原因
+  □适用 不适用
+  研发投入资本化率大幅变动的原因及其合理性说明
+  □适用 不适用
+  
+  5、现金流
+  
+  单位：千元
+    项目  2025年  2024年  同比增减
+  
+  经营活动现金流入小计  511,868,353  444,879,417  15.06%
+   经营活动现金流出小计  378,648,372  347,889,072  8.84%
+   经营活动产生的现金流量净额  133,219,982  96,990,345  37.35%
+   投资活动现金流入小计  8,303,785  4,906,012  69.26%
+  
+  投资活动现金流出小计  102,779,575  53,781,323  91.11%
+   投
+  ```
+
+## mat-83cc88de5ae738930fe71217135c0f2b
+
+- 材料类型：`evidence_span`
+- component evidence_id：`0de543287aa812c78eb165f694c9580d`
+- source_content_hash（来源层）：`f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1`
+- payload_hash（载体层）：`cf887ab31699e893e6b28675921c2a7e28e5dcb4ef3eca27f6445cc4ba77befa`
+- 来源文件/版本：`NDSD_KCZ_2026` / `sha256-2b3a1fb3de97f23c`
+- 章节路径：`公司竞争优势` · 页：59 · 块范围：[0, 0]
+- authority 状态：`authoritative`
+- 边界处置：`seed`（`seed`）
+- aspect 角色（按 aspect）：`company_competitiveness.core_competitiveness`=source
+- 关联 aspect：`company_competitiveness.core_competitiveness`
+- 实际内容：
+
+  ```
+  正文[paragraph]: 公司已连续 9年（2017-2025年）动力电池使用量排名全球第一。在储能领域，公司已
+  连续5年（2021-2025年）储能电池出货量排名全球第一。
+    （四）公司竞争优势
+  
+  1、宁德时代的长期核心竞争力，根植于以技术创新和领先产品为基石，持续驱动
+  商业模式的进化和客户市场的拓展，并形成正向反馈循环，以“飞轮效应”推动公司整
+  
+  体价值持续增长，不断加固“全球领先的零碳新能源科技公司”的竞争壁垒。具体而言，
+  公司核心竞争力体现在以下方面：
+    2、一是研发为核，产品矩阵持续迭代。依托行业顶尖的研发团队与持续高强度的
+  
+  研发投入，公司构建起覆盖材料、电芯、系统及回收的全链条自主研发能力，是行业唯
+  一入选“全球百强创新机构”的企业，助力宁德市跻身全球创新强度第四名。报告期内，
+  
+  公司拥有及申请的国内外专利总数达  54,538项，创新成果密集落地。基于此，公司相
+  继推出“二代神行超充”、“骁遥双核”及“钠新电池”等前沿产品，以全面领先的产
+  品力为市场拓展提供坚实支撑。
+  
+  3、二是市场领跑，全球化根基稳固。公司动力与储能电池市占率已连续多年领跑
+  全球。在乘用车领域，中高端市场主导地位稳固，经济型市场持续突破；在储能领域，
+  
+  系统集成能力不断增强，并与多家全球领先的科技企业建立合作。同时，公司稳步推进
+  海外工厂建设，持续完善全球服务网络，以坚实的全球化布局，巩固长期竞争优势。
+    4、三是极
+  ```
+
+## 组合投影（MaterialAssembly/TableAssembly）
+
+- `asm-1cba5644990679136fb297e18985358b`（flattened_table_recovery）→ `mat-cf1de2ea58649fec330fa2d02159629c`
+- `asm-1cd9d4c982b95f6522924aba0d7f0353`（flattened_table_recovery）→ `mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b`
+- `asm-3c3b361dcc3ccd4cbb447bdfdab89dfc`（flattened_table_recovery）→ `mat-ce3dc6736a9f2079cdf4bfcfd835ca63`
+- `asm-48606468ee1a6ce855cf3ea9ab138457`（flattened_table_recovery）→ `mat-5255605abe26b76d7c9b7607e3a3004d`, `mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b`
+- `asm-68fa9c50b65b9c4c584ef8d0f3055927`（flattened_table_recovery）→ `mat-d8e60df3fa0d6ee21de9d017177abb4b`
+- `asm-8100a1f5cfe954619a9aae019832d178`（flattened_table_recovery）→ `mat-5798b2039a4159b31ecb11186a3496cc`, `mat-1582772be32dfdd5049a226bce09fd36`
+- `asm-8b54f87647f0c248ebb43fdd37a1c032`（flattened_table_recovery）→ `mat-ce3dc6736a9f2079cdf4bfcfd835ca63`
+- `asm-a395c497b1fd91530e990110caa64ea7`（flattened_table_recovery）→ `mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b`
+- `asm-a5b5ac1a404a4db9ae08c2c6daf06d84`（cross_page）→ `mat-7862a64bd57f05141b6c4b694eb55128`, `mat-00b6612cd8c7d1b5bc4343b50098208f`, `mat-9e79ad8ff5f593e18906cbb968fc007e`, `mat-547f5ffd676e8686fb2a920c9a3710f3`, `mat-2e64c0d92eaddb7468e74124ce822e9a`, `mat-0041c130fa0f2ff40578343cbe0af5cb`, `mat-72306df50aee790db5604a778677f534`, `mat-6b1f45377ee2f3bb18d4a93134be32cd`, `mat-40da75614a0718b30ca06445d6b55bf3`, `mat-c766880a1edc7483f68e554ed6871980`, `mat-074b83f55c776665ed4d70a7f5915f85`, `mat-cf1de2ea58649fec330fa2d02159629c`, `mat-d6ce98342b92714fd76a8a03b2ae8621`, `mat-2ae3ead9b5bfd7409d099f94fade5da5`, `mat-5255605abe26b76d7c9b7607e3a3004d`, `mat-fb26dc58f9b8e25b5f9b4ffd6b2f1c0b`, `mat-ce3dc6736a9f2079cdf4bfcfd835ca63`, `mat-5abce697d40ffd32290d55c17a9e3f5f`, `mat-5798b2039a4159b31ecb11186a3496cc`, `mat-1582772be32dfdd5049a226bce09fd36`, `mat-d8e60df3fa0d6ee21de9d017177abb4b`
+- `asm-b5eceeb677f500a508a36e77faf28c99`（flattened_table_recovery）→ `mat-ce3dc6736a9f2079cdf4bfcfd835ca63`
+- `asm-be39018be3d5695a2e920a76e3ebdc08`（flattened_table_recovery）→ `mat-2ae3ead9b5bfd7409d099f94fade5da5`
+- `asm-f648158e93153935bce7f26da4886b3d`（flattened_table_recovery）→ `mat-d8e60df3fa0d6ee21de9d017177abb4b`

@@ -1,0 +1,8 @@
+[
+  {
+    "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+    "reason": "budget",
+    "scope_desc": "停止原因：hard budget (adjacent_blocks_before)；未读范围自 P17 第1块 等 2 块（预算轴 adjacent_blocks_before）。",
+    "stop_reason": "hard budget (adjacent_blocks_before)"
+  }
+]

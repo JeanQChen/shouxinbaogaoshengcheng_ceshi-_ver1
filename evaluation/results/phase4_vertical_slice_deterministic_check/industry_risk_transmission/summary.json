@@ -1,0 +1,137 @@
+{
+  "sample": "industry_risk_transmission",
+  "pack_id": "pack_9a5dc5309a0601eb367c8e68b7377b6b",
+  "matrix": [
+    {
+      "aspect_id": "asp_6199d3f44034acd7b8e35b9f",
+      "aspect_text": "对收入的传导",
+      "obtained": false,
+      "fact_ids": [
+        "ext-0d034701c3754d9cabfd"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-0d034701c3754d9cabfd",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:d_only"
+      ],
+      "detail": "valid_sources=1"
+    },
+    {
+      "aspect_id": "asp_3ff7d5f08f68de9d8630070f",
+      "aspect_text": "对成本与资本开支的传导",
+      "obtained": false,
+      "fact_ids": [
+        "ext-3b7e571e68ba4f73a17d",
+        "ext-28db27618a134b23b99e"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-3b7e571e68ba4f73a17d",
+          "page_number": null
+        },
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-28db27618a134b23b99e",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:d_only"
+      ],
+      "detail": "valid_sources=2"
+    },
+    {
+      "aspect_id": "asp_c6e159241683267629b07310",
+      "aspect_text": "对现金流与偿债能力的传导",
+      "obtained": false,
+      "fact_ids": [
+        "ext-04d048dbe3154c4da513"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-04d048dbe3154c4da513",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:d_only"
+      ],
+      "detail": "valid_sources=1"
+    }
+  ],
+  "funnel": {
+    "external_queries": 3,
+    "candidate_urls": 15,
+    "fetched": 4,
+    "snapshotted": 4,
+    "extracted_facts": 4,
+    "validated_facts": 0,
+    "adopted_facts": 0,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_CONTENT_EMPTY"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_CONTENT_EMPTY"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "budget_exhausted"
+      ]
+    ]
+  },
+  "external_source_count": 4,
+  "external_fact_count": 0
+}

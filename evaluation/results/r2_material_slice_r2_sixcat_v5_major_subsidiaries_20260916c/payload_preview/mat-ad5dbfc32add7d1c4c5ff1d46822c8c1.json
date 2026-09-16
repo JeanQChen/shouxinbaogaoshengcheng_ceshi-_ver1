@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-ad5dbfc32add7d1c4c5ff1d46822c8c1",
+  "component_evidence_id": "2d6cde3c2658626b9b60022c04c3ef66",
+  "source_content_hash": "4c31fe228a3f56e4802cb993a065833990bf952bac30fdac917961148ad6e768",
+  "payload_hash": "bbeae2858bb63b5172417034ea2d0863f59daf58086c26f2ef7fe998a6d1c538",
+  "payload": "{\"authority_identity\":\"evidence:2d6cde3c2658626b9b60022c04c3ef66\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"1、关于股东与股东会\\n  公司严格按照《公司法》《公司章程》《股东会议事规则》等规定召集、召开股东\\n\\n会，能够平等对待所有股东，保证中小股东享有平等地位，充分行使自己的权利。\\n  股东会由董事会召集，股东会会议的召集、召开、表决程序符合有关法律法规及公\\n\\n司章程的规定，出席会议人员资格合法有效，表决结果合法有效。公司未发生重大事项\\n绕过股东会的情况，也未发生重大事项先实施后审议的情况，公司不存在违反《上市公\\n司股东会规则》的其他情形。\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"2d6cde3c2658626b9b60022c04c3ef66\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":221,\"page\":42,\"section_path\":\"瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"4c31fe228a3f56e4802cb993a065833990bf952bac30fdac917961148ad6e768\"}"
+}

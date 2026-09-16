@@ -120,15 +120,34 @@ def _block_metadata(block) -> dict:
 # 只读数据源（Evidence Store）
 # ---------------------------------------------------------------------------
 
-def _collect_current(company_id: str) -> tuple[list, list[dict]]:
+def _collect_current(company_id: str, db_path=None) -> tuple[list, list[dict]]:
     """收集 current、健康 Evidence Set 的全部证据块 + 文档清单。
 
     排除 registered/superseded 文档、retired/invalid evidence set；只取每份文档
     当前版本 + 当前证据集。
+
+    ``db_path`` 非 None 时走只读发现路径（R2 item 五）：从显式只读 SQLite（mode=ro +
+    query_only）读取，不调 ``estore.init_db()``、不改模块级 ``_db_path``。
     """
     blocks: list = []
     metas: list[dict] = []
     seen: set[str] = set()
+    if db_path is not None:
+        for d in estore.list_documents_ro(db_path, company_id):
+            if d.status != "current" or d.document_id in seen:
+                continue
+            seen.add(d.document_id)
+            dv = estore.current_document_version_ro(db_path, company_id, d.document_id)
+            if dv is None:
+                continue
+            esv = estore.current_evidence_set_ro(db_path, company_id, d.document_id, dv)
+            if esv is None:
+                continue
+            metas.append({"document_id": d.document_id, "document_version": dv,
+                          "evidence_set_version": esv})
+            blocks.extend(estore.list_document_evidence_ro(
+                db_path, company_id, d.document_id, dv, esv))
+        return blocks, metas
     for d in estore.list_documents(company_id):
         if d.status != "current" or d.document_id in seen:
             continue

@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-c4f907c2326454f2cdcfa5b59e3fa725",
+  "component_evidence_id": "a8c89b4d4c331356fcdcb5dd66e02028",
+  "source_content_hash": "22ecd8ab63330b3cd181ec01b6719ffceeff35ae527ba8b0c9d0d422491eb5bd",
+  "payload_hash": "33144a8a50aa1180a9ebd9897043d4a6e59b56ca499690966a36873902679c1f",
+  "payload": "{\"authority_identity\":\"evidence:a8c89b4d4c331356fcdcb5dd66e02028\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"制订了《宁德时代新能源科技股份有限公司关联交易制度》。\\n  发行人与子公司之间的关联交易定价均采用市场价。关联方之间代购代销及提供其\\n  他劳务服务的价格，有国家定价的，适用国家定价，没有国家定价的，按市场价格确定，\\n\\n没有市场价格的，参照实际成本加合理费用的原则由双方定价，对于某些无法按照“成\\n  本加费用”的原则确定价格的特殊服务，由双方协商定价。\\n  七、人员基本情况\\n\\n（一）董事及高级管理人员的基本情况\\n\\n表 5-8发行人董事及高级管理人员的基本情况表\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"a8c89b4d4c331356fcdcb5dd66e02028\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":46,\"section_path\":\"瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"22ecd8ab63330b3cd181ec01b6719ffceeff35ae527ba8b0c9d0d422491eb5bd\"}"
+}

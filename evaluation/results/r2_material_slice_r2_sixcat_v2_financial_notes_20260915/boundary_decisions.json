@@ -1,0 +1,98 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 166,
+      "block_index": 0,
+      "section_path": [
+        "合并财务报表项目注释"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "合并财务报表项目注释"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05"
+    },
+    {
+      "evidence_id": "b517c63666b8a0d1a4d1e870189af09a",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 163,
+      "block_index": 1,
+      "section_path": [
+        "年 10 月，财政部发布《企业会计准则解释第 17 号》（财会〔2023〕21  号）（以下简称“解…"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "d813fd30568476bb774deb16252dbcb66cc68cfc18a3485c3ae045c4bee6f86c",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "合并财务报表项目注释"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "合并财务报表项目注释"
+        ],
+        [
+          "年 10 月，财政部发布《企业会计准则解释第 17 号》（财会〔2023〕21  号）（以下简称“解…"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05"
+    },
+    {
+      "evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "section_boundary_sibling",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 167,
+      "block_index": 0,
+      "section_path": [
+        "年以内（含  1 年）  64,578,043  64,337,084"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "5da68a5195a65793e0ac65b086220f058eb861590dbdcf8ac2f7ac4bf6f8a22e",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "合并财务报表项目注释"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "section_path",
+        [
+          "合并财务报表项目注释"
+        ],
+        [
+          "年以内（含  1 年）  64,578,043  64,337,084"
+        ],
+        "sibling"
+      ],
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05"
+    }
+  ]
+}

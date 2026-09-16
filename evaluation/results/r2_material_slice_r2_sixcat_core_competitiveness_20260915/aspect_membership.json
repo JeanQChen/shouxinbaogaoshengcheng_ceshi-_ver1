@@ -1,0 +1,23 @@
+{
+  "company_competitiveness.core_competitiveness": {
+    "formal_material_ids": [
+      "mat-2e64c0d92eaddb7468e74124ce822e9a",
+      "mat-83cc88de5ae738930fe71217135c0f2b"
+    ],
+    "context_candidate_material_ids": [
+      "mat-0041c130fa0f2ff40578343cbe0af5cb",
+      "mat-547f5ffd676e8686fb2a920c9a3710f3",
+      "mat-6b1f45377ee2f3bb18d4a93134be32cd",
+      "mat-72306df50aee790db5604a778677f534"
+    ],
+    "outside_boundary_evidence": [
+      "967d7fd24acc17aa7aecb29645adb61d",
+      "5f51ec95dc5b0e870ec196e524039207"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "0de543287aa812c78eb165f694c9580d",
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  }
+}

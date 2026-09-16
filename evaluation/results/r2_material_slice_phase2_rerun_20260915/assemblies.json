@@ -1,0 +1,67 @@
+[
+  {
+    "assembly_id": "asm-d1c4121d21a1c79a28a94c2023b2d57b",
+    "context_parent_id": "mat-d399f4dff2920096b85970ef59f9a181",
+    "component_material_ids": [
+      "mat-d399f4dff2920096b85970ef59f9a181",
+      "mat-fc9ef385f7322f2980701cd36c4d9ccc",
+      "mat-80b9941f5e83637f6a0712bccf5d569b",
+      "mat-1e4a0ba1a6beb7dff82f60d6d272c58d",
+      "mat-2157233831cac7e55e9916f39a265663"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P50–P52"
+  },
+  {
+    "assembly_id": "asm-b25791147c9511ef5cb46a5e537920ba",
+    "context_parent_id": "mat-d399f4dff2920096b85970ef59f9a181",
+    "component_material_ids": [
+      "mat-d399f4dff2920096b85970ef59f9a181",
+      "mat-fc9ef385f7322f2980701cd36c4d9ccc",
+      "mat-80b9941f5e83637f6a0712bccf5d569b",
+      "mat-1e4a0ba1a6beb7dff82f60d6d272c58d",
+      "mat-2157233831cac7e55e9916f39a265663",
+      "mat-2fa40563baedfcfa93fce997df5284ab"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P50–P53"
+  },
+  {
+    "assembly_id": "asm-6391555d2a0766a27471c520bf66469e",
+    "context_parent_id": "mat-00b6612cd8c7d1b5bc4343b50098208f",
+    "component_material_ids": [
+      "mat-00b6612cd8c7d1b5bc4343b50098208f",
+      "mat-9e79ad8ff5f593e18906cbb968fc007e",
+      "mat-547f5ffd676e8686fb2a920c9a3710f3",
+      "mat-2e64c0d92eaddb7468e74124ce822e9a",
+      "mat-0041c130fa0f2ff40578343cbe0af5cb",
+      "mat-72306df50aee790db5604a778677f534"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P18–P21"
+  },
+  {
+    "assembly_id": "asm-6c01e68bf1b68f3c85db6f4e0e7a53ca",
+    "context_parent_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "component_material_ids": [
+      "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+      "mat-e13924560ab3f7ae28616a54f77717ec",
+      "mat-b7fbc33831685642fbd33bac95c8bf85"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P43"
+  },
+  {
+    "assembly_id": "asm-c8913518f585e6220a3dbb740377b0b6",
+    "context_parent_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "component_material_ids": [
+      "mat-5fb05d6d4c626283b60930077a8a6138",
+      "mat-fdfc51463fca7eebb0a6537b3202d3bf",
+      "mat-a41b0071c49fb1f36e8d6c3a1af3f43d",
+      "mat-d927c8e81ff5cea75f44ef3c3c970422",
+      "mat-ea28f6a6862e98ebaf33e65c1c25ec96"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P210"
+  }
+]

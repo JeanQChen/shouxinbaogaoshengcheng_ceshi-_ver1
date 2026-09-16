@@ -1,0 +1,3 @@
+- `对收入的传导` → ✗ not obtained（loss: no_validated_external_source）
+- `对成本与资本开支的传导` → ✗ not obtained（loss: no_validated_external_source）
+- `对现金流与偿债能力的传导` → ✗ not obtained（loss: no_validated_external_source）

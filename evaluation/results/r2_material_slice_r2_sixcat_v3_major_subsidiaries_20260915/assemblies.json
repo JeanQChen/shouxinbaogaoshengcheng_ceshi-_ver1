@@ -1,0 +1,849 @@
+[
+  {
+    "assembly_id": "asm-d97e5035ba3032414e6e064220d48630",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P41",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "body_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "序号",
+      "直接",
+      "间接"
+    ],
+    "rows": [
+      [
+        "4",
+        "瑞庭时代（上海）新能源科技有限公",
+        "上海市",
+        "50,000.0100.0/",
+        "设立"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 5 列 不一致"
+  },
+  {
+    "assembly_id": "asm-f682a99d58622306f4103585ae6bd441",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66",
+      "mat-fd69747ace75228e36054fab09feaab5",
+      "mat-af87f339b162b419086ddde2e2c0cd1f",
+      "mat-8a971c779356df6000e5453d080f4798",
+      "mat-11e314704e0187e873127a10c400ba5e",
+      "mat-c4f907c2326454f2cdcfa5b59e3fa725",
+      "mat-46ee6e665af801010996806c0ff8b6af",
+      "mat-56b061ffa277ef6fc16e901dc80c82da",
+      "mat-222b4c9dbacac85449fefe9dba7a7c7c",
+      "mat-faf8adf17f9611d6abb5bf86ddb936b9"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P49"
+  },
+  {
+    "assembly_id": "asm-00fbaa91383fbb5a6c91b9488e11682b",
+    "context_parent_id": "mat-11ef8135f725541931950349c82a5146",
+    "component_material_ids": [
+      "mat-11ef8135f725541931950349c82a5146"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P217",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "5c3b5449b6322ba3725cb6d054d94a41",
+    "body_evidence_ids": [
+      "5c3b5449b6322ba3725cb6d054d94a41"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "本期发生额",
+      "上期发生额"
+    ],
+    "rows": [
+      [
+        "关键管理人员薪酬",
+        "24,749",
+        "28,912"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-19281dd86628ca7e06d4b5dd6760acb9",
+    "context_parent_id": "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+    "component_material_ids": [
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "项目",
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "15,181,012",
+        "15,181,012"
+      ],
+      [
+        "衍生金融负债",
+        "3,941,410",
+        "3,941,410"
+      ],
+      [
+        "应付票据",
+        "77,514,941",
+        "77,514,941"
+      ],
+      [
+        "应付账款",
+        "117,038,774",
+        "117,038,774"
+      ],
+      [
+        "其他应付款",
+        "13,624,086",
+        "13,624,086"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "7,008,874",
+        "7,008,874"
+      ],
+      [
+        "长期借款",
+        "55,013,696",
+        "28,435,286",
+        "83,448,982"
+      ],
+      [
+        "应付债券",
+        "15,659,131",
+        "3,577,883",
+        "19,237,014"
+      ],
+      [
+        "租赁负债",
+        "222,694",
+        "60,602",
+        "283,296"
+      ],
+      [
+        "长期应付款",
+        "86,923",
+        "1,433,333",
+        "1,520,256"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "234,309,096",
+      "70,982,445",
+      "33,507,104",
+      "338,798,645"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-1da36808f0901127ffe31c0c40917c64",
+    "context_parent_id": "mat-ebdaf54a45f4400ebcfac002cd05212c",
+    "component_material_ids": [
+      "mat-ebdaf54a45f4400ebcfac002cd05212c"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P218",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "13692affac2f03cfaf343806db085035",
+    "body_evidence_ids": [
+      "13692affac2f03cfaf343806db085035"
+    ],
+    "continuation_evidence_ids": [
+      "13692affac2f03cfaf343806db085035"
+    ],
+    "headers": [
+      "（千股）",
+      "（千元）",
+      "（千股）",
+      "（千元）",
+      "（千股）",
+      "（千元）",
+      "（千股）",
+      "（千元）"
+    ],
+    "rows": [
+      [
+        "管理人员",
+        "0",
+        "2",
+        "3,470",
+        "231,616",
+        "1,745",
+        "145,615"
+      ],
+      [
+        "销售人员",
+        "1,411",
+        "82,079",
+        "582",
+        "44,373"
+      ],
+      [
+        "研发人员",
+        "2,497",
+        "209,947",
+        "830",
+        "57,271"
+      ],
+      [
+        "生产人员",
+        "490",
+        "71,128",
+        "271",
+        "17,870"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "0",
+      "2",
+      "7,867",
+      "594,770",
+      "3,428",
+      "265,129"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-262ed91a05d9492b621018090f087e27",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109",
+      "mat-08f8fea94173dd4834c87ab0374a9f9c",
+      "mat-da63a0e53e2478f0dc4624e3fdd4194e",
+      "mat-7c9b2315805a040c561ce8d85d2a3008",
+      "mat-36169f7287cc1903bfac8e27d565c67f",
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+      "mat-e64d10dd5eddde88b1e435da85fd3c91",
+      "mat-328ce788821bef3fbd03af4b6580e9ec",
+      "mat-4db6800a8495d353b0565bb3f050ef0e",
+      "mat-207a90c07e4b06758e5c64c3caa19eec"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P213"
+  },
+  {
+    "assembly_id": "asm-390d85358ec1b75c43073d1d266596c3",
+    "context_parent_id": "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+    "component_material_ids": [
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "19,696,282",
+        "19,696,282"
+      ],
+      [
+        "衍生金融负债",
+        "2,116,017",
+        "2,116,017"
+      ],
+      [
+        "应付票据",
+        "67,356,323",
+        "67,356,323"
+      ],
+      [
+        "应付账款",
+        "130,977,408",
+        "130,977,408"
+      ],
+      [
+        "其他应付款",
+        "10,761,762",
+        "10,761,762"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "22,881,417",
+        "22,881,417"
+      ],
+      [
+        "长期借款",
+        "58,995,638",
+        "22,242,818",
+        "81,238,456"
+      ],
+      [
+        "应付债券",
+        "8,414,035",
+        "3,508,589",
+        "11,922,623"
+      ],
+      [
+        "租赁负债",
+        "552,042",
+        "110,772",
+        "662,814"
+      ],
+      [
+        "长期应付款",
+        "768,978",
+        "837,502",
+        "1,606,480"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "253,789,209",
+      "68,730,692",
+      "26,699,681",
+      "349,219,581"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-416ab656976fa33792a6c7c3bfa465c4",
+    "context_parent_id": "mat-11ef8135f725541931950349c82a5146",
+    "component_material_ids": [
+      "mat-11ef8135f725541931950349c82a5146"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P217",
+    "table_title": "本公司作为担保方",
+    "unit": "千元",
+    "header_evidence_id": "5c3b5449b6322ba3725cb6d054d94a41",
+    "body_evidence_ids": [
+      "5c3b5449b6322ba3725cb6d054d94a41"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "被担保方",
+      "担保金额",
+      "担保起始日",
+      "担保到期日",
+      "担保是否已经履行完毕"
+    ],
+    "rows": [
+      [
+        "晋江闽投电力储能科技有限公司",
+        "2,860",
+        "2019年7月 19日",
+        "2025年 4月",
+        "20日",
+        "否"
+      ],
+      [
+        "晋江闽投电力储能科技有限公司",
+        "2,860",
+        "2019年7月 19日",
+        "2025年 10月 20 日",
+        "否"
+      ],
+      [
+        "晋江闽投电力储能科技有限公司",
+        "52,140",
+        "2019年7月 19日",
+        "2034年 7月",
+        "18日",
+        "否"
+      ],
+      [
+        "佛山华普气体科技有限公司",
+        "39,363",
+        "2023年1月 1 日",
+        "2027年 12月 12 日",
+        "否"
+      ],
+      [
+        "宜春龙蟠时代锂业科技有限公司",
+        "242,070",
+        "2023年8月 23日",
+        "2030年 2月",
+        "22日",
+        "否"
+      ],
+      [
+        "宜春龙蟠时代锂业科技有限公司",
+        "112,099",
+        "2023年8月 25日",
+        "2031年 8月",
+        "24日",
+        "否"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-4aa668fabbdce93a1fba126d72235f81",
+    "context_parent_id": "mat-11ef8135f725541931950349c82a5146",
+    "component_material_ids": [
+      "mat-11ef8135f725541931950349c82a5146",
+      "mat-ebdaf54a45f4400ebcfac002cd05212c"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P217–P218",
+    "table_title": "（1） 应收项目",
+    "unit": "千元",
+    "header_evidence_id": "5c3b5449b6322ba3725cb6d054d94a41",
+    "body_evidence_ids": [],
+    "continuation_evidence_ids": [
+      "13692affac2f03cfaf343806db085035"
+    ],
+    "headers": [
+      "期末余额",
+      "项目名称",
+      "关联方",
+      "账面余额",
+      "坏账准备",
+      "账面余额",
+      "坏账准备"
+    ],
+    "rows": [
+      [
+        "应收账款",
+        "合营企业",
+        "85,504",
+        "57,483",
+        "106,593",
+        "26,166"
+      ],
+      [
+        "应收账款",
+        "联营企业",
+        "1,997,056",
+        "75,050",
+        "830,489",
+        "39,716"
+      ],
+      [
+        "合同资产",
+        "合营企业",
+        "402",
+        "7"
+      ],
+      [
+        "合同资产",
+        "联营企业",
+        "2,000",
+        "26",
+        "2,000",
+        "33"
+      ],
+      [
+        "预付款项",
+        "合营企业",
+        "22"
+      ],
+      [
+        "预付款项",
+        "联营企业",
+        "1,949,136",
+        "2,715,243"
+      ],
+      [
+        "其他应收款",
+        "合营企业",
+        "999",
+        "28"
+      ],
+      [
+        "其他应收款",
+        "联营企业",
+        "198,354",
+        "33",
+        "201,641",
+        "15"
+      ],
+      [
+        "其他非流动资产",
+        "合营企业",
+        "523"
+      ],
+      [
+        "其他非流动资产",
+        "联营企业",
+        "11,421,073",
+        "13,303,227"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-7e7e5e7348e4c5e0fef52b31d81bb372",
+    "context_parent_id": "mat-ab5a80ea99bc023e70e7fedf1abbd36a",
+    "component_material_ids": [
+      "mat-ab5a80ea99bc023e70e7fedf1abbd36a",
+      "mat-3ba0d5b3ff59238904a70df459b07145",
+      "mat-c71b006c0e837d35b478e9819d8ffeda",
+      "mat-ed5864af2be07d3c2f194451474a52b3"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P205–P207"
+  },
+  {
+    "assembly_id": "asm-81633d2b8413f8c56b020820f53c9253",
+    "context_parent_id": "mat-207a90c07e4b06758e5c64c3caa19eec",
+    "component_material_ids": [
+      "mat-207a90c07e4b06758e5c64c3caa19eec"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P213",
+    "table_title": "现金流量套期",
+    "unit": null,
+    "header_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+    "body_evidence_ids": [
+      "451ed0528c0ae5229797f0d41c40b1f6"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "外汇风险-预期交易",
+      "USD 4,032,640",
+      "1,814,881 衍生金融负债"
+    ],
+    "rows": [
+      [
+        "外汇风险-预期交易",
+        "IDR 1,434,381,000",
+        "-1,253",
+        "衍生金融负债"
+      ],
+      [
+        "商品价格风险-预期交易",
+        "445,396",
+        "2,962",
+        "衍生金融负债"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 4 列 不一致"
+  },
+  {
+    "assembly_id": "asm-84ab1529eb46e8db621001c28b4529ab",
+    "context_parent_id": "mat-11ef8135f725541931950349c82a5146",
+    "component_material_ids": [
+      "mat-11ef8135f725541931950349c82a5146"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P217",
+    "table_title": "出售商品/提供劳务情况表",
+    "unit": "千元",
+    "header_evidence_id": "5c3b5449b6322ba3725cb6d054d94a41",
+    "body_evidence_ids": [
+      "5c3b5449b6322ba3725cb6d054d94a41"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "关联方",
+      "关联交易内容",
+      "本期发生额",
+      "上期发生额"
+    ],
+    "rows": [
+      [
+        "合营企业",
+        "销售商品",
+        "11,786",
+        "214,884"
+      ],
+      [
+        "合营企业",
+        "销售服务及其他",
+        "8,368",
+        "11"
+      ],
+      [
+        "联营企业",
+        "销售商品",
+        "5,389,551",
+        "4,849,198"
+      ],
+      [
+        "联营企业",
+        "销售材料",
+        "1,661,404",
+        "1,834,870"
+      ],
+      [
+        "联营企业",
+        "销售服务及其他",
+        "1,109,221",
+        "862,303"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-a464f04c3426d65a0f8b30e55690c238",
+    "context_parent_id": "mat-40a814b5680b51ae6ed60400ca33cfd1",
+    "component_material_ids": [
+      "mat-40a814b5680b51ae6ed60400ca33cfd1",
+      "mat-11ef8135f725541931950349c82a5146"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P216–P217",
+    "table_title": "采购商品/接受劳务情况表",
+    "unit": "千元",
+    "header_evidence_id": "f24d88eb4c65b96d21bed9bf197daeb0",
+    "body_evidence_ids": [],
+    "continuation_evidence_ids": [
+      "5c3b5449b6322ba3725cb6d054d94a41"
+    ],
+    "headers": [
+      "关联方",
+      "关联交易内容",
+      "本期发生额",
+      "上期发生额"
+    ],
+    "rows": [
+      [
+        "联营企业",
+        "采购商品",
+        "16,355,995",
+        "5,116,890"
+      ],
+      [
+        "联营企业",
+        "采购材料",
+        "11,026,643",
+        "15,846,926"
+      ],
+      [
+        "联营企业",
+        "采购劳务及其他",
+        "299,951",
+        "505,872"
+      ],
+      [
+        "合营企业",
+        "采购商品",
+        "539",
+        "47"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-ba6112db01aabc5322d32737aa11e031",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "限公司",
+    "unit": null,
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "广东邦普循环科技有限",
+      "非同一"
+    ],
+    "rows": [
+      [
+        "公司",
+        "人民币",
+        "132,741 佛山市",
+        "佛山市",
+        "制造业",
+        "69.08%",
+        "控制下"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 7 列 不一致"
+  },
+  {
+    "assembly_id": "asm-dc6c5939dc12685b2e8f8373b7c3eaeb",
+    "context_parent_id": "mat-ebdaf54a45f4400ebcfac002cd05212c",
+    "component_material_ids": [
+      "mat-ebdaf54a45f4400ebcfac002cd05212c"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P218",
+    "table_title": "（2） 应付项目",
+    "unit": "千元",
+    "header_evidence_id": "13692affac2f03cfaf343806db085035",
+    "body_evidence_ids": [
+      "13692affac2f03cfaf343806db085035"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目名称",
+      "关联方",
+      "期末账面余额",
+      "期初账面余额"
+    ],
+    "rows": [
+      [
+        "应付账款",
+        "合营企业",
+        "388",
+        "47"
+      ],
+      [
+        "应付账款",
+        "联营企业",
+        "7,432,522",
+        "6,361,723"
+      ],
+      [
+        "合同负债",
+        "合营企业",
+        "17,213",
+        "72,253"
+      ],
+      [
+        "合同负债",
+        "联营企业",
+        "136,215",
+        "873,234"
+      ],
+      [
+        "其他应付款",
+        "合营企业",
+        "5,423",
+        "2,381"
+      ],
+      [
+        "其他应付款",
+        "联营企业",
+        "173,125",
+        "449,287"
+      ],
+      [
+        "其他应付款",
+        "关联自然人直接或间接控制、或担任",
+        "129,941"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-e6d56f141a1f1e1c8d8e5c79728e8a6c",
+    "context_parent_id": "mat-3ba0d5b3ff59238904a70df459b07145",
+    "component_material_ids": [
+      "mat-3ba0d5b3ff59238904a70df459b07145"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P206",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "cdb9b812323e5812c35cf605df8f7c21",
+    "body_evidence_ids": [
+      "cdb9b812323e5812c35cf605df8f7c21"
+    ],
+    "continuation_evidence_ids": [
+      "cdb9b812323e5812c35cf605df8f7c21"
+    ],
+    "headers": [
+      "项目",
+      "本期发生额",
+      "上期发生额"
+    ],
+    "rows": [
+      [
+        "职工薪酬",
+        "7,561,191",
+        "7,421,248"
+      ],
+      [
+        "材料费",
+        "5,845,226",
+        "5,396,630"
+      ],
+      [
+        "其他",
+        "5,200,339",
+        "5,538,230"
+      ],
+      [
+        "其中：费用化研发支出",
+        "18,606,756",
+        "18,356,108"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "18,606,756",
+      "18,356,108"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-ec174ec0f0484df727b31f324fde0677",
+    "context_parent_id": "mat-0680fb3e738dd8372fd69088d2bd7377",
+    "component_material_ids": [
+      "mat-0680fb3e738dd8372fd69088d2bd7377",
+      "mat-529b518a9bd7d414aaba59a290cbe88a",
+      "mat-40a814b5680b51ae6ed60400ca33cfd1",
+      "mat-11ef8135f725541931950349c82a5146",
+      "mat-ebdaf54a45f4400ebcfac002cd05212c"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P214–P218"
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "section_id": "company",
+  "question_id": "company_business_main",
+  "question": "主营业务、收入/成本/毛利构成与产业链位置；主营业务完全无法确认时阻断章节",
+  "evidence_requirements": [
+    {
+      "requirement_id": "er_comp_business_main",
+      "evidence_kind": "table",
+      "source_classes": [
+        "company_industry"
+      ],
+      "minimum_sources": 1,
+      "freshness_policy": null,
+      "required_fields": [
+        "主营业务",
+        "收入构成",
+        "毛利构成"
+      ]
+    }
+  ],
+  "required_aspects": [
+    "主营业务构成",
+    "各业务收入及收入占比",
+    "各业务成本与毛利构成",
+    "产业链位置",
+    "对应报告期与口径"
+  ]
+}

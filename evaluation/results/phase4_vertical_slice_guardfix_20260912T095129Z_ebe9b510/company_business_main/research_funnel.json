@@ -1,0 +1,14 @@
+{
+  "funnel": {
+    "external_queries": 0,
+    "candidate_urls": 0,
+    "fetched": 0,
+    "snapshotted": 0,
+    "extracted_facts": 0,
+    "validated_facts": 0,
+    "adopted_facts": 0,
+    "loss_reasons": []
+  },
+  "funnel_trace": [],
+  "source_intent": null
+}

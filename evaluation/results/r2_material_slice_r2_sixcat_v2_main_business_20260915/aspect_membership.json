@@ -1,0 +1,28 @@
+{
+  "company_business_main.main_business": {
+    "formal_material_ids": [
+      "mat-80b9941f5e83637f6a0712bccf5d569b",
+      "mat-d399f4dff2920096b85970ef59f9a181"
+    ],
+    "context_candidate_material_ids": [
+      "mat-1e4a0ba1a6beb7dff82f60d6d272c58d",
+      "mat-2157233831cac7e55e9916f39a265663",
+      "mat-2d33aeba3c91e78749b7d92345d6470b",
+      "mat-2fa40563baedfcfa93fce997df5284ab",
+      "mat-306218fd79c626b71e0a9c837a3be0b7",
+      "mat-67b8dde769fc3cb402c05c52528468ef",
+      "mat-cb2038ece73fa2fb6330f2df6d1e3996",
+      "mat-e96418b5ee9b1d3ccf93c3457223dfbb",
+      "mat-fc9ef385f7322f2980701cd36c4d9ccc"
+    ],
+    "outside_boundary_evidence": [
+      "079cd0d80d660e2da39250746c025937",
+      "0de543287aa812c78eb165f694c9580d"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "53c9b3721904922b1afa7cff95d39d22",
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  }
+}

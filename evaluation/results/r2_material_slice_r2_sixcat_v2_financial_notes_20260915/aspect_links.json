@@ -1,0 +1,11 @@
+[
+  {
+    "aspect_id": "company_finance.notes_to_financial_statements",
+    "material_id": "mat-f03ba0cd246adf8b84514b7d7bd5ef66",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ]
+  }
+]

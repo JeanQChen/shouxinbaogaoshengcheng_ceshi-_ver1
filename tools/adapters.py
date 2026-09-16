@@ -209,14 +209,22 @@ SEARCH_TABLES_SPEC = C.ToolSpec(
 # 内部工具
 # ---------------------------------------------------------------------------
 
-def _search_local(company_id: str, query: str, k: int) -> S.EvidencePack:
+def _search_local(company_id: str, query: str, k: int, *,
+                  ev_db: Path | None = None, chroma_dir: Path | None = None,
+                  sparse_dir: Path | None = None, manifest_dir: Path | None = None,
+                  model=None) -> S.EvidencePack:
     """经 retriever_v2 执行一次本地 hybrid 检索（不直连 Chroma，保留 Trace）。
 
     懒加载 retriever_v2（重依赖：BGE-M3 / chromadb），避免 DB 工具路径被迫加载。
+    ``ev_db`` 非 None 时走 evaluation-only 只读发现路径（R2 item 五）：Evidence 块从只读
+    SQLite 读、skip financial、不 init_db / 不改 ``estore._db_path``。
     """
     from retrieval import retriever_v2
 
-    context = routing_context.build_route_context(company_id)
+    if ev_db is not None:
+        context = _readonly_evidence_route_context(company_id)
+    else:
+        context = routing_context.build_route_context(company_id)
     need = S.InformationNeed(
         need_id="tool-" + uuid.uuid4().hex[:12], section_id="tool_harness",
         question=query, required_evidence_types=[], required_source_types=[],
@@ -231,7 +239,25 @@ def _search_local(company_id: str, query: str, k: int) -> S.EvidencePack:
         need_id=need.need_id, route=_SEARCH_ROUTE, reason_code=_SEARCH_REASON_CODE,
         filters={}, budget=budget, fallback_routes=[], decided_by="rule",
         rule_version=S.RULE_VERSION, confidence="high")
-    return retriever_v2.retrieve(need, decision, context)
+    return retriever_v2.retrieve(need, decision, context, ev_db=ev_db,
+                                 chroma_dir=chroma_dir, sparse_dir=sparse_dir,
+                                 manifest_dir=manifest_dir, model=model)
+
+
+def _readonly_evidence_route_context(company_id: str) -> S.RouteContext:
+    """evaluation-only 只读发现的 evidence-only RouteContext（skip financial，R2 item 五）。
+
+    不解析 financial snapshot、不触碰 fstore；DB 能力/可用清单全空（fail-closed）。仅用于
+    local Evidence 检索（retriever 的 hybrid 路径不消费 DB 清单，只用 company_id）。
+    """
+    return S.RouteContext(
+        company_id=company_id, report_as_of=None,
+        available_document_ids=[], available_source_types=[],
+        supported_db_fields=[], supported_metric_ids=[],
+        available_db_fields=[], available_metric_ids=[],
+        external_research_enabled=False,
+        scope=_DEFAULT_SCOPE, currency=_DEFAULT_CURRENCY, purpose=_DEFAULT_PURPOSE,
+        available_periods=[], snapshot_id=None)
 
 
 def _pack_to_result(pack: S.EvidencePack, *, evidence_filter: tuple[str, ...] | None = None
@@ -673,6 +699,43 @@ def build_default_registry(audit_dir: Path | str = R.DEFAULT_AUDIT_DIR) -> R.Too
     reg.register(COMPARE_FINANCIAL_PERIODS_SPEC, _compare_financial_periods_executor)
     reg.register(SEARCH_TABLES_SPEC, _search_tables_executor)
     ext.register_external_tools(reg)
+    return reg
+
+
+def build_readonly_discovery_registry(*, ev_db: Path, chroma_dir: Path,
+                                      sparse_dir: Path, manifest_dir: Path,
+                                      audit_dir: Path | str = R.DEFAULT_AUDIT_DIR,
+                                      model=None) -> R.ToolRegistry:
+    """evaluation-only 只读发现注册表（R2 item 五）。
+
+    复用正式 ``search_evidence``/``search_tables`` ToolSpec + 现有 ToolRegistry；executor 绑定
+    只读 evidence DB + 索引/向量路径（不 init_db、不改 ``estore._db_path``、不联网、零博查）。
+    不注册财务/外部工具（发现路径 skip financial）。缺库/缺索引/版本不符 → 检索失败 fail-closed。
+    ``model`` 仅供 eval 注入 mock embedding（生产走 None → BGE-M3 懒加载）。
+    """
+    reg = R.ToolRegistry(audit_dir=audit_dir)
+
+    def _search_evidence_ro(args: dict) -> C.ToolResult:
+        pack = _search_local(args["company_id"], args["query"], args.get("k", 5),
+                             ev_db=ev_db, chroma_dir=chroma_dir,
+                             sparse_dir=sparse_dir, manifest_dir=manifest_dir,
+                             model=model)
+        return _pack_to_result(pack)
+
+    def _search_tables_ro(args: dict) -> C.ToolResult:
+        pack = _search_local(args["company_id"], args["query"], args.get("k", 5),
+                             ev_db=ev_db, chroma_dir=chroma_dir,
+                             sparse_dir=sparse_dir, manifest_dir=manifest_dir,
+                             model=model)
+        return _pack_to_result(pack, evidence_filter=("table", "table_row"))
+
+    reg.register(SEARCH_EVIDENCE_SPEC, _search_evidence_ro)
+    reg.register(SEARCH_TABLES_SPEC, _search_tables_ro)
+    # seed 身份解析工具（正式 ToolSpec，只读 evidence DB）：发现路径的候选必须经此复验完整
+    # 身份（document_id/document_version/evidence_set_version/page/block/section/content_hash），
+    # 缺身份/非 current/哈希不符 → fail-closed。懒导入避免顶层循环依赖。
+    from harness.evidence_reader import register_resolve_seed_identity_tool
+    register_resolve_seed_identity_tool(reg, db_path=ev_db)
     return reg
 
 

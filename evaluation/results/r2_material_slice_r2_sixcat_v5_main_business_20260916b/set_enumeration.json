@@ -1,0 +1,124 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失); table:5-12:recovered_partial(多行表头（>2）无法可靠合并); title:(三)各业务板块经营情况:target_not_obtained(通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失); title:(1)整体情况:target_not_obtained(通用表题 '（1）整体情况' 在恢复结果中缺失)",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "source_boundary": "主营业务情况",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "source_object_inventory 未逐项闭合: title:(二)主营业务情况:target_not_obtained(通用表题 '（二）主营业务情况' 在恢复结果中缺失); table:5-12:recovered_partial(多行表头（>2）无法可靠合并); title:(三)各业务板块经营情况:target_not_obtained(通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失); title:(1)整体情况:target_not_obtained(通用表题 '（1）整体情况' 在恢复结果中缺失)",
+          "source_object_inventory": {
+            "version": "1",
+            "aspect_id": "company_business_main.main_business",
+            "expected_source_objects": [
+              {
+                "object_id": "title:(二)主营业务情况",
+                "kind": "table_start_signal",
+                "label": "（二）主营业务情况",
+                "source_text_index": 0,
+                "line_index": 0
+              },
+              {
+                "object_id": "table:5-10",
+                "kind": "table_number",
+                "label": "表 5-10发行人主营业务收入构成表",
+                "source_text_index": 0,
+                "line_index": 3
+              },
+              {
+                "object_id": "table:5-11",
+                "kind": "table_number",
+                "label": "表 5-11发行人主营业务成本构成表",
+                "source_text_index": 0,
+                "line_index": 33
+              },
+              {
+                "object_id": "table:5-12",
+                "kind": "table_number",
+                "label": "表5-12发行人主营业务毛利润及毛利率构成表",
+                "source_text_index": 1,
+                "line_index": 13
+              },
+              {
+                "object_id": "title:(三)各业务板块经营情况",
+                "kind": "table_start_signal",
+                "label": "（三）各业务板块经营情况",
+                "source_text_index": 1,
+                "line_index": 32
+              },
+              {
+                "object_id": "title:(1)整体情况",
+                "kind": "table_start_signal",
+                "label": "（1）整体情况",
+                "source_text_index": 1,
+                "line_index": 35
+              }
+            ],
+            "recovery_results": [
+              {
+                "object_id": "title:(二)主营业务情况",
+                "result": "target_not_obtained",
+                "matched_table": "",
+                "issue": "通用表题 '（二）主营业务情况' 在恢复结果中缺失"
+              },
+              {
+                "object_id": "table:5-10",
+                "result": "recovered_ok",
+                "matched_table": "表 5-10发行人主营业务收入构成表",
+                "issue": ""
+              },
+              {
+                "object_id": "table:5-11",
+                "result": "recovered_ok",
+                "matched_table": "表 5-11发行人主营业务成本构成表",
+                "issue": ""
+              },
+              {
+                "object_id": "table:5-12",
+                "result": "recovered_partial",
+                "matched_table": "表5-12发行人主营业务毛利润及毛利率构成表",
+                "issue": "多行表头（>2）无法可靠合并"
+              },
+              {
+                "object_id": "title:(三)各业务板块经营情况",
+                "result": "target_not_obtained",
+                "matched_table": "",
+                "issue": "通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失"
+              },
+              {
+                "object_id": "title:(1)整体情况",
+                "result": "target_not_obtained",
+                "matched_table": "",
+                "issue": "通用表题 '（1）整体情况' 在恢复结果中缺失"
+              }
+            ],
+            "unmatched_recovered_tables": []
+          }
+        }
+      }
+    ]
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

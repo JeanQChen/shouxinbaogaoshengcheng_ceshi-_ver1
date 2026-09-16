@@ -1,0 +1,32 @@
+{
+  "boundary_disposition_version": "1",
+  "decisions": [
+    {
+      "evidence_id": "2109887f173b802cef307a5328356ead",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 1,
+      "block_index": 0,
+      "section_path": [
+        "主营业务分析"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "ec2b4f5ab3e084472f263b05da2f3c4a505653ed1517bf515d657c37346cdd0b",
+      "document_id": "NDSD_DEMO",
+      "document_version": "v-demo-001",
+      "evidence_set_version": "set-demo-1",
+      "seed_section_path": [
+        "主营业务分析"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "2109887f173b802cef307a5328356ead"
+    }
+  ]
+}

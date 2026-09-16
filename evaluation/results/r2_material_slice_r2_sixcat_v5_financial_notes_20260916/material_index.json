@@ -1,0 +1,407 @@
+[
+  {
+    "material_id": "mat-ee55c04fe4f0aebd9df0f7f432f2d779",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:d4d2aa0a0e42a553e9fe95c29d653628",
+    "component_evidence_id": "d4d2aa0a0e42a553e9fe95c29d653628",
+    "source_content_hash": "fba0f5cd6337bdf47aed7452fd8784375977e745183b1136c59ec8f5d154987e",
+    "payload_hash": "83c6aa7b2b2090010e3f43936f4832fcfde38e48b36e9ddb34bb93a39e9f9ac5",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年 10 月，财政部发布《企业会计准则解释第 17 号》（财会〔2023〕21  号）（以下简称“解…",
+    "page": 162,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-34ba40bc8b93bb2e178b04bf1cf34220",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b517c63666b8a0d1a4d1e870189af09a",
+    "component_evidence_id": "b517c63666b8a0d1a4d1e870189af09a",
+    "source_content_hash": "d813fd30568476bb774deb16252dbcb66cc68cfc18a3485c3ae045c4bee6f86c",
+    "payload_hash": "c3dafeb1d52fa74719709c2e0e74912df329fff492a7003e7269a914a3aed8d1",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年 10 月，财政部发布《企业会计准则解释第 17 号》（财会〔2023〕21  号）（以下简称“解…",
+    "page": 163,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-d4c94189b8b3feec64c4a0efd8813cfe",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:a360e346127808b0471760c8da8cc2fd",
+    "component_evidence_id": "a360e346127808b0471760c8da8cc2fd",
+    "source_content_hash": "a44540489a9d8a47d6fc47dadd10317a0b0b1471ab3cd3a573ff0f5e5734ec56",
+    "payload_hash": "e28e21f146f7f04e6db7361831bb3bfa70b867b39573fe83e886e3416465f948",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年 10 月，财政部发布《企业会计准则解释第 17 号》（财会〔2023〕21  号）（以下简称“解…",
+    "page": 163,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:e6b14793486ce974a8291e94f1489b05",
+    "component_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+    "payload_hash": "24a81785e7b8fae1e4139c76678f1e74ab642de22b7e64420e23a4ee762f8129",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "合并财务报表项目注释",
+    "page": 166,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-6a858c02a9226b31a56d4dd81aa546e5",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:3a11aad05be81c8848610941c1dcf8fa",
+    "component_evidence_id": "3a11aad05be81c8848610941c1dcf8fa",
+    "source_content_hash": "5da68a5195a65793e0ac65b086220f058eb861590dbdcf8ac2f7ac4bf6f8a22e",
+    "payload_hash": "7ecc6f7160409743cabaeccea26b429c7a9c0d2317dd310b64540a883b677f7e",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  64,578,043  64,337,084",
+    "page": 167,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-a2c9a62e8a54147457b6678de66fdd31",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:9871967c234ff60054d05026a4bdfdfd",
+    "component_evidence_id": "9871967c234ff60054d05026a4bdfdfd",
+    "source_content_hash": "8e29e896d0909480de6561fab83e7808b4573553980449b263adf9b000f53277",
+    "payload_hash": "161242710384869acd7c1247c1895f72b5a55db76e320b7a61600660ccbd3cb2",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  64,578,043  64,337,084",
+    "page": 168,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-13cb6dc20082053978d9d1df44f862e8",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:fd526dd25edec2e2ee342325c508d404",
+    "component_evidence_id": "fd526dd25edec2e2ee342325c508d404",
+    "source_content_hash": "1289af673bb79b6d5b55d8ddb54249372fa44c4765b24525b52eafafb7aec116",
+    "payload_hash": "27f5e60630c0f6424c86583a90732930e296f13486390c66343e2e79f3e3da36",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  64,578,043  64,337,084",
+    "page": 169,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-3e9367762df9b629018ed7fb9ec13754",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:e860159f5b33417d2d9759e450879801",
+    "component_evidence_id": "e860159f5b33417d2d9759e450879801",
+    "source_content_hash": "d3d6f2508b4ddedc779a2a2ab1a06fa9b25e6f600bf331266a07cf19d1070884",
+    "payload_hash": "502ec14806e569c5e54c10dc73db20617b5edf4385b51025effc595cccfc59b0",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  64,578,043  64,337,084",
+    "page": 170,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:0e07d55cdd98a15f4789f04865359597",
+    "component_evidence_id": "0e07d55cdd98a15f4789f04865359597",
+    "source_content_hash": "92f2fc18a26ba8ce9b42ba776ca7f263fb17f1ac962f19307e132caa9ed8754b",
+    "payload_hash": "8a9aa9af036623f458591dea16d4f378b88a352b765ed64e8036411a4a82fe31",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 171,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:2dd5a621b5b40a8bfc337d1afbfeac54",
+    "component_evidence_id": "2dd5a621b5b40a8bfc337d1afbfeac54",
+    "source_content_hash": "ef07b0ee7b56f3398251549d8db2872d4d62fa47de3bca1b4ae1c3fc490ffdca",
+    "payload_hash": "b4471cd26387de1ae42a7b836925306b02f2d12c3fc00980769d0db48a30b537",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 172,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-5eaa00c66bc0d9e4162e66b73cc32547",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:0a4cc683d60904f1dc23e03457c96241",
+    "component_evidence_id": "0a4cc683d60904f1dc23e03457c96241",
+    "source_content_hash": "8d17f43465308eb80d323d2dfeba24c27f540e437ef40fd2de65129f86fdd1b1",
+    "payload_hash": "e2d48fee5db58f9abdca6ec16f6f20383a565e916c47cc4b30d89fc93a911657",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 173,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-377fcda630a5484eb18bed6e4478ae5b",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:2f06f090758db7e5a9b393e9c71ff346",
+    "component_evidence_id": "2f06f090758db7e5a9b393e9c71ff346",
+    "source_content_hash": "4ec380f7aca509b476cc2815a0840a8f33631a7c827c2ae29a2caff27049fb78",
+    "payload_hash": "f3d3a1ee86c4fa7dfcb24151ff0af802882eb0f6caf51df10d1b398732a671d5",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 174,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-a244a3560419786e28e59e407bd04c67",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:594134f7d30a33e63dff917f9209075b",
+    "component_evidence_id": "594134f7d30a33e63dff917f9209075b",
+    "source_content_hash": "19bd40846c4fd5badcb71b1c00ad6da67551b5ed827a662ea045547a52bcf91c",
+    "payload_hash": "84cfab4976ae3d621b677ac36f18e4c465a408578fbf5f9acc1c1363765c1bd9",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 174,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "inside_boundary",
+    "boundary_reason_code": "same_section_continuity",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-b1bd6df27d68aa7569794eb89bdeb814",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:5485690eee120fccb418c079c728046c",
+    "component_evidence_id": "5485690eee120fccb418c079c728046c",
+    "source_content_hash": "a7fd3855408c430200e49ebb0ccd35e82cbf8ff07d9ea402905474b373f169e7",
+    "payload_hash": "208390348d1ed56f1c6ee2d229dddab5d991f93ce678cb360274361416cf8d03",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 175,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  },
+  {
+    "material_id": "mat-41c69464b4d309559a86eb5fc1c61990",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:169f998e23dfd417180438d657387bfe",
+    "component_evidence_id": "169f998e23dfd417180438d657387bfe",
+    "source_content_hash": "08363c3cb34801c1e943231579b028c1eb816ea8b13ec3f8a1d7809404b5ce20",
+    "payload_hash": "bd00758ff9a5a8036e283a03dd1fdfe9e26e82ab4d03fe23f6fe1ff24f5e649b",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "年以内（含  1 年）  1,061,727  2,496,698",
+    "page": 176,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  }
+]

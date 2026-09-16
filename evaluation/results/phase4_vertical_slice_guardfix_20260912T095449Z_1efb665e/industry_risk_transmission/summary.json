@@ -1,0 +1,175 @@
+{
+  "sample": "industry_risk_transmission",
+  "pack_id": "pack_c16eaba755ed0ffc25af8bfbd3a91031",
+  "matrix": [
+    {
+      "aspect_id": "asp_6199d3f44034acd7b8e35b9f",
+      "aspect_text": "对收入的传导",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0 adopted=0 rejected_policy=0"
+    },
+    {
+      "aspect_id": "asp_3ff7d5f08f68de9d8630070f",
+      "aspect_text": "对成本与资本开支的传导",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0 adopted=0 rejected_policy=0"
+    },
+    {
+      "aspect_id": "asp_c6e159241683267629b07310",
+      "aspect_text": "对现金流与偿债能力的传导",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0 adopted=0 rejected_policy=0"
+    }
+  ],
+  "funnel": {
+    "external_queries": 3,
+    "candidate_urls": 15,
+    "fetched": 0,
+    "snapshotted": 0,
+    "extracted_facts": 0,
+    "validated_facts": 0,
+    "adopted_facts": 0,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ]
+    ]
+  },
+  "external_source_count": 0,
+  "external_fact_count": 0,
+  "adopted_fact_count": 0,
+  "adopted_fact_ids": [],
+  "adopted_facts": [],
+  "rejected_facts": [],
+  "rejected_sources": [],
+  "funnel_trace": [
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/gyhxxhb/jgsj/xfpgys/gzdt/art/2021/art_d55e6db7e4e54fc2ac2747ea3d80ef25.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 对收入的传导",
+      "title": "2020年1-12月电池行业运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/gxsj/tjfx/xfpgy/qg/art/2021/art_d373d6c61e774ee9b10fb75c19272899.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 对收入的传导",
+      "title": "2020年1－12月电池行业运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://www.miit.gov.cn/jgsj/xfpgys/qg/art/2021/art_4b2371152a864633b390f01783677b00.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 对收入的传导",
+      "title": "2021年1-3月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/gxsj/tjfx/xfpgy/qg/art/2021/art_2504bb2e846f482b953239659525d8d1.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 对收入的传导",
+      "title": "2021年1－8月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://static.cninfo.com.cn/finalpage/2019-06-12/1206346904.PDF",
+      "source_grade": "B",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 对收入的传导",
+      "title": "无标题"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 对成本与资本开支的传导",
+      "title": "【动力电池“退役潮”接踵而至 建立科学规范的回收体系刻不容缓】-国家发展和改革委员会"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://static.cninfo.com.cn/finalpage/2019-06-12/1206346904.PDF",
+      "source_grade": "B",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 对现金流与偿债能力的传导",
+      "title": "无标题"
+    }
+  ],
+  "source_intent": {
+    "include": "gov.cn|ndrc.gov.cn|miit.gov.cn|pbc.gov.cn|cninfo.com.cn",
+    "exclude": null
+  },
+  "transmission_chain": [
+    "行业驱动事实（外部，已采纳）：0 条",
+    "公司暴露事实（本地收入/成本结构，已采纳）：30 条",
+    "双支撑满足：否 → DATA_GAP"
+  ],
+  "exposure_fact_count": 30
+}

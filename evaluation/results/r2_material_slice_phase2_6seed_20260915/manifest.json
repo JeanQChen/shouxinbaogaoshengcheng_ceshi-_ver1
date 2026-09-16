@@ -1,0 +1,126 @@
+{
+  "slice_version": "r2-material-slice-v1",
+  "run_id": "phase2_6seed_20260915",
+  "company_id": "300750",
+  "runner": "harness.material_slice_runner",
+  "seed_selection": {
+    "decision_source": "CODEX_REVIEW",
+    "total_candidates": 15,
+    "confirmed": 6,
+    "rejected": 9,
+    "confirmed_manifest_fingerprint": "026bc33d53b91d5dcf6321429c3e4b5d2e5ec516173a9aebbaffa320c54dfcee",
+    "note": "选种裁决为 evaluation seed selection，非业务事实裁决；不改变任何 Evidence/Pack 的 authority/status"
+  },
+  "seeds": [
+    {
+      "case_id": "candidate-1",
+      "aspect_id": "company_business_main.main_business",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "page_number": 50,
+      "resolved": true,
+      "material_count": 5,
+      "stop_reason": "unrelated section boundary"
+    },
+    {
+      "case_id": "candidate-3",
+      "aspect_id": "company_business_main.main_business",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "page_number": 51,
+      "resolved": true,
+      "material_count": 6,
+      "stop_reason": "unrelated section boundary"
+    },
+    {
+      "case_id": "candidate-7",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "page_number": 59,
+      "resolved": true,
+      "material_count": 1,
+      "stop_reason": "unrelated section boundary"
+    },
+    {
+      "case_id": "candidate-8",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "page_number": 20,
+      "resolved": true,
+      "material_count": 6,
+      "stop_reason": "hard budget (per_seed_cap)"
+    },
+    {
+      "case_id": "candidate-13",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "page_number": 41,
+      "resolved": true,
+      "material_count": 3,
+      "stop_reason": "unrelated section boundary",
+      "note": "异常 section_path（表格行摊平文本），保留为扩读边界压力样本"
+    },
+    {
+      "case_id": "candidate-15",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "page_number": 208,
+      "resolved": true,
+      "material_count": 5,
+      "stop_reason": "unrelated section boundary"
+    }
+  ],
+  "material_counts": {
+    "total_unique_materials": 21,
+    "total_seed_material_refs": 26,
+    "assemblies": 5,
+    "payload_files": 21,
+    "per_aspect": {
+      "company_business_main.main_business": 6,
+      "company_competitiveness.core_competitiveness": 7,
+      "company_subsidiaries.major_subsidiaries": 8
+    }
+  },
+  "aspect_coverage": {
+    "company_business_main.main_business": "boundary_incomplete",
+    "company_competitiveness.core_competitiveness": "boundary_incomplete",
+    "company_subsidiaries.major_subsidiaries": "boundary_incomplete"
+  },
+  "set_enumeration": {
+    "company_subsidiaries.major_subsidiaries": {
+      "material_type_supported": false,
+      "reason": "枚举边界未闭合: 边界内仍有未读候选 8080da6dbede07c335162abe5d6535a7"
+    },
+    "company_business_main.main_business": {
+      "material_type_supported": false,
+      "reason": "枚举边界未闭合: 边界内仍有未读候选 079cd0d80d660e2da39250746c025937"
+    },
+    "company_competitiveness.core_competitiveness": {
+      "material_type_supported": false,
+      "reason": "枚举边界未闭合: 预算耗尽提前停止"
+    }
+  },
+  "structured_table": {
+    "search_tables": "UNSUPPORTED_FOR_DOCUMENT",
+    "seed_evidence_types": ["paragraph", "paragraph", "paragraph", "paragraph", "paragraph", "paragraph"],
+    "verified": "prose/textual-table-fragment expansion/dedup/persistence",
+    "not_verified": "real table/table_row/cross-page structured continuation/row-set enumeration",
+    "note": "表格以段落摊平文本存在，不宣称结构化表格能力通过"
+  },
+  "evidence_db": {
+    "unchanged": true,
+    "sha256": "c413118f3c54ee0a68ae2205ff9704642c22e75ae9ac188a59c3e824727c3727",
+    "size_bytes": 2367488,
+    "mtime": "2026-09-08T12:11:55.520128300+0800"
+  }
+}

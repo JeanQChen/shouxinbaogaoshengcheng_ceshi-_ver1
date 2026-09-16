@@ -1,0 +1,969 @@
+执行“R2 既有能力正式接线与验收纠错”。这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。
+
+不得重新写实施计划，不得只修改测试以适应当前输出。
+
+## 一、边界与工作区保护
+
+1. 以当前未提交工作区为基础，先执行 `git status --short`。
+2. 禁止 reset、checkout、stash、删除或覆盖现有结果。
+3. 不修改冻结 Contract、SourcePolicy、WritingSpec、PresentationProfile。
+4. 不进入R3/R4/R5，不接正式全量调度，不生成报告正文。
+5. 零LLM、零博查、零网络；不初始化、迁移或写入Evidence/Financial DB。
+6. 生产代码不得出现300750、公司名、固定页码、表号、evidence_id或本案例金额。
+7. 本轮不commit、不执行`git add .`。
+8. 不得再次以测试数量、类型存在或字段非空作为完成证明；必须以真实v5产物的一致性为最终依据。
+
+## 二、先固化当前失败反例
+
+编码前先补能稳定复现以下问题的失败测试，随后再修实现：
+
+1. 主营业务v4中P46–P49高管名单及履历仍进入`context_candidate`。
+2. `outside_boundary_sentinel`仍出现在`aspect_links`。
+3. 主营业务`material_type_supported=false`、`source_object_inventory=null`，但六类验收仍为`accepted`。
+4. 原材料含表5-11、表5-12，但assemblies缺失二者仍可通过。
+5. 财务附注31个continuation proof全部`valid=false`仍被判`accepted`。
+6. 任意伪造的evidence_id、文本及两个不同64位hex仍能通过`recompute_authority`。
+7. non-accepted类别的`failed_gates=[]`。
+8. unread记录`reason=budget`但`stop_reason=unrelated section boundary`仍可通过。
+
+测试必须先证明当前实现会失败，不得直接构造一个与正式产物结构不同的简化对象来自证。
+
+## 三、修复A：边界识别与方向回滚
+
+### 1. 115个aspect覆盖不能只代表“生成了关键词”
+
+保留Contract/WritingSpec派生机制，但必须区分：
+
+- `policy_generated`
+- `boundary_semantics_verified`
+- `boundary_policy_unavailable`
+
+不能因为某aspect有非空关键词就称为`executable`。
+
+覆盖审计至少应验证每个topic的：
+
+- 主题内结构信号；
+- 相邻主题/小节的主题外结构信号；
+- 未识别标题时的fail-closed行为；
+- policy身份绑定Contract及WritingSpec真实内容指纹，而不只是关键词结果。
+
+无法可靠派生的aspect保持`boundary_policy_unavailable → boundary_incomplete`。
+
+### 2. 实现向后扩读回滚
+
+向后从seed扩读时，允许临时缓存尚未确定归属的块，但如果随后发现属于上一章节的标题或结构边界：
+
+- 撤回该边界至seed之间属于上一章节的暂存块；
+- 这些块只留在boundary trace；
+- 不得进入material、context association或aspect links；
+- 不得仅依靠“当时已经adopted”永久保留。
+
+真实主营业务v5必须证明P46–P49高管材料全部不再关联到`main_business`。禁止按页码或文本硬编码。
+
+### 3. fragment与raw sentinel分离
+
+混合块中边界前的主题相关前缀可以形成独立`fragment_projection`材料，但必须：
+
+- 使用独立material identity及offset；
+- link disposition明确为`fragment_projection`或等价独立状态；
+- 原始完整block继续作为`outside_boundary_sentinel`保留在审计轨迹；
+- raw sentinel本身不得进入formal/context links。
+
+## 四、修复B：SourceObjectInventory成为材料管线硬门
+
+当前inventory只在main_business枚举分支且boundary proof通过后才运行，真实v4因此得到`source_object_inventory=null`。必须调整为：
+
+1. 在材料边界确定后、表格恢复和set enumeration之前，对全部边界内formal+context材料建立源对象清单；排除sentinel/rejected/unread。
+2. 即使boundary proof最终不闭合，也必须生成并持久化inventory，不得提前return导致`null`。
+3. 输出独立`source_object_inventory.json`，六类验收器必须读取。
+4. 每个源对象必须唯一对应：
+   - `recovered_ok`
+   - `recovered_partial`
+   - `recovery_failed`
+   - `target_not_obtained`
+5. 所有恢复出的assembly也必须反向对应一个源对象；缺失、重复、清单外assembly均失败。
+6. 先识别continuation，再识别普通table number，避免“表5-10（续）”被当作普通表。
+7. 显式cross-reference不得无条件`recovered_ok`；只有目标被真实解析、读取并绑定后才成功，dangling必须`target_not_obtained`。
+8. continuation不能仅因目标主表存在就成功，必须绑定真实continuation proof。
+
+主营业务真实v5中，源材料检测到的表5-10、5-11、5-12、5-13、5-14必须逐项有结果。表号仅用于evaluation断言，生产逻辑必须通用。
+
+如果5-11或5-12仍恢复失败，应如实使主营业务`boundary_incomplete`，不得隐藏它们后继续accepted。
+
+## 五、修复C：正式验收只认有效同表续页证明
+
+保留现有`TableContinuationProof`类型，但修正接线：
+
+1. `financial_notes.cross_block_continuation`只能由至少一个`continuation_proof.valid == true`通过。
+2. 删除`len(src_blocks)>=2 or len(src_pages)>=2`代理判断。
+3. header evidence不得同时出现在其自身continuation evidence中。
+4. continuation必须来自不同block，跨页要求不同page。
+5. 必须校验同一规范化表格身份、标题、单位、列结构和行列连续性。
+6. 多张独立表分布于不同页不能冒充同表续页。
+7. `recovery_status=failed`的assembly不能提供continuation能力证明。
+8. 没有真实有效续页时，财务附注保持`boundary_incomplete`或`sample_not_obtained`，不得accepted。
+
+## 六、修复D：六类验收器真正重新计算
+
+`verify_category`必须读取并对账：
+
+- seed_manifest
+- resolved_seed_manifest
+- material_index
+- payload_preview
+- aspect_links
+- aspect_membership
+- assemblies
+- source_object_inventory
+- set_enumeration
+- boundary_decisions
+- unread_scope
+- budget_profile
+- expansion_trace
+
+不得只检查字段形状。
+
+具体要求：
+
+1. seed与resolved逐条比较公司、文档、版本、集合版本、evidence_id、content hash及manifest fingerprint。
+2. 使用正式payload resolver/信封校验逻辑重新计算：
+   - payload hash
+   - source content hash
+   - evidence identity
+   - material identity
+   - locator和dependency identity
+3. 任一payload缺失、坏JSON、身份或hash不符必须fail-closed，不得跳过。
+4. assembly_id必须唯一，并按正式内容寻址算法重算；所有component material必须存在。
+5. source inventory必须与assemblies一一对应。
+6. raw sentinel不得出现在aspect links或membership。
+7. unread、boundary decision、预算消费、stop reason必须一致。
+8. 目标aspect的`material_type_supported=false`必须形成失败gate；不得只在reason含“多document_version”时才算不完整。
+9. 空dict不得因`all([])==True`通过。
+10. 每个`boundary_incomplete`或`sample_not_obtained`必须至少有一个结构化failed gate。
+11. accepted只能由全部必需gate通过派生，不能由reason字符串或runner自报状态派生。
+12. artifact fingerprint必须绑定全部被验收产物的规范内容，而不是只绑定计数摘要。
+
+## 七、修复E：授信事实使用正式权威链
+
+### 1. 禁止复制弱化authority校验
+
+删除或废弃当前只验证`authority_verdict`和64位字符串形状的弱校验。直接复用R2 Store/payload resolver的正式信封与身份验证能力。
+
+事实提取前必须真正验证：
+
+- payload bytes的sha256；
+- envelope中的source_content_hash；
+- `evidence.ids.content_hash`；
+-正式evidence_id算法；
+- material_id；
+- document/current-set身份；
+- locator；
+- authority assessment。
+
+完全伪造的ID、文本及`c*64/d*64`必须失败。
+
+### 2. 生成器fail-closed并过滤材料
+
+`_read_materials`不得对坏entry或缺payload静默continue。必须失败并记录原因。
+
+只允许消费：
+
+- 与目标credit aspects明确关联；
+- 非sentinel；
+- 非unread/rejected；
+- authority重新验证通过的材料。
+
+### 3. 补齐四类授信语义
+
+通用提取器必须支持：
+
+- `actual_granted_total_credit_line`
+- `authorized_application_ceiling`
+- `used_credit`
+- `unused_credit`
+
+如果材料明确披露实际获批总授信额，必须能够提取；不能让`total_credit_line`永久只能是`not_obtained`。
+
+### 4. 清除样例金额硬编码
+
+从`harness/credit_semantics.py`的通用运行逻辑、reason及hard rules中移除6000亿、2918.37亿、3655亿等案例金额。提示文本应引用输入的semantic type/value或使用通用措辞。
+
+### 5. 完整口径对账
+
+used/unused可比性至少比较：
+
+- entity scope
+- facility scope
+- consolidation scope
+- currency
+- as_of/period
+
+来源文档可以不同，但口径、币种和时点必须可比。跨期或跨币种不得返回`reconciled`。
+
+完整日期必须保留真实年月日，禁止统一改成`YYYY-12-31`。
+
+同期间多值冲突应保留“来源权威有效但事实冲突”的状态，不得因缺`authority_valid`字段降成authority failure。
+
+## 八、必须新增的反例
+
+至少覆盖：
+
+1. 向后发现前一章节后撤回已暂存材料；
+2. fragment可关联、raw sentinel不可关联；
+3. source inventory在boundary proof失败时仍生成；
+4. 表标记存在但assembly缺失；
+5. “表X（续）”不误作普通主表；
+6. dangling“详见表X”不得recovered_ok；
+7. 多张独立跨页表不能通过continuation；
+8. 有效同表跨页proof可以通过；
+9. `material_type_supported=false`不能accepted；
+10. payload文本被篡改但hash字段未改；
+11.伪造64位hash与authority verdict；
+12.缺payload文件；
+13. sentinel中包含授信措辞也不得提取；
+14.实际获批总授信额可以识别；
+15. used=2025/CNY、unused=2024/USD不得reconciled；
+16. 2025-06-30必须保持2025-06-30；
+17. non-accepted必须带failed gate；
+18. unread/budget/stop reason矛盾必须失败。
+
+## 九、真实v5验收
+
+专项测试通过后，用全新run_id和全新v5目录重新生成：
+
+- main_business
+- financial_notes
+- core_competitiveness
+- major_subsidiaries
+- explicit_cross_reference
+- non-300750 fixture
+- credit semantics preview
+
+不得覆盖v2/v3/v4目录。
+
+真实结果不要求全部accepted，但必须完全自洽：
+
+- main_business若仍存在未读或源表恢复失败，就保持boundary_incomplete；
+- financial_notes若没有`valid=true`的同表续页证明，就不得accepted；
+- explicit reference目标仍不存在就保持sample_not_obtained；
+- 所有非通过状态必须有failed gates。
+
+先跑专项测试，最后只跑一次：
+
+`python -m evals.run_evals`
+
+## 十、停止报告
+
+完成后报告：
+
+1. 修改文件；
+2. 18项反例逐项结果；
+3. 115个aspect的`policy_generated / semantics_verified / unavailable`分布；
+4. 主营业务P46–P49是否全部退出关联；
+5. sentinel与fragment的分别落点；
+6. 源对象清单逐表结果；
+7. 财务附注有效continuation proof数量及组件；
+8. 六类v5真实裁决与failed gates；
+9. 授信四类事实及真实provenance；
+10. 伪造authority反例；
+11. used/unused完整口径对账；
+12. 专项与完整eval结果；
+13. git status；
+14. 是否仍有P0/P1；
+15. R2是否满足关闭条件。
+
+不得因为测试全绿自动宣告关闭。完成后立即停止：不commit、不进入R3，等待用户与Codex独立复核。
+
+=====
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+
+   **Active task (Phase 3): "执行'R2 既有能力正式接线与验收纠错'"** — the user's most recent and primary request. This supersedes the prior "R2 全局化边界与独立验收闭环返修" task. Core framing (verbatim): "这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。" (This is NOT a new round of architecture design, NOR adding more types; the core task is to actually wire the already-implemented BoundaryPolicy, SourceObjectInventory, TableContinuationProof, payload validation into the final material and six-category acceptance paths.)
+
+   **开始前边界 (pre-start boundaries) — VERBATIM, still in effect:**
+   - "以当前未提交工作区为基础，先执行 `git status --short`。"
+   - "禁止 reset、checkout、stash、删除或覆盖现有结果。"
+   - "不修改冻结 Contract、SourcePolicy、WritingSpec、PresentationProfile。"
+   - "不进入R3/R4/R5，不接正式全量调度，不生成报告正文。"
+   - "零LLM、零博查、零网络；不初始化、迁移或写入Evidence/Financial DB。"
+   - "生产代码不得出现300750、公司名、固定页码、表号、evidence_id或本案例金额。"
+   - "本轮不commit、不执行`git add .`。"
+   - "不得再次以测试数量、类型存在或字段非空作为完成证明；必须以真实v5产物的一致性为最终依据。"
+   - "不得重新写实施计划，不得只修改测试以适应当前输出。"
+
+   **The task has 10 sections:**
+   - 一、边界与工作区保护 (boundaries above).
+   - 二、先固化当前失败反例 — write failing tests FIRST that stably reproduce 8 problems (listed below), THEN fix implementation.
+   - 三、修复A：边界识别与方向回滚 (3 sub-parts: 115-aspect coverage三态区分; backward expansion rollback; fragment vs raw sentinel separation).
+   - 四、修复B：SourceObjectInventory成为材料管线硬门 (8 sub-requirements).
+   - 五、修复C：正式验收只认有效同表续页证明 (8 sub-requirements).
+   - 六、修复D：六类验收器真正重新计算 (12 sub-requirements; must read & reconcile seed_manifest, resolved_seed_manifest, material_index, payload_preview, aspect_links, aspect_membership, assemblies, source_object_inventory, set_enumeration, boundary_decisions, unread_scope, budget_profile, expansion_trace).
+   - 七、修复E：授信事实使用正式权威链 (5 sub-parts).
+   - 八、必须新增的反例 (18 counter-examples listed).
+   - 九、真实v5验收 (re-run with new run_id + new v5 dirs; "先跑专项测试，最后只跑一次：`python -m evals.run_evals`").
+   - 十、停止报告 (15-item report).
+
+   **The 8 problems to reproduce (section 二):**
+   1. 主营业务v4中P46–P49高管名单及履历仍进入`context_candidate`。
+   2. `outside_boundary_sentinel`仍出现在`aspect_links`。
+   3. 主营业务`material_type_supported=false`、`source_object_inventory=null`，但六类验收仍为`accepted`。
+   4. 原材料含表5-11、表5-12，但assemblies缺失二者仍可通过。
+   5. 财务附注31个continuation proof全部`valid=false`仍被判`accepted`。
+   6. 任意伪造的evidence_id、文本及两个不同64位hex仍能通过`recompute_authority`。
+   7. non-accepted类别的`failed_gates=[]`。
+   8. unread记录`reason=budget`但`stop_reason=unrelated section boundary`仍可通过。
+   - Requirement: "测试必须先证明当前实现会失败，不得直接构造一个与正式产物结构不同的简化对象来自证。"
+
+   **The 18 counter-examples (section 八):**
+   1. 向后发现前一章节后撤回已暂存材料；2. fragment可关联、raw sentinel不可关联；3. source inventory在boundary proof失败时仍生成；4. 表标记存在但assembly缺失；5. "表X（续）"不误作普通主表；6. dangling"详见表X"不得recovered_ok；7. 多张独立跨页表不能通过continuation；8. 有效同表跨页proof可以通过；9. `material_type_supported=false`不能accepted；10. payload文本被篡改但hash字段未改；11. 伪造64位hash与authority verdict；12. 缺payload文件；13. sentinel中包含授信措辞也不得提取；14. 实际获批总授信额可以识别；15. used=2025/CNY、unused=2024/USD不得reconciled；16. 2025-06-30必须保持2025-06-30；17. non-accepted必须带failed gate；18. unread/budget/stop reason矛盾必须失败。
+
+   **The 15-item stop report (section 十):**
+   1. 修改文件；2. 18项反例逐项结果；3. 115个aspect的`policy_generated / semantics_verified / unavailable`分布；4. 主营业务P46–P49是否全部退出关联；5. sentinel与fragment的分别落点；6. 源对象清单逐表结果；7. 财务附注有效continuation proof数量及组件；8. 六类v5真实裁决与failed gates；9. 授信四类事实及真实provenance；10. 伪造authority反例；11. used/unused完整口径对账；12. 专项与完整eval结果；13. git status；14. 是否仍有P0/P1；15. R2是否满足关闭条件。
+   - "不得因为测试全绿自动宣告关闭。完成后立即停止：不commit、不进入R3，等待用户与Codex独立复核。"
+
+2. Key Technical Concepts:
+   - R2 材料构建/受控上下文扩读 (material building / controlled context expansion).
+   - Six-category acceptance (六类验收): main_business, core_competitiveness, major_subsidiaries, financial_notes, explicit_cross_reference, non_300750_fixture.
+   - TopicBoundaryPolicy (topic_boundary.py): `policy_generated` / `boundary_semantics_verified` / `boundary_policy_unavailable` three-state distinction required (Fix A.1).
+   - SourceObjectInventory (source_object_inventory.py): ExpectedSourceObjectInventory, reconcile, source_object_gate, four recovery states (recovered_ok/partial/failed/target_not_obtained).
+   - TableContinuationProof: continuation_proof.valid, normalized_title, header_evidence_id, continuation_evidence_ids, etc.
+   - Fail-closed gates g01-g11 in six_category_acceptance.py.
+   - Credit fact extraction (credit_fact_extraction.py) + credit semantics (credit_semantics.py): dual-axis (authority ⊥ semantic), four semantic types (actual_granted_total_credit_line, authorized_application_ceiling, used_credit, unused_credit).
+   - recompute_authority (currently weak: only shape/verdict checks — must be replaced with formal payload resolver/envelope/identity verification).
+   - Backward expansion rollback (Fix A.2): cache undecided blocks, withdraw to previous-section blocks when discovering prior-section heading/boundary.
+   - FragmentProjection vs raw sentinel separation (Fix A.3).
+   - evidence.ids.content_hash, evidence.ids.make_evidence_id (formal identity algorithms).
+   - Store/payload resolver formal envelope validation.
+
+3. Files and Code Sections:
+
+   - **harness/six_category_acceptance.py** (READ, 468 lines — Fix D target):
+     - `_derive_boundary_incomplete(se)` currently: returns `(False, reason)` when `se.get("material_type_supported")` is True; when False, only returns `(True, ...)` if "多 document_version" in reason, else `(False, reason)`. This is the bug for Problem 3 (material_type_supported=false → not boundary_incomplete → accepted).
+     - `financial_notes.cross_block_continuation` gate currently: `len(src_blocks) >= 2 or len(src_pages) >= 2` (proxy, Problem 5/Fix C.2).
+     - `main_business.table_recovery_ok` gate currently: `len(ok_tables) >= 1 and len(failed_tables) == 0` (Problem 4).
+     - `_derive_verdict` returns `VERDICT_SAMPLE_NOT_OBTAINED` for dangling explicit ref WITHOUT any structured failed gate (Problem 7).
+     - No unread/budget/stop-reason consistency check (Problem 8).
+     - `_FAILCLOSED_GATES` = 11 gates (g01.artifacts_readable ... g11.table_status_explicit).
+     - `verify_category` reads 8 files via `_read_json_failclosed`/`_read_jsonl_failclosed`.
+     - `_canonical_fingerprint(facts)` = sha256 of json.dumps(facts, sort_keys=True).
+
+   - **harness/material_slice_runner.py** (READ lines 1-640, 1080-1419 — Fix A/B/C target):
+     - `run_material_slice` (the main runner); `SET_ASPECTS` = major_subsidiaries/main_business/core_competitiveness.
+     - `_aspect_state` (six-state matrix) — line 624-643.
+     - `_enumerate_set_by_version` (line 646+), `aggregate_per_version_enumeration` (line 754).
+     - `aspect_links` built from `role_by_aspect_material` (lines 1039-1052).
+     - `source_object_inventory` currently only produced inside `_enumerate_business` flattened-table branch; `_write_json(out_dir/"source_object_inventory.json")` does NOT currently exist (it's only embedded in set_enumeration result as `source_object_inventory`).
+     - `boundary_incomplete_aspects |= topic_boundary_unavailable_aspects` (line 1004).
+     - `_assembly_to_dict` includes `continuation_proof` (via `_continuation_proof_to_dict`).
+     - Artifacts written: seed_manifest.json, resolved_seed_manifest.json, seed_discovery_trace.jsonl, expansion_trace.jsonl, unread_scope.json, boundary_decisions.json, aspect_membership.json, set_enumeration.json, topic_boundary_coverage.json, aspect_material_matrix.json, aspect_links.json, budget_profile.json, assemblies.json, material_index.md/.json, payload_preview/*.json.
+
+   - **harness/set_enumeration.py** (READ lines 490-890 — Fix A/B target):
+     - `_enumerate_business(resolved_payloads)` → `tuple[list[str], str|None, dict|None]` returns `source_object_inventory` (3rd element) ONLY in flattened-table branch; returns `None` in structured branches (line 553, 563, 566, 585).
+     - `_enumerate_subsidiaries` returns 2-tuple; `_enumerate_competitiveness` returns 2-tuple (source_object_inventory = None).
+     - `FormalSetEnumerationVerifier.enumerate` (line 805) — dispatches three strategies; `SUPPORTED_SET_ASPECTS`; boundary_proof required (fail-closed if missing).
+     - `derive_enumeration_boundary_proof` (line 660) derives from ExpansionResult/Trace/UnreadScope.
+
+   - **harness/credit_fact_extraction.py** (READ, 256 lines — Fix E target):
+     - `recompute_authority(material)` (line 72): only checks `authority_verdict=="authoritative"` + non-empty identity fields + locator consistency + 64-hex distinct hashes. DOES NOT verify payload bytes sha256, evidence.ids.content_hash, evidence_id algorithm (Problem 6/Fix E.1).
+     - `_period` (line 112): returns `f"{m.group(1)}-12-31"` — coerces full date to YYYY-12-31 (Fix E.5 must preserve YYYY-MM-DD).
+     - `_CREDIT_PATTERNS`: authorized_application_ceiling (`不超过人民币X亿元的综合授信额度`), used_credit (`授信额度已使用X亿`), unused_credit (`尚未使用的银行借款额度为X亿元`). No pattern for `actual_granted_total_credit_line` (Fix E.3).
+     - `extract_credit_facts(materials)`: skips materials where recompute_authority fails; "latest reporting period wins" via `_year_rank`.
+
+   - **harness/credit_semantics.py** (READ, 261 lines — Fix E.4 target):
+     - HARD-CODES case amounts: `successor_changelist()` hard_rules contain "6,000亿 = authorized_application_ceiling...", "绝不回填 6000亿..."; `dual_axis_for_fact` semantic_reason contains "6,000亿 是拟申请上限...". These must be removed (Fix E.4: "从通用运行逻辑、reason及hard rules中移除6000亿、2918.37亿、3655亿等案例金额").
+     - `reconcile_used_unused(used, unused)`: currently compares `(entity_scope, facility_scope, document)` only — must add consolidation scope, currency, as_of/period (Fix E.5).
+     - `classify_semantic_type`, `_target_semantic_type`, `dual_axis_for_fact`, `credit_aspect_dual_axis`.
+     - `_target_semantic_type`: total_credit_line → ACTUAL_GRANTED_TOTAL (not authorized_application_ceiling).
+
+   - **harness/source_object_inventory.py** (READ, 364 lines — Fix B target):
+     - `ExpectedSourceObjectInventory` dataclass; `derive_expected_source_object_inventory` (line 161); `reconcile_source_object_inventory` (line 232); `source_object_gate` (line 339); `reconciliation_summary` (line 358).
+     - `RECOVERY_RESULTS` = (recovered_ok, recovered_partial, recovery_failed, target_not_obtained).
+     - `_CROSS_REFERENCE_RE`, `_CONTINUATION_RE`, `_TABLE_NUMBER_LINE` patterns.
+     - Fix B.6: "先识别continuation，再识别普通table number" — currently `table_number_of` runs BEFORE `_CONTINUATION_RE` check in `derive_expected_source_object_inventory` (the table_number check is `if num:` first).
+
+   - **harness/context_expansion.py** (READ, 929 lines — Fix A target):
+     - `expand()` (line 443): main orchestration. Backward/forward via `do_rolling_read("adjacent_before"/"adjacent_after")` (lines 855-862).
+     - `classify()` (line 530): boundary semantics; topic boundary check (lines 609-630) produces `DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL` + `FragmentProjection`; but NO backward rollback logic (Fix A.2).
+     - `FragmentProjection` dataclass (line 378): evidence_id, block, char_offset, prefix_text, out_of_topic_heading.
+     - `DISPOSITION_*` constants; `BOUNDARY_DISPOSITIONS`.
+     - `section_path_relation`, `section_path_quality`, `_starts_new_subheading`, `_detect_new_heading_inside`.
+     - `adopted` dict + `adopted_relations`; `boundary_decisions` list; `candidates_unread`.
+     - Note: `outside_boundary_sentinels` are BoundaryDecisions, NOT in `adopted` (so they shouldn't be in materials), but the issue (Problem 2) is that sentinel blocks may still appear in `aspect_links` — need to trace how raw sentinel gets into formal/context material.
+
+4. Errors and fixes:
+   - No errors encountered yet this session (still in the reading/understanding phase). The prior session's fixes (already done before this task) were: g09 gate rename (set_enumeration_present → set_enumeration_wellformed); credit preview regenerated; test_r2_boundary_semantics 3-tuple unpack; test_r2_six_state_acceptance B4 aspect change to financial_institution_loans. Final prior eval: 5157 passed / 0 failed.
+
+5. Problem Solving:
+   - Identified code gaps mapping to the 8 problems: (1) recompute_authority weak validation; (2) credit_semantics hard-coded amounts; (3) _period date coercion; (4) _derive_boundary_incomplete only checks "多 document_version"; (5) financial_notes gate uses src_blocks/src_pages proxy; (6) main_business gate too weak; (7) _derive_verdict dangling → sample_not_obtained without failed gate; (8) no unread/stop_reason consistency check; (9) source_object_inventory only in flattened branch; (10) no backward rollback in context_expansion.
+
+6. All user messages:
+   - Message 1 (Phase 2 task, from prior context): "执行'R2 全局化边界与独立验收闭环返修'" (completed in prior session).
+   - Message 2 (prior session, mid-turn): "本次修复预计多久" (answered with progress table).
+   - **Message 3 (the CURRENT active task, verbatim key points)**: "执行'R2 既有能力正式接线与验收纠错'。这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。不得重新写实施计划，不得只修改测试以适应当前输出。" Plus the full 10-section spec (一 through 十) with all boundaries, 8 problems, 5 fixes A-E, 18 counter-examples, v5 acceptance, 15-item stop report (captured in section 1 above).
+
+7. Pending Tasks (the full current task, in order):
+   1. Read remaining files: harness/topic_materials.py, and the test files (test_context_expansion.py, test_topic_materials.py, test_six_category_acceptance.py, test_credit_fact_extraction.py, test_source_object_inventory.py, test_topic_boundary.py, test_r2_boundary_semantics.py).
+   2. Write 18 failing counter-example tests (and reproduce the 8 problems) FIRST — before fixing implementation.
+   3. Fix A: topic_boundary.py three-state (policy_generated/boundary_semantics_verified/boundary_policy_unavailable); backward rollback in context_expansion.py; fragment vs raw sentinel separation.
+   4. Fix B: SourceObjectInventory as hard gate (generate+persist source_object_inventory.json regardless of boundary proof; six-category reads it; 4-state per source object; continuation-before-table-number ordering; dangling cross-ref → target_not_obtained).
+   5. Fix C: financial_notes continuation gate requires continuation_proof.valid==true; remove src_blocks/src_pages proxy.
+   6. Fix D: six_category_acceptance.verify_category truly recomputes (read all 13 artifacts, reconcile seed vs resolved, recompute hashes via formal resolver, material_type_supported=false → failed gate, non-accepted → structured failed gate, empty dict not pass via all([])==True, unread/budget/stop consistency).
+   7. Fix E: credit facts use formal authority chain (reuse Store/payload resolver, verify payload bytes sha256 + content_hash + evidence_id + material_id + locator + authority assessment); fail-closed _read_materials; 4 semantic types; remove hard-coded amounts from credit_semantics; full scope reconciliation (entity/facility/consolidation/currency/as_of/period); preserve real dates.
+   8. Run real v5 acceptance: new run_id + new v5 dirs for main_business, financial_notes, core_competitiveness, major_subsidiaries, explicit_cross_reference, non-300750 fixture, credit semantics preview (do NOT overwrite v2/v3/v4).
+   9. Run `python -m evals.run_evals` once (at the end).
+   10. Write 15-item stop report.
+
+8. Current Work:
+   Immediately before this summary, I was in the code-reading/understanding phase of the new "R2 既有能力正式接线与验收纠错" task. I had just completed `git status --short` (showed ~23 modified tracked files + many untracked, all prior work preserved, no commit). I had read, in full: `harness/six_category_acceptance.py`, `harness/credit_fact_extraction.py`, `harness/credit_semantics.py`, `harness/source_object_inventory.py`, `harness/context_expansion.py`, and (partially) `harness/material_slice_runner.py` (lines 1-640, 1080-1419) and `harness/set_enumeration.py` (lines 490-890). The very last tool action was reading `harness/context_expansion.py` (929 lines) and `harness/source_object_inventory.py` (364 lines) in parallel. I had NOT yet: read topic_materials.py, read any test files, written any failing tests, or made any code edits.
+
+9. Optional Next Step:
+   Continue the code-reading phase to complete understanding, then proceed to write the failing counter-example tests BEFORE fixing implementation (as the task's section 二 mandates "编码前先补能稳定复现以下问题的失败测试，随后再修实现"). The next concrete steps are:
+   - Read `harness/topic_materials.py` (to understand TableContinuationProof and how assemblies/continuation_proof are built — needed for Fix C).
+   - Read the existing test files (especially `evals/test_context_expansion.py`, `evals/test_topic_materials.py`, `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`, `evals/test_r2_boundary_semantics.py`) to understand test patterns and where to add the 18 counter-examples.
+   - Then write the 18 failing counter-example tests, then implement fixes A-E, then regenerate v5 artifacts, then run `python -m evals.run_evals` once, then write the 15-item stop report.
+   
+   This is directly in line with the user's most recent request: "执行'R2 既有能力正式接线与验收纠错'" with its explicit sequence "二、先固化当前失败反例...编码前先补能稳定复现以下问题的失败测试，随后再修实现" and "九、真实v5验收...先跑专项测试，最后只跑一次：`python -m evals.run_evals`" and "十、停止报告".
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\jeank\.claude\projects\d--Claude-shouxin-ver1-shouxinbaogaoshengcheng-ceshi--ver1\bdd2b1e1-e4f8-4be7-8962-dff1878b9afe.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
+
+=====
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+
+   **Active task (Phase 3): "执行'R2 既有能力正式接线与验收纠错'"** — the user's most recent and primary request. This supersedes the prior "R2 全局化边界与独立验收闭环返修" task. Core framing (verbatim): "这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。" (This is NOT a new round of architecture design, NOR adding more types; the core task is to actually wire the already-implemented BoundaryPolicy, SourceObjectInventory, TableContinuationProof, payload validation into the final material and six-category acceptance paths.)
+
+   **开始前边界 (pre-start boundaries) — VERBATIM, still in effect:**
+   - "以当前未提交工作区为基础，先执行 `git status --short`。"
+   - "禁止 reset、checkout、stash、删除或覆盖现有结果。"
+   - "不修改冻结 Contract、SourcePolicy、WritingSpec、PresentationProfile。"
+   - "不进入R3/R4/R5，不接正式全量调度，不生成报告正文。"
+   - "零LLM、零博查、零网络；不初始化、迁移或写入Evidence/Financial DB。"
+   - "生产代码不得出现300750、公司名、固定页码、表号、evidence_id或本案例金额。"
+   - "本轮不commit、不执行`git add .`。"
+   - "不得再次以测试数量、类型存在或字段非空作为完成证明；必须以真实v5产物的一致性为最终依据。"
+   - "不得重新写实施计划，不得只修改测试以适应当前输出。"
+
+   **The task has 10 sections:**
+   - 一、边界与工作区保护 (boundaries above).
+   - 二、先固化当前失败反例 — write failing tests FIRST that stably reproduce 8 problems (listed below), THEN fix implementation.
+   - 三、修复A：边界识别与方向回滚 (3 sub-parts: 115-aspect coverage三态区分; backward expansion rollback; fragment vs raw sentinel separation).
+   - 四、修复B：SourceObjectInventory成为材料管线硬门 (8 sub-requirements).
+   - 五、修复C：正式验收只认有效同表续页证明 (8 sub-requirements).
+   - 六、修复D：六类验收器真正重新计算 (12 sub-requirements; must read & reconcile seed_manifest, resolved_seed_manifest, material_index, payload_preview, aspect_links, aspect_membership, assemblies, source_object_inventory, set_enumeration, boundary_decisions, unread_scope, budget_profile, expansion_trace).
+   - 七、修复E：授信事实使用正式权威链 (5 sub-parts).
+   - 八、必须新增的反例 (18 counter-examples listed).
+   - 九、真实v5验收 (re-run with new run_id + new v5 dirs; "先跑专项测试，最后只跑一次：`python -m evals.run_evals`").
+   - 十、停止报告 (15-item report).
+
+   **The 8 problems to reproduce (section 二):**
+   1. 主营业务v4中P46–P49高管名单及履历仍进入`context_candidate`。
+   2. `outside_boundary_sentinel`仍出现在`aspect_links`。
+   3. 主营业务`material_type_supported=false`、`source_object_inventory=null`，但六类验收仍为`accepted`。
+   4. 原材料含表5-11、表5-12，但assemblies缺失二者仍可通过。
+   5. 财务附注31个continuation proof全部`valid=false`仍被判`accepted`。
+   6. 任意伪造的evidence_id、文本及两个不同64位hex仍能通过`recompute_authority`。
+   7. non-accepted类别的`failed_gates=[]`。
+   8. unread记录`reason=budget`但`stop_reason=unrelated section boundary`仍可通过。
+   - Requirement: "测试必须先证明当前实现会失败，不得直接构造一个与正式产物结构不同的简化对象来自证。"
+
+   **The 18 counter-examples (section 八):**
+   1. 向后发现前一章节后撤回已暂存材料；2. fragment可关联、raw sentinel不可关联；3. source inventory在boundary proof失败时仍生成；4. 表标记存在但assembly缺失；5. "表X（续）"不误作普通主表；6. dangling"详见表X"不得recovered_ok；7. 多张独立跨页表不能通过continuation；8. 有效同表跨页proof可以通过；9. `material_type_supported=false`不能accepted；10. payload文本被篡改但hash字段未改；11. 伪造64位hash与authority verdict；12. 缺payload文件；13. sentinel中包含授信措辞也不得提取；14. 实际获批总授信额可以识别；15. used=2025/CNY、unused=2024/USD不得reconciled；16. 2025-06-30必须保持2025-06-30；17. non-accepted必须带failed gate；18. unread/budget/stop reason矛盾必须失败。
+
+   **The 15-item stop report (section 十):**
+   1. 修改文件；2. 18项反例逐项结果；3. 115个aspect的`policy_generated / semantics_verified / unavailable`分布；4. 主营业务P46–P49是否全部退出关联；5. sentinel与fragment的分别落点；6. 源对象清单逐表结果；7. 财务附注有效continuation proof数量及组件；8. 六类v5真实裁决与failed gates；9. 授信四类事实及真实provenance；10. 伪造authority反例；11. used/unused完整口径对账；12. 专项与完整eval结果；13. git status；14. 是否仍有P0/P1；15. R2是否满足关闭条件。
+   - "不得因为测试全绿自动宣告关闭。完成后立即停止：不commit、不进入R3，等待用户与Codex独立复核。"
+
+2. Key Technical Concepts:
+   - R2 材料构建/受控上下文扩读 (material building / controlled context expansion).
+   - Six-category acceptance (六类验收): main_business, core_competitiveness, major_subsidiaries, financial_notes, explicit_cross_reference, non_300750_fixture.
+   - TopicBoundaryPolicy (topic_boundary.py): three-state `in_topic`/`out_of_topic`/`ambiguous`; `boundary_policy_unavailable` (fail-closed).
+   - SourceObjectInventory (source_object_inventory.py): ExpectedSourceObjectInventory, four recovery states (recovered_ok/partial/failed/target_not_obtained), source_object_gate.
+   - TableContinuationProof (topic_materials.py): `.valid` requires 7 conditions (has_continuation + header_evidence_id + normalized_title + title/unit/column_compatible + row_column_continuity + _distinct_blocks + _cross_page + final_recovery_status=="ok").
+   - Fail-closed gates g01-g11 in six_category_acceptance.py.
+   - Credit fact extraction (credit_fact_extraction.py) + credit semantics (credit_semantics.py): dual-axis (authority ⊥ semantic), four semantic types (actual_granted_total_credit_line, authorized_application_ceiling, used_credit, unused_credit).
+   - recompute_authority (weak: only shape/verdict checks — must be replaced with formal payload resolver/envelope/identity verification).
+   - Backward expansion rollback (Fix A.2): cache undecided blocks, withdraw to previous-section blocks.
+   - FragmentProjection vs raw sentinel separation (Fix A.3).
+   - evidence.ids.content_hash, evidence.ids.make_evidence_id (formal identity algorithms).
+   - Store/payload resolver formal envelope validation (TopicMaterialPayloadResolver, verify_material_payload_ref, compute_source_payload_hash, compute_boundary_identity, EnumerationBoundaryProof.violation()).
+
+3. Files and Code Sections (all READ this session, NO edits made yet):
+
+   - **harness/topic_materials.py** (945 lines, FULL) — Fix C target.
+     - `TableContinuationProof` (line 90) with `.valid` property (line 140-154) requiring 7 conditions; `.sample_not_obtained` (line 124) = `not has_continuation`.
+     - `build_material_result(expansion, *, dependency_fingerprint, aspect_id)` (line 418) — dedupes by evidence_id, builds atomic materials, adds fragment projections (lines 451-460), builds assemblies, builds aspect_links (seed=source, non-seed=context_candidate).
+     - `build_table_continuation_proof(assembly, blocks_by_evidence_id)` (line 856) — deterministic construction.
+     - `_assembly_to_dict` includes continuation_proof via `_continuation_proof_to_dict` (in material_slice_runner.py).
+
+   - **harness/topic_boundary.py** (495 lines, FULL) — Fix A.1 target.
+     - `classify_heading_topic(heading, aspect_id)` (line 392): external first → out_of_topic, internal → in_topic, else ambiguous; unavailable policy → ambiguous.
+     - `topic_boundary_policy(aspect_id)` (line 340): returns `_UNAVAILABLE_POLICY` for unknown aspect.
+     - `topic_boundary_coverage(aspect_ids=None)` (line 354): audits 115 topic_harness aspects with status executable/boundary_policy_unavailable.
+     - `find_topic_boundary(text, aspect_id)` (line 477) and `block_start_topic_class(text, aspect_id)` (line 457).
+     - Currently the three-state distinction `policy_generated / boundary_semantics_verified / boundary_policy_unavailable` does NOT yet exist as an explicit output shape — this is Fix A.1's requirement (currently only `available` bool + executable/unavailable).
+
+   - **harness/six_category_acceptance.py** (468 lines, FULL) — Fix B/C/D target.
+     - `_derive_boundary_incomplete(se)` (line 162-169): BUG for Problem 3 — when `material_type_supported` is False, only returns `(True, ...)` if "多 document_version" in reason, else `(False, reason)`.
+     - `_FAILCLOSED_GATES` = 11 gates (line 204-216).
+     - `verify_category` (line 219): reads 8 files (seed_manifest, resolved_seed_manifest, material_index, assemblies, set_enumeration, boundary_decisions, budget_profile, expansion_trace). Does NOT read source_object_inventory.json, aspect_links.json, aspect_membership.json, unread_scope.json, payload_preview (Fix D.12 gap).
+     - `financial_notes.cross_block_continuation` gate (line 382): `len(src_blocks) >= 2 or len(src_pages) >= 2` (proxy — Fix C.2; must use continuation_proof.valid).
+     - `main_business.table_recovery_ok` gate (line 376): `len(ok_tables) >= 1 and len(failed_tables) == 0` (Problem 4).
+     - `_derive_verdict` (line 400): returns VERDICT_SAMPLE_NOT_OBTAINED for dangling WITHOUT structured failed gate (Problem 7); `if failed_gates: return VERDICT_BOUNDARY_INCOMPLETE` uses first failed gate.
+     - `main_business.topic_boundary_enforced` gate (line 379) requires `outside_boundary_sentinel` decisions.
+
+   - **harness/credit_fact_extraction.py** (256 lines, FULL) — Fix E target.
+     - `recompute_authority(material)` (line 72-98): only checks `authority_verdict=="authoritative"` + non-empty identity + locator consistency + 64-hex distinct hashes. Does NOT verify payload bytes sha256 / content_hash / evidence_id algorithm (Problem 6/Fix E.1).
+     - `_period(clause)` (line 112-122): `m.group(1)-12-31` coerces full date YYYY-MM-DD → YYYY-12-31 (Fix E.5 counter-example 16).
+     - `_CREDIT_PATTERNS` (line 33-43): authorized_application_ceiling, used_credit, unused_credit. NO `actual_granted_total_credit_line` pattern (Fix E.3, counter-example 14).
+     - `extract_credit_facts(materials)` (line 186): skips authority-invalid materials; "latest reporting period wins" via `_year_rank`.
+
+   - **harness/source_object_inventory.py** (364 lines, FULL) — Fix B target.
+     - `derive_expected_source_object_inventory` (line 161-213): BUG for Fix B.6 — `table_number_of(s)` runs BEFORE `_CONTINUATION_RE.search(s)`, so "表 5-10（续）" would be classified as table_number, not continuation.
+     - `reconcile_source_object_inventory` (line 232): cross_reference objects ALWAYS get RECOVERED_OK (line 318-322) — counter-example 6 concern ("dangling详见表X不得recovered_ok").
+     - `source_object_gate(inv)` (line 339): returns None if all ok, else failure string.
+     - `reconciliation_summary(inv)` (line 358).
+
+   - **harness/credit_semantics.py** (261 lines, FULL) — Fix E.4/E.5 target.
+     - HARD-CODES case amounts: `dual_axis_for_fact` semantic_reason (line 138-139): "6,000亿 是拟申请上限…"; `successor_changelist()` hard_rules (line 253-254): "6,000亿 = authorized_application_ceiling…", "绝不回填 6000亿…". These must be removed from PRODUCTION code (Fix E.4).
+     - `reconcile_used_unused(used, unused)` (line 221-232): `_scope_key` = (entity_scope, facility_scope, document) — must add consolidation scope, currency, as_of/period (Fix E.5, counter-example 15).
+     - `classify_semantic_type` (line 74), `_target_semantic_type` (line 96), `dual_axis_for_fact` (line 114), `credit_aspect_dual_axis` (line 159).
+     - `_target_semantic_type`: total_credit_line → ACTUAL_GRANTED_TOTAL.
+
+   - **harness/material_slice_runner.py** (1468 lines, FULL) — Central wiring for Fix A/B/D.
+     - `run_material_slice` (line 805): orchestrates expand → build_material_result → commit payload → set enumeration.
+     - `_aspect_state` (line 624-643): six-state matrix.
+     - `boundary_incomplete_aspects |= topic_boundary_unavailable_aspects` (line 1004).
+     - `aspect_links` built at lines 1039-1052 from `role_by_aspect_material`; disposition from `boundary_by_evidence`.
+     - **`source_object_inventory.json` is NOT written as a standalone artifact** — only embedded in SetEnumerationResult (Fix B.1).
+     - `_assembly_to_dict` (line 1181) includes continuation_proof via `_continuation_proof_to_dict` (line 1210).
+     - Artifacts written (lines 1078-1142): seed_manifest.json, resolved_seed_manifest.json, seed_discovery_trace.jsonl, expansion_trace.jsonl, unread_scope.json, boundary_decisions.json, aspect_membership.json, set_enumeration.json, topic_boundary_coverage.json, aspect_material_matrix.json, aspect_links.json, budget_profile.json, assemblies.json, material_index.md/.json, before_after.md, aspect_material_matrix.md, payload_preview/*.json + _assemblies.json.
+
+   - **harness/set_enumeration.py** (890 lines, FULL) — Fix B target.
+     - `recover_flattened_tables(texts)` (line 253): deterministic table recovery.
+     - `_enumerate_business` (line 502-585): returns `tuple[list[str], str|None, dict|None]`; `source_object_inventory` (3rd element) ONLY in flattened-table branch (line 552); returns None in structured branches (lines 563, 566, 585).
+     - `_enumerate_subsidiaries` (line 485) returns list (2-tuple); `_enumerate_competitiveness` (line 596) returns 2-tuple.
+     - `FormalSetEnumerationVerifier.enumerate` (line 805): dispatches three strategies; requires boundary_proof (fail-closed if missing); `source_object_inventory` only populated for main_business flattened branch.
+     - `derive_enumeration_boundary_proof` (line 660), `aggregate_per_version_enumeration` (line 754), `group_materials_by_document_version` (line 733).
+
+   - **harness/context_expansion.py** (929 lines, FULL) — Fix A.2/A.3 target.
+     - `expand()` (line 443): main orchestration; forward/backward via `do_rolling_read("adjacent_before"/"adjacent_after")` (lines 859-862).
+     - `classify()` (line 530): boundary semantics; topic boundary check (lines 609-630) produces `outside_boundary_sentinel` + FragmentProjection; **NO backward rollback logic** (Fix A.2).
+     - `FragmentProjection` dataclass (line 378): evidence_id, block, char_offset, prefix_text, out_of_topic_heading.
+     - `DISPOSITION_*` constants (lines 57-63); `section_path_relation` (line 323).
+     - Important: `classify` returns "boundary"/"unrelated section boundary" for sibling/super section (line 561-565) but does NOT withdraw already-adopted materials from the same direction (Fix A.2 gap).
+     - `adopted` dict + `adopted_relations`; `boundary_decisions` list; `candidates_unread`.
+
+   - **evidence/ids.py** (110 lines, FULL) — Fix E.1 target.
+     - `content_hash(text, structured_payload=None)` (line 60): sha256(normalized_text + "\x00" + canonical_payload).
+     - `make_evidence_id(company_id, document_id, document_version, evidence_set_version, page_number, block_index, content_hash_)` (line 66): sha256 of "\n".join(...)[:32].
+     - `derive_document_version(sha256)` (line 32): f"sha256-{sha256[:16]}".
+
+   - **harness/topic_store.py** (PARTIAL, lines 1-1605 of 2090) — Fix E.1 target (formal authority chain).
+     - `_validate_set_completeness` (line 721): the full formal authority chain — verify_material_payload_ref, compute_source_payload_hash, compute_boundary_identity, boundary_proof.violation(), source material identity closure. This is the model for the "正式权威链" that recompute_authority must reuse.
+     - `TopicMaterialPayloadResolver` referenced; `commit_payload_batch` (need lines 1606+ for full implementation).
+
+   - **evals/test_six_category_acceptance.py** (360 lines, FULL) — test pattern: `_write_run_dir`, `_assembly`, `_seed`; verify_category tests. NOTE: This test currently expects `financial_notes` single-block (same header) → boundary_incomplete via src_blocks/src_pages proxy — this will need updating after Fix C changes the gate to continuation_proof.valid.
+
+   - **evals/test_credit_fact_extraction.py** (208 lines, FULL) — test pattern; `_mat()` helper; currently hard-codes case amounts in fixtures (_P111/_P210) which are evaluation-only and permitted, but assertions may need updating for Fix E (e.g., actual_granted_total extraction, preserved dates).
+
+   - **evals/test_source_object_inventory.py** (194 lines, FULL) — test pattern; uses `_FOUR_TABLES` with 表5-10/11/12/13.
+
+   - **evals/test_topic_boundary.py** (248 lines, FULL) — test pattern; asserts `cov["total"] == 115` and `cov["unavailable"] == 0`.
+
+   - **evals/test_r2_six_state_acceptance.py** (249 lines, FULL) — test pattern for `_aspect_state`.
+
+   - **evals/test_r2_boundary_semantics.py** — read in prior session (summary notes: test_r2_boundary_semantics 3-tuple unpack fix done).
+
+4. Errors and fixes:
+   - No errors encountered THIS session (still in code-reading phase; no edits made).
+   - Prior session's fixes (already done before this task): g09 gate rename (set_enumeration_present → set_enumeration_wellformed); credit preview regenerated; test_r2_boundary_semantics 3-tuple unpack; test_r2_six_state_acceptance B4 aspect change to financial_institution_loans. Final prior eval: 5157 passed / 0 failed.
+
+5. Problem Solving:
+   - Confirmed code gaps mapping to the 8 problems: (1) recompute_authority weak validation; (2) credit_semantics hard-coded amounts; (3) _period date coercion; (4) _derive_boundary_incomplete only checks "多 document_version"; (5) financial_notes gate uses src_blocks/src_pages proxy; (6) main_business gate too weak; (7) _derive_verdict dangling → sample_not_obtained without failed gate; (8) no unread/stop_reason consistency check; (9) source_object_inventory only in flattened branch + not persisted standalone; (10) no backward rollback in context_expansion; (11) cross_reference always RECOVERED_OK; (12) six_category verify doesn't read all 13 artifacts.
+   - Established the formal authority chain model exists in `topic_store._validate_set_completeness` (verify_material_payload_ref + compute_source_payload_hash + boundary_proof.violation) — this is what recompute_authority should reuse for Fix E.1.
+
+6. All user messages:
+   - Message 1 (Phase 2 task, prior context): "执行'R2 全局化边界与独立验收闭环返修'" (completed in prior session).
+   - Message 2 (prior session, mid-turn): "本次修复预计多久" (answered with progress table).
+   - **Message 3 (the CURRENT active task, verbatim key points)**: "执行'R2 既有能力正式接线与验收纠错'。这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。不得重新写实施计划，不得只修改测试以适应当前输出。" Plus the full 10-section spec (一 through 十) with all boundaries, 8 problems, 5 fixes A-E, 18 counter-examples, v5 acceptance, 15-item stop report (captured in section 1 above).
+
+7. Pending Tasks (the full current task, in order):
+   1. Finish reading: `harness/topic_schema.py` (SetEnumerationResult with source_object_inventory field, ResolvedPayload, verify_material_payload_ref, EnumerationBoundaryProof, recompute_authority_verdict), `harness/topic_store.py` lines 1606-2090 (TopicMaterialPayloadResolver.resolve, commit_payload_batch), `evidence/store.py` (payload resolver).
+   2. Write 18 failing counter-example tests (and reproduce the 8 problems) FIRST — before fixing implementation.
+   3. Fix A: topic_boundary.py three-state (policy_generated/boundary_semantics_verified/boundary_policy_unavailable); backward rollback in context_expansion.py; fragment vs raw sentinel separation.
+   4. Fix B: SourceObjectInventory as hard gate (generate+persist source_object_inventory.json regardless of boundary proof; six-category reads it; 4-state per source object; continuation-before-table-number ordering in source_object_inventory.py; dangling cross-ref → target_not_obtained).
+   5. Fix C: financial_notes continuation gate requires continuation_proof.valid==true; remove src_blocks/src_pages proxy.
+   6. Fix D: six_category_acceptance.verify_category truly recomputes (read all 13 artifacts, reconcile seed vs resolved, recompute hashes via formal resolver, material_type_supported=false → failed gate, non-accepted → structured failed gate, empty dict not pass via all([])==True, unread/budget/stop consistency).
+   7. Fix E: credit facts use formal authority chain (reuse Store/payload resolver, verify payload bytes sha256 + content_hash + evidence_id + material_id + locator + authority assessment); fail-closed _read_materials; 4 semantic types (add actual_granted_total extraction); remove hard-coded amounts from credit_semantics; full scope reconciliation (entity/facility/consolidation/currency/as_of/period); preserve real dates (no YYYY-12-31 coercion).
+   8. Run real v5 acceptance: new run_id + new v5 dirs for main_business, financial_notes, core_competitiveness, major_subsidiaries, explicit_cross_reference, non-300750 fixture, credit semantics preview (do NOT overwrite v2/v3/v4).
+   9. Run `python -m evals.run_evals` once (at the end).
+   10. Write 15-item stop report.
+
+8. Current Work:
+   Immediately before this summary, I was in the **code-reading/understanding phase** of the new "R2 既有能力正式接线与验收纠错" task. I had already run `git status --short` (prior session; showed ~23 modified tracked files + many untracked, all prior work preserved, no commit). In THIS session I read (in full): `harness/topic_materials.py`, `harness/topic_boundary.py`, `harness/six_category_acceptance.py`, `harness/credit_fact_extraction.py`, `harness/source_object_inventory.py`, `harness/credit_semantics.py`, `harness/material_slice_runner.py`, `harness/set_enumeration.py`, `harness/context_expansion.py`, `evidence/ids.py`, and the test files `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`, `evals/test_r2_six_state_acceptance.py`. The very last tool action was reading `harness/topic_store.py` (PARTIAL: lines 1-1605 of 2090 total; the system truncated it and noted "Call Read with offset=1606 limit=1605 for the next page"). I had NOT yet: read topic_schema.py / evidence/store.py / topic_store.py remaining lines, written any failing tests, or made any code edits.
+
+9. Optional Next Step:
+   Continue the code-reading phase to complete understanding, then proceed to write the failing counter-example tests BEFORE fixing implementation (task section 二 mandates "编码前先补能稳定复现以下问题的失败测试，随后再修实现"). Concrete next steps:
+   - Read `harness/topic_schema.py` (key symbols: `SetEnumerationResult` — confirm it has a `source_object_inventory` field; `ResolvedPayload`; `verify_material_payload_ref`; `EnumerationBoundaryProof`; `recompute_authority_verdict`; `compute_source_payload_hash`; `compute_boundary_identity`) and finish `harness/topic_store.py` lines 1606-2090 (`TopicMaterialPayloadResolver.resolve`, `commit_payload_batch`, payload envelope validation) plus `evidence/store.py` payload resolver.
+   - Then write the 18 failing counter-example tests across `evals/test_context_expansion.py`, `evals/test_topic_materials.py`, `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`.
+   - Then implement fixes A-E, regenerate v5 artifacts (new run_id + new v5 dirs), run `python -m evals.run_evals` once, and write the 15-item stop report.
+
+   This is directly in line with the user's most recent request: "执行'R2 既有能力正式接线与验收纠错'" with its explicit sequence "二、先固化当前失败反例...编码前先补能稳定复现以下问题的失败测试，随后再修实现" and "九、真实v5验收...先跑专项测试，最后只跑一次：`python -m evals.run_evals`" and "十、停止报告".
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\jeank\.claude\projects\d--Claude-shouxin-ver1-shouxinbaogaoshengcheng-ceshi--ver1\bdd2b1e1-e4f8-4be7-8962-dff1878b9afe.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
+
+=====
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+
+   **Active task (Phase 3): "执行'R2 既有能力正式接线与验收纠错'"** — the user's most recent and primary request. This supersedes prior "R2 全局化边界与独立验收闭环返修". Core framing (verbatim): "这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。" (NOT new architecture, NOT more types; wire the ALREADY-IMPLEMENTED BoundaryPolicy, SourceObjectInventory, TableContinuationProof, payload validation into final material + six-category acceptance.)
+
+   **开始前边界 (pre-start boundaries) — VERBATIM, still in effect:**
+   - "以当前未提交工作区为基础，先执行 `git status --short`。"
+   - "禁止 reset、checkout、stash、删除或覆盖现有结果。"
+   - "不修改冻结 Contract、SourcePolicy、WritingSpec、PresentationProfile。"
+   - "不进入R3/R4/R5，不接正式全量调度，不生成报告正文。"
+   - "零LLM、零博查、零网络；不初始化、迁移或写入Evidence/Financial DB。"
+   - "生产代码不得出现300750、公司名、固定页码、表号、evidence_id或本案例金额。"
+   - "本轮不commit、不执行`git add .`。"
+   - "不得再次以测试数量、类型存在或字段非空作为完成证明；必须以真实v5产物的一致性为最终依据。"
+   - "不得重新写实施计划，不得只修改测试以适应当前输出。"
+
+   **The task has 10 sections (一 through 十):**
+   - 一、边界与工作区保护 (boundaries above).
+   - 二、先固化当前失败反例 — write failing tests FIRST that stably reproduce 8 problems, THEN fix implementation.
+   - 三、修复A：边界识别与方向回滚 (3 parts: 115-aspect coverage三态区分; backward expansion rollback; fragment vs raw sentinel separation).
+   - 四、修复B：SourceObjectInventory成为材料管线硬门 (8 sub-requirements).
+   - 五、修复C：正式验收只认有效同表续页证明 (8 sub-requirements).
+   - 六、修复D：六类验收器真正重新计算 (12 sub-requirements; must read & reconcile seed_manifest, resolved_seed_manifest, material_index, payload_preview, aspect_links, aspect_membership, assemblies, source_object_inventory, set_enumeration, boundary_decisions, unread_scope, budget_profile, expansion_trace).
+   - 七、修复E：授信事实使用正式权威链 (5 sub-parts).
+   - 八、必须新增的反例 (18 counter-examples).
+   - 九、真实v5验收 (re-run with new run_id + new v5 dirs; "先跑专项测试，最后只跑一次：`python -m evals.run_evals`").
+   - 十、停止报告 (15-item report).
+
+   **The 8 problems to reproduce (section 二):**
+   1. 主营业务v4中P46–P49高管名单及履历仍进入`context_candidate`。
+   2. `outside_boundary_sentinel`仍出现在`aspect_links`。
+   3. 主营业务`material_type_supported=false`、`source_object_inventory=null`，但六类验收仍为`accepted`。
+   4. 原材料含表5-11、表5-12，但assemblies缺失二者仍可通过。
+   5. 财务附注31个continuation proof全部`valid=false`仍被判`accepted`。
+   6. 任意伪造的evidence_id、文本及两个不同64位hex仍能通过`recompute_authority`。
+   7. non-accepted类别的`failed_gates=[]`。
+   8. unread记录`reason=budget`但`stop_reason=unrelated section boundary`仍可通过。
+   - Requirement: "测试必须先证明当前实现会失败，不得直接构造一个与正式产物结构不同的简化对象来自证。"
+
+   **The 18 counter-examples (section 八):**
+   1. 向后发现前一章节后撤回已暂存材料；2. fragment可关联、raw sentinel不可关联；3. source inventory在boundary proof失败时仍生成；4. 表标记存在但assembly缺失；5. "表X（续）"不误作普通主表；6. dangling"详见表X"不得recovered_ok；7. 多张独立跨页表不能通过continuation；8. 有效同表跨页proof可以通过；9. `material_type_supported=false`不能accepted；10. payload文本被篡改但hash字段未改；11. 伪造64位hash与authority verdict；12. 缺payload文件；13. sentinel中包含授信措辞也不得提取；14. 实际获批总授信额可以识别；15. used=2025/CNY、unused=2024/USD不得reconciled；16. 2025-06-30必须保持2025-06-30；17. non-accepted必须带failed gate；18. unread/budget/stop reason矛盾必须失败。
+
+   **The 15-item stop report (section 十):**
+   1. 修改文件；2. 18项反例逐项结果；3. 115个aspect的`policy_generated / semantics_verified / unavailable`分布；4. 主营业务P46–P49是否全部退出关联；5. sentinel与fragment的分别落点；6. 源对象清单逐表结果；7. 财务附注有效continuation proof数量及组件；8. 六类v5真实裁决与failed gates；9. 授信四类事实及真实provenance；10. 伪造authority反例；11. used/unused完整口径对账；12. 专项与完整eval结果；13. git status；14. 是否仍有P0/P1；15. R2是否满足关闭条件。
+   - "不得因为测试全绿自动宣告关闭。完成后立即停止：不commit、不进入R3，等待用户与Codex独立复核。"
+
+2. Key Technical Concepts:
+   - R2 材料构建/受控上下文扩读 (material building / controlled context expansion).
+   - Six-category acceptance (六类验收): main_business, core_competitiveness, major_subsidiaries, financial_notes, explicit_cross_reference, non_300750_fixture.
+   - TopicBoundaryPolicy (topic_boundary.py): three-state `in_topic`/`out_of_topic`/`ambiguous`; `boundary_policy_unavailable` (fail-closed).
+   - SourceObjectInventory (source_object_inventory.py): ExpectedSourceObjectInventory, four recovery states (recovered_ok/partial/failed/target_not_obtained), source_object_gate.
+   - TableContinuationProof (topic_materials.py): `.valid` requires 7 conditions (has_continuation + header_evidence_id + normalized_title + title/unit/column_compatible + row_column_continuity + _distinct_blocks + _cross_page + final_recovery_status=="ok").
+   - Fail-closed gates g01-g11 in six_category_acceptance.py.
+   - Credit fact extraction (credit_fact_extraction.py) + credit semantics (credit_semantics.py): dual-axis (authority ⊥ semantic), four semantic types (actual_granted_total_credit_line, authorized_application_ceiling, used_credit, unused_credit).
+   - recompute_authority (weak: only shape/verdict checks — must be replaced with formal payload resolver/envelope/identity verification).
+   - Backward expansion rollback (Fix A.2): cache undecided blocks, withdraw to previous-section blocks.
+   - FragmentProjection vs raw sentinel separation (Fix A.3).
+   - evidence.ids.content_hash, evidence.ids.make_evidence_id (formal identity algorithms).
+   - Store/payload resolver formal envelope validation (TopicMaterialPayloadResolver, verify_material_payload_ref, compute_source_payload_hash, compute_boundary_identity, EnumerationBoundaryProof.violation()).
+   - The formal authority chain model lives in `topic_store._validate_envelope` (verify material_payload_version==1, object_type, authority_identity==evidence:{evidence_id}, source_content_hash, created_dependency_fingerprint, locator, recompute evidence_id via ids.make_evidence_id with company_id/document_id/document_version/evidence_set_version/page/block_index/source_content_hash).
+
+3. Files and Code Sections (all READ this session, NO edits made yet):
+
+   - **harness/topic_schema.py** (3413 lines, read lines 1-1792 + 2260-2720):
+     - `EnumerationBoundaryProof` (line 2274) with `violation()` (line 2315) returning first failing closure condition (empty document_id/document_version/evidence_set_version/source_boundary_identity/seed_evidence_ids/component_material_ids, empty trace fingerprint == sha256(""), tool_errors, budget_exhausted, unresolved_explicit_refs, unclosed_continuations, unread_candidate_refs).
+     - `SetCompletenessAssessment` (line 2413) has `boundary_proof: EnumerationBoundaryProof | None = None` (line 2437).
+     - `SetEnumerationResult` (line 2571) with `source_object_inventory: dict | None = None` (line 2592); `__post_init__` requires verifier_version, and when material_type_supported: payload_hash is 64-hex, boundary_identity non-empty, enumerated_member_ids non-empty.
+     - `compute_boundary_identity(document_version, source_boundary)` (line 2669), `compute_source_payload_hash(resolved_payloads)` (line 2681) = sha256_canonical([rp.content_hash ...]).
+     - `recompute_authority_verdict(authority)` (line 1289), `verify_material_payload_ref(payload_ref, resolver)` (line 1254), `MaterialPayloadRef` (line 1187), `ResolvedPayload` (line 1235), `ResearchMaterial` (line 1430).
+
+   - **harness/topic_store.py** (2090 lines, read 1606-2090 this session; 1-1605 read prior session):
+     - `MaterialPayloadRecord` (line 1820): payload_id, object_type, authority_identity, version, locator_json, source_content_hash, payload_hash, payload_bytes, created_dependency_fingerprint.
+     - `TopicMaterialPayloadResolver` (line 1846): `resolve()` (1873), `_assert_row_matches` (1911), `_validate_envelope` (1936) — THE formal authority chain model, `commit_payload_batch` (2034), `_insert_one` (2051).
+
+   - **evidence/store.py** (1100 lines, full read): readonly helpers `_open_readonly_conn` (811), `list_documents_ro` (827), `current_document_version_ro` (842), `current_evidence_set_ro` (860), `list_document_evidence_ro` (877) for evaluation-only paths.
+
+   - **evidence/ids.py** (110 lines, full read):
+     - `content_hash(text, structured_payload=None)` (line 60) = sha256(normalized_text + "\x00" + canonical_payload).
+     - `make_evidence_id(...)` (line 66) = sha256("\n".join([...]))[:32].
+     - `derive_document_version(sha256)` (line 32) = f"sha256-{sha256[:16]}".
+
+   - **harness/topic_boundary.py** (495 lines, full read) — Fix A.1 target:
+     - `TopicBoundaryPolicy` (line 209): aspect_id, available, internal_keywords, external_keywords, topic_id, writing_subsection, policy_version, reason.
+     - `topic_boundary_coverage(aspect_ids=None)` (line 354): audits 115 topic_harness aspects; currently only emits `available` bool + `executable`/`boundary_policy_unavailable` status — does NOT yet emit the three-state `policy_generated / semantics_verified / boundary_policy_unavailable` (Fix A.1 requirement).
+     - `classify_heading_topic` (392), `find_topic_boundary` (477), `block_start_topic_class` (457).
+
+   - **harness/source_object_inventory.py** (364 lines, full read) — Fix B target:
+     - `derive_expected_source_object_inventory` (line 161): BUG for Fix B.6 — `table_number_of(s)` runs at line 178 BEFORE `_CONTINUATION_RE.search(s)` at line 187, so "表 5-10（续）" gets classified as table_number not continuation.
+     - `reconcile_source_object_inventory` (line 232): cross_reference objects ALWAYS get RECOVERED_OK (lines 318-322) — counter-example 6 violation ("dangling详见表X不得recovered_ok").
+     - `source_object_gate` (339), `reconciliation_summary` (358).
+
+   - **harness/credit_fact_extraction.py** (256 lines, full read) — Fix E target:
+     - `recompute_authority(material)` (line 72): only checks `authority_verdict=="authoritative"` + non-empty identity + locator consistency + 64-hex distinct hashes. Does NOT verify payload bytes sha256 / content_hash / evidence_id algorithm (Problem 6 / Fix E.1).
+     - `_period(clause)` (line 112): `return f"{m.group(1)}-12-31"` coerces full date YYYY-MM-DD → YYYY-12-31 (Fix E.5 / counter-example 16).
+     - `_CREDIT_PATTERNS` (line 33): authorized_application_ceiling, used_credit, unused_credit. NO `actual_granted_total_credit_line` pattern (Fix E.3 / counter-example 14).
+     - `extract_credit_facts(materials)` (line 186).
+
+   - **harness/credit_semantics.py** (261 lines, full read) — Fix E.4/E.5 target:
+     - HARD-CODES case amounts: `dual_axis_for_fact` semantic_reason (line 138-139): "6,000亿 是拟申请上限（authorized_application_ceiling），不是实际获批授信总额（actual_granted_total_credit_line）"; `successor_changelist()` hard_rules (line 253-254): "6,000亿 = authorized_application_ceiling…", "绝不回填 6000亿…". Must be removed from PRODUCTION code (Fix E.4).
+     - `reconcile_used_unused(used, unused)` (line 221): `_scope_key` = (entity_scope, facility_scope, document) — must add consolidation scope, currency, as_of/period (Fix E.5 / counter-example 15).
+     - `classify_semantic_type` (74), `_target_semantic_type` (96), `dual_axis_for_fact` (114), `credit_aspect_dual_axis` (159).
+
+   - **harness/six_category_acceptance.py** (468 lines, full read) — Fix B/C/D target:
+     - `_derive_boundary_incomplete(se)` (line 162): BUG for Problem 3 — when material_type_supported False, only returns `(True, ...)` if "多 document_version" in reason, else `(False, reason)`.
+     - `_FAILCLOSED_GATES` (line 204): 11 gates (g01.artifacts_readable ... g11.table_status_explicit).
+     - `verify_category` (line 219): reads 8 files only; does NOT read source_object_inventory.json, aspect_links.json, aspect_membership.json, unread_scope.json, payload_preview (Fix D.12 gap).
+     - `financial_notes.cross_block_continuation` (line 382): `len(src_blocks) >= 2 or len(src_pages) >= 2` proxy (Fix C.2; must use continuation_proof.valid).
+     - `main_business.table_recovery_ok` (line 376): `len(ok_tables) >= 1 and len(failed_tables) == 0` (Problem 4).
+     - `_derive_verdict` (line 400): dangling → VERDICT_SAMPLE_NOT_OBTAINED without structured failed gate (Problem 7); `if failed_gates: return VERDICT_BOUNDARY_INCOMPLETE` uses first failed gate.
+     - `build_six_category_manifest` (line 421).
+
+   - **harness/context_expansion.py** (929 lines, full read) — Fix A.2/A.3 target:
+     - `expand()` (line 443): main orchestration; `do_rolling_read("adjacent_before"/"adjacent_after")` (lines 859-862).
+     - `classify()` (line 530): section boundary (sibling/super) → outside_boundary_sentinel (lines 560-565) but does NOT withdraw already-adopted blocks from the same direction (Fix A.2 gap); topic boundary → sentinel + FragmentProjection (lines 609-630).
+     - `FragmentProjection` (line 378): evidence_id, block, char_offset, prefix_text, out_of_topic_heading.
+     - `DISPOSITION_*` (lines 57-63), `section_path_relation` (323), `do_rolling_read` (728).
+
+   - **harness/topic_materials.py** (945 lines, full read) — Fix C target:
+     - `TableContinuationProof` (line 90) with `.valid` (line 140) requiring 7 conditions; `.sample_not_obtained` = `not has_continuation`.
+     - `build_material_result` (line 418): dedup by evidence_id; fragment projections (lines 451-460); aspect_links (seed=source, non-seed=context_candidate).
+     - `build_table_continuation_proof` (line 856).
+     - `build_assemblies` (line 515), `_build_flattened_table_assemblies` (712).
+
+   - **harness/set_enumeration.py** (890 lines, full read) — Fix B target:
+     - `recover_flattened_tables(texts)` (line 253).
+     - `_enumerate_business` (line 502-585): returns `tuple[list[str], str|None, dict|None]`; source_object_inventory ONLY in flattened branch (line 552, `inventory.to_dict()`); None in structured branches (563, 566, 585).
+     - `FormalSetEnumerationVerifier.enumerate` (line 805): source_object_inventory only for main_business flattened branch.
+     - `derive_enumeration_boundary_proof` (660), `aggregate_per_version_enumeration` (754), `group_materials_by_document_version` (733).
+
+   - **evals/test_r2_six_state_acceptance.py** (249 lines, full read): test pattern for `_aspect_state` six-state; uses `_make_db`, `_block`, `_seed_entry` helpers from `evals/test_material_slice_runner.py`.
+
+   - **evaluation/results/r2_six_category_acceptance_v4_20260915/README.md**: current v4 acceptance verdicts: main_business=accepted, core_competitiveness=boundary_incomplete, major_subsidiaries=boundary_incomplete, financial_notes=accepted, explicit_cross_reference=sample_not_obtained, non_300750_fixture=accepted.
+
+   - **NOT yet read this session (still pending):** `harness/material_slice_runner.py` (1468 lines) — central wiring for Fix A/B/D; artifacts written (seed_manifest.json, resolved_seed_manifest.json, material_index.json/.md, assemblies.json, set_enumeration.json, boundary_decisions.json, budget_profile.json, expansion_trace.jsonl, aspect_links.json, aspect_membership.json, unread_scope.json, payload_preview/*, etc.), `_assembly_to_dict` (1181) with `_continuation_proof_to_dict` (1210), `_aspect_state` (624-643), `run_material_slice` (805). Also the test files: `evals/test_context_expansion.py`, `evals/test_topic_materials.py`, `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`, `evals/test_credit_semantics.py` (summary notes these were read in prior session but need re-read before editing).
+
+4. Errors and fixes:
+   - No errors encountered THIS session (still in code-reading phase; no edits made). No test runs yet.
+   - Prior session's fixes (already done before this task, per summary): g09 gate rename (set_enumeration_present → set_enumeration_wellformed); credit preview regenerated; test_r2_boundary_semantics 3-tuple unpack; test_r2_six_state_acceptance B4 aspect change to financial_institution_loans. Final prior eval: 5157 passed / 0 failed.
+
+5. Problem Solving:
+   - Confirmed code gaps mapping to the 8 problems (all confirmed via fresh full reads this session): (1) recompute_authority weak validation; (2) credit_semantics hard-coded amounts; (3) _period date coercion; (4) _derive_boundary_incomplete only checks "多 document_version"; (5) financial_notes gate uses src_blocks/src_pages proxy; (6) main_business gate too weak (any ok table + no failed); (7) _derive_verdict dangling → sample_not_obtained without failed gate; (8) no unread/stop_reason consistency check; (9) source_object_inventory only in flattened branch + not persisted standalone; (10) no backward rollback in context_expansion; (11) cross_reference always RECOVERED_OK; (12) six_category verify doesn't read all 13 artifacts.
+   - Established the formal authority chain model exists in `topic_store._validate_envelope` (lines 1936-2032) — this is what recompute_authority should reuse for Fix E.1.
+   - Confirmed `SetEnumerationResult` already has a `source_object_inventory` field (line 2592) — Fix B must populate it and persist it standalone.
+
+6. All user messages:
+   - Message 1 (Phase 2 task, prior context): "执行'R2 全局化边界与独立验收闭环返修'" (completed in prior session).
+   - Message 2 (prior session, mid-turn): "本次修复预计多久" (answered with progress table).
+   - Message 3 (the CURRENT active task, verbatim key points): "执行'R2 既有能力正式接线与验收纠错'。这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。不得重新写实施计划，不得只修改测试以适应当前输出。" Plus the full 10-section spec (一 through 十) with all boundaries, 8 problems, 5 fixes A-E, 18 counter-examples, v5 acceptance, 15-item stop report (captured in section 1 above).
+   - (Final message this session was the summarization instruction — a system/compaction directive, not a user task message.)
+
+7. Pending Tasks (the full current task, in order):
+   1. Finish reading: `harness/material_slice_runner.py` (1468 lines; run_material_slice orchestration, _aspect_state, artifacts written, _assembly_to_dict/_continuation_proof_to_dict, aspect_links construction) and re-read the test files to be edited.
+   2. Write 18 failing counter-example tests (and reproduce the 8 problems) FIRST — before fixing implementation (task section 二: "编码前先补能稳定复现以下问题的失败测试，随后再修实现"; "测试必须先证明当前实现会失败").
+   3. Fix A: topic_boundary.py three-state (policy_generated/boundary_semantics_verified/boundary_policy_unavailable); backward rollback in context_expansion.py; fragment vs raw sentinel separation.
+   4. Fix B: SourceObjectInventory as hard gate (generate+persist source_object_inventory.json regardless of boundary proof; six-category reads it; 4-state per source object; continuation-before-table-number ordering in source_object_inventory.py; dangling cross-ref → target_not_obtained).
+   5. Fix C: financial_notes continuation gate requires continuation_proof.valid==true; remove src_blocks/src_pages proxy.
+   6. Fix D: six_category_acceptance.verify_category truly recomputes (read all 13 artifacts, reconcile seed vs resolved, recompute hashes via formal resolver, material_type_supported=false → failed gate, non-accepted → structured failed gate, empty dict not pass via all([])==True, unread/budget/stop consistency).
+   7. Fix E: credit facts use formal authority chain (reuse Store/payload resolver, verify payload bytes sha256 + content_hash + evidence_id + material_id + locator + authority assessment); fail-closed _read_materials; 4 semantic types (add actual_granted_total extraction); remove hard-coded amounts from credit_semantics; full scope reconciliation (entity/facility/consolidation/currency/as_of/period); preserve real dates (no YYYY-12-31 coercion).
+   8. Run real v5 acceptance: new run_id + new v5 dirs for main_business, financial_notes, core_competitiveness, major_subsidiaries, explicit_cross_reference, non-300750 fixture, credit semantics preview (do NOT overwrite v2/v3/v4).
+   9. Run `python -m evals.run_evals` once (at the end).
+   10. Write 15-item stop report.
+
+8. Current Work:
+   Immediately before this summary, I was in the **code-reading/understanding phase** of the "R2 既有能力正式接线与验收纠错" task. I had already run `git status --short` in the prior session (many modified tracked files + untracked, all prior work preserved, no commit). In THIS session I read (in full): `harness/topic_store.py` (lines 1606-2090), `harness/topic_schema.py` (lines 1-1792 + 2260-2720 via Grep for key symbols), `evidence/store.py`, `evals/test_r2_six_state_acceptance.py`, `harness/topic_boundary.py`, `harness/source_object_inventory.py`, `harness/credit_fact_extraction.py`, `harness/credit_semantics.py`, `harness/six_category_acceptance.py`, `evidence/ids.py`, `harness/context_expansion.py`, `harness/topic_materials.py`, `harness/set_enumeration.py`. The very last tool action was reading `harness/set_enumeration.py` (890 lines, full). I had NOT yet: read `harness/material_slice_runner.py` this session, written any failing tests, or made any code edits.
+
+9. Optional Next Step:
+   Continue the code-reading phase to complete understanding, then proceed to write the failing counter-example tests BEFORE fixing implementation (task section 二 mandates "编码前先补能稳定复现以下问题的失败测试，随后再修实现"). Concrete next steps:
+   - Read `harness/material_slice_runner.py` (full — this is the last unread implementation file; it contains `run_material_slice` orchestration, artifact writing, `_aspect_state`, `_assembly_to_dict`/`_continuation_proof_to_dict`, aspect_links construction, and `boundary_incomplete_aspects |= topic_boundary_unavailable_aspects` at line ~1004), plus re-read the test files to be edited (`evals/test_context_expansion.py`, `evals/test_topic_materials.py`, `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`, `evals/test_credit_semantics.py`).
+   - Then write the 18 failing counter-example tests across those test files.
+   - Then implement fixes A-E, regenerate v5 artifacts (new run_id + new v5 dirs), run `python -m evals.run_evals` once, and write the 15-item stop report.
+
+   This is directly in line with the user's most recent request: "执行'R2 既有能力正式接线与验收纠错'" with its explicit sequence "二、先固化当前失败反例...编码前先补能稳定复现以下问题的失败测试，随后再修实现" and "九、真实v5验收...先跑专项测试，最后只跑一次：`python -m evals.run_evals`" and "十、停止报告".
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\jeank\.claude\projects\d--Claude-shouxin-ver1-shouxinbaogaoshengcheng-ceshi--ver1\bdd2b1e1-e4f8-4be7-8962-dff1878b9afe.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
+
+=====
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+
+   **Active task (Phase 3): "执行'R2 既有能力正式接线与验收纠错'"** — the user's most recent and primary request. Core framing (verbatim): "这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。" (NOT new architecture, NOT more types; wire the ALREADY-IMPLEMENTED BoundaryPolicy, SourceObjectInventory, TableContinuationProof, payload validation into final material + six-category acceptance.)
+
+   **开始前边界 (pre-start boundaries) — VERBATIM, still in effect:**
+   - "以当前未提交工作区为基础，先执行 `git status --short`。"
+   - "禁止 reset、checkout、stash、删除或覆盖现有结果。"
+   - "不修改冻结 Contract、SourcePolicy、WritingSpec、PresentationProfile。"
+   - "不进入R3/R4/R5，不接正式全量调度，不生成报告正文。"
+   - "零LLM、零博查、零网络；不初始化、迁移或写入Evidence/Financial DB。"
+   - "生产代码不得出现300750、公司名、固定页码、表号、evidence_id或本案例金额。"
+   - "本轮不commit、不执行`git add .`。"
+   - "不得再次以测试数量、类型存在或字段非空作为完成证明；必须以真实v5产物的一致性为最终依据。"
+   - "不得重新写实施计划，不得只修改测试以适应当前输出。"
+
+   **The task has 10 sections (一 through 十):**
+   - 一、边界与工作区保护 (boundaries above).
+   - 二、先固化当前失败反例 — write failing tests FIRST that stably reproduce 8 problems, THEN fix implementation ("测试必须先证明当前实现会失败").
+   - 三、修复A：边界识别与方向回滚 (3 parts).
+   - 四、修复B：SourceObjectInventory成为材料管线硬门 (8 sub-requirements).
+   - 五、修复C：正式验收只认有效同表续页证明 (8 sub-requirements).
+   - 六、修复D：六类验收器真正重新计算 (12 sub-requirements; must read & reconcile seed_manifest, resolved_seed_manifest, material_index, payload_preview, aspect_links, aspect_membership, assemblies, source_object_inventory, set_enumeration, boundary_decisions, unread_scope, budget_profile, expansion_trace).
+   - 七、修复E：授信事实使用正式权威链 (5 sub-parts).
+   - 八、必须新增的反例 (18 counter-examples).
+   - 九、真实v5验收 (re-run with new run_id + new v5 dirs; "先跑专项测试，最后只跑一次：`python -m evals.run_evals`").
+   - 十、停止报告 (15-item report).
+
+2. Key Technical Concepts:
+   - R2 材料构建/受控上下文扩读 (material building / controlled context expansion).
+   - Six-category acceptance (六类验收): main_business, core_competitiveness, major_subsidiaries, financial_notes, explicit_cross_reference, non_300750_fixture.
+   - TopicBoundaryPolicy (topic_boundary.py): three-state `in_topic`/`out_of_topic`/`ambiguous`; `boundary_policy_unavailable` (fail-closed).
+   - SourceObjectInventory (source_object_inventory.py): ExpectedSourceObjectInventory, four recovery states (recovered_ok/partial/failed/target_not_obtained), source_object_gate.
+   - TableContinuationProof (topic_materials.py): `.valid` requires 7 conditions (has_continuation + header_evidence_id + normalized_title + title/unit/column_compatible + row_column_continuity + _distinct_blocks + _cross_page + final_recovery_status=="ok").
+   - Fail-closed gates g01-g11 in six_category_acceptance.py.
+   - Credit fact extraction (credit_fact_extraction.py) + credit semantics (credit_semantics.py): dual-axis (authority ⊥ semantic), four semantic types (actual_granted_total_credit_line, authorized_application_ceiling, used_credit, unused_credit).
+   - recompute_authority (weak: only shape/verdict checks — must be replaced with formal payload resolver/envelope/identity verification).
+   - Backward expansion rollback (Fix A.2): cache undecided blocks, withdraw to previous-section blocks.
+   - FragmentProjection vs raw sentinel separation (Fix A.3).
+   - evidence.ids.content_hash, evidence.ids.make_evidence_id (formal identity algorithms).
+   - Store/payload resolver formal envelope validation (TopicMaterialPayloadResolver, verify_material_payload_ref, compute_source_payload_hash, compute_boundary_identity, EnumerationBoundaryProof.violation()).
+   - The formal authority chain model lives in `topic_store._validate_envelope` (verify material_payload_version==1, object_type, authority_identity==evidence:{evidence_id}, source_content_hash, created_dependency_fingerprint, locator, recompute evidence_id via ids.make_evidence_id with company_id/document_id/document_version/evidence_set_version/page/block_index/source_content_hash).
+
+3. Files and Code Sections (all READ this session, NO edits made yet):
+
+   - **harness/material_slice_runner.py** (1468 lines, full read):
+     - `run_material_slice(run_id, manifest, ...)` (line 805): central orchestration. Writes artifacts: seed_manifest.json, resolved_seed_manifest.json, expansion_trace.jsonl, unread_scope.json, boundary_decisions.json, aspect_membership.json, set_enumeration.json, topic_boundary_coverage.json, aspect_material_matrix.json, aspect_links.json, budget_profile.json, assemblies.json, material_index.json/.md, aspect_material_matrix.md, before_after.md, payload_preview/*.
+     - **Does NOT write source_object_inventory.json standalone** — Fix B requires this.
+     - `_aspect_state` (line 624-643): six-state matrix logic.
+     - `_assembly_to_dict` (line 1181), `_continuation_proof_to_dict` (line 1210).
+     - `_enumerate_set_by_version` (line 714) / `_enumerate_single_version` (line 646): P1-4 per-version enumeration; source_object_inventory comes from `SetEnumerationResult.to_dict()`.
+     - `SET_ASPECTS` (line 79), `_ROLE_RANK` (line 782), `_BOUNDARY_DISPOSITION_RANK` (line 771).
+
+   - **harness/topic_boundary.py** (495 lines, full read) — Fix A.1 target:
+     - `TopicBoundaryPolicy` (line 209): aspect_id, available, internal_keywords, external_keywords, topic_id, writing_subsection, policy_version, reason.
+     - `topic_boundary_coverage(aspect_ids=None)` (line 354): audits 115 topic_harness aspects; currently only emits `available` bool + `executable`/`boundary_policy_unavailable` status — does NOT yet emit three-state `policy_generated / semantics_verified / boundary_policy_unavailable` (Fix A.1).
+     - `classify_heading_topic` (392), `find_topic_boundary` (477), `block_start_topic_class` (457).
+
+   - **harness/source_object_inventory.py** (364 lines, full read) — Fix B target:
+     - `derive_expected_source_object_inventory` (line 161): BUG for Fix B.6 — `table_number_of(s)` runs at line 178 BEFORE `_CONTINUATION_RE.search(s)` at line 187, so "表 5-10（续）" gets classified as table_number not continuation. `_TABLE_NUMBER_LINE = re.compile(r"^\s*表\s*([0-9０-９][0-9０-９\-\–—~～]*)\s*(.*)$")` matches "表 5-10（续）".
+     - `reconcile_source_object_inventory` (line 232): cross_reference objects ALWAYS get RECOVERED_OK (lines 318-322) — counter-example 6 violation.
+     - `source_object_gate` (339), `reconciliation_summary` (358).
+
+   - **harness/credit_fact_extraction.py** (256 lines, full read) — Fix E target:
+     - `recompute_authority(material)` (line 72): only checks authority_verdict=="authoritative" + non-empty identity + locator consistency + 64-hex distinct hashes. Does NOT verify payload bytes sha256 / content_hash / evidence_id algorithm (Problem 6 / Fix E.1).
+     - `_period(clause)` (line 112): `return f"{m.group(1)}-12-31"` coerces full date YYYY-MM-DD → YYYY-12-31 (Fix E.5 / counter-example 16).
+     - `_CREDIT_PATTERNS` (line 33): only 3 patterns (authorized_application_ceiling, used_credit, unused_credit). NO `actual_granted_total_credit_line` pattern (Fix E.3 / counter-example 14).
+     - `extract_credit_facts(materials)` (line 186).
+
+   - **harness/credit_semantics.py** (261 lines, full read) — Fix E.4/E.5 target:
+     - HARD-CODES case amounts: `dual_axis_for_fact` semantic_reason (line 138-139): "6,000亿 是拟申请上限（authorized_application_ceiling），不是实际获批授信总额（actual_granted_total_credit_line）"; `successor_changelist()` hard_rules (line 253-254): "6,000亿 = authorized_application_ceiling…", "绝不回填 6000亿…". Must be removed from PRODUCTION code (Fix E.4).
+     - `reconcile_used_unused(used, unused)` (line 221): `_scope_key` = (entity_scope, facility_scope, document) — must add consolidation scope, currency, as_of/period (Fix E.5 / counter-example 15).
+     - `classify_semantic_type` (74), `_target_semantic_type` (96), `dual_axis_for_fact` (114), `credit_aspect_dual_axis` (159).
+
+   - **harness/six_category_acceptance.py** (468 lines, full read) — Fix B/C/D target:
+     - `_derive_boundary_incomplete(se)` (line 162): only returns `(True, ...)` if "多 document_version" in reason, else `(False, reason)` — Problem 3 (material_type_supported=False for other reasons still accepted).
+     - `_FAILCLOSED_GATES` (line 204): 11 gates g01..g11.
+     - `verify_category` (line 219): reads only 8 files (seed_manifest, resolved_seed_manifest, material_index, assemblies, set_enumeration, boundary_decisions, budget_profile, expansion_trace) — does NOT read source_object_inventory.json, aspect_links.json, aspect_membership.json, unread_scope.json, payload_preview (Fix D.12).
+     - `financial_notes.cross_block_continuation` (line 382): `len(src_blocks) >= 2 or len(src_pages) >= 2` proxy (Fix C.2; must use continuation_proof.valid).
+     - `main_business.table_recovery_ok` (line 376): `len(ok_tables) >= 1 and len(failed_tables) == 0` (Problem 4).
+     - `_derive_verdict` (line 400): dangling → sample_not_obtained without structured failed gate (Problem 7).
+     - `build_six_category_manifest` (line 421).
+
+   - **harness/context_expansion.py** (929 lines, full read) — Fix A.2/A.3 target:
+     - `expand()` (line 443): main orchestration; `do_rolling_read("adjacent_before"/"adjacent_after")` (lines 859-862).
+     - `classify()` (line 530): section boundary (sibling/super) → outside_boundary_sentinel (lines 560-565) but does NOT withdraw already-adopted blocks from the same direction (Fix A.2 gap); topic boundary → sentinel + FragmentProjection (lines 609-630).
+     - `FragmentProjection` (line 378): evidence_id, block, char_offset, prefix_text, out_of_topic_heading.
+     - `do_rolling_read` (line 728), `section_path_relation` (323).
+
+   - **harness/topic_materials.py** (945 lines, full read) — Fix C target:
+     - `TableContinuationProof` (line 90) with `.valid` (line 140) requiring 7 conditions; `.sample_not_obtained` = `not has_continuation`.
+     - `build_material_result` (line 418): dedup by evidence_id; fragment projections (lines 451-460); aspect_links (seed=source, non-seed=context_candidate).
+     - `build_table_continuation_proof` (line 856), `build_assemblies` (line 515), `_build_flattened_table_assemblies` (712).
+
+   - **harness/set_enumeration.py** (890 lines, full read) — Fix B target:
+     - `recover_flattened_tables(texts)` (line 253).
+     - `_enumerate_business` (line 502-585): returns `tuple[list[str], str | None, dict | None]`; source_object_inventory ONLY in flattened branch (line 552, `inventory.to_dict()`); None in structured branches (563, 566, 585).
+     - `FormalSetEnumerationVerifier.enumerate` (line 805): when boundary_proof.violation() is not None (lines 826-830) returns early WITHOUT source_object_inventory (counter-example 3 violation).
+     - `derive_enumeration_boundary_proof` (660), `aggregate_per_version_enumeration` (754), `group_materials_by_document_version` (733).
+
+   - **evidence/ids.py** (110 lines, full read):
+     - `content_hash(text, structured_payload=None)` (line 60) = sha256(normalized_text + "\x00" + canonical_payload).
+     - `make_evidence_id(company_id, document_id, document_version, evidence_set_version, page_number, block_index, content_hash_)` (line 66) = sha256("\n".join([...]))[:32].
+
+   - **Test files (full read, to be edited for 18 counter-examples):**
+     - `evals/test_context_expansion.py` (777 lines)
+     - `evals/test_topic_materials.py` (636 lines)
+     - `evals/test_six_category_acceptance.py` (360 lines)
+     - `evals/test_credit_fact_extraction.py` (208 lines)
+     - `evals/test_source_object_inventory.py` (194 lines)
+     - `evals/test_topic_boundary.py` (248 lines)
+     - `evals/test_credit_semantics.py` (170 lines)
+     - `evals/test_r2_six_state_acceptance.py` (249 lines)
+
+   - **evaluation/results/r2_six_category_acceptance_v4_20260915/README.md**: current v4 verdicts: main_business=accepted, core_competitiveness=boundary_incomplete, major_subsidiaries=boundary_incomplete, financial_notes=accepted, explicit_cross_reference=sample_not_obtained, non_300750_fixture=accepted.
+
+   - **NOT yet read this session (still pending):** `harness/topic_schema.py` relevant sections (recompute_authority_verdict ~line 1289, verify_material_payload_ref ~1254, MaterialPayloadRef ~1187, ResolvedPayload ~1235, ResearchMaterial ~1430, compute_source_payload_hash ~2681, compute_boundary_identity ~2669, EnumerationBoundaryProof ~2274 with violation() ~2315, SetCompletenessAssessment ~2413, SetEnumerationResult ~2571); `harness/topic_store.py` relevant sections (MaterialPayloadRecord ~1820, TopicMaterialPayloadResolver ~1846, _validate_envelope ~1936).
+
+4. Errors and fixes:
+   - No errors encountered THIS session (still in code-reading phase; no edits made, no tests run).
+   - Prior session's fixes (already done before this task, per summary): g09 gate rename (set_enumeration_present → set_enumeration_wellformed); credit preview regenerated; test_r2_boundary_semantics 3-tuple unpack; test_r2_six_state_acceptance B4 aspect change to financial_institution_loans. Final prior eval: 5157 passed / 0 failed.
+
+5. Problem Solving:
+   - Confirmed all code gaps mapping to the 8 problems via fresh full reads this session. Concrete confirmed bugs:
+     - (Fix B.6) `derive_expected_source_object_inventory` checks table_number_of before continuation regex → "表 5-10（续）" misclassified.
+     - (counter-example 6) `reconcile_source_object_inventory` KIND_CROSS_REFERENCE always returns RECOVERED_OK.
+     - (Problem 3) `_derive_boundary_incomplete` only detects "多 document_version" as incomplete.
+     - (Fix C.2) financial_notes gate uses src_blocks/src_pages proxy, not continuation_proof.valid.
+     - (Problem 4) main_business gate is `len(ok_tables)>=1 and len(failed_tables)==0` (any ok table passes).
+     - (Problem 7) `_derive_verdict` dangling → sample_not_obtained without failed gate.
+     - (Problem 6) `recompute_authority` weak validation (no payload bytes sha256 / content_hash / evidence_id algorithm verification).
+     - (Fix E.4) credit_semantics hard-coded "6,000亿" amounts.
+     - (Fix E.5) `_period` coerces YYYY-MM-DD → YYYY-12-31; `reconcile_used_unused` scope key missing consolidation/currency/as_of/period.
+     - (Fix A.1) topic_boundary_coverage lacks three-state distribution.
+     - (Fix A.2) no backward rollback in context_expansion classify.
+     - (Fix B) source_object_inventory not generated in structured branches / not persisted standalone / not read by six-category verify_category.
+
+6. All user messages:
+   - Message 1 (Phase 2 task, prior context): "执行'R2 全局化边界与独立验收闭环返修'" (completed in prior session).
+   - Message 2 (prior session, mid-turn): "本次修复预计多久" (answered with progress table).
+   - Message 3 (the CURRENT active task, verbatim key points): "执行'R2 既有能力正式接线与验收纠错'。这不是新一轮架构设计，也不是增加更多类型；核心任务是把已经实现的 BoundaryPolicy、SourceObjectInventory、TableContinuationProof、payload校验真正接入最终材料和六类验收路径。不得重新写实施计划，不得只修改测试以适应当前输出。" Plus the full 10-section spec (一 through 十) with all boundaries, 8 problems, 5 fixes A-E, 18 counter-examples, v5 acceptance, 15-item stop report (captured in sections 1/7 above).
+   - (Final message this session was the summarization instruction — a system/compaction directive, not a user task message.)
+
+7. Pending Tasks (the full current task, in order):
+   1. Finish reading: `harness/topic_schema.py` relevant sections (recompute_authority_verdict, verify_material_payload_ref, MaterialPayloadRef, ResolvedPayload, ResearchMaterial, compute_source_payload_hash, compute_boundary_identity, EnumerationBoundaryProof.violation) and `harness/topic_store.py` relevant sections (MaterialPayloadRecord, TopicMaterialPayloadResolver.resolve, _validate_envelope) — to reuse the formal authority chain for Fix E.1.
+   2. Write 18 failing counter-example tests (reproduce the 8 problems) FIRST — before fixing implementation (task section 二: "编码前先补能稳定复现以下问题的失败测试，随后再修实现"; "测试必须先证明当前实现会失败").
+   3. Fix A: topic_boundary.py three-state coverage (policy_generated/boundary_semantics_verified/boundary_policy_unavailable); backward rollback in context_expansion.py; fragment vs raw sentinel separation.
+   4. Fix B: SourceObjectInventory as hard gate (generate+persist source_object_inventory.json regardless of boundary proof; six-category reads it; 4-state per source object; continuation-before-table-number ordering in source_object_inventory.py; dangling cross-ref → target_not_obtained).
+   5. Fix C: financial_notes continuation gate requires continuation_proof.valid==true; remove src_blocks/src_pages proxy.
+   6. Fix D: six_category_acceptance.verify_category truly recomputes (read all 13 artifacts, reconcile seed vs resolved, recompute hashes via formal resolver, material_type_supported=false → failed gate, non-accepted → structured failed gate, empty dict not pass via all([])==True, unread/budget/stop consistency).
+   7. Fix E: credit facts use formal authority chain (reuse Store/payload resolver, verify payload bytes sha256 + content_hash + evidence_id + material_id + locator + authority assessment); fail-closed _read_materials; 4 semantic types (add actual_granted_total extraction); remove hard-coded amounts from credit_semantics; full scope reconciliation (entity/facility/consolidation/currency/as_of/period); preserve real dates (no YYYY-12-31 coercion).
+   8. Run real v5 acceptance: new run_id + new v5 dirs for main_business, financial_notes, core_competitiveness, major_subsidiaries, explicit_cross_reference, non-300750 fixture, credit semantics preview (do NOT overwrite v2/v3/v4).
+   9. Run `python -m evals.run_evals` once (at the end).
+   10. Write 15-item stop report.
+
+8. Current Work:
+   Immediately before this summary request, I was completing the **code-reading/understanding phase** of the "R2 既有能力正式接线与验收纠错" task. I had just finished reading (in full, this session): `harness/material_slice_runner.py`, `evals/test_context_expansion.py`, `evals/test_topic_materials.py`, `evals/test_six_category_acceptance.py`, `evals/test_credit_fact_extraction.py`, `evals/test_source_object_inventory.py`, `evals/test_topic_boundary.py`, `evals/test_credit_semantics.py`, `evals/test_r2_six_state_acceptance.py`, `harness/topic_boundary.py`, `harness/source_object_inventory.py`, `harness/credit_fact_extraction.py`, `harness/credit_semantics.py`, `harness/six_category_acceptance.py`, `harness/context_expansion.py`, `evidence/ids.py`, `harness/set_enumeration.py`, and `harness/topic_materials.py`. The very last tool action was reading `harness/topic_materials.py` (945 lines, full). No edits made, no tests run, no git operations performed this session.
+
+9. Optional Next Step:
+   Continue the code-reading phase to complete understanding by reading the last two unread implementation files: `harness/topic_schema.py` (relevant sections: `recompute_authority_verdict` ~line 1289, `verify_material_payload_ref` ~1254, `MaterialPayloadRef` ~1187, `ResolvedPayload` ~1235, `ResearchMaterial` ~1430, `compute_source_payload_hash` ~2681, `compute_boundary_identity` ~2669, `EnumerationBoundaryProof` ~2274 with `violation()` ~2315) and `harness/topic_store.py` (`MaterialPayloadRecord` ~1820, `TopicMaterialPayloadResolver` ~1846, `_validate_envelope` ~1936). Then proceed to write the 18 failing counter-example tests BEFORE fixing implementation (task section 二 mandates: "编码前先补能稳定复现以下问题的失败测试，随后再修实现" and "测试必须先证明当前实现会失败"), then implement fixes A-E, regenerate v5 artifacts (new run_id + new v5 dirs), run `python -m evals.run_evals` once, and write the 15-item stop report. This is directly in line with the user's most recent request: "执行'R2 既有能力正式接线与验收纠错'" with its explicit sequence "二、先固化当前失败反例...随后再修实现", "九、真实v5验收...先跑专项测试，最后只跑一次：`python -m evals.run_evals`", and "十、停止报告".
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: C:\Users\jeank\.claude\projects\d--Claude-shouxin-ver1-shouxinbaogaoshengcheng-ceshi--ver1\bdd2b1e1-e4f8-4be7-8962-dff1878b9afe.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.

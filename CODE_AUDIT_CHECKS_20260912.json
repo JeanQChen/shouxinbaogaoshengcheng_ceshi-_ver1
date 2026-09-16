@@ -1,0 +1,169 @@
+{
+  "date": "2026-09-12",
+  "method": "Existing function AST bodies executed in isolated injected namespaces; no production imports, network, or app writes. These are defect reproductions, not fixed-code acceptance.",
+  "observed_defects": {
+    "inspect_existing_ids_marks_stalled": true,
+    "external_body_absent_from_answer_material": true,
+    "middle_roster_removed_by_bounded_text": true,
+    "marker_check_accepts_changed_number": true,
+    "financial_selection_omits_earlier_years": true
+  },
+  "selected_periods": [
+    "2025-12-31",
+    "2026-03-31"
+  ],
+  "actual_run_trace_summary": [
+    {
+      "question_id": "company_business_main",
+      "route": "STANDARD_RAG",
+      "stop_reason": "CONSECUTIVE_NO_NEW_EVIDENCE",
+      "external_searches": 0,
+      "snapshots": [],
+      "tools": [
+        {
+          "name": "search_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "inspect_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "inspect_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "inspect_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        }
+      ]
+    },
+    {
+      "question_id": "company_rd_capacity",
+      "route": "DB_LOOKUP",
+      "stop_reason": "CONSECUTIVE_NO_NEW_EVIDENCE",
+      "external_searches": 0,
+      "snapshots": [],
+      "tools": [
+        {
+          "name": "lookup_company_field",
+          "status": "EMPTY",
+          "error_code": "DB_FIELD_UNAVAILABLE",
+          "body_chars": 0
+        },
+        {
+          "name": "lookup_company_field",
+          "status": "EMPTY",
+          "error_code": "DB_FIELD_UNAVAILABLE",
+          "body_chars": 0
+        }
+      ]
+    },
+    {
+      "question_id": "industry_comparables",
+      "route": "DEEP_RETRIEVAL",
+      "stop_reason": "COMPLETED_WITH_GAPS",
+      "external_searches": 0,
+      "snapshots": [],
+      "tools": [
+        {
+          "name": "search_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "inspect_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "search_evidence",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        }
+      ]
+    },
+    {
+      "question_id": "industry_policy",
+      "route": "EXTERNAL_RESEARCH",
+      "stop_reason": "FATAL_TOOL_ERROR",
+      "external_searches": 1,
+      "snapshots": [],
+      "tools": [
+        {
+          "name": "search_external_sources",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "fetch_external_content",
+          "status": "FATAL_ERROR",
+          "error_code": "EXTERNAL_FETCH_BLOCKED",
+          "body_chars": 0
+        }
+      ]
+    },
+    {
+      "question_id": "industry_risk_transmission",
+      "route": "EXTERNAL_RESEARCH",
+      "stop_reason": "COMPLETED_WITH_GAPS",
+      "external_searches": 1,
+      "snapshots": [
+        "ext-166b696b6c61481da9a2"
+      ],
+      "tools": [
+        {
+          "name": "search_external_sources",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "fetch_external_content",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 300
+        },
+        {
+          "name": "snapshot_external_source",
+          "status": "SUCCESS",
+          "error_code": null,
+          "body_chars": 0
+        },
+        {
+          "name": "fetch_external_content",
+          "status": "EMPTY",
+          "error_code": "EXTERNAL_CONTENT_EMPTY",
+          "body_chars": 0
+        }
+      ]
+    }
+  ],
+  "baseline_hashes": {
+    "evaluation/results/phase4_demo_run_20260911T_jsonfix/run_manifest.json": "21ddbcc8fb39a0cd042cf4f9c39f3298482e4a25fd3d82ad3868a2397007dd87",
+    "evaluation/results/phase4_demo_run_20260911T_jsonfix/company/section_result.json": "dd743aaab4de62f6fe5176b652f3f0f88e5b4f65d227cffe23e59deef5428ab3",
+    "evaluation/results/phase4_demo_run_20260911T_jsonfix/financial/section_result.json": "fc78703d0cc00ed6b14fb0b3d31e34fd3c38b74a78ab3e1b9f14a43f39d10a30",
+    "evaluation/results/phase4_demo_run_20260911T_jsonfix/industry/section_result.json": "c83c7d59729c4e668357a65cbbbf73098c901529e741d0a70a54b3ac419546a3"
+  },
+  "publication_eval": {
+    "status": "passed",
+    "command": "python -X utf8 -m evals.test_section_publishable_report",
+    "passed": 56,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "Approved outside sandbox; sandbox run stalled in tempfile.mkdtemp, diagnosed by faulthandler and interrupted.",
+    "limitation": "Existing 56 checks passing does not validate narrative completeness, web body delivery, or table semantic correctness."
+  }
+}

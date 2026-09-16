@@ -1,0 +1,10 @@
+[
+  {
+    "aspect_id": "company_debt_credit.total_credit_line",
+    "state": "seed_only"
+  },
+  {
+    "aspect_id": "company_debt_credit.unused_credit",
+    "state": "seed_only"
+  }
+]

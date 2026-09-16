@@ -1,0 +1,23 @@
+{
+  "section_id": "industry",
+  "question_id": "industry_risk_transmission",
+  "question": "行业风险向借款人收入、成本、资本开支、现金流和偿债能力的传导",
+  "evidence_requirements": [
+    {
+      "requirement_id": "er_ind_transmission",
+      "evidence_kind": "paragraph",
+      "source_classes": [
+        "company_industry",
+        "external"
+      ],
+      "minimum_sources": 1,
+      "freshness_policy": null,
+      "required_fields": []
+    }
+  ],
+  "required_aspects": [
+    "对收入的传导",
+    "对成本与资本开支的传导",
+    "对现金流与偿债能力的传导"
+  ]
+}

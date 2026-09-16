@@ -1,0 +1,47 @@
+[
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-5fb05d6d4c626283b60930077a8a6138",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-a41b0071c49fb1f36e8d6c3a1af3f43d",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-e13924560ab3f7ae28616a54f77717ec",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-fdfc51463fca7eebb0a6537b3202d3bf",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-ff960eb26fe0eedf7e41e5f4d07ada14",
+    "role": "source",
+    "disposition": "seed",
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  }
+]

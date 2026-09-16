@@ -1,0 +1,226 @@
+{
+  "preview_version": "credit-dual-axis-v2",
+  "fact_extraction_version": "1",
+  "run_id": "r2_credit_dual_axis_v5_preview_20260916_derived",
+  "material_run_id": "r2_material_slice_r2_p0_credit_v5_20260916",
+  "generated_at": "20260916T000000Z",
+  "purpose": "R2 §12 修复 E：授信双轴 v2 预览，事实从真实 R2 材料产物确定性派生（无手写 _FACTS），逐 aspect 由 harness.credit_semantics 正式函数派生双轴；每条事实携带 evidence_id/material_id/document_id+version/locator/source_content_hash/payload_hash；authority_valid 从真实 Evidence 身份/版本/locator/双哈希重算；total_credit_line 是 not_obtained（显式缺口），绝不 authority_failed；新增 authorized_application_ceiling 的 blocking_policy=supporting、缺失 non_blocking（NOT REPORT_BLOCKED）。",
+  "facts": [
+    {
+      "semantic_type": "authorized_application_ceiling",
+      "text": "议案公告：2025年度公司及控股子公司拟向相关金融机构 新增申请不超过人民币6,000亿元的综合授信额度",
+      "value": "6,000亿元",
+      "not_obtained": false,
+      "not_obtained_reason": "",
+      "period": "2025年度",
+      "entity_scope": "公司及控股子公司",
+      "facility_scope": "综合授信额度",
+      "consolidation": "consolidated",
+      "currency": "CNY",
+      "as_of": "",
+      "document": "NDSD_KCZ_2026",
+      "scope_closed": true,
+      "authority_valid": true,
+      "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+      "material_id": "mat-4bbd78d754852e2f3b5cc9cc36399cdd",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "locator": "NDSD_KCZ_2026 p111 「发行人资信状况」block 0",
+      "source_content_hash": "1488457170381d4421cfe764aac34628d82b14a1f50707a997cc4b01626bd289",
+      "payload_hash": "43adf9293674d601b8f155b78d9bd1fdd9db2f88e776f3862b73be2adfd38e4e"
+    },
+    {
+      "semantic_type": "used_credit",
+      "text": "截至2025年末，公司及控股子公司 授信额度已使用2918.37亿",
+      "value": "2918.37亿元",
+      "not_obtained": false,
+      "not_obtained_reason": "",
+      "period": "2025年末",
+      "entity_scope": "公司及控股子公司",
+      "facility_scope": "综合授信额度",
+      "consolidation": "consolidated",
+      "currency": "CNY",
+      "as_of": "",
+      "document": "NDSD_KCZ_2026",
+      "scope_closed": true,
+      "authority_valid": true,
+      "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+      "material_id": "mat-4bbd78d754852e2f3b5cc9cc36399cdd",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "locator": "NDSD_KCZ_2026 p111 「发行人资信状况」block 0",
+      "source_content_hash": "1488457170381d4421cfe764aac34628d82b14a1f50707a997cc4b01626bd289",
+      "payload_hash": "43adf9293674d601b8f155b78d9bd1fdd9db2f88e776f3862b73be2adfd38e4e"
+    },
+    {
+      "semantic_type": "unused_credit",
+      "text": "于 2025 年 12 月 31 日，本公司 尚未使用的银行借款额度为 3,655亿元（2024 年 12 月 31日 3,441亿元）",
+      "value": "3,655亿元",
+      "not_obtained": false,
+      "not_obtained_reason": "",
+      "period": "2025-12-31",
+      "entity_scope": "公司",
+      "facility_scope": "银行借款额度",
+      "consolidation": "parent_only",
+      "currency": "CNY",
+      "as_of": "2025-12-31",
+      "document": "NDSD_2025_year",
+      "scope_closed": false,
+      "authority_valid": true,
+      "evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+      "material_id": "mat-1f750819254812db6bc99098f264ab85",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "locator": "NDSD_2025_year p210 「与金融工具相关的风险」block 0",
+      "source_content_hash": "8ba9685e21cfdd944e5e989fa7a86015adcbb2ea3577c63df5545be37086249b",
+      "payload_hash": "d91d1cb98221e87238d1405552aebc59cdc2d9b84c535f7d3b5943318669e28b"
+    }
+  ],
+  "aspect_dual_axis": {
+    "company_debt_credit.total_credit_line": {
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "authority_status": "valid",
+      "authority_reason": "",
+      "semantic_status": "not_obtained",
+      "semantic_reason": "目标语义类型未取得（not_obtained，显式缺口，非 authority_failed）；已有事实为申请上限（authorized_application_ceiling），对实际获批总额（actual_granted_total_credit_line）属语义误配",
+      "facts": [
+        {
+          "aspect_id": "company_debt_credit.total_credit_line",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "拟申请上限（authorized_application_ceiling）不是实际获批授信总额（actual_granted_total_credit_line）"
+        },
+        {
+          "aspect_id": "company_debt_credit.total_credit_line",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'used_credit' 与目标 aspect 需要的 'actual_granted_total_credit_line' 不符（语义误配，非权威失败）"
+        },
+        {
+          "aspect_id": "company_debt_credit.total_credit_line",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'unused_credit' 与目标 aspect 需要的 'actual_granted_total_credit_line' 不符（语义误配，非权威失败）"
+        }
+      ]
+    },
+    "company_debt_credit.used_credit": {
+      "aspect_id": "company_debt_credit.used_credit",
+      "authority_status": "valid",
+      "authority_reason": "",
+      "semantic_status": "supports",
+      "semantic_reason": "目标语义类型已取得且口径闭合",
+      "facts": [
+        {
+          "aspect_id": "company_debt_credit.used_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'authorized_application_ceiling' 与目标 aspect 需要的 'used_credit' 不符（语义误配，非权威失败）"
+        },
+        {
+          "aspect_id": "company_debt_credit.used_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "supports",
+          "semantic_reason": "语义类型相符、口径闭合"
+        },
+        {
+          "aspect_id": "company_debt_credit.used_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'unused_credit' 与目标 aspect 需要的 'used_credit' 不符（语义误配，非权威失败）"
+        }
+      ]
+    },
+    "company_debt_credit.unused_credit": {
+      "aspect_id": "company_debt_credit.unused_credit",
+      "authority_status": "valid",
+      "authority_reason": "",
+      "semantic_status": "scope_qualified",
+      "semantic_reason": "目标语义类型已取得但口径未闭合（partial/scope_qualified）",
+      "facts": [
+        {
+          "aspect_id": "company_debt_credit.unused_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'authorized_application_ceiling' 与目标 aspect 需要的 'unused_credit' 不符（语义误配，非权威失败）"
+        },
+        {
+          "aspect_id": "company_debt_credit.unused_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'used_credit' 与目标 aspect 需要的 'unused_credit' 不符（语义误配，非权威失败）"
+        },
+        {
+          "aspect_id": "company_debt_credit.unused_credit",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "scope_qualified",
+          "semantic_reason": "已取得但口径未闭合（entity_scope/facility_scope/document 不一致）"
+        }
+      ]
+    },
+    "company_debt_credit.authorized_application_ceiling": {
+      "aspect_id": "company_debt_credit.authorized_application_ceiling",
+      "authority_status": "valid",
+      "authority_reason": "",
+      "semantic_status": "supports",
+      "semantic_reason": "目标语义类型已取得且口径闭合",
+      "facts": [
+        {
+          "aspect_id": "company_debt_credit.authorized_application_ceiling",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "supports",
+          "semantic_reason": "语义类型相符、口径闭合"
+        },
+        {
+          "aspect_id": "company_debt_credit.authorized_application_ceiling",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'used_credit' 与目标 aspect 需要的 'authorized_application_ceiling' 不符（语义误配，非权威失败）"
+        },
+        {
+          "aspect_id": "company_debt_credit.authorized_application_ceiling",
+          "authority_status": "valid",
+          "authority_reason": "",
+          "semantic_status": "semantic_mismatch",
+          "semantic_reason": "事实语义类型 'unused_credit' 与目标 aspect 需要的 'authorized_application_ceiling' 不符（语义误配，非权威失败）"
+        }
+      ]
+    }
+  },
+  "used_unused_reconciliation": {
+    "status": "scope_not_reconciled",
+    "rule": "used_credit 与 unused_credit 绝不求和/求差；scope 不一致 → scope_not_reconciled"
+  },
+  "successor_changelist": {
+    "changelist_version": "1",
+    "text_correction": {
+      "wrong": "Contract 把申请额度上限定义成总授信（total_credit_line）",
+      "correct": "当前 Contract 缺少独立的申请额度上限 aspect，旧 evaluation 绑定发生语义误配"
+    },
+    "add_aspect": {
+      "aspect_id": "company_debt_credit.authorized_application_ceiling",
+      "label": "拟申请/授权申请额度上限",
+      "semantic_type": "authorized_application_ceiling",
+      "blocking_policy": "supporting",
+      "missing_policy": "non_blocking（缺失不阻断，NOT REPORT_BLOCKED）",
+      "relation": "与 actual_granted_total_credit_line（实际获批授信总额，独立显式缺口）分离，二者不可合并"
+    },
+    "hard_rules": [
+      "authorized_application_ceiling 不是 actual_granted_total_credit_line、也不是 total_credit_line",
+      "actual_granted_total_credit_line 无披露 → not_obtained（显式缺口），绝不回填申请上限、绝不标 authority_failed",
+      "used_credit 与 unused_credit 绝不求和/求差（entity_scope/facility_scope/consolidation/currency/as_of/period/document 不一致）",
+      "unused_credit 口径未闭合 → scope_qualified（partial），非 obtained 的完整口径"
+    ]
+  }
+}

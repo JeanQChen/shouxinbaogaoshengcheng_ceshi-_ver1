@@ -1,0 +1,14 @@
+[
+  {
+    "aspect_id": "company_business_main.main_business",
+    "state": "boundary_incomplete"
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "state": "boundary_incomplete"
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "state": "boundary_incomplete"
+  }
+]

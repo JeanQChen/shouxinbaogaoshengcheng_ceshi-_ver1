@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-95ea65c8d6aa9f628b51dce804270d95",
+  "component_evidence_id": "6188ba20a45db986da49cb8357d206d4",
+  "source_content_hash": "922002aa93dfa10feec44b9ab17a500d8db5dfc3271ff4c464c4c46ee81a28f5",
+  "payload_hash": "11391b6fd75a30dee58aeb8a9194555250a72a3a91c908e1148465cc21798a16",
+  "payload": "{\"authority_identity\":\"evidence:6188ba20a45db986da49cb8357d206d4\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"为提升补能效率，优化用户体验，公司携手产业各方加速构建巧克力换电生态。截至报告期末，公\\n司巧克力换电建站超  1,000座，分布于全国 45座城市，涵盖长三角、京津冀、川渝、大湾区四大核心经\\n济带，并已率先在重庆实现盈利；公司已与广汽、长安、一汽、上汽、奇瑞等多家车企达成换电战略合\\n作，上述车企已发布  20款以上换电车型，包括埃安  UT super等多款轿车及SUV，覆盖营运出行、家庭\\n出行、行政商务、年轻化代步等多元场景；报告期内，公司与中石化、国网、南网、滴滴、京东、神州\\n\\n22\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"6188ba20a45db986da49cb8357d206d4\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":22,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"922002aa93dfa10feec44b9ab17a500d8db5dfc3271ff4c464c4c46ee81a28f5\"}"
+}

@@ -1,0 +1,29 @@
+{
+  "company_finance.notes_to_financial_statements": {
+    "formal_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "context_candidate_material_ids": [
+      "mat-0f86d6a0a73c7a9d86a964b37d00a0b9",
+      "mat-13cb6dc20082053978d9d1df44f862e8",
+      "mat-36721d81d70d3a2d3d764d48dcfc8ac8",
+      "mat-377fcda630a5484eb18bed6e4478ae5b",
+      "mat-3e9367762df9b629018ed7fb9ec13754",
+      "mat-41c69464b4d309559a86eb5fc1c61990",
+      "mat-5eaa00c66bc0d9e4162e66b73cc32547",
+      "mat-6a858c02a9226b31a56d4dd81aa546e5",
+      "mat-a244a3560419786e28e59e407bd04c67",
+      "mat-a2c9a62e8a54147457b6678de66fdd31",
+      "mat-b1bd6df27d68aa7569794eb89bdeb814"
+    ],
+    "outside_boundary_evidence": [
+      "a360e346127808b0471760c8da8cc2fd"
+    ],
+    "unread_inside_boundary": [
+      "6fa0412dd4a78804cf90f7b44f420717"
+    ],
+    "seed_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ]
+  }
+}

@@ -1,0 +1,287 @@
+{
+  "sample": "industry_scale_cycle",
+  "pack_id": "pack_fbcddc5c0dda244f8824f4887cb5263b",
+  "matrix": [
+    {
+      "aspect_id": "asp_a9fdf2b6e571a9fa8aae7adb",
+      "aspect_text": "行业规模",
+      "obtained": true,
+      "fact_ids": [
+        "ext-64cc49c6d973454abd4a"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+          "page_number": null
+        }
+      ],
+      "validation_status": "PASS",
+      "loss_reasons": [],
+      "detail": "valid_sources=1 adopted=1 rejected_policy=0"
+    },
+    {
+      "aspect_id": "asp_2933e5c110c84078ee03faf5",
+      "aspect_text": "增速",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0 adopted=0 rejected_policy=0"
+    },
+    {
+      "aspect_id": "asp_ecadf91883dc021ddf964501",
+      "aspect_text": "当前周期位置",
+      "obtained": false,
+      "fact_ids": [],
+      "citation_refs": [],
+      "validation_status": "NOT_FOUND",
+      "loss_reasons": [
+        "no_validated_external_source"
+      ],
+      "detail": "valid_sources=0 adopted=0 rejected_policy=0"
+    }
+  ],
+  "funnel": {
+    "external_queries": 3,
+    "candidate_urls": 15,
+    "fetched": 1,
+    "snapshotted": 1,
+    "extracted_facts": 1,
+    "validated_facts": 1,
+    "adopted_facts": 1,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ],
+      [
+        "fetched",
+        "budget_fetch_cap"
+      ],
+      [
+        "adopted",
+        "no_validated_external_source"
+      ]
+    ]
+  },
+  "external_source_count": 1,
+  "external_fact_count": 9,
+  "adopted_fact_count": 1,
+  "adopted_fact_ids": [
+    "ext-64cc49c6d973454abd4a"
+  ],
+  "adopted_facts": [
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "scale",
+      "value": "1406亿元",
+      "statement": "有关研究机构测算，到2030年我国动力电池回收市场规模可达1406亿元，比2022年实际市场规模增长近9倍。",
+      "period": "2030",
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-0",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "cycle",
+      "value": "4-8年",
+      "statement": "按照动力电池4-8年的使用寿命估算，2017年前后国内大规模装机的新能源车动力电池也将在今年迎来回收放量期。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-1",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "growth",
+      "value": "连续8年保持全球第一",
+      "statement": "截至2022年，我国新能源汽车产销量已经连续8年保持全球第一。",
+      "period": "2022",
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-2",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "supply_demand",
+      "value": "由2021年最低60%上升至2022年的100%以上",
+      "statement": "部分企业反映，部分电池折扣系数（废料价与新货价的比）已由2021年最低60%上升至2022年的100%以上。",
+      "period": "2021-2022",
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-3",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "policy",
+      "value": "我国基于新能源汽车动力电池回收利用的专门立法还未出台",
+      "statement": "相较而言，我国基于新能源汽车动力电池回收利用的专门立法还未出台。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-4",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "policy",
+      "value": "欧盟颁布的新《电池法》，要求生产者建立回收体系、规划回收网点，支付回收费用，并提供电池溯源信息，履行供应链尽职调查义务",
+      "statement": "如欧盟颁布的新《电池法》，要求生产者建立回收体系、规划回收网点，支付回收费用，并提供电池溯源信息，履行供应链尽职调查义务。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-5",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "policy",
+      "value": "动力电池回收利用涉及通用要求、梯次利用、再生利用、管理规范等4部分20多项技术标准",
+      "statement": "目前动力电池回收利用涉及通用要求、梯次利用、再生利用、管理规范等4部分20多项技术标准。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-6",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "risk",
+      "value": "多数回收企业一般采取自建回收网点的方式，缺乏统一规划，存在网点分布不合理、利用率较低、投入高、管理不规范等问题",
+      "statement": "多数回收企业一般采取自建回收网点的方式，缺乏统一规划，存在网点分布不合理、利用率较低、投入高、管理不规范等问题。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-7",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    },
+    {
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "fact_class": "risk",
+      "value": "企业盈利能力普遍较低，导致科学规范的动力电池回收利用体系尚未真正形成",
+      "statement": "叠加正规渠道动力电池回收成本较高的影响，企业盈利能力普遍较低，导致科学规范的动力电池回收利用体系尚未真正形成。",
+      "period": null,
+      "support_verdict": "SUPPORTED",
+      "fact_id": "extfact-ext-64cc49c6d973454abd4a-8",
+      "source_grade": "A",
+      "published_at": "2023-02-28T17:28:24+08:00",
+      "canonical_url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html"
+    }
+  ],
+  "rejected_facts": [],
+  "rejected_sources": [],
+  "funnel_trace": [
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.ndrc.gov.cn/fggz/lywzjw/jwtz/202202/t20220228_1317794_ext.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "预计未来几年内全球动力电池镍需求将大幅增加"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/gxsj/tjfx/xfpgy/qg/art/2021/art_2504bb2e846f482b953239659525d8d1.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "2021年1－8月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "http://www.miit.gov.cn/jgsj/xfpgys/qg/art/2021/art_4b2371152a864633b390f01783677b00.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "EXTERNAL_FETCH_BLOCKED",
+      "query": "动力电池 行业规模",
+      "title": "2021年1-3月电池行业经济运行情况"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/jgsj/xfpgys/qg/art/2021/art_8aa59538ef1e49778d4791f505cf1f94.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 行业规模",
+      "title": "2021年1-4月电池行业经济运行情况"
+    },
+    {
+      "stage": "adopted",
+      "url": "http://www.ndrc.gov.cn/wsdwhfz/202302/t20230228_1350052.html",
+      "source_grade": "A",
+      "source_snapshot_id": "ext-64cc49c6d973454abd4a",
+      "reason": "",
+      "query": "动力电池 行业规模",
+      "title": "【动力电池“退役潮”接踵而至 建立科学规范的回收体系刻不容缓】-国家发展和改革委员会"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/zwgk/zcjd/art/2020/art_5f59519c32c74fd8afb42ad65bb4bb13.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 增速",
+      "title": "关于印发《促进汽车动力电池产业发展行动方案》的通知解读"
+    },
+    {
+      "stage": "fetch_failed",
+      "url": "https://www.miit.gov.cn/jgsj/zbys/qcgy/art/2026/art_8ebed5dbf0fc40c1aed099f9e96a2684.html",
+      "source_grade": "A",
+      "source_snapshot_id": "",
+      "reason": "budget_fetch_cap",
+      "query": "动力电池 当前周期位置",
+      "title": "公开征求《燃料电池电动汽车 安全要求》强制性国家标准的意见"
+    }
+  ],
+  "source_intent": {
+    "include": "gov.cn|ndrc.gov.cn|miit.gov.cn|stats.gov.cn|cninfo.com.cn",
+    "exclude": null
+  },
+  "transmission_chain": null,
+  "exposure_fact_count": 0
+}

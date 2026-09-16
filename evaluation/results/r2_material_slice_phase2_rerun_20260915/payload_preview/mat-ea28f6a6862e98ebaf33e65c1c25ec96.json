@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-ea28f6a6862e98ebaf33e65c1c25ec96",
+  "component_evidence_id": "55930d6c3f2f494e657a54919ae79f3c",
+  "source_content_hash": "958aacc496c1abc2580678b358107c8e384b9bad5eb0ecbdbe0e22fa24edbfee",
+  "payload_hash": "decf722da23ac48da7a341df31e4c37a486566677a126ae595bdf4a6d56c30b2",
+  "payload": "{\"authority_identity\":\"evidence:55930d6c3f2f494e657a54919ae79f3c\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"本公司通过经营业务产生的资金及银行及其他借款来筹措营运资金。于  2024年12月31日，本公司\\n尚未使用的银行借款额度为  3,441亿元（2023年12月31日3,373亿元）。\\n  期末，本公司持有的金融负债按未折现剩余合同现金流量的到期期限分析如下：\\n\\n单位：千元\\n\\n210\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"55930d6c3f2f494e657a54919ae79f3c\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2024_year\",\"document_version\":\"sha256-b4f1713d7b821eb0\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":210,\"section_path\":\"在其他主体中的权益\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"958aacc496c1abc2580678b358107c8e384b9bad5eb0ecbdbe0e22fa24edbfee\"}"
+}

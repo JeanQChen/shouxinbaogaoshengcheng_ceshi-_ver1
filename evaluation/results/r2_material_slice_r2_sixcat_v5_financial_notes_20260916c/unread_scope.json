@@ -1,0 +1,8 @@
+[
+  {
+    "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "reason": "boundary",
+    "scope_desc": "停止原因：previous section heading (backward rollback)；未读范围自 P177 第0块。",
+    "stop_reason": "previous section heading (backward rollback)"
+  }
+]

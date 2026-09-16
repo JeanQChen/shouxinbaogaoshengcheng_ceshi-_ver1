@@ -1,0 +1,56 @@
+{
+  "budget_profile_version": "1",
+  "profile_name": "acceptance",
+  "budget_limits": {
+    "adjacent_blocks_before": 4,
+    "adjacent_blocks_after": 16,
+    "adjacent_pages": 10,
+    "table_continuation": 4,
+    "explicit_references": 4,
+    "max_bytes": 262144,
+    "max_tokens": 65536,
+    "no_new_material_steps": 4,
+    "per_seed_cap": 32,
+    "per_request_cap": 128
+  },
+  "seed_budget_records": [
+    {
+      "case_id": "candidate-13",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "budget_consumed": {
+        "adjacent_blocks_before": 0,
+        "adjacent_blocks_after": 1,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 4344,
+        "max_tokens": 1676,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 2
+      },
+      "stop_reason": "unrelated section boundary",
+      "unread_scope": "停止原因：unrelated section boundary；无未读候选。"
+    },
+    {
+      "case_id": "candidate-15",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "467120b8407bbbea6a6684303b632147",
+      "budget_consumed": {
+        "adjacent_blocks_before": 0,
+        "adjacent_blocks_after": 2,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 5989,
+        "max_tokens": 2503,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 3
+      },
+      "stop_reason": "unrelated section boundary",
+      "unread_scope": "停止原因：unrelated section boundary；无未读候选。"
+    }
+  ]
+}

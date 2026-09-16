@@ -1,0 +1,115 @@
+{
+  "sample": "industry_scale_cycle",
+  "pack_id": "pack_b9a8cf4c6c86fd7106d0ef147af3d0c6",
+  "matrix": [
+    {
+      "aspect_id": "asp_a9fdf2b6e571a9fa8aae7adb",
+      "aspect_text": "行业规模",
+      "obtained": false,
+      "fact_ids": [
+        "ext-9e66df56398943bc9ae5",
+        "ext-939437f87b8f4d399e87"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-9e66df56398943bc9ae5",
+          "page_number": null
+        },
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-939437f87b8f4d399e87",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:d_only"
+      ],
+      "detail": "valid_sources=2"
+    },
+    {
+      "aspect_id": "asp_2933e5c110c84078ee03faf5",
+      "aspect_text": "增速",
+      "obtained": false,
+      "fact_ids": [
+        "ext-6c32cf1e4c0b488cb575",
+        "ext-3cc4ad280cd14600b7cd"
+      ],
+      "citation_refs": [
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-6c32cf1e4c0b488cb575",
+          "page_number": null
+        },
+        {
+          "ref_type": "external",
+          "evidence_id": null,
+          "evidence_fact_id": null,
+          "snapshot_id": null,
+          "item_code": null,
+          "formula_id": null,
+          "formula_version": null,
+          "period": null,
+          "source_snapshot_id": "ext-3cc4ad280cd14600b7cd",
+          "page_number": null
+        }
+      ],
+      "validation_status": "FAIL",
+      "loss_reasons": [
+        "insufficient_industry_sources:insufficient_independent_sources"
+      ],
+      "detail": "valid_sources=2"
+    }
+  ],
+  "funnel": {
+    "external_queries": 2,
+    "candidate_urls": 10,
+    "fetched": 4,
+    "snapshotted": 4,
+    "extracted_facts": 4,
+    "validated_facts": 0,
+    "adopted_facts": 0,
+    "loss_reasons": [
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_NETWORK_ERROR"
+      ],
+      [
+        "fetched",
+        "EXTERNAL_FETCH_BLOCKED"
+      ],
+      [
+        "fetched",
+        "budget_exhausted"
+      ]
+    ]
+  },
+  "external_source_count": 4,
+  "external_fact_count": 0
+}

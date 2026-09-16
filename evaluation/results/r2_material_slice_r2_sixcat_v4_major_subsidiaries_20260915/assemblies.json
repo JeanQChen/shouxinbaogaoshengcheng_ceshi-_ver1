@@ -1,0 +1,412 @@
+[
+  {
+    "assembly_id": "asm-08d31b3fbb42f7c9730069ff85dec914",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66",
+      "mat-ad5dbfc32add7d1c4c5ff1d46822c8c1"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P42"
+  },
+  {
+    "assembly_id": "asm-d97e5035ba3032414e6e064220d48630",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P41",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "body_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "序号",
+      "直接",
+      "间接"
+    ],
+    "rows": [
+      [
+        "4",
+        "瑞庭时代（上海）新能源科技有限公",
+        "上海市",
+        "50,000.0100.0/",
+        "设立"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 5 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "continuation_evidence_ids": [],
+      "header_page": 41,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed"
+    }
+  },
+  {
+    "assembly_id": "asm-19281dd86628ca7e06d4b5dd6760acb9",
+    "context_parent_id": "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+    "component_material_ids": [
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "项目",
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "15,181,012",
+        "15,181,012"
+      ],
+      [
+        "衍生金融负债",
+        "3,941,410",
+        "3,941,410"
+      ],
+      [
+        "应付票据",
+        "77,514,941",
+        "77,514,941"
+      ],
+      [
+        "应付账款",
+        "117,038,774",
+        "117,038,774"
+      ],
+      [
+        "其他应付款",
+        "13,624,086",
+        "13,624,086"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "7,008,874",
+        "7,008,874"
+      ],
+      [
+        "长期借款",
+        "55,013,696",
+        "28,435,286",
+        "83,448,982"
+      ],
+      [
+        "应付债券",
+        "15,659,131",
+        "3,577,883",
+        "19,237,014"
+      ],
+      [
+        "租赁负债",
+        "222,694",
+        "60,602",
+        "283,296"
+      ],
+      [
+        "长期应付款",
+        "86,923",
+        "1,433,333",
+        "1,520,256"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "234,309,096",
+      "70,982,445",
+      "33,507,104",
+      "338,798,645"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": false,
+      "normalized_title": "",
+      "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+      "continuation_evidence_ids": [
+        "20e9cb77ac4009c40160f5801c42af97"
+      ],
+      "header_page": 211,
+      "continuation_pages": [
+        211
+      ],
+      "title_compatible": false,
+      "unit_compatible": false,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 单位不兼容; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed"
+    }
+  },
+  {
+    "assembly_id": "asm-262ed91a05d9492b621018090f087e27",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109",
+      "mat-08f8fea94173dd4834c87ab0374a9f9c",
+      "mat-da63a0e53e2478f0dc4624e3fdd4194e",
+      "mat-7c9b2315805a040c561ce8d85d2a3008",
+      "mat-36169f7287cc1903bfac8e27d565c67f",
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+      "mat-e64d10dd5eddde88b1e435da85fd3c91",
+      "mat-328ce788821bef3fbd03af4b6580e9ec",
+      "mat-4db6800a8495d353b0565bb3f050ef0e",
+      "mat-207a90c07e4b06758e5c64c3caa19eec"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P213"
+  },
+  {
+    "assembly_id": "asm-390d85358ec1b75c43073d1d266596c3",
+    "context_parent_id": "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+    "component_material_ids": [
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P211",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+    "body_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "continuation_evidence_ids": [
+      "20e9cb77ac4009c40160f5801c42af97"
+    ],
+    "headers": [
+      "一年以内",
+      "一至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "19,696,282",
+        "19,696,282"
+      ],
+      [
+        "衍生金融负债",
+        "2,116,017",
+        "2,116,017"
+      ],
+      [
+        "应付票据",
+        "67,356,323",
+        "67,356,323"
+      ],
+      [
+        "应付账款",
+        "130,977,408",
+        "130,977,408"
+      ],
+      [
+        "其他应付款",
+        "10,761,762",
+        "10,761,762"
+      ],
+      [
+        "一年内到期的非流动负债",
+        "22,881,417",
+        "22,881,417"
+      ],
+      [
+        "长期借款",
+        "58,995,638",
+        "22,242,818",
+        "81,238,456"
+      ],
+      [
+        "应付债券",
+        "8,414,035",
+        "3,508,589",
+        "11,922,623"
+      ],
+      [
+        "租赁负债",
+        "552,042",
+        "110,772",
+        "662,814"
+      ],
+      [
+        "长期应付款",
+        "768,978",
+        "837,502",
+        "1,606,480"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "253,789,209",
+      "68,730,692",
+      "26,699,681",
+      "349,219,581"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": false,
+      "normalized_title": "",
+      "header_evidence_id": "20e9cb77ac4009c40160f5801c42af97",
+      "continuation_evidence_ids": [
+        "20e9cb77ac4009c40160f5801c42af97"
+      ],
+      "header_page": 211,
+      "continuation_pages": [
+        211
+      ],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed"
+    }
+  },
+  {
+    "assembly_id": "asm-81633d2b8413f8c56b020820f53c9253",
+    "context_parent_id": "mat-207a90c07e4b06758e5c64c3caa19eec",
+    "component_material_ids": [
+      "mat-207a90c07e4b06758e5c64c3caa19eec"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P213",
+    "table_title": "现金流量套期",
+    "unit": null,
+    "header_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+    "body_evidence_ids": [
+      "451ed0528c0ae5229797f0d41c40b1f6"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "外汇风险-预期交易",
+      "USD 4,032,640",
+      "1,814,881 衍生金融负债"
+    ],
+    "rows": [
+      [
+        "外汇风险-预期交易",
+        "IDR 1,434,381,000",
+        "-1,253",
+        "衍生金融负债"
+      ],
+      [
+        "商品价格风险-预期交易",
+        "445,396",
+        "2,962",
+        "衍生金融负债"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 4 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "现金流量套期",
+      "header_evidence_id": "451ed0528c0ae5229797f0d41c40b1f6",
+      "continuation_evidence_ids": [],
+      "header_page": 213,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "续块身份重复或同表头; 非跨页续表; 恢复状态 failed"
+    }
+  },
+  {
+    "assembly_id": "asm-b52376c1425148750a929d25ec1f8cc7",
+    "context_parent_id": "mat-64e792bfcffe7bad7476f6db8a130e6c",
+    "component_material_ids": [
+      "mat-64e792bfcffe7bad7476f6db8a130e6c",
+      "mat-ed5864af2be07d3c2f194451474a52b3"
+    ],
+    "relation": "adjacent",
+    "boundary_desc": "P207"
+  },
+  {
+    "assembly_id": "asm-ba6112db01aabc5322d32737aa11e031",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "限公司",
+    "unit": null,
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "广东邦普循环科技有限",
+      "非同一"
+    ],
+    "rows": [
+      [
+        "公司",
+        "人民币",
+        "132,741 佛山市",
+        "佛山市",
+        "制造业",
+        "69.08%",
+        "控制下"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 7 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "限公司",
+      "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+      "continuation_evidence_ids": [],
+      "header_page": 208,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "续块身份重复或同表头; 非跨页续表; 恢复状态 failed"
+    }
+  }
+]

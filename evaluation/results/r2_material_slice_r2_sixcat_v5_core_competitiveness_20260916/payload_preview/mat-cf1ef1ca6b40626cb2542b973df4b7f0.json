@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-cf1ef1ca6b40626cb2542b973df4b7f0",
+  "component_evidence_id": "1e58e6c97a0da7012747731ff885ba07",
+  "source_content_hash": "3d47a385d5fd80150ca98169e11081e243ae358cd9e4c87c25450310b0469499",
+  "payload_hash": "91ba7f51763c93150dcdb2c0eeeae477a3dc14ba29427413958c37996268b4c7",
+  "payload": "{\"authority_identity\":\"evidence:1e58e6c97a0da7012747731ff885ba07\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"2）公司主营业务数据统计口径在报告期发生调整的情况下，公司最近1  年按报告期末口径调整后的主营业务数据\\n\\n□适用 不适用\\n\\n3）锂离子电池产业链各环节主要产品或业务相关的关键技术或性能指标\\n\\n适用 □不适用\\n\\n25\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"1e58e6c97a0da7012747731ff885ba07\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":25,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"3d47a385d5fd80150ca98169e11081e243ae358cd9e4c87c25450310b0469499\"}"
+}

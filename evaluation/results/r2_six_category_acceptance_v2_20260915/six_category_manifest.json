@@ -1,0 +1,198 @@
+{
+  "manifest_version": "r2-six-category-acceptance-v2",
+  "run_id": "r2_sixcat_v2_20260915",
+  "generated_at": "20260915T000000Z",
+  "purpose": "R2 §12 六类真实材料验收（P1-3：真正独立验收，区别于 §13 aspect 矩阵六态测试）",
+  "categories": {
+    "main_business": {
+      "category_id": "main_business",
+      "name": "主营业务",
+      "description": "主营业务：正文 + 分业务表格 + 跨块/跨页（真实表 5-10/5-11/5-12 摊平恢复）",
+      "verdict": "accepted",
+      "reason": "真实样本：seed + 扩读产物 + 边界结论齐全",
+      "seed": {
+        "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 50,
+        "block_index": 0,
+        "section_path": [
+          "主营业务情况"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_main_business_20260915",
+      "material_count": 11,
+      "assembly_count": 4,
+      "recovered_table_count": 3,
+      "recovered_table_titles": [
+        "表 5-10发行人主营业务收入构成表",
+        "表 5-13近三年公司动力电池系统销量",
+        "表 5-14近三年公司电池系统产能情况表"
+      ],
+      "boundary_incomplete": false,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750)"
+    },
+    "core_competitiveness": {
+      "category_id": "core_competitiveness",
+      "name": "核心竞争力",
+      "description": "核心竞争力：多个实际披露条目集合归拢（跨 document_version，不合并伪造完整集）",
+      "verdict": "boundary_incomplete",
+      "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）",
+      "seed": {
+        "evidence_id": "0de543287aa812c78eb165f694c9580d",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 59,
+        "block_index": 0,
+        "section_path": [
+          "公司竞争优势"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_core_competitiveness_20260915",
+      "material_count": 22,
+      "assembly_count": 12,
+      "recovered_table_count": 11,
+      "recovered_table_titles": [
+        "分地区",
+        "行业分类",
+        "公司主要供应商情况",
+        "",
+        "（3）近三年公司研发投入金额及占营业收入的比例",
+        "（2）公司研发人员情况",
+        "公司主要销售客户情况",
+        "",
+        "",
+        "5）不同产品或业务的产销情况",
+        ""
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750)"
+    },
+    "major_subsidiaries": {
+      "category_id": "major_subsidiaries",
+      "name": "主要子公司",
+      "description": "主要子公司：名单/表格成员枚举（跨 document_version，不合并伪造完整集）",
+      "verdict": "boundary_incomplete",
+      "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，诚实显化）",
+      "seed": {
+        "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 41,
+        "block_index": 0,
+        "section_path": [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_major_subsidiaries_20260915",
+      "material_count": 20,
+      "assembly_count": 7,
+      "recovered_table_count": 5,
+      "recovered_table_titles": [
+        "",
+        "限公司",
+        "",
+        "",
+        "现金流量套期"
+      ],
+      "boundary_incomplete": true,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750)"
+    },
+    "financial_notes": {
+      "category_id": "financial_notes",
+      "name": "财务附注",
+      "description": "财务附注：真实「合并财务报表项目注释」（货币资金/交易性金融资产/应收票据），表题/单位/表头/表体/合计恢复，绝不复用主营业务表",
+      "verdict": "accepted",
+      "reason": "真实样本：seed + 扩读产物 + 边界结论齐全",
+      "seed": {
+        "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 166,
+        "block_index": 0,
+        "section_path": [
+          "合并财务报表项目注释"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_financial_notes_20260915",
+      "material_count": 1,
+      "assembly_count": 4,
+      "recovered_table_count": 4,
+      "recovered_table_titles": [
+        "",
+        "",
+        "（1） 应收票据分类列示",
+        "（2） 期末公司已质押的应收票据"
+      ],
+      "boundary_incomplete": false,
+      "sample_not_obtained": false,
+      "data_source": "local_evidence_db(300750, NDSD_2024_year p166)"
+    },
+    "explicit_cross_reference": {
+      "category_id": "explicit_cross_reference",
+      "name": "显式跨页跨章引用",
+      "description": "显式「详见…」引用：真实存在引用标记但目标 dangling（不可解析），跨页续表不能替代显式引用",
+      "verdict": "sample_not_obtained",
+      "reason": "真实「详见」引用标记存在，但引用目标 dangling（expansion explicit_reference → cross reference target dangling，未取得可回查的显式引用目标）；跨页续表/相邻页均不构成显式引用替代",
+      "seed": {
+        "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "evidence_set_version": "set-501395a7ad5a",
+        "page_number": 166,
+        "block_index": 0,
+        "section_path": [
+          "合并财务报表项目注释"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_financial_notes_20260915",
+      "material_count": 1,
+      "assembly_count": 4,
+      "recovered_table_count": 4,
+      "recovered_table_titles": [
+        "",
+        "",
+        "（1） 应收票据分类列示",
+        "（2） 期末公司已质押的应收票据"
+      ],
+      "boundary_incomplete": false,
+      "sample_not_obtained": true,
+      "data_source": "local_evidence_db(300750, 财务附注「详见 24、所有权或使用权受到限制的资产」)"
+    },
+    "non_300750_fixture": {
+      "category_id": "non_300750_fixture",
+      "name": "非 300750 合成 fixture",
+      "description": "非 300750 合成 fixture：通用公司/文档/页码 + 通用分业务表格，独立持久化，证明无公司硬编码",
+      "verdict": "accepted",
+      "reason": "真实样本：seed + 扩读产物 + 边界结论齐全",
+      "seed": {
+        "evidence_id": "2109887f173b802cef307a5328356ead",
+        "document_id": "NDSD_DEMO",
+        "document_version": "v-demo-001",
+        "evidence_set_version": "set-demo-1",
+        "page_number": 1,
+        "block_index": 0,
+        "section_path": [
+          "主营业务分析"
+        ]
+      },
+      "seed_run": "r2_material_slice_r2_sixcat_v2_non_300750_fixture_20260915",
+      "material_count": 1,
+      "assembly_count": 1,
+      "recovered_table_count": 1,
+      "recovered_table_titles": [
+        "表 1 主营业务收入构成表"
+      ],
+      "boundary_incomplete": false,
+      "sample_not_obtained": false,
+      "data_source": "synthetic_fixture(100001/NDSD_DEMO，无 300750/宁德时代/固定页码硬编码)"
+    }
+  }
+}

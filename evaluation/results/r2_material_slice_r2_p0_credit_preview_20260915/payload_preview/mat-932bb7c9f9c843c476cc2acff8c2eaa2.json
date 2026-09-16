@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-932bb7c9f9c843c476cc2acff8c2eaa2",
+  "component_evidence_id": "87d404600e0025d40ddd1fe3f198b641",
+  "source_content_hash": "cb7071a33ef0499c24ccb81e873c0e4368021cc67a51b2874ce4b367a1c96d7b",
+  "payload_hash": "bcc69a7c41a64283256ef77edd334e34284b97dd2aa8037a5a516adfbe18a510",
+  "payload": "{\"authority_identity\":\"evidence:87d404600e0025d40ddd1fe3f198b641\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"租赁负债  136,886  415,156  110,772  662,814\\n 长期应付款  12,372  756,606  837,502  1,606,480\\n\\n合计  253,789,209  26,308,364  42,422,328  26,699,681  349,219,581\\n\\n3)  市场风险\\n\\n210\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"87d404600e0025d40ddd1fe3f198b641\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":210,\"section_path\":\"与金融工具相关的风险\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"cb7071a33ef0499c24ccb81e873c0e4368021cc67a51b2874ce4b367a1c96d7b\"}"
+}

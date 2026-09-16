@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-1e4a0ba1a6beb7dff82f60d6d272c58d",
+  "component_evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+  "source_content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+  "payload_hash": "da037101370e60d3defc1ec227fb6a44ddb90e6210d30e30207e8ee2042d6aa9",
+  "payload": "{\"authority_identity\":\"evidence:dc28a391017b78bc653aeadc6401d2ff\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"密度区间的多种化学体系产品系列，能满足快充、长寿命、长续航、高安全、宽温度适\\n  应性等多种功能需求。公司亦可通过在单个电池包里采用双核/多核架构以实现多元化\\n\\n学体系的集成，进而充分发挥各类化学体系的性能优势。公司根据应用领域及客户要求，\\n\\n50\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"dc28a391017b78bc653aeadc6401d2ff\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":51,\"section_path\":\"主营业务情况\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2\"}"
+}

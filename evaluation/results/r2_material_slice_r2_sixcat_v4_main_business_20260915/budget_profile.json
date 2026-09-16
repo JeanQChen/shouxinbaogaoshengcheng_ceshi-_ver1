@@ -1,0 +1,56 @@
+{
+  "budget_profile_version": "1",
+  "profile_name": "acceptance",
+  "budget_limits": {
+    "adjacent_blocks_before": 4,
+    "adjacent_blocks_after": 16,
+    "adjacent_pages": 10,
+    "table_continuation": 4,
+    "explicit_references": 4,
+    "max_bytes": 262144,
+    "max_tokens": 65536,
+    "no_new_material_steps": 4,
+    "per_seed_cap": 32,
+    "per_request_cap": 128
+  },
+  "seed_budget_records": [
+    {
+      "case_id": "candidate-1",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "budget_consumed": {
+        "adjacent_blocks_before": 4,
+        "adjacent_blocks_after": 5,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 19772,
+        "max_tokens": 8792,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 10
+      },
+      "stop_reason": "hard budget (adjacent_blocks_before)",
+      "unread_scope": "停止原因：hard budget (adjacent_blocks_before)；未读范围自 P46 第0块（预算轴 adjacent_blocks_before）。"
+    },
+    {
+      "case_id": "candidate-3",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "budget_consumed": {
+        "adjacent_blocks_before": 4,
+        "adjacent_blocks_after": 3,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 14778,
+        "max_tokens": 6600,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 8
+      },
+      "stop_reason": "hard budget (adjacent_blocks_before)",
+      "unread_scope": "停止原因：hard budget (adjacent_blocks_before)；未读范围自 P47 第0块（预算轴 adjacent_blocks_before）。"
+    }
+  ]
+}

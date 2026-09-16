@@ -1,0 +1,14 @@
+[
+  {
+    "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+    "reason": "budget",
+    "scope_desc": "停止原因：hard budget (adjacent_blocks_before)；未读范围自 P46 第0块（预算轴 adjacent_blocks_before）。",
+    "stop_reason": "hard budget (adjacent_blocks_before)"
+  },
+  {
+    "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+    "reason": "budget",
+    "scope_desc": "停止原因：hard budget (adjacent_blocks_before)；未读范围自 P47 第0块（预算轴 adjacent_blocks_before）。",
+    "stop_reason": "hard budget (adjacent_blocks_before)"
+  }
+]

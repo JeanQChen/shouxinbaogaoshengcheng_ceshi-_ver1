@@ -1,0 +1,548 @@
+{
+  "company_finance.notes_to_financial_statements": {
+    "version": "1",
+    "aspect_id": "company_finance.notes_to_financial_statements",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(1)应收票据分类列示",
+        "kind": "table_start_signal",
+        "label": "（1） 应收票据分类列示",
+        "source_text_index": 0,
+        "line_index": 25
+      },
+      {
+        "object_id": "title:(2)期末公司已质押的应收票据",
+        "kind": "table_start_signal",
+        "label": "（2） 期末公司已质押的应收票据",
+        "source_text_index": 0,
+        "line_index": 32
+      },
+      {
+        "object_id": "title:损失准备本期变动金额重大的账面余额变动情况",
+        "kind": "table_start_signal",
+        "label": "损失准备本期变动金额重大的账面余额变动情况",
+        "source_text_index": 1,
+        "line_index": 22
+      },
+      {
+        "object_id": "title:本期变动金额",
+        "kind": "table_start_signal",
+        "label": "本期变动金额",
+        "source_text_index": 1,
+        "line_index": 28
+      },
+      {
+        "object_id": "title:5)按欠款方归集的期末余额前五名的其他应收款情况",
+        "kind": "table_start_signal",
+        "label": "5） 按欠款方归集的期末余额前五名的其他应收款情况",
+        "source_text_index": 1,
+        "line_index": 34
+      },
+      {
+        "object_id": "title:占其他应收款期末",
+        "kind": "table_start_signal",
+        "label": "占其他应收款期末",
+        "source_text_index": 1,
+        "line_index": 37
+      },
+      {
+        "object_id": "title:(5)按欠款方归集的期末余额前五名的应收账款和合",
+        "kind": "table_start_signal",
+        "label": "（5） 按欠款方归集的期末余额前五名的应收账款和合同资产情况",
+        "source_text_index": 2,
+        "line_index": 0
+      },
+      {
+        "object_id": "title:(1)合同资产情况",
+        "kind": "table_start_signal",
+        "label": "（1） 合同资产情况",
+        "source_text_index": 2,
+        "line_index": 7
+      },
+      {
+        "object_id": "title:(1)应收款项融资分类列示",
+        "kind": "table_start_signal",
+        "label": "（1） 应收款项融资分类列示",
+        "source_text_index": 2,
+        "line_index": 41
+      },
+      {
+        "object_id": "title:(塞尔维亚时代新能源科技有限公司)等注册于塞尔维",
+        "kind": "table_start_signal",
+        "label": "（塞尔维亚时代新能源科技有限公司）等注册于塞尔维亚的公司",
+        "source_text_index": 3,
+        "line_index": 2
+      },
+      {
+        "object_id": "title:(香港时代新能源科技有限公司)等注册于香港的公司",
+        "kind": "table_start_signal",
+        "label": "（香港时代新能源科技有限公司）等注册于香港的公司",
+        "source_text_index": 3,
+        "line_index": 4
+      },
+      {
+        "object_id": "title:(加拿大时代新能源科技有限公司)等注册于加拿大的",
+        "kind": "table_start_signal",
+        "label": "（加拿大时代新能源科技有限公司）等注册于加拿大的公司",
+        "source_text_index": 3,
+        "line_index": 6
+      },
+      {
+        "object_id": "title:(美国时代新能源科技有限公司)等注册于美国的公司",
+        "kind": "table_start_signal",
+        "label": "（美国时代新能源科技有限公司）等注册于美国的公司",
+        "source_text_index": 3,
+        "line_index": 8
+      },
+      {
+        "object_id": "title:司)等注册于匈牙利的公司",
+        "kind": "table_start_signal",
+        "label": "司）等注册于匈牙利的公司",
+        "source_text_index": 3,
+        "line_index": 11
+      },
+      {
+        "object_id": "title:(澳洲时代新能源有限公司)",
+        "kind": "table_start_signal",
+        "label": "（澳洲时代新能源有限公司）",
+        "source_text_index": 3,
+        "line_index": 14
+      },
+      {
+        "object_id": "title:(宁德时代国际投资有限公司)等注册于新加坡的公司",
+        "kind": "table_start_signal",
+        "label": "（宁德时代国际投资有限公司）等注册于新加坡的公司",
+        "source_text_index": 3,
+        "line_index": 16
+      },
+      {
+        "object_id": "title:(卢森堡时代新能源科技有限公司)",
+        "kind": "table_start_signal",
+        "label": "（卢森堡时代新能源科技有限公司）",
+        "source_text_index": 3,
+        "line_index": 20
+      },
+      {
+        "object_id": "title:(德国时代新能源科技有限公司)等注册于德国的公司",
+        "kind": "table_start_signal",
+        "label": "（德国时代新能源科技有限公司）等注册于德国的公司",
+        "source_text_index": 3,
+        "line_index": 22
+      },
+      {
+        "object_id": "title:(2)按预付对象归集的期末余额前五名的预付款情况",
+        "kind": "table_start_signal",
+        "label": "（2） 按预付对象归集的期末余额前五名的预付款情况",
+        "source_text_index": 4,
+        "line_index": 15
+      },
+      {
+        "object_id": "title:公司是否需要遵守房地产行业的披露要求",
+        "kind": "table_start_signal",
+        "label": "公司是否需要遵守房地产行业的披露要求",
+        "source_text_index": 4,
+        "line_index": 22
+      },
+      {
+        "object_id": "title:(2)存货跌价准备和合同履约成本减值准备",
+        "kind": "table_start_signal",
+        "label": "（2） 存货跌价准备和合同履约成本减值准备",
+        "source_text_index": 4,
+        "line_index": 44
+      },
+      {
+        "object_id": "title:材料股份有限公司",
+        "kind": "table_start_signal",
+        "label": "材料股份有限公司",
+        "source_text_index": 5,
+        "line_index": 8
+      },
+      {
+        "object_id": "title:限公司",
+        "kind": "table_start_signal",
+        "label": "限公司",
+        "source_text_index": 5,
+        "line_index": 19
+      },
+      {
+        "object_id": "title:股份有限公司",
+        "kind": "table_start_signal",
+        "label": "股份有限公司",
+        "source_text_index": 5,
+        "line_index": 21
+      },
+      {
+        "object_id": "title:份有限公司",
+        "kind": "table_start_signal",
+        "label": "份有限公司",
+        "source_text_index": 5,
+        "line_index": 25
+      },
+      {
+        "object_id": "title:(2)期末公司已背书或贴现且在资产负债表日尚未到",
+        "kind": "table_start_signal",
+        "label": "（2） 期末公司已背书或贴现且在资产负债表日尚未到期的应收款项融资",
+        "source_text_index": 6,
+        "line_index": 3
+      },
+      {
+        "object_id": "title:(1)应收股利",
+        "kind": "table_start_signal",
+        "label": "（1） 应收股利",
+        "source_text_index": 6,
+        "line_index": 22
+      },
+      {
+        "object_id": "title:(2)其他应收款",
+        "kind": "table_start_signal",
+        "label": "（2） 其他应收款",
+        "source_text_index": 6,
+        "line_index": 33
+      },
+      {
+        "object_id": "title:1)其他应收款按款项性质分类情况",
+        "kind": "table_start_signal",
+        "label": "1） 其他应收款按款项性质分类情况",
+        "source_text_index": 6,
+        "line_index": 35
+      },
+      {
+        "object_id": "title:有限公司",
+        "kind": "table_start_signal",
+        "label": "有限公司",
+        "source_text_index": 7,
+        "line_index": 14
+      },
+      {
+        "object_id": "title:任公司",
+        "kind": "table_start_signal",
+        "label": "任公司",
+        "source_text_index": 7,
+        "line_index": 25
+      },
+      {
+        "object_id": "title:科技有限公司",
+        "kind": "table_start_signal",
+        "label": "科技有限公司",
+        "source_text_index": 7,
+        "line_index": 27
+      },
+      {
+        "object_id": "title:有限责任公司",
+        "kind": "table_start_signal",
+        "label": "有限责任公司",
+        "source_text_index": 7,
+        "line_index": 29
+      },
+      {
+        "object_id": "title:技有限公司",
+        "kind": "table_start_signal",
+        "label": "技有限公司",
+        "source_text_index": 7,
+        "line_index": 31
+      },
+      {
+        "object_id": "continuation:存货跌价准备及合同履约成本减值准备(续)",
+        "kind": "continuation",
+        "label": "存货跌价准备及合同履约成本减值准备（续）",
+        "source_text_index": 8,
+        "line_index": 12
+      },
+      {
+        "object_id": "title:约成本减值准备的",
+        "kind": "table_start_signal",
+        "label": "约成本减值准备的",
+        "source_text_index": 8,
+        "line_index": 16
+      },
+      {
+        "object_id": "title:的应收",
+        "kind": "table_start_signal",
+        "label": "的应收",
+        "source_text_index": 9,
+        "line_index": 20
+      },
+      {
+        "object_id": "title:名称",
+        "kind": "table_start_signal",
+        "label": "名称",
+        "source_text_index": 11,
+        "line_index": 11
+      },
+      {
+        "object_id": "title:(4)本期实际核销的应收账款情况",
+        "kind": "table_start_signal",
+        "label": "（4） 本期实际核销的应收账款情况",
+        "source_text_index": 11,
+        "line_index": 45
+      },
+      {
+        "object_id": "title:应收款",
+        "kind": "table_start_signal",
+        "label": "应收款",
+        "source_text_index": 12,
+        "line_index": 15
+      },
+      {
+        "object_id": "title:(3)本期实际核销的长期应收款情况",
+        "kind": "table_start_signal",
+        "label": "（3） 本期实际核销的长期应收款情况",
+        "source_text_index": 12,
+        "line_index": 25
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(1)应收票据分类列示",
+        "result": "recovered_ok",
+        "matched_table": "（1） 应收票据分类列示",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(2)期末公司已质押的应收票据",
+        "result": "recovered_ok",
+        "matched_table": "（2） 期末公司已质押的应收票据",
+        "issue": ""
+      },
+      {
+        "object_id": "title:损失准备本期变动金额重大的账面余额变动情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '损失准备本期变动金额重大的账面余额变动情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:本期变动金额",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '本期变动金额' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:5)按欠款方归集的期末余额前五名的其他应收款情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '5） 按欠款方归集的期末余额前五名的其他应收款情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:占其他应收款期末",
+        "result": "recovered_ok",
+        "matched_table": "占其他应收款期末",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(5)按欠款方归集的期末余额前五名的应收账款和合",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（5） 按欠款方归集的期末余额前五名的应收账款和合同资产情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(1)合同资产情况",
+        "result": "recovered_ok",
+        "matched_table": "（1） 合同资产情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(1)应收款项融资分类列示",
+        "result": "recovery_failed",
+        "matched_table": "（1） 应收款项融资分类列示",
+        "issue": "数据行内部列数不一致"
+      },
+      {
+        "object_id": "title:(塞尔维亚时代新能源科技有限公司)等注册于塞尔维",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（塞尔维亚时代新能源科技有限公司）等注册于塞尔维亚的公司' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(香港时代新能源科技有限公司)等注册于香港的公司",
+        "result": "recovered_ok",
+        "matched_table": "（香港时代新能源科技有限公司）等注册于香港的公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(加拿大时代新能源科技有限公司)等注册于加拿大的",
+        "result": "recovered_ok",
+        "matched_table": "（加拿大时代新能源科技有限公司）等注册于加拿大的公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(美国时代新能源科技有限公司)等注册于美国的公司",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（美国时代新能源科技有限公司）等注册于美国的公司' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:司)等注册于匈牙利的公司",
+        "result": "recovered_ok",
+        "matched_table": "司）等注册于匈牙利的公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(澳洲时代新能源有限公司)",
+        "result": "recovered_ok",
+        "matched_table": "（澳洲时代新能源有限公司）",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(宁德时代国际投资有限公司)等注册于新加坡的公司",
+        "result": "recovered_ok",
+        "matched_table": "（宁德时代国际投资有限公司）等注册于新加坡的公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(卢森堡时代新能源科技有限公司)",
+        "result": "recovered_ok",
+        "matched_table": "（卢森堡时代新能源科技有限公司）",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(德国时代新能源科技有限公司)等注册于德国的公司",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（德国时代新能源科技有限公司）等注册于德国的公司' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)按预付对象归集的期末余额前五名的预付款情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2） 按预付对象归集的期末余额前五名的预付款情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:公司是否需要遵守房地产行业的披露要求",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '公司是否需要遵守房地产行业的披露要求' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)存货跌价准备和合同履约成本减值准备",
+        "result": "recovered_ok",
+        "matched_table": "（2） 存货跌价准备和合同履约成本减值准备",
+        "issue": ""
+      },
+      {
+        "object_id": "title:材料股份有限公司",
+        "result": "recovered_ok",
+        "matched_table": "材料股份有限公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:限公司",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '限公司' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:股份有限公司",
+        "result": "recovered_ok",
+        "matched_table": "股份有限公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:份有限公司",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '份有限公司' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:(2)期末公司已背书或贴现且在资产负债表日尚未到",
+        "result": "recovery_failed",
+        "matched_table": "（2） 期末公司已背书或贴现且在资产负债表日尚未到期的应收款项融资",
+        "issue": "表头 3 列 vs 数据行 2 列 不一致"
+      },
+      {
+        "object_id": "title:(1)应收股利",
+        "result": "recovered_ok",
+        "matched_table": "（1） 应收股利",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(2)其他应收款",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2） 其他应收款' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:1)其他应收款按款项性质分类情况",
+        "result": "recovered_ok",
+        "matched_table": "1） 其他应收款按款项性质分类情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:有限公司",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '有限公司' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:任公司",
+        "result": "recovered_ok",
+        "matched_table": "任公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:科技有限公司",
+        "result": "recovered_ok",
+        "matched_table": "科技有限公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:有限责任公司",
+        "result": "recovered_ok",
+        "matched_table": "有限责任公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:技有限公司",
+        "result": "recovered_ok",
+        "matched_table": "技有限公司",
+        "issue": ""
+      },
+      {
+        "object_id": "continuation:存货跌价准备及合同履约成本减值准备(续)",
+        "result": "target_not_obtained",
+        "matched_table": "存货跌价准备及合同履约成本减值准备(续)",
+        "issue": "续表目标表号 存货跌价准备及合同履约成本减值准备(续) 未获得 recovered_ok"
+      },
+      {
+        "object_id": "title:约成本减值准备的",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '约成本减值准备的' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:的应收",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '的应收' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:名称",
+        "result": "recovery_failed",
+        "matched_table": "名称",
+        "issue": "数据行内部列数不一致"
+      },
+      {
+        "object_id": "title:(4)本期实际核销的应收账款情况",
+        "result": "recovery_failed",
+        "matched_table": "（4） 本期实际核销的应收账款情况",
+        "issue": "数据行内部列数不一致"
+      },
+      {
+        "object_id": "title:应收款",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '应收款' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(3)本期实际核销的长期应收款情况",
+        "result": "recovered_ok",
+        "matched_table": "（3） 本期实际核销的长期应收款情况",
+        "issue": ""
+      }
+    ],
+    "unmatched_recovered_tables": [
+      "份有限公司",
+      "本期变动金额",
+      "限公司"
+    ]
+  }
+}

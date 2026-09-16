@@ -1,0 +1,25 @@
+[
+  {
+    "assembly_id": "asm-52edf90c0acc4eed3362296a367aa878",
+    "context_parent_id": "mat-50eabcfa6aab2e7c23eef861a8e4d764",
+    "component_material_ids": [
+      "mat-50eabcfa6aab2e7c23eef861a8e4d764",
+      "mat-8c3d706b7101194d980520ed9fcf8d99"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P111–P112"
+  },
+  {
+    "assembly_id": "asm-4b43b63efe88c1cb51d5c50540b263d4",
+    "context_parent_id": "mat-febced451165132ff85ac5400f0432b2",
+    "component_material_ids": [
+      "mat-febced451165132ff85ac5400f0432b2",
+      "mat-d86231777a3fd2bdeab1b309d1c3ffac",
+      "mat-fd37be36d357ca66e120372b73b1ab92",
+      "mat-932bb7c9f9c843c476cc2acff8c2eaa2",
+      "mat-2feb2f735002ad344b78855723679c03"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P209–P211"
+  }
+]

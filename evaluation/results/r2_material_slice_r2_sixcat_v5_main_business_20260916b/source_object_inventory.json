@@ -1,0 +1,154 @@
+{
+  "company_business_main.main_business": {
+    "version": "1",
+    "aspect_id": "company_business_main.main_business",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(二)主营业务情况",
+        "kind": "table_start_signal",
+        "label": "（二）主营业务情况",
+        "source_text_index": 0,
+        "line_index": 0
+      },
+      {
+        "object_id": "table:5-10",
+        "kind": "table_number",
+        "label": "表 5-10发行人主营业务收入构成表",
+        "source_text_index": 0,
+        "line_index": 3
+      },
+      {
+        "object_id": "table:5-11",
+        "kind": "table_number",
+        "label": "表 5-11发行人主营业务成本构成表",
+        "source_text_index": 0,
+        "line_index": 33
+      },
+      {
+        "object_id": "table:5-12",
+        "kind": "table_number",
+        "label": "表5-12发行人主营业务毛利润及毛利率构成表",
+        "source_text_index": 1,
+        "line_index": 13
+      },
+      {
+        "object_id": "title:(三)各业务板块经营情况",
+        "kind": "table_start_signal",
+        "label": "（三）各业务板块经营情况",
+        "source_text_index": 1,
+        "line_index": 32
+      },
+      {
+        "object_id": "title:(1)整体情况",
+        "kind": "table_start_signal",
+        "label": "（1）整体情况",
+        "source_text_index": 1,
+        "line_index": 35
+      },
+      {
+        "object_id": "title:(2)销售情况",
+        "kind": "table_start_signal",
+        "label": "（2）销售情况",
+        "source_text_index": 2,
+        "line_index": 9
+      },
+      {
+        "object_id": "title:(四)安全生产情况",
+        "kind": "table_start_signal",
+        "label": "（四）安全生产情况",
+        "source_text_index": 2,
+        "line_index": 18
+      },
+      {
+        "object_id": "table:5-13",
+        "kind": "table_number",
+        "label": "表 5-13近三年公司动力电池系统销量",
+        "source_text_index": 3,
+        "line_index": 16
+      },
+      {
+        "object_id": "title:(3)生产情况",
+        "kind": "table_start_signal",
+        "label": "（3）生产情况",
+        "source_text_index": 3,
+        "line_index": 33
+      },
+      {
+        "object_id": "table:5-14",
+        "kind": "table_number",
+        "label": "表 5-14近三年公司电池系统产能情况表",
+        "source_text_index": 3,
+        "line_index": 41
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(二)主营业务情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（二）主营业务情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "table:5-10",
+        "result": "recovered_ok",
+        "matched_table": "表 5-10发行人主营业务收入构成表",
+        "issue": ""
+      },
+      {
+        "object_id": "table:5-11",
+        "result": "recovered_ok",
+        "matched_table": "表 5-11发行人主营业务成本构成表",
+        "issue": ""
+      },
+      {
+        "object_id": "table:5-12",
+        "result": "recovered_partial",
+        "matched_table": "表5-12发行人主营业务毛利润及毛利率构成表",
+        "issue": "多行表头（>2）无法可靠合并"
+      },
+      {
+        "object_id": "title:(三)各业务板块经营情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（三）各业务板块经营情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(1)整体情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（1）整体情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)销售情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2）销售情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(四)安全生产情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（四）安全生产情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "table:5-13",
+        "result": "recovered_ok",
+        "matched_table": "表 5-13近三年公司动力电池系统销量",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(3)生产情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（3）生产情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "table:5-14",
+        "result": "recovery_failed",
+        "matched_table": "表 5-14近三年公司电池系统产能情况表",
+        "issue": "多行表头（>2）无法可靠合并"
+      }
+    ],
+    "unmatched_recovered_tables": []
+  }
+}

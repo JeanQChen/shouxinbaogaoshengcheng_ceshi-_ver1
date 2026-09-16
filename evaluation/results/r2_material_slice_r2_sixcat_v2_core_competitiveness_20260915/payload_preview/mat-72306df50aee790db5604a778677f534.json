@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-72306df50aee790db5604a778677f534",
+  "component_evidence_id": "60ceea0ca64a14146bc24abacce5e89f",
+  "source_content_hash": "491da22e4da3f270851d0f32926ac6501e99ea8e53c649b2c94e49e76f5328d3",
+  "payload_hash": "87a12abf83985b22967681cbd121a8fcf7af03f8478330aaf5db0056c7ce45cc",
+  "payload": "{\"authority_identity\":\"evidence:60ceea0ca64a14146bc24abacce5e89f\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"海外业务稳步推进，售后体系持续完善。随着公司海外基地建设、运营的逐渐成熟，及与海外客户\\n战略合作的逐渐深入，报告期内，公司海外市场份额及交付能力稳步提升，并以领先的产品及优质的服\\n务，持续获得VW、BMW、Stellantis、Volvo、DMG等海外客户诸多定点。为支持业务发展，公司持续完\\n善售后服务体系。截至报告期末，公司售后服务网络覆盖  75个国家或地区、约  1,200家售后服务站。公\\n司设有全球“宁家服务”直营体验中心  11家，依托于“宁家服务”品牌，将售后服务延伸至整车端，为用户\\n提供包括维修、电池保养、健康检测、年检及移动救援等在内的一站式的全方位服务。\\n\\n21\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"60ceea0ca64a14146bc24abacce5e89f\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_2025_year\",\"document_version\":\"sha256-c15272977147dee7\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":21,\"section_path\":\"管理层讨论与分析\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"491da22e4da3f270851d0f32926ac6501e99ea8e53c649b2c94e49e76f5328d3\"}"
+}

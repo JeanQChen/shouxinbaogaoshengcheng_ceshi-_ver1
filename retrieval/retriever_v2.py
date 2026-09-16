@@ -89,13 +89,15 @@ class RetrievalSession:
                  sparse_dir: Path | None = None,
                  manifest_dir: Path | None = None,
                  model=None,
-                 timeout_ms: int | None = None):
+                 timeout_ms: int | None = None,
+                 ev_db: Path | None = None):
         self.company_id = company_id
         self.chroma_dir = Path(chroma_dir) if chroma_dir is not None else indexer_v2.DEFAULT_CHROMA_DIR
         self.sparse_dir = Path(sparse_dir) if sparse_dir is not None else sparse.DEFAULT_SPARSE_DIR
         self.manifest_dir = Path(manifest_dir) if manifest_dir is not None else indexer_v2.DEFAULT_MANIFEST_DIR
         self.model = model  # None → Dense 通道懒加载 BGE-M3
         self.timeout_ms = timeout_ms  # None → 用 decision.budget.timeout_ms
+        self._ev_db = ev_db  # 只读发现路径（R2 item 五）：None → 走 estore 模块级 _db_path
 
         self.blocks_by_id: dict[str, object] = {}
         self._authority: dict[str, dict] = {}
@@ -124,7 +126,7 @@ class RetrievalSession:
     # -- 装载 + 新鲜度 -------------------------------------------------------
 
     def _load_current(self) -> None:
-        blocks, metas = indexer_v2._collect_current(self.company_id)
+        blocks, metas = indexer_v2._collect_current(self.company_id, db_path=self._ev_db)
         self.blocks_by_id = {b.evidence_id: b for b in blocks}
         self._authority = {
             b.evidence_id: {
@@ -574,11 +576,16 @@ class RetrievalSession:
 def retrieve(need: S.InformationNeed, decision: S.RouteDecision, context: S.RouteContext,
              *, chroma_dir: Path | None = None, sparse_dir: Path | None = None,
              manifest_dir: Path | None = None, model=None,
+             ev_db: Path | None = None,
              trace_meta: dict | None = None) -> S.EvidencePack:
-    """单次检索便捷入口：构建会话并执行（每调用新建会话，适合 CLI / 单 need）。"""
+    """单次检索便捷入口：构建会话并执行（每调用新建会话，适合 CLI / 单 need）。
+
+    ``ev_db`` 非 None 时走只读发现路径（R2 item 五）：Evidence 块从该只读 SQLite 读，
+    不调 ``estore.init_db()``。
+    """
     session = RetrievalSession(
         context.company_id, chroma_dir=chroma_dir, sparse_dir=sparse_dir,
-        manifest_dir=manifest_dir, model=model)
+        manifest_dir=manifest_dir, model=model, ev_db=ev_db)
     return session.retrieve(need, decision, context, trace_meta=trace_meta)
 
 

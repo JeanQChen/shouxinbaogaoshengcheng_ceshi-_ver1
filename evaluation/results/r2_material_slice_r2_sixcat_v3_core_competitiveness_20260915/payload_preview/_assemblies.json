@@ -1,0 +1,542 @@
+[
+  {
+    "assembly_id": "asm-018f858b1db851e60e15757f5ee1dee1",
+    "context_parent_id": "mat-9e684431d30de1f4598be2b8c35338fe",
+    "component_material_ids": [
+      "mat-9e684431d30de1f4598be2b8c35338fe"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P27",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+    "body_evidence_ids": [
+      "926198c81c13b25dc545ef1d4e219a34"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "供应",
+      "回款"
+    ],
+    "rows": [
+      [
+        "锂电池",
+        "客户 A(1)",
+        "-",
+        "58,159,202",
+        "-",
+        "58,159,202 正常是",
+        "否",
+        "否",
+        "不适用"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 9 列 不一致"
+  },
+  {
+    "assembly_id": "asm-03adf1ae2788d2365d0b91b34c95b756",
+    "context_parent_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "component_material_ids": [
+      "mat-5998f52d5168428577d2fd5121c3c006",
+      "mat-0bfbd925089a76a7b0c7f4feee01f092",
+      "mat-07a32171769474ec8ea2323147353867",
+      "mat-404d5db7dd1a779648abff2f506a634c",
+      "mat-06d9d7712a3a95e4a7930b2257f5f128",
+      "mat-670ff301db93ba8f20a44fe65f1e4cb3",
+      "mat-6a290194bcebb8314eafb327890f0fbe",
+      "mat-f3c37afebfc4a7bf38ff72ad8e24cb44",
+      "mat-95ea65c8d6aa9f628b51dce804270d95",
+      "mat-31dee94d42a825c1453f1387236fa065",
+      "mat-0f0403fbd0408635f37ecc8af4f2f83f",
+      "mat-052d9220ee93221d125e35e87f4e0aa0",
+      "mat-cf1ef1ca6b40626cb2542b973df4b7f0",
+      "mat-0b3e918ef629339bd93711b0b0ba3780",
+      "mat-a29133697a67f465d16617d2cacbbadd",
+      "mat-9e684431d30de1f4598be2b8c35338fe",
+      "mat-9023f51daf5fa1557b1bd500088abb07",
+      "mat-7532318385c3d9494aba0f800fb32bda",
+      "mat-19138bd82e38bf819e915e2873eb8b63",
+      "mat-aba2d489735c6fa4b78fe43a43808c72",
+      "mat-b78f0d4321a7656cb037ed7647ffd532"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P18–P30"
+  },
+  {
+    "assembly_id": "asm-38fc37b1ebbb1bcff6c1c453673f65d6",
+    "context_parent_id": "mat-9e684431d30de1f4598be2b8c35338fe",
+    "component_material_ids": [
+      "mat-9e684431d30de1f4598be2b8c35338fe"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P27",
+    "table_title": "行业分类",
+    "unit": "千元",
+    "header_evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+    "body_evidence_ids": [
+      "926198c81c13b25dc545ef1d4e219a34"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "行业分类",
+      "金额",
+      "占营业成本比重",
+      "金额",
+      "占营业成本比重"
+    ],
+    "rows": [
+      [
+        "电池行业",
+        "直接材料",
+        "221,152,510",
+        "71.79%",
+        "202,723,479",
+        "76.48%",
+        "-4.68%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 7 列 不一致"
+  },
+  {
+    "assembly_id": "asm-5af52389980dbb84becf9d41a41cd257",
+    "context_parent_id": "mat-052d9220ee93221d125e35e87f4e0aa0",
+    "component_material_ids": [
+      "mat-052d9220ee93221d125e35e87f4e0aa0"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P25",
+    "table_title": "分地区",
+    "unit": null,
+    "header_evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+    "body_evidence_ids": [
+      "5bc9db3b7023dffd19ba1f5ff2e4b295"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "公司需遵守《深圳证券交易所上市公司自律监管指引第",
+      "4号——创业板行业信息披露》中的“锂离子电池产业链相关业务”"
+    ],
+    "rows": [
+      [
+        "境内",
+        "294,060,576",
+        "69.40%",
+        "251,677,045",
+        "69.52%",
+        "16.84%"
+      ],
+      [
+        "境外",
+        "129,641,258",
+        "30.60%",
+        "110,335,509",
+        "30.48%",
+        "17.50%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 6 列 不一致"
+  },
+  {
+    "assembly_id": "asm-74d13f868fe78ed6b5552c870366fbb2",
+    "context_parent_id": "mat-9023f51daf5fa1557b1bd500088abb07",
+    "component_material_ids": [
+      "mat-9023f51daf5fa1557b1bd500088abb07"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P28",
+    "table_title": "公司主要供应商情况",
+    "unit": null,
+    "header_evidence_id": "f4e78f22035655a6df473dc0b60a7595",
+    "body_evidence_ids": [
+      "f4e78f22035655a6df473dc0b60a7595"
+    ],
+    "continuation_evidence_ids": [
+      "f4e78f22035655a6df473dc0b60a7595"
+    ],
+    "headers": [
+      "公司前",
+      "序号",
+      "供应商名称",
+      "采购额（千元）",
+      "占年度采购总额比例"
+    ],
+    "rows": [
+      [
+        "前五名供应商采购额中关联方采购额占年度采购总额比例",
+        "0.00%"
+      ],
+      [
+        "1",
+        "第一名",
+        "23,318,360",
+        "4.04%"
+      ],
+      [
+        "2",
+        "第二名",
+        "11,601,437",
+        "2.01%"
+      ],
+      [
+        "3",
+        "第三名",
+        "9,241,133",
+        "1.60%"
+      ],
+      [
+        "4",
+        "第四名",
+        "8,258,913",
+        "1.43%"
+      ],
+      [
+        "5",
+        "第五名",
+        "7,518,360",
+        "1.30%"
+      ]
+    ],
+    "total_row": [
+      "前五名供应商合计采购金额（千元）",
+      "59,938,203"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-8875cdab0014ed8d7851bd0ab9956db9",
+    "context_parent_id": "mat-0b3e918ef629339bd93711b0b0ba3780",
+    "component_material_ids": [
+      "mat-0b3e918ef629339bd93711b0b0ba3780"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P26",
+    "table_title": "5）不同产品或业务的产销情况",
+    "unit": null,
+    "header_evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+    "body_evidence_ids": [
+      "699eed3094e86757d1ad65ff2e57111b"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "产能",
+      "在建产能",
+      "产能利用率",
+      "产量"
+    ],
+    "rows": [
+      [
+        "电池系统（GWh）",
+        "772",
+        "321",
+        "96.9%",
+        "748"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-a40d3724cb18446873f8e6bbaee99da6",
+    "context_parent_id": "mat-b78f0d4321a7656cb037ed7647ffd532",
+    "component_material_ids": [
+      "mat-b78f0d4321a7656cb037ed7647ffd532"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P30",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "b1e57d72e8969eaedcc720e3e4ba2ebf",
+    "body_evidence_ids": [
+      "b1e57d72e8969eaedcc720e3e4ba2ebf"
+    ],
+    "continuation_evidence_ids": [
+      "b1e57d72e8969eaedcc720e3e4ba2ebf"
+    ],
+    "headers": [
+      "项目",
+      "2025年",
+      "2024年",
+      "同比增减"
+    ],
+    "rows": [
+      [
+        "经营活动产生的现金流量净额",
+        "133,219,982",
+        "96,990,345",
+        "37.35%"
+      ],
+      [
+        "投资活动产生的现金流量净额",
+        "-94,475,790",
+        "-48,875,311",
+        "-93.30%"
+      ],
+      [
+        "筹资活动产生的现金流量净额",
+        "-6,309,543",
+        "-14,524,236",
+        "56.56%"
+      ],
+      [
+        "现金及现金等价物净增加额",
+        "29,770,008",
+        "31,994,247",
+        "-6.95%"
+      ]
+    ],
+    "total_row": [
+      "经营活动现金流入小计",
+      "511,868,353",
+      "444,879,417",
+      "15.06%"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-dad008b7fac6957c7ca1d36fe1d185e8",
+    "context_parent_id": "mat-b78f0d4321a7656cb037ed7647ffd532",
+    "component_material_ids": [
+      "mat-b78f0d4321a7656cb037ed7647ffd532"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P30",
+    "table_title": "（3）近三年公司研发投入金额及占营业收入的比例",
+    "unit": null,
+    "header_evidence_id": "b1e57d72e8969eaedcc720e3e4ba2ebf",
+    "body_evidence_ids": [
+      "b1e57d72e8969eaedcc720e3e4ba2ebf"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "2025年",
+      "2024年",
+      "2023 年"
+    ],
+    "rows": [
+      [
+        "研发投入金额（千元）",
+        "22,146,581",
+        "18,606,756",
+        "18,356,108"
+      ],
+      [
+        "研发投入占营业收入比例",
+        "5.23%",
+        "5.14%",
+        "4.58%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-df714c535c0387b0a1a39e43a128472c",
+    "context_parent_id": "mat-9023f51daf5fa1557b1bd500088abb07",
+    "component_material_ids": [
+      "mat-9023f51daf5fa1557b1bd500088abb07"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P28",
+    "table_title": "公司主要销售客户情况",
+    "unit": null,
+    "header_evidence_id": "f4e78f22035655a6df473dc0b60a7595",
+    "body_evidence_ids": [
+      "f4e78f22035655a6df473dc0b60a7595"
+    ],
+    "continuation_evidence_ids": [
+      "f4e78f22035655a6df473dc0b60a7595"
+    ],
+    "headers": [
+      "公司前",
+      "序号",
+      "客户名称",
+      "销售额（千元）",
+      "占年度销售总额比例"
+    ],
+    "rows": [
+      [
+        "前五名客户销售额中关联方销售额占年度销售总额比例",
+        "0.00%"
+      ],
+      [
+        "1",
+        "第一名",
+        "58,159,202",
+        "13.73%"
+      ],
+      [
+        "2",
+        "第二名",
+        "47,127,609",
+        "11.12%"
+      ],
+      [
+        "3",
+        "第三名",
+        "30,201,701",
+        "7.13%"
+      ],
+      [
+        "4",
+        "第四名",
+        "15,419,319",
+        "3.64%"
+      ],
+      [
+        "5",
+        "第五名",
+        "14,153,702",
+        "3.34%"
+      ]
+    ],
+    "total_row": [
+      "前五名客户合计销售金额（千元）",
+      "165,061,533"
+    ],
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  },
+  {
+    "assembly_id": "asm-df95a7f373680f8093522e41196284cb",
+    "context_parent_id": "mat-19138bd82e38bf819e915e2873eb8b63",
+    "component_material_ids": [
+      "mat-19138bd82e38bf819e915e2873eb8b63",
+      "mat-aba2d489735c6fa4b78fe43a43808c72"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P29",
+    "table_title": "（2）公司研发人员情况",
+    "unit": null,
+    "header_evidence_id": "d1c87927ab746a07841598b18d162a0a",
+    "body_evidence_ids": [
+      "e35f2fd2e0fa019a4f9deb719918ef87"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "2025年",
+      "2024年",
+      "变动比例"
+    ],
+    "rows": [
+      [
+        "研发人员数量（人）",
+        "22,901",
+        "20,346",
+        "12.56%"
+      ],
+      [
+        "研发人员数量占比",
+        "12.32%",
+        "15.42%",
+        "-3.1%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null
+  },
+  {
+    "assembly_id": "asm-f75ba780a1565f0e2458c7fdd6b0266b",
+    "context_parent_id": "mat-9023f51daf5fa1557b1bd500088abb07",
+    "component_material_ids": [
+      "mat-9023f51daf5fa1557b1bd500088abb07"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P28",
+    "table_title": "",
+    "unit": "千元",
+    "header_evidence_id": "f4e78f22035655a6df473dc0b60a7595",
+    "body_evidence_ids": [
+      "f4e78f22035655a6df473dc0b60a7595"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "2025 年",
+      "2024 年",
+      "同比增减",
+      "重大变动说明"
+    ],
+    "rows": [
+      [
+        "销售费用",
+        "3,735,118",
+        "3,562,797",
+        "4.84%"
+      ],
+      [
+        "管理费用",
+        "11,666,741",
+        "9,689,839",
+        "20.40%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 4 列 不一致"
+  },
+  {
+    "assembly_id": "asm-f874f377a93f5c50be0dfa5ba5b9d8fd",
+    "context_parent_id": "mat-a29133697a67f465d16617d2cacbbadd",
+    "component_material_ids": [
+      "mat-a29133697a67f465d16617d2cacbbadd",
+      "mat-9e684431d30de1f4598be2b8c35338fe"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P26–P27",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "26a4455f61bd7deed6a866d613999297",
+    "body_evidence_ids": [
+      "26a4455f61bd7deed6a866d613999297"
+    ],
+    "continuation_evidence_ids": [
+      "926198c81c13b25dc545ef1d4e219a34"
+    ],
+    "headers": [
+      "行业分类",
+      "相关数据同比发生变动",
+      "30%以上的原因说明"
+    ],
+    "rows": [
+      [
+        "电池系统",
+        "销售量",
+        "GWh",
+        "661",
+        "475",
+        "39.16%"
+      ],
+      [
+        "生产量",
+        "GWh",
+        "748",
+        "516",
+        "44.96%"
+      ],
+      [
+        "库存量",
+        "GWh",
+        "186",
+        "106",
+        "75.47%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "数据行内部列数不一致"
+  }
+]

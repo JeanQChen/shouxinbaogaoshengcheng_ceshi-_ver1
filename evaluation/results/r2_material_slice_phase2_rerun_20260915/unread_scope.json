@@ -1,0 +1,8 @@
+[
+  {
+    "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+    "reason": "budget",
+    "scope_desc": "停止原因：hard budget (per_seed_cap)；未读范围自 P22 第0块（预算轴 per_seed_cap）。",
+    "stop_reason": "hard budget (per_seed_cap)"
+  }
+]

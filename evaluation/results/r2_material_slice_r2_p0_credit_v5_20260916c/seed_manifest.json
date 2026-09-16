@@ -1,0 +1,56 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "ad78faa976b492f0baa7255ebd6c40ab051e240cafe899a69314fbab32548db9",
+  "entries": [
+    {
+      "case_id": "p0-credit-1",
+      "company_id": "300750",
+      "aspect_id": "company_debt_credit.total_credit_line",
+      "query": "授信额度",
+      "evidence_id": "548c6db7bd22273b2103065d705c11c7",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 111,
+      "block_index": 0,
+      "section_path": [
+        "发行人资信状况"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "1488457170381d4421cfe764aac34628d82b14a1f50707a997cc4b01626bd289",
+      "selection_reason": "R3 前授信口径 P0 预览（evaluation seed，已只读核对身份）",
+      "text": "",
+      "source_name": "",
+      "source_tool": "",
+      "rank": null,
+      "score": null,
+      "is_current_document": true,
+      "is_current_set": true
+    },
+    {
+      "case_id": "p0-credit-2",
+      "company_id": "300750",
+      "aspect_id": "company_debt_credit.unused_credit",
+      "query": "授信额度",
+      "evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+      "document_id": "NDSD_2025_year",
+      "document_version": "sha256-c15272977147dee7",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 210,
+      "block_index": 0,
+      "section_path": [
+        "与金融工具相关的风险"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "8ba9685e21cfdd944e5e989fa7a86015adcbb2ea3577c63df5545be37086249b",
+      "selection_reason": "R3 前授信口径 P0 预览（evaluation seed，已只读核对身份）",
+      "text": "",
+      "source_name": "",
+      "source_tool": "",
+      "rank": null,
+      "score": null,
+      "is_current_document": true,
+      "is_current_set": true
+    }
+  ]
+}

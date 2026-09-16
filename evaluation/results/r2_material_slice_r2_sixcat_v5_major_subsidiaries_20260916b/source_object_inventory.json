@@ -1,0 +1,222 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "version": "1",
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(二)发行人重要子公司情况",
+        "kind": "table_start_signal",
+        "label": "（二）发行人重要子公司情况",
+        "source_text_index": 0,
+        "line_index": 7
+      },
+      {
+        "object_id": "title:(三)发行人参股公司情况",
+        "kind": "table_start_signal",
+        "label": "（三）发行人参股公司情况",
+        "source_text_index": 0,
+        "line_index": 11
+      },
+      {
+        "object_id": "table:5-5",
+        "kind": "table_number",
+        "label": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "source_text_index": 0,
+        "line_index": 15
+      },
+      {
+        "object_id": "title:(一)公司治理结构",
+        "kind": "table_start_signal",
+        "label": "（一）公司治理结构",
+        "source_text_index": 0,
+        "line_index": 32
+      },
+      {
+        "object_id": "title:公司严格按照《公司法》《证券法》《上市公司治理准",
+        "kind": "table_start_signal",
+        "label": "公司严格按照《公司法》《证券法》《上市公司治理准则》《深圳证券交易所创业",
+        "source_text_index": 0,
+        "line_index": 33
+      },
+      {
+        "object_id": "title:(1)主要子公司情况",
+        "kind": "table_start_signal",
+        "label": "（1） 主要子公司情况",
+        "source_text_index": 1,
+        "line_index": 4
+      },
+      {
+        "object_id": "title:限公司",
+        "kind": "table_start_signal",
+        "label": "限公司",
+        "source_text_index": 1,
+        "line_index": 11
+      },
+      {
+        "object_id": "title:源科技有限公司",
+        "kind": "table_start_signal",
+        "label": "源科技有限公司",
+        "source_text_index": 1,
+        "line_index": 15
+      },
+      {
+        "object_id": "title:2公司全资子公司时代电服科技有限公司对成都电服交",
+        "kind": "table_start_signal",
+        "label": "②公司全资子公司时代电服科技有限公司对成都电服交投能源科技有限公司（以下简称“成都电服交投”）持股比例为",
+        "source_text_index": 1,
+        "line_index": 33
+      },
+      {
+        "object_id": "title:(1)在子公司所有者权益份额发生变化的情况说明",
+        "kind": "table_start_signal",
+        "label": "（1） 在子公司所有者权益份额发生变化的情况说明",
+        "source_text_index": 1,
+        "line_index": 39
+      },
+      {
+        "object_id": "title:直接(即价格)或间接(即从价格推导出)地使用除第",
+        "kind": "table_start_signal",
+        "label": "直接（即价格）或间接（即从价格推导出）地使用除第一层次中的资产或负债的市场报价之外的可",
+        "source_text_index": 3,
+        "line_index": 19
+      },
+      {
+        "object_id": "title:现金流量套期",
+        "kind": "table_start_signal",
+        "label": "现金流量套期",
+        "source_text_index": 4,
+        "line_index": 15
+      },
+      {
+        "object_id": "title:本公司及子公司广东邦普循环科技有限公司(以下简称",
+        "kind": "table_start_signal",
+        "label": "本公司及子公司广东邦普循环科技有限公司（以下简称“广东邦普”）原持有宁波邦普时代新",
+        "source_text_index": 11,
+        "line_index": 0
+      },
+      {
+        "object_id": "title:(2)交易对于少数股东权益及归属于母公司所有者权",
+        "kind": "table_start_signal",
+        "label": "（2） 交易对于少数股东权益及归属于母公司所有者权益的影响",
+        "source_text_index": 11,
+        "line_index": 10
+      },
+      {
+        "object_id": "continuation:(续)",
+        "kind": "continuation",
+        "label": "（续）",
+        "source_text_index": 11,
+        "line_index": 23
+      },
+      {
+        "object_id": "title:团股份有限公司",
+        "kind": "table_start_signal",
+        "label": "团股份有限公司",
+        "source_text_index": 11,
+        "line_index": 42
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(二)发行人重要子公司情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（二）发行人重要子公司情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(三)发行人参股公司情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（三）发行人参股公司情况' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "table:5-5",
+        "result": "recovered_ok",
+        "matched_table": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(一)公司治理结构",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（一）公司治理结构' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:公司严格按照《公司法》《证券法》《上市公司治理准",
+        "result": "recovered_ok",
+        "matched_table": "公司严格按照《公司法》《证券法》《上市公司治理准则》《深圳证券交易所创业",
+        "issue": ""
+      },
+      {
+        "object_id": "title:(1)主要子公司情况",
+        "result": "recovered_ok",
+        "matched_table": "（1） 主要子公司情况",
+        "issue": "多行表头（>2）无法可靠合并"
+      },
+      {
+        "object_id": "title:限公司",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '限公司' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:源科技有限公司",
+        "result": "recovered_ok",
+        "matched_table": "源科技有限公司",
+        "issue": ""
+      },
+      {
+        "object_id": "title:2公司全资子公司时代电服科技有限公司对成都电服交",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '②公司全资子公司时代电服科技有限公司对成都电服交投能源科技有限公司（以下简称“成都电服交投”）持股比例为' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(1)在子公司所有者权益份额发生变化的情况说明",
+        "result": "recovered_ok",
+        "matched_table": "（1） 在子公司所有者权益份额发生变化的情况说明",
+        "issue": ""
+      },
+      {
+        "object_id": "title:直接(即价格)或间接(即从价格推导出)地使用除第",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '直接（即价格）或间接（即从价格推导出）地使用除第一层次中的资产或负债的市场报价之外的可' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:现金流量套期",
+        "result": "recovery_failed",
+        "matched_table": "",
+        "issue": "通用表题 '现金流量套期' 重复恢复（错误合并）"
+      },
+      {
+        "object_id": "title:本公司及子公司广东邦普循环科技有限公司(以下简称",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '本公司及子公司广东邦普循环科技有限公司（以下简称“广东邦普”）原持有宁波邦普时代新' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "title:(2)交易对于少数股东权益及归属于母公司所有者权",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（2） 交易对于少数股东权益及归属于母公司所有者权益的影响' 在恢复结果中缺失"
+      },
+      {
+        "object_id": "continuation:(续)",
+        "result": "target_not_obtained",
+        "matched_table": "(续)",
+        "issue": "续表目标表号 (续) 未获得 recovered_ok"
+      },
+      {
+        "object_id": "title:团股份有限公司",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '团股份有限公司' 在恢复结果中缺失"
+      }
+    ],
+    "unmatched_recovered_tables": [
+      "现金流量套期",
+      "限公司"
+    ]
+  }
+}

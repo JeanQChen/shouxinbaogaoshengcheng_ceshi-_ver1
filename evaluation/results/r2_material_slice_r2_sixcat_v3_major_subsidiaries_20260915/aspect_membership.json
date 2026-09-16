@@ -1,0 +1,49 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "formal_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66",
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "context_candidate_material_ids": [
+      "mat-0680fb3e738dd8372fd69088d2bd7377",
+      "mat-08f8fea94173dd4834c87ab0374a9f9c",
+      "mat-11e314704e0187e873127a10c400ba5e",
+      "mat-11ef8135f725541931950349c82a5146",
+      "mat-207a90c07e4b06758e5c64c3caa19eec",
+      "mat-222b4c9dbacac85449fefe9dba7a7c7c",
+      "mat-328ce788821bef3fbd03af4b6580e9ec",
+      "mat-36169f7287cc1903bfac8e27d565c67f",
+      "mat-3ba0d5b3ff59238904a70df459b07145",
+      "mat-40a814b5680b51ae6ed60400ca33cfd1",
+      "mat-46ee6e665af801010996806c0ff8b6af",
+      "mat-4db6800a8495d353b0565bb3f050ef0e",
+      "mat-529b518a9bd7d414aaba59a290cbe88a",
+      "mat-56b061ffa277ef6fc16e901dc80c82da",
+      "mat-7c9b2315805a040c561ce8d85d2a3008",
+      "mat-8a971c779356df6000e5453d080f4798",
+      "mat-a47b45fc0ea8d2ebd849a6777eafac2a",
+      "mat-ab5a80ea99bc023e70e7fedf1abbd36a",
+      "mat-af87f339b162b419086ddde2e2c0cd1f",
+      "mat-c4f907c2326454f2cdcfa5b59e3fa725",
+      "mat-c71b006c0e837d35b478e9819d8ffeda",
+      "mat-da63a0e53e2478f0dc4624e3fdd4194e",
+      "mat-e64d10dd5eddde88b1e435da85fd3c91",
+      "mat-ebdaf54a45f4400ebcfac002cd05212c",
+      "mat-ed5864af2be07d3c2f194451474a52b3",
+      "mat-faf8adf17f9611d6abb5bf86ddb936b9",
+      "mat-fd69747ace75228e36054fab09feaab5"
+    ],
+    "outside_boundary_evidence": [
+      "8080da6dbede07c335162abe5d6535a7",
+      "53c9b3721904922b1afa7cff95d39d22"
+    ],
+    "unread_inside_boundary": [
+      "cd1306377e2ae0bb5b3975194bdd5a03",
+      "d9ac5b2fcbdb3aebd45c94ecfb193c9a"
+    ],
+    "seed_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46",
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  }
+}
