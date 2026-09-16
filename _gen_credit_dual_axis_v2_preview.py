@@ -13,6 +13,13 @@ Codex 定点返修结论 6 + 修复 E：旧 credit 预览仍保留旧错误状�
   正式函数派生（supporting / non_blocking，绝不 REPORT_BLOCKED）。
 
 只写 evaluation/results 产物目录（全新 run_id，不覆盖历史 credit 预览）。零 LLM/网络/DB 写入。
+
+**定位（R2 §五，必须明示）**：本预览是 **evaluation diagnostic / R3 candidate**，不是正式运行
+链接线：授信金额语义模式、币种推断、used/unused 业务对账、multi-source conflict 双轴、
+授信 REPORT_BLOCKED 映射、授信正式 Writer/报告展示均属 R3 待办，本轮不扩展、不删除。
+依赖指纹经 ``harness.credit_semantics.credit_dependency_fingerprint`` 绑定
+``runner_dependency_fingerprint()``（冻结 Contract/SourcePolicy + R2 实现版本）与**材料 run
+manifest 自身指纹**（Pack/run 身份，只读校验后取得）；两者任一变化 → 指纹变化。
 """
 
 from __future__ import annotations
@@ -23,7 +30,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from harness import credit_authority as CA
 from harness import credit_semantics as CS
+from harness import run_manifest as RM
 from harness.credit_authority import (
     CREDIT_AUTHORITY_VERSION,
     resolve_credit_materials,
@@ -51,38 +60,83 @@ _ASPECTS = (
 )
 
 
+def _claimed_formal_credit_links(material_run_dir: Path) -> int:
+    """材料 run 自报的**可提升**授信正式关联条数（role 正式 + disposition 在白名单内）。"""
+    try:
+        links = json.loads((material_run_dir / "aspect_links.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return 0
+    if not isinstance(links, list):
+        return 0
+    n = 0
+    for link in links:
+        if not isinstance(link, dict) or link.get("aspect_id") not in _ASPECTS:
+            continue
+        role = str(link.get("role") or "")
+        if str(link.get("disposition") or "") in CA.ROLE_DISPOSITIONS.get(role, ()):
+            n += 1
+    return n
+
+
 def _resolve_materials(material_run_dir: Path, *, harness_db_path: Path,
-                       evidence_db_path: Path, company_id: str) -> list[dict]:
+                       evidence_db_path: Path, company_id: str) -> list:
     """经正式权威链解析真实材料（E.1）：绝不读 payload_preview/*.json 的复制字段。
 
     对全部授信 aspect 取并集，逐材料经 ``TopicMaterialPayloadResolver``（harness.db 权威
     payload 字节）+ ``ReadonlyEvidenceReader``（evidence.db current doc/set）+ 块身份/
-    fragment 重算 + 正式 aspect association（``aspect_links.json``）解析；缺 payload/
-    dangling/损坏信封/非 current/跨公司/未知 disposition → 逐材料 fail-closed（不产出）。
+    fragment 重算 + **经独立佐证的** aspect association 解析；缺 payload/dangling/损坏信封/
+    非 current/跨公司/非提升处置/关联未被边界决策记录佐证 → 逐材料 fail-closed（不产出）。
+
+    材料 run 自报存在可提升授信正式关联、但权威链一条都解析不出 → **矛盾，直接拒绝派生**
+    （绝不静默产出 0 事实的「预览」：那会把「关联不可验证」伪装成「无材料」）。
     """
-    seen: dict[str, dict] = {}
+    seen: dict[str, object] = {}
     for aspect_id in _ASPECTS:
         for m in resolve_credit_materials(
                 material_run_dir, harness_db_path=harness_db_path,
                 evidence_db_path=evidence_db_path, company_id=company_id,
                 aspect_id=aspect_id):
-            seen[m["material_id"]] = m
+            seen[m.material_id] = m
+    if not seen:
+        claimed = _claimed_formal_credit_links(material_run_dir)
+        if claimed:
+            raise ValueError(
+                f"材料 run 自报 {claimed} 条可提升授信正式关联，但权威链解析出 0 条材料"
+                f"（关联/材料库/边界决策记录矛盾，fail-closed）：{material_run_dir}")
     return list(seen.values())
+
+
+def _material_run_manifest_fingerprint(material_run_dir: Path) -> str:
+    """材料 run manifest 自身的权威指纹（E.11/E.3）：只读校验通过后取自 manifest，fail-closed。
+
+    绝不手写、绝不从目录名推断；manifest 被改写 / 版本不符 / 依赖指纹不符 / Contract 或
+    SourcePolicy 身份不符 → 直接拒绝派生（无 Pack/run 身份的授信事实不得进入预览）。
+    """
+    ok, reason, manifest = RM.verify_run_manifest(material_run_dir)
+    if not ok:
+        raise ValueError(
+            f"材料 run manifest 不可验证，拒绝派生授信预览：{material_run_dir}（{reason}）")
+    return str(manifest.get("run_manifest_fingerprint") or "")
 
 
 def _build_preview(material_run_dir: Path, *, harness_db_path: Path,
                    evidence_db_path: Path, company_id: str,
                    run_id: str = RUN_ID, generated_at: str = "20260916T000000Z") -> dict:
+    material_run_manifest_fingerprint = _material_run_manifest_fingerprint(material_run_dir)
     materials = _resolve_materials(material_run_dir, harness_db_path=harness_db_path,
                                    evidence_db_path=evidence_db_path, company_id=company_id)
     facts = extract_credit_facts(materials)
 
     # 双轴（逐 fact → aspect）：来源权威轴 ⊥ 语义支撑轴，只经正式函数。
+    # 逐字段取**权威值**并显式传入（含 not_obtained / conflict_status / value），绝不靠缺省
+    # 推断：`scope_closed` 缺字段或为 None 一律视为**未闭合**（缺口不得被默认成闭合）。
     fact_axes = [{
-        "semantic_type": f["semantic_type"],
+        "semantic_type": f.get("semantic_type", ""),
         "authority_valid": bool(f.get("authority_valid", False)),
         "authority_reason": "" if f.get("authority_valid") else "来源权威不通过",
-        "scope_closed": bool(f.get("scope_closed", True)),
+        "scope_closed": f.get("scope_closed") is True,
+        "not_obtained": bool(f.get("not_obtained")) or f.get("value") is None,
+        "conflict_status": str(f.get("conflict_status") or ""),
     } for f in facts]
     aspect_dual_axis: dict = {}
     for aspect_id in _ASPECTS:
@@ -108,9 +162,12 @@ def _build_preview(material_run_dir: Path, *, harness_db_path: Path,
             extraction_version=CREDIT_FACT_EXTRACTION_VERSION,
             semantics_version=CS.CREDIT_SEMANTICS_VERSION,
             authority_version=CREDIT_AUTHORITY_VERSION,
+            runner_dependency_fingerprint=RM.runner_dependency_fingerprint(),
+            material_run_manifest_fingerprint=material_run_manifest_fingerprint,
         ),
         "run_id": run_id,
         "material_run_id": material_run_dir.name,
+        "material_run_manifest_fingerprint": material_run_manifest_fingerprint,
         "generated_at": generated_at,
         "purpose": (
             "R2 P1-E：授信双轴 v2 预览，事实经正式权威链（TopicMaterialPayloadResolver 权威 "
@@ -135,11 +192,17 @@ def _render_md(preview: dict) -> str:
     lines = [
         "# 授信双轴 v2 预览（修复 E：从真实材料派生）",
         "",
+        "> **定位：evaluation diagnostic / R3 candidate，不是正式运行链接线。**",
+        "> 授信金额语义模式、币种推断、used/unused 业务对账、multi-source conflict 双轴、",
+        "> 授信 REPORT_BLOCKED 映射、授信正式 Writer/报告展示均属 R3 待办（R2 §五），本轮不扩展。",
+        "",
         f"> run_id `{preview['run_id']}`（全新目录，不覆盖历史 credit 预览）。",
         f"> 事实来源：真实材料切片 run 目录 `{preview['material_run_id']}`（无手写 _FACTS）。",
         "> 双轴状态与阻断策略只经 `harness.credit_semantics` 正式函数派生，零 LLM/网络。",
         f"> 依赖指纹 `{preview['credit_dependency_fingerprint']}`"
         "（extractor/semantics/authority 三版本绑定，E.11）。",
+        f"> 材料 run manifest 指纹 `{preview.get('material_run_manifest_fingerprint','')}`"
+        "（Pack/run 身份，只读校验后取得）。",
         "",
         "## 逐 aspect 双轴状态（来源权威轴 ⊥ 语义支撑轴）",
         "",

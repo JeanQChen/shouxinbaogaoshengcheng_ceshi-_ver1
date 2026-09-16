@@ -7,7 +7,8 @@
 2. 折行数据「有限公司」「名称」等不是表题；
 3. 真表题（「（1） 应收票据分类列示」）**必须**被识别；
 4. 显式「表 N」介入时，其前的正文标题不得成为表题（中介表题）；
-5. **inventory ok 但 assembly 缺失必须失败**；
+5. **inventory ok 但 assembly 缺失必须失败**（禁止无 assembly 的 `recovered_ok`；无原因的
+   `target_not_obtained` fail-closed；诚实带原因的负面材料状态**不**制造能力失败）；
 6. **inventory 结果与持久化 assembly 状态矛盾必须失败**（不得失败/成功互相打架）；
 7. **assembly component 外键不存在必须失败**；
 8. 同块多表必须生成不同且稳定的 object/assembly identity；
@@ -147,7 +148,7 @@ def main() -> dict:
           "中介表题：正文标题「（二）主营业务情况」不成为表题（真正的表题在后面）")
 
     # ------------------------------------------------------------------
-    # 5. inventory ok 但 assembly 缺失必须失败
+    # 5. inventory ok 但 assembly 缺失 → 禁止（§四.B.7）；诚实负面 ≠ 代码失败（§四.D.9/D.10）
     # ------------------------------------------------------------------
     four = (
         "表 5-10 发行人主营业务收入构成表\n单位：万元，%\n"
@@ -157,10 +158,28 @@ def main() -> dict:
     inv5 = SOI.derive_expected_source_object_inventory(_ASPECT, [_src(four)])
     rec5 = SOI.reconcile_source_object_inventory(inv5, [])
     r510 = next(r for r in rec5.recovery_results if r.object_id == "table:5-10")
+    # §四.B.7：禁止「inventory=ok 但 assembly 不存在」——无持久化 assembly ⇒ 绝不 recovered_ok。
     check(r510.result == SOI.TARGET_NOT_OBTAINED and not r510.assembly_id,
           "inventory ok 但 assembly 缺失：无持久化 assembly ⇒ target_not_obtained（绝不 ok）")
-    gate5 = SOI.source_object_gate(rec5, [])
-    check(gate5 is not None, "inventory ok 但 assembly 缺失：source_object_gate 失败")
+    check(all(r.result != SOI.RECOVERED_OK for r in rec5.recovery_results),
+          "inventory ok 但 assembly 缺失：逐对象均无 recovered_ok（无外键悬空）")
+    check(all(r.issue or r.recovery_reason for r in rec5.recovery_results
+              if r.result == SOI.TARGET_NOT_OBTAINED),
+          "inventory ok 但 assembly 缺失：每个 target_not_obtained 带真实原因（可归因）")
+    # §四.D.9/D.10：诚实、逐对象、带原因的负面材料状态**不**制造能力失败；
+    # 完整性后果由集合枚举侧（_enumerate_business 要求持久化 assembly 佐证）承担。
+    check(SOI.source_object_gate(rec5, []) is None,
+          "inventory ok 但 assembly 缺失：诚实 target_not_obtained 不制造 gate 失败（§四.D.10）")
+    # 反例：抹掉原因（不可归因）→ 必须 fail-closed。
+    rec5_blank = SOI.reconcile_source_object_inventory(inv5, [])
+    rec5_blank.recovery_results = [
+        SOI.SourceObjectRecoveryResult(r.object_id, r.result, r.matched_table, "",
+                                       r.assembly_id, r.component_material_ids,
+                                       r.recovery_status, "")
+        for r in rec5_blank.recovery_results]
+    gate5_blank = SOI.source_object_gate(rec5_blank, [])
+    check(gate5_blank is not None and "缺原因" in gate5_blank,
+          "inventory ok 但 assembly 缺失：无原因的 target_not_obtained → gate 失败")
 
     # 篡改：结果声明 recovered_ok 却不绑定 assembly_id → 必须失败（矛盾声明）。
     tampered = SOI.ExpectedSourceObjectInventory(

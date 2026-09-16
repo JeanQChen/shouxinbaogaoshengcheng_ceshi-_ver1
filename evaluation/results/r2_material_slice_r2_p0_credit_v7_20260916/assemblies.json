@@ -1,0 +1,273 @@
+[
+  {
+    "assembly_id": "asm-0063a5e41fc910a9bbc4236bdc27f849",
+    "context_parent_id": "mat-5b0506db47256cb86d7b439ae8f8a663",
+    "component_material_ids": [
+      "mat-5b0506db47256cb86d7b439ae8f8a663"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P212",
+    "table_title": "5202年12月 31日",
+    "unit": "千元",
+    "header_evidence_id": "ea350d96963b0d8283ed4a12e50ecadd",
+    "body_evidence_ids": [
+      "ea350d96963b0d8283ed4a12e50ecadd"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "套期工具的名义金额",
+      "资产",
+      "负债",
+      "表列示项目"
+    ],
+    "rows": [
+      [
+        "商品",
+        "5,080,849",
+        "155,131",
+        "296,266",
+        "衍生金融资产/负债"
+      ],
+      [
+        "外汇",
+        "126,264,723",
+        "978,371",
+        "96,958",
+        "衍生金融资产/负债"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null,
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "5202年12月 31日",
+      "header_evidence_id": "ea350d96963b0d8283ed4a12e50ecadd",
+      "continuation_evidence_ids": [],
+      "header_page": 212,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "ok",
+      "issue": "续块身份重复或同表头; 非跨页续表",
+      "recovered_title": "5202年12月 31日",
+      "recovered_unit": "千元",
+      "recovered_headers": [
+        "项目",
+        "套期工具的名义金额",
+        "资产",
+        "负债",
+        "表列示项目"
+      ],
+      "recovered_row_count": 2,
+      "recovered_total": null,
+      "component_order": [
+        "mat-5b0506db47256cb86d7b439ae8f8a663"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-5b05eb07ba99c3e6b6cde1df6c9196ce",
+    "context_parent_id": "mat-996e1d0a5a256d5bb056e7ba2d5364ca",
+    "component_material_ids": [
+      "mat-996e1d0a5a256d5bb056e7ba2d5364ca",
+      "mat-a6ae1e7a838789e2690ca2b8b4ede0f3",
+      "mat-1f750819254812db6bc99098f264ab85",
+      "mat-8b24942e461c95023d531609e4af987e",
+      "mat-74b5773c9583968eec94f703da079ef4",
+      "mat-7a71528f9f225152ef5c6c4da33ea703",
+      "mat-5b0506db47256cb86d7b439ae8f8a663",
+      "mat-6dc03db83f3869e65747be2e2899b73d",
+      "mat-250d710794854d722245fe83b4ef5b19"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P209–P214"
+  },
+  {
+    "assembly_id": "asm-6871e2bd6d044eea605dc393ac36c051",
+    "context_parent_id": "mat-1f750819254812db6bc99098f264ab85",
+    "component_material_ids": [
+      "mat-1f750819254812db6bc99098f264ab85"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P210",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+    "body_evidence_ids": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "一年以内",
+      "一至二年",
+      "二至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "12,935,498",
+        "12,935,498"
+      ],
+      [
+        "衍生金融负债",
+        "393,224",
+        "393,224"
+      ],
+      [
+        "应付票据",
+        "103,276,999",
+        "103,276,999"
+      ],
+      [
+        "应付账款",
+        "160,328,962",
+        "160,328,962"
+      ],
+      [
+        "其他应付款",
+        "10,504,098",
+        "10,504,098"
+      ],
+      [
+        "一年内到期的非流动负",
+        "22,237,540",
+        "22,237,540"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 3 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+      "continuation_evidence_ids": [],
+      "header_page": 210,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed",
+      "recovered_title": "",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "一年以内",
+        "一至二年",
+        "二至五年",
+        "五年以上",
+        "合计"
+      ],
+      "recovered_row_count": 6,
+      "recovered_total": null,
+      "component_order": [
+        "mat-1f750819254812db6bc99098f264ab85"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-d35ddb8a14d0189bf17f4fea9656b0bb",
+    "context_parent_id": "mat-1f750819254812db6bc99098f264ab85",
+    "component_material_ids": [
+      "mat-1f750819254812db6bc99098f264ab85"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P210",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+    "body_evidence_ids": [
+      "58e54036c0e43227f58e0d2435139a7f"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "一年以内",
+      "一至二年",
+      "二至五年",
+      "五年以上",
+      "合计"
+    ],
+    "rows": [
+      [
+        "短期借款",
+        "19,696,282",
+        "19,696,282"
+      ],
+      [
+        "衍生金融负债",
+        "2,116,017",
+        "2,116,017"
+      ],
+      [
+        "应付票据",
+        "67,356,323",
+        "67,356,323"
+      ],
+      [
+        "应付账款",
+        "130,977,408",
+        "130,977,408"
+      ],
+      [
+        "其他应付款",
+        "10,761,762",
+        "10,761,762"
+      ],
+      [
+        "一年内到期的非流动",
+        "22,881,417",
+        "22,881,417"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 5 列 vs 数据行 3 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "58e54036c0e43227f58e0d2435139a7f",
+      "continuation_evidence_ids": [],
+      "header_page": 210,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed",
+      "recovered_title": "",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "一年以内",
+        "一至二年",
+        "二至五年",
+        "五年以上",
+        "合计"
+      ],
+      "recovered_row_count": 6,
+      "recovered_total": null,
+      "component_order": [
+        "mat-1f750819254812db6bc99098f264ab85"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  }
+]

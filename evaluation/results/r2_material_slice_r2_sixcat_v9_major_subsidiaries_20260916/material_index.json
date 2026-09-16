@@ -1,0 +1,56 @@
+[
+  {
+    "material_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:467120b8407bbbea6a6684303b632147",
+    "component_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "source_content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41",
+    "payload_hash": "e2e3107fc534d81d1ba16bf5c183e7c9f13f99b6536af6913e83a6b067bdcd59",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "在其他主体中的权益",
+    "page": 208,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  },
+  {
+    "material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:c783f2277baa5eda1659bc5c3fab5d46",
+    "component_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+    "payload_hash": "0cb51a596392db9dc72607b1596d10de10d418ae24329ad28dff3c53005241ed",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+    "page": 41,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_subsidiaries.major_subsidiaries": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_subsidiaries.major_subsidiaries"
+    ]
+  }
+]

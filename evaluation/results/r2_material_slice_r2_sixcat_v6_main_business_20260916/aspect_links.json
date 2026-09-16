@@ -1,0 +1,150 @@
+[
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-24f27df39d96b0d2e4ad91875c56b732",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "53c9b3721904922b1afa7cff95d39d22",
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-3c4ce91ad8058258d6598b71f62e826d",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "53c9b3721904922b1afa7cff95d39d22",
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-53c420562c22e2ebcaf51e7e1d0062eb",
+    "role": "context_candidate",
+    "disposition": "fragment_projection",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+        "direction": "",
+        "disposition": "outside_boundary_sentinel",
+        "reason_code": "topic_section_closed_sibling_heading"
+      }
+    ],
+    "seed_reachability": [
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-57a8cec8c7ce473cb9ceb12e8d00ccc2",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-6cd60a746b06f89e95fb6f626ce9ed18",
+    "role": "context_candidate",
+    "disposition": "fragment_projection",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "079cd0d80d660e2da39250746c025937",
+        "direction": "",
+        "disposition": "outside_boundary_sentinel",
+        "reason_code": "topic_section_closed_sibling_heading"
+      }
+    ],
+    "seed_reachability": [
+      "53c9b3721904922b1afa7cff95d39d22"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-8919ba3de4b1bb3f94d8eb37efe4d966",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "53c9b3721904922b1afa7cff95d39d22",
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-8ebf18a3f86ea8b04dca3532114c16b9",
+    "role": "context_candidate",
+    "disposition": "fragment_projection",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "53c9b3721904922b1afa7cff95d39d22",
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  },
+  {
+    "aspect_id": "company_business_main.main_business",
+    "material_id": "mat-cdc36739de683d8b1b980971260e596b",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_business_main.main_business",
+        "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "c614f024a06bb87fdefa127200b2d503"
+    ]
+  }
+]

@@ -1,7 +1,7 @@
 # Prompt 角色索引
 
 > 本目录文件是运行时资产，不是给开发代理的指令。
-> 当前迁移依据：`DESIGN_V2.md` v0.6 与 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1。
+> 当前迁移依据：`DESIGN_V2.md` v0.9、`PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.3 与 `TREE_STRUCTURE_ADJUSTMENT_TASK.md` v1.0。
 > 本索引只说明角色；在对应代码批次获批前不修改 Prompt 内容或调用行为。
 
 ## 角色定义
@@ -37,6 +37,8 @@
 | `schema_mapping.txt` | V1_LEGACY_ONLY | 仅 V1 schema mapping 兼容路径 |
 
 ## P3R/P4R 完成门
+
+树结构调整期间不新增用于“猜标题边界”的 LLM Prompt。`PageLayout`、`DocumentOutline`、`OutlineSpan` 和 `TableObject` 必须由版本化、可复核的结构算法产生；如后续允许模型提供候选，也只能作为不具权威的导航候选，不能生成节点真值、覆盖状态或 Citation。
 
 R3/R5 必须以调用链测试证明：
 

@@ -64,42 +64,80 @@ def main() -> dict:
 
     # ------------------------------------------------------------------
     # C.1：table_continuation 滚动闭合 —— 预算耗尽时显式记 unread（非静默丢弃）
+    #
+    # 续页身份**由结构确定性派生**（与执行器/验收侧共用 ``table_structure`` 同一 primitive）：
+    # 锚点块内最后一个**仍是未闭合结构**的表 = 待续的表；续页块必须**重排本表物理表头**
+    # 才承接。语料形状照真实产物：全部 ``paragraph`` 块、``structured_payload`` 为空
+    # （769/769）—— 旧 fixture 按 ``evidence_type='table'/'table_row'`` + ``structured_payload``
+    # 造续页，正是被废弃的按类型过滤形态。
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
-        blocks = [
-            (5, 1, ["主营业务分析"], "table", "营业收入构成（分产品）",
-             {"table_title": "营业收入构成"}),
-            (5, 2, ["主营业务分析"], "table_row", "动力电池系统 1,000",
-             {"table_title": "营业收入构成"}),
-            (5, 3, ["主营业务分析"], "table_row", "储能电池系统 800",
-             {"table_title": "营业收入构成"}),
-            (5, 4, ["主营业务分析"], "table_row", "其他业务 200",
-             {"table_title": "营业收入构成"}),
-            (5, 5, ["主营业务分析"], "table_row", "合计 2,000",
-             {"table_title": "营业收入构成"}),
+        _title = "主营业务收入构成表"
+        _physical_header = ("项目    本期金额    上期金额", "产品    收入    收入")
+
+        def _flattened(*rows: str) -> str:
+            """真实摊平表块：表题 + 单位行 + 物理表头（2 行）+ 数据行。"""
+            return "\n".join((_title, "单位：万元") + _physical_header + tuple(rows))
+
+        def _continuation(*rows: str) -> str:
+            """跨页续页块：块首直接**重排本表物理表头**（真实跨页续表形状，无重复表题）。
+
+            块首是通用表题行（非显式「表 N」、非续表标记）时**不承接** —— 那种行是另一张表的
+            表题，不是续页；续页的结构签名就是「表头重排 + 继续的数据行」。
+            """
+            return "\n".join(_physical_header + tuple(rows))
+
+        seed_text = _flattened("动力电池系统    1,000    900",
+                               "储能电池系统    800    700")
+        # 第 3 块含合计行 → 该表在此闭合，故它不再是「未闭合表结构」，不会成为后续滚动锚点。
+        cont_texts = [
+            _continuation("其他业务    200    180"),
+            _continuation("分部间抵销    -50    -40"),
+            _continuation("合计    2,000    1,780"),
+            _continuation("少数股东权益    30    25"),
         ]
+        blocks = [(5, 1, ["主营业务分析"], "paragraph", seed_text)] + [
+            (5, i + 2, ["主营业务分析"], "paragraph", t)
+            for i, t in enumerate(cont_texts)]
         db = _make_db(Path(td), blocks)
         registry = ToolRegistry(audit_dir=Path(td) / "audit")
         register_bounded_evidence_tool(registry, db_path=db)
         register_resolve_seed_identity_tool(registry, db_path=db)
-        seed = _seed(page=5, block=1, text="营业收入构成（分产品）", etype="table",
-                     payload={"table_title": "营业收入构成"})
+        seed = _seed(page=5, block=1, text=seed_text)
         res = expand(_request(seed, ("table_continuation",),
                               ExpansionBudget(table_continuation=3)),
                      registry, run_id="r2c1")
         adopted_ids = {b.evidence_id for b in res.adopted}
-        last_id = _eid_of(5, 5, "合计 2,000", {"table_title": "营业收入构成"})
-        check(_eid_of(5, 2, "动力电池系统 1,000", {"table_title": "营业收入构成"})
-              in adopted_ids, "C.1：续表第 1 块被采纳")
-        check(_eid_of(5, 3, "储能电池系统 800", {"table_title": "营业收入构成"})
-              in adopted_ids, "C.1：续表第 2 块被采纳")
-        check(_eid_of(5, 4, "其他业务 200", {"table_title": "营业收入构成"})
-              in adopted_ids, "C.1：续表第 3 块被采纳（预算内）")
-        check(any(c.evidence_id == last_id for c in res.candidates_unread),
+        check(all(_eid_of(5, i + 2, t) in adopted_ids
+                  for i, t in enumerate(cont_texts[:3])),
+              "C.1：续表第 1/2/3 块被采纳（预算内，锚点=seed 的未闭合表结构）")
+        check(all(any(boundary.evidence_id == _eid_of(5, i + 2, t)
+                      and boundary.relation == "continuation"
+                      for boundary in res.boundary_decisions)
+                  for i, t in enumerate(cont_texts[:3])),
+              "C.1：采纳块以 continuation 关系落盘（非 adjacent，可复核续表来源）")
+        unread_id = _eid_of(5, 5, cont_texts[3])
+        check(any(c.evidence_id == unread_id for c in res.candidates_unread),
               "C.1：第 4 块续表进入 candidates_unread（budget table_continuation，"
               "非静默丢弃）")
         check(res.unread_scope.budget_axis == "table_continuation",
               "C.1：unread budget_axis=table_continuation")
+        check(any(t.get("mode") == "table_continuation"
+                  and t.get("anchor_evidence_id") == seed.evidence_id
+                  and t.get("has_more") is True
+                  for t in res.target_outcomes),
+              "C.1：trace 记录续表锚点真实 evidence_id + limit+1 探针 has_more")
+        _cont_steps = [s for s in res.trace.steps
+                       if s.inputs.get("mode") == "table_continuation"]
+        check(_cont_steps
+              and _cont_steps[0].inputs.get("evidence_id") == seed.evidence_id
+              and _cont_steps[0].outputs
+              == tuple(_eid_of(5, i + 2, t)
+                       for i, t in enumerate(cont_texts[:3]))
+              and _cont_steps[0].stop_reason == "hard budget (table_continuation)"
+              and _cont_steps[0].budget_remaining.get("table_continuation") == 0,
+              "C.1：trace 步骤逐项可复核（锚点 evidence_id / 真实 outputs / stop_reason / "
+              "预算消耗），不靠 obs 之外自报")
 
     # ------------------------------------------------------------------
     # C.2：explicit_reference 每个目标独立解析（不 join 成单一 reference_target）
@@ -170,11 +208,15 @@ def main() -> dict:
         register_resolve_seed_identity_tool(registry, db_path=db)
         seed = _seed(page=5, block=0, section=("公司基本情况",),
                      text="（二）主营业务情况\n公司主营业务为动力电池。")
+        # 主题小节层级由**同一 aspect / 文档版本的 seed 文本集**给出（本 fixture 只有一条
+        # seed，其 section_path 叶子不在文本内 → 由正式 runner 的同源层级显式提供；见
+        # harness.material_slice_runner 的 topic_level_by_scope 与
+        # heading_structure.topic_level_from_seed_set）。层级未知则绝不猜、不做结构性关闭。
         req = ContextExpansionRequest(
             company_id=_COMPANY, document_id=_DOC, document_version=_DOCV,
             evidence_set_version=_SETV, seed=seed, directions=("adjacent_blocks",),
             budget=ExpansionBudget(), dependency_fingerprint="dep-fp",
-            aspect_id="company_business_main.main_business")
+            aspect_id="company_business_main.main_business", topic_level_hint=3)
         res = expand(req, registry, run_id="r2c6")
         far = _eid_of(8, 0, "更远处的风险因素说明。")
         check(any(c.evidence_id == far for c in res.candidates_unread),

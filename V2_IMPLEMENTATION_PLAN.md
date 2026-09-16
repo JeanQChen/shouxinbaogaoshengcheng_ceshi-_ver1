@@ -1,8 +1,8 @@
 # 授信报告生成器 V2 总实施路线图
 
-> 版本：v0.6 · 2026-09-14
-> 状态：Phase 0A～3 的历史关闭记录保留；Phase 4 基础设施已交付，但 P3→P4 内容完整性门未通过，现重开 P3R/P4R 全局重整。R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举）；R2 实施计划已批准、开始编码；R3～R7、Phase 5 暂不进入。
-> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.8
+> 版本：v0.7 · 2026-09-16
+> 状态：Phase 0A～3 的历史关闭记录保留；Phase 4 基础设施已交付，但 P3→P4 内容完整性门未通过。R1-B 已关闭，R2 已形成可复用的只读、权威、Store、trace 与 fail-closed 基础；真实材料验收同时证明“整块 Evidence + 相邻扩读猜边界”不能作为正式材料主路径。现已批准“树结构调整”，它是 R3 前强制架构门；R3～R7、Phase 5/6 暂不进入。
+> 上位设计：[DESIGN_V2.md](./DESIGN_V2.md)，当前核对版本 v0.9
 > 工程规则：[AGENTS.md](./AGENTS.md)
 > 文档索引：[DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)
 > 本文仅管理阶段、顺序、依赖、验收出口与进度，不替代上位设计或阶段开发任务书。
@@ -63,7 +63,7 @@
 
 ### 2.3 尚未完成的工作
 
-机器可读 Section Contracts、Evidence、Financial V2、Router、Tool Layer、单题 Research Harness、章节 Worker/Evaluator/Store 和只读 UI 基础均已实现。当前缺口不再是“有没有模块”，而是正式生产链的信息吞吐：P3 仍以单题简短 `ResearchOutcome` 为主要交付，P4 又主要遍历 `answer.claims`，导致宽主题的连续正文、表格上下文、跨来源事实与外部研究结果在进入章节前被压缩。
+机器可读 Section Contracts、Evidence、Financial V2、Router、Tool Layer、单题 Research Harness、章节 Worker/Evaluator/Store 和只读 UI 基础均已实现。当前缺口不再是“有没有模块”，而是正式生产链的信息吞吐与材料边界：P3 仍以单题简短 `ResearchOutcome` 为主要交付，P4 又主要遍历 `answer.claims`；同时现有 Evidence 主要是固定长度文本块，可能跨越多个大小标题，导致宽主题的连续正文、表格上下文、跨来源事实与外部研究结果在进入章节前被压缩或污染。
 
 因此新增 **P3R/P4R 内容完整性重整**，不是重跑或推翻 Phase 0A～3 历史验收。R0 先独立复验并收口正式 Contract→Planner→Worker→Router→Harness→ToolRegistry 主链，具体工作区和测试数只记录在 `V2_TODO.md`。即使调用链全绿，也不证明 TopicResearchPack、覆盖调度或完整章节已经实现。
 
@@ -80,7 +80,8 @@
 | 2 | Router 与 Hybrid Retrieval | 0B、1、1F-A 的财务查询能力 | 已关闭 |
 | 3 | Tool Layer、外部来源与 Research Harness | 2、1 的状态/产物基础 | 已关闭 |
 | 4 | 章节 Worker、Claim 与章节质量门 | 0B、1F-A、2、3 | 基础能力已交付；内容完整性关闭撤回 |
-| 3R/4R | TopicResearchPack、覆盖驱动研究与章节表达重整 | 3、4 的正式唯一主链 | **R1-A 已批准并冻结（已提交，未接线）；R1-B 已正式关闭；R2 计划已批准、开始编码；R3～R7 待实施** |
+| 3R/4R | TopicResearchPack、覆盖驱动研究与章节表达重整 | 3、4 的正式唯一主链 | R1-A/R1-B 已关闭；R2 基础保留；树结构调整为当前强制门；R3～R7 待实施 |
+| 3R/4R-T | 树结构调整：PageLayout、DocumentOutline、OutlineSpan、TableObject 与树感知检索 | R2 的只读、权威、Store、trace、fail-closed 基础 | **设计与权威文档已同步；等待编码前实施计划/冲突审计，编码未开始** |
 | 5 + 1F-B | 综合、内容完整性前置门、完整 Assurance 与财务终检 | 3R/4R、1F-A | 未进入 |
 | 6 | 全流程集成、演示稳定性与交付 | 5 与 1F-B 均通过 | 未进入 |
 
@@ -89,7 +90,8 @@
 ```text
 0A 已接纳基线 → 0B 报告契约 → 1 Evidence/运行基础 → 1F-A 财务基础
     → 2 Router/Hybrid → 3 工具与 Harness → 4 章节基础
-    → 3R/4R 内容完整性重整 → 5 综合/Assurance + 1F-B 财务闭环 → 6 演示交付
+    → 3R/4R R1/R2 基础 → 3R/4R-T 树结构调整
+    → R3/R4/R5 内容完整性重整 → 5 综合/Assurance + 1F-B 财务闭环 → 6 演示交付
 ```
 
 阶段出口分为两种：**基础可供依赖**与**该阶段完整验收**。只有 1F 明确使用分段出口；1F-A 通过可支持下游开发，但不得将整个 1F 标为完成或提前开放正式导出。
@@ -274,7 +276,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 **先决基线：** R0 的正式主链收敛及对应集成测试先独立 review、复验和 commit。它只锁定调用链和实验路径零调用，不算 P3R/P4R 完成；实际工作区状态见 `V2_TODO.md`。
 
-**R1-A 状态（2026-09-13，已批准并冻结）：** 已生成 52 问 × aspect × evidence 审计与版本化资产，由用户与 Codex 批准并冻结，**已按职责提交、未接线正式运行时**。冻结资产 `templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、49 evidence）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 未设为默认；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）；R1-B 已于 2026-09-14 正式关闭；R2～R7、Phase 5/6 未进入。绿灯只证明资产自洽，不宣称内容完整性关闭。
+**R1-A 状态（2026-09-13，已批准并冻结）：** 已生成 52 问 × aspect × evidence 审计与版本化资产，由用户与 Codex 批准并冻结，**已按职责提交、未接线正式运行时**。冻结资产 `templates/contracts/standard_v3.yaml`（Contract v2，52 问 28/13/3/8、187 aspect、49 evidence）、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`（逐字 8/5/9 + 187 primary/6 secondary）、`templates/presentation_profiles/interview_demo_v1.yaml`、审计产物 `contracts/review/review_52q.json/.csv`、只读代码 `contracts/{loader_v2,validator_v2,source_policy}.py` + `sections/{writing_spec,presentation_profile}.py` + `contracts/review/topic_aspect_evidence_review.py`、离线测试 `evals/test_contract_v2_assets.py`（153 项，已注册 run_evals）。`standard_v2.yaml`（v1）未覆盖（固定 SHA256 不变）；Contract v2 在 **R1-A 冻结时点**未设为默认；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。该时点之后的 R1-B/R2/树结构状态只看本计划后续段落与 `V2_TODO.md`；本段绿灯只证明 R1-A 资产自洽，不宣称内容完整性关闭。
 
 **验收出口：**
 
@@ -285,6 +287,39 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - P4 不再只消费 `answer.claims`；Section 完整 Pack 集经身份校验后，多个研究 Topic 可按 WritingSpec 合并为人读小节，并以多条 Claim 形成连贯段落和表格，所有事实/数字仍可回查。
 - 动态预算有硬上限、累计不重置；预算不足产生明确 Partial Pack，不产生伪完整章节。
 - 通用/未见 Topic 与少量真实纵向切片通过后，才恢复 Phase 4 产品关闭评审并允许进入 Phase 5。
+
+**R2 完成定义（2026-09-16 冻结，覆盖此前所有「六类 material 全部 complete/accepted」表述）：**
+
+- R2 验收采用**三轴状态模型**：`material_state`（complete / partial / boundary_incomplete / not_obtained / unsupported / invalid）、`capability_verdict`（PASS / FAIL / NOT_TESTED）、`report_impact`（blocking / non_blocking / audit_only）。三轴分别建模，**禁止互相自动映射**；`verdict` 只是兼容视图。
+- 诚实的 `boundary_incomplete` / `not_obtained` / `unsupported` **可以是** `capability_verdict = PASS`；`capability_verdict = PASS` 只表示系统正确、可复核地得出了材料状态，不代表材料完整，也不代表报告可发布。**R2 不以全部 material complete/accepted 为关闭条件**；负面材料状态本身不构成代码缺陷。
+- R2 职责仅限：材料构建、受控上下文扩读、边界证明、持久化、材料能力验收。
+- 授信金额语义模式、币种推断、used/unused 业务对账、multi-source conflict 双轴、授信 `REPORT_BLOCKED` 映射、授信正式 Writer/报告展示属于 **R3 正式事实形成与 Pack 状态**职责，R2 不实现、不代做。
+- 现存授信双轴预览保留为 **evaluation diagnostic / R3 candidate**，不是 R2 关闭门，不得宣称正式运行链接线完成；历史预览与相关代码不删除、不回滚。
+- 不得通过放宽 authority、`set_complete`、来源边界或 hash 校验提高完成率；不修改冻结的 Contract / SourcePolicy / WritingSpec / PresentationProfile。
+
+**树结构调整裁决（2026-09-16，覆盖 R2 中“一个 EvidenceBlock = 一个正式材料”及“相邻块是主要边界”的现行效力）：**
+
+- R2 已实现的只读 Evidence 访问、payload Store、双哈希、authority、trace、显式引用、版本与 fail-closed 机制继续复用；历史代码、迁移、Pack 和结果不覆盖、不删除。
+- `EvidenceBlock` 继续是不可变来源与引用锚点，不再是默认业务材料边界。正式材料主路径改为 `PageLayout → DocumentOutline → OutlineSpan/TableObject`；相邻块/页扩读只在标题树缺失、低置信、`unassigned` 或显式跨节点引用时有界 fallback。
+- Contract 与标题/简介的相似度只生成候选节点；aspect 的 covered、set_complete 和充分性仍由事实、引用、来源权威、coverage rules 与完成状态独立判断。
+- fallback 结果仍必须落为精确 `OutlineSpan`，whole Evidence 不得进入正式材料；fallback/低置信/unassigned 不能单独证明 set_complete。导航简介须抽取式回指原文，aspect 导航 profile 由冻结 Contract 与公司无关版本化词汇规则派生。
+- PageLayout 原文与历史 Evidence 规范化文本之间必须有版本化 alignment 记录；歧义时 fail-closed 或追加新 evidence set，禁止猜字符 offset。
+- 树结构通过真实样本验收前，不进入 R3；不得继续围绕具体 seed、页码、表号或 sentinel 做下一轮局部边界补丁。
+
+### 3R/4R-T：树结构调整（R3 前强制门）
+
+**权威任务书：** `TREE_STRUCTURE_ADJUSTMENT_TASK.md`；父级边界仍由 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` 约束。
+
+**交付范围：** 从不可变电子 PDF 构建版本化只读 `PageLayout` 与 `DocumentOutline`；用目录/书签候选、正文大小标题、小标题、编号连续性和版式特征形成可审计标题树；将正文切为 `OutlineSpan`，将表题、单位、物理表头、表体、合计与续表形成 `TableObject`；在现有 Retriever/ToolRegistry 正式链中返回 node/span/table；版本化接入 Pack locator、dependency fingerprint、stale 和 P4 provenance。
+
+**验收出口：**
+
+- 三份真实文档及一个非 300750 fixture 生成完整、版本化、只读 Outline；目录页不会因关键词误判导致正文丢失。
+- 一级至小标题层级、重复标题身份、正文归属和显式 `unassigned` 可人工复核；一个旧 Evidence 跨多个标题时可以无损拆为多个 span。
+- 每个可导航节点有抽取式、可回溯简介或明确 unavailable 原因；导航 profile/算法/词汇版本进入依赖指纹，候选召回和误召回可审计。
+- `TableObject` 可回查标题、单位、表头、表体、合计、续表和 component provenance；不与 FinancialSnapshot 或 Evidence 附注事实混淆权威。
+- 正式 RAG 实际索引/返回 node/span/table，不再把跨标题混合 Evidence 直接送入 Pack/Writer；导航简介被引用为事实的次数为 0。
+- 主营业务、核心竞争力、主要子公司、财务附注与非 300750 样本证明材料更完整、重复与跨标题污染下降；旧 Evidence/索引/Pack/结果仍可读，版本变化正确触发 stale。
 
 ### 5：综合、内容完整性前置门与完整 Assurance
 
@@ -324,7 +359,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 1. 基线目录冻结使用，新增运行写入独立目录。修正 gold、页码或参评资格必须新版本化，并保留旧基线与共同题集合比较。
 2. Phase 2 同时做固定原问题、固定语料文档版本、固定 K 的检索对照，以及带 Router/预算的系统能力评测；两者分开报告。不得把 DB 直接取数或多轮搜索得分混进单次本地 Retriever 提升。
-3. Evidence 切分升级可改变 chunk/索引版本，但来源文档和物理页对齐必须稳定；报告列出变更变量。用于单独判断检索策略收益时尽量保持切分一致，无法一致则标明联合变更。
+3. Evidence/DocumentOutline 切分升级可产生新的 append-only evidence set、outline、span、table 和索引版本，但来源文档和物理页对齐必须稳定；报告列出变更变量。历史 Evidence 与索引不得覆盖。用于单独判断检索策略收益时尽量保持其他变量一致，无法一致则标明联合变更。
 4. Macro `RequiredPageCoverage@10` 为总体主分，P0 `RequiredPageCoverage@10` 为独立关键指标；PageHit、P0 PageHit、AllGroupHit、MRR 和逐题得失共同展示。41 问页码仍全为且。空召回/异常仍在冻结分母中计0，不能以运行后剔除提高分数。
 5. Phase 2 进入时在任务书中冻结具体性能预算与退步处理规则，遵守设计“优于或至少不低于 V1”；额外 reranker、扩大候选或上下文须用效果与资源证据决定，不在本路线图凭空规定90%等门槛。
 6. 后续若需要可比较的冷启动、硬件或模型性能数据，另开测量运行；最终重算目录不提供这些新测量。准确率基线继续沿用，不因性能测量重做而覆盖。
@@ -347,7 +382,7 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 新模块先按 `AGENTS.md` 完成编码前计划，再写代码；一个 commit 只承担一个可审查职责，相关实现与回归测试可同属该职责。已有未提交文件不得覆盖，不能把历史工作一并提交为本阶段成果。
 
-0B、Phase 1 及后续已完成阶段的任务书均为历史实施记录，不得重新执行。当前唯一任务书为 [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md)；未来 Phase 5/6 仍遵守“真正进入该阶段时才生成任务书”的原则。
+0B、Phase 1 及后续已完成阶段的任务书均为历史实施记录，不得重新执行。当前父级任务书为 [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md)，其下当前唯一可执行子任务为 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md)；未来 R3～R7、Phase 5/6 仍遵守“真正进入且前置门通过时才生成/启用任务书”的原则。
 
 ## 7. 进度更新与阶段关闭
 
@@ -366,7 +401,8 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 - [x] 4：章节 Worker、Evaluator、Store 与 UI 基础代码通过历史验收。
 - [ ] 3R/4R：TopicResearchPack、覆盖驱动研究与章节内容完整性通过。
 - [x] 3R/4R · R1-A：52 问 aspect/evidence/display 审计 + Contract v2 + 唯一版本化 source policy / WritingSpec / PresentationProfile 资产已批准并冻结、按职责提交（未接线正式运行时）。
-- [x] 3R/4R · R1-B：唯一 `TopicResearchPack` schema v2 + append-only Pack Store + 追加式 migration 2 + `set_complete` 独立枚举接口 + SourcePolicyRef 唯一绑定已正式关闭（完整离线 eval 4467/0/0）；正式 `SetEnumerationVerifier` 尚待 R2 实现与接线。
+- [x] 3R/4R · R1-B：唯一 `TopicResearchPack` schema v2 + append-only Pack Store + 追加式 migration 2 + `set_complete` 独立枚举接口 + SourcePolicyRef 唯一绑定已正式关闭（当时完整离线 eval 4467/0/0）；其后 R2 已实现正式枚举器及材料基础，精确状态见 `V2_TODO.md`。
+- [ ] 3R/4R-T：树结构调整通过真实标题树、span、table、树感知检索、Pack/P4 provenance 与非 300750 验收。
 - [ ] 5 与 1F-B：内容完整性前置门、完整 Assurance Controller、财务终检和版本化系统审核状态通过。
 - [ ] 6：端到端演示与交付验收通过。
 
@@ -402,6 +438,6 @@ NOT_IMPLEMENTED 7 / FAILED 1；**无 P0 安全缺陷**（错误事实进 FULL、
 
 ## 9. 本次编制依据
 
-- 当前工作区 `DESIGN_V2.md` v0.7、`AGENTS.md`、`DOCUMENTATION_INDEX.md`、历史 Baseline 记录及已实现目录。
+- 当前工作区 `DESIGN_V2.md` v0.9、`AGENTS.md`、`DOCUMENTATION_INDEX.md`、历史 Baseline 记录及已实现目录。
 - `v1_baseline_final` 的报告、指标、运行 manifest、数据质量文件，以及其引用的原运行 manifest。
 - 用户关于“基线可用、RequiredPageCoverage 为总体主分、上位设计优先、总路线图管理阶段、逐阶段生成任务书”的明确确认。

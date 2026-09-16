@@ -324,28 +324,57 @@ def main() -> dict:
               "跨页块进入 candidates_unread（边界内未读）")
 
     # ------------------------------------------------------------------
-    # 6. table_continuation 方向（seed 为带 table_title 身份的 table 块）
+    # 6. table_continuation 方向：续页身份**由锚点块内未闭合表结构派生**
+    #    （真实语料 769/769 全是 paragraph 块、structured_payload 为空 ⇒ 绝不按
+    #    evidence_type/table_title 过滤）。续页 = 块首**重排本表物理表头**的块。
     # ------------------------------------------------------------------
-    with tempfile.TemporaryDirectory() as td:
-        registry, _ = build_registry(td)
-        seed = _seed(page=5, block=2, text="营业收入构成（分产品）", etype="table",
-                     payload={"table_title": "营业收入构成", "unit": "万元"})
-        req = _request(seed, ("table_continuation",))
-        res = expand(req, registry, run_id="t6")
-        adopted_etypes = [b.evidence_type for b in res.adopted]
-        check(adopted_etypes.count("table") >= 1 and "table_row" in adopted_etypes,
-              "table_continuation 采纳 table/table_row 块")
-        check(all(b.section_path == ("主营业务分析",) for b in res.adopted if b.evidence_type == "table"),
+    with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as td2:
+        hdr = ("项目    本期金额    上期金额", "产品    收入    收入")
+        flat = "\n".join(("营业收入构成表", "单位：万元") + hdr +
+                         ("动力电池系统    1,000    900",))
+        cont = "\n".join(hdr + ("储能电池系统    800    700",))
+        db = _make_db(Path(td), [
+            (5, 1, ["主营业务分析"], "paragraph", flat),
+            (5, 2, ["主营业务分析"], "paragraph", cont),
+        ])
+        registry = ToolRegistry(audit_dir=Path(td) / "audit")
+        register_bounded_evidence_tool(registry, db_path=db)
+        register_resolve_seed_identity_tool(registry, db_path=db)
+        seed = _seed(page=5, block=1, text=flat)
+        res = expand(_request(seed, ("table_continuation",)), registry, run_id="t6")
+        check(_eid_of(5, 2, cont) in {b.evidence_id for b in res.adopted},
+              "table_continuation 采纳**重排本表物理表头**的续页块"
+              "（身份由结构派生，非 evidence_type 过滤）")
+        check(all(b.section_path == ("主营业务分析",) for b in res.adopted),
               "续表块在同一 section")
 
+        # 6b. 只声明表题、块内无未闭合表结构 → 诚实 EMPTY（绝不按块类型猜续读）
+        _title_only = "营业收入构成（分产品）"
+        db2 = _make_db(Path(td2), [
+            (5, 0, ["主营业务分析"], "paragraph", _title_only),
+            (5, 1, ["主营业务分析"], "paragraph", "动力电池系统    1,000    900"),
+        ])
+        registry2 = ToolRegistry(audit_dir=Path(td2) / "audit")
+        register_bounded_evidence_tool(registry2, db_path=db2)
+        register_resolve_seed_identity_tool(registry2, db_path=db2)
+        seed_only = _seed(page=5, block=0, text=_title_only)
+        res2 = expand(_request(seed_only, ("table_continuation",)),
+                      registry2, run_id="t6b")
+        check(len(res2.adopted) == 1
+              and res2.adopted[0].evidence_id == seed_only.evidence_id,
+              "锚点块内无未闭合表结构 → 诚实 EMPTY，只采纳 seed 自身"
+              "（绝不按 evidence_type 猜续表）")
+
     # ------------------------------------------------------------------
-    # 7. explicit_reference 方向（seed 文本含交叉引用标记，指向真实块）
+    # 7. explicit_reference 方向（seed 文本含交叉引用标记，指向锚点之后真实表结构）
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
+        _hdr7 = ("项目    本期金额    上期金额", "产品    收入    收入")
+        _table7 = "\n".join(("营业收入构成表", "单位：万元") + _hdr7 +
+                            ("动力电池系统    1,000    900",))
         ref_blocks = [
             (5, 0, ["主营业务分析"], "paragraph", "营业收入构成详见下表。"),
-            (5, 1, ["主营业务分析"], "table", "营业收入构成（分产品）"),
-            (5, 2, ["主营业务分析"], "table_row", "动力电池系统 1,000"),
+            (5, 1, ["主营业务分析"], "paragraph", _table7),
         ]
         db = _make_db(Path(td), ref_blocks)
         registry = ToolRegistry(audit_dir=Path(td) / "audit")
@@ -354,7 +383,9 @@ def main() -> dict:
         seed = _seed(page=5, block=0, text="营业收入构成详见下表。")
         req = _request(seed, ("explicit_reference",))
         res = expand(req, registry, run_id="t7")
-        check(len(res.adopted) > 1, "explicit_reference 扩读到目标块")
+        check(_eid_of(5, 1, _table7) in {b.evidence_id for b in res.adopted},
+              "explicit_reference 真正解析到锚点之后首个真实表结构并采纳"
+              "（结构派生，非 evidence_type 过滤）")
         check(res.budget_consumed.get("explicit_references", 0) >= 1,
               "explicit_references 预算轴计入")
 
@@ -522,71 +553,75 @@ def main() -> dict:
         check(fp_c != fp_a, "§三：输出变化 → trace 指纹变化")
 
     # ------------------------------------------------------------------
-    # 14. §四：table_continuation 无 table_title 身份 → 不续读（绝不猜）
+    # 14. §四：table_continuation 锚点块内**无未闭合表结构** → 不续读（绝不猜）
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
         registry, _ = build_registry(td)
-        seed = _seed()  # paragraph，无 table_title 身份
+        seed = _seed()  # paragraph，块内无表结构
         res = expand(_request(seed, ("table_continuation",)), registry, run_id="t14")
-        adopted_etypes = [b.evidence_type for b in res.adopted]
-        check("table" not in adopted_etypes and "table_row" not in adopted_etypes,
-              "§四：无 table_title → 不采纳任何 table/table_row 续表块")
         check(len(res.adopted) == 1 and res.adopted[0].evidence_id == seed.evidence_id,
-              "§四：无 table_title → 只采纳 seed 自身")
+              "§四：锚点块内无未闭合表结构 → 只采纳 seed 自身"
+              "（绝不按 evidence_type 猜续表）")
+        check(any(t.get("mode") == "table_continuation"
+                  and t.get("anchor_evidence_id") == seed.evidence_id
+                  and "no open table structure" in str(t.get("stop_reason"))
+                  for t in res.target_outcomes),
+              "§四：诚实 EMPTY 的**真实原因**落进 trace（可复核锚点与判据）")
 
     # ------------------------------------------------------------------
-    # 15. §四：同 table_title 采纳续表，异名表立即停止（不误并独立表）
+    # 15. §四：同表（重排本表物理表头）被采纳；另一张表立即停止（不误并独立表）
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
+        hdr = ("项目    本期金额    上期金额", "产品    收入    收入")
+        other_hdr = ("项目    数量    单价", "类别    台    元")
+        flat = "\n".join(("营业收入构成表", "单位：万元") + hdr +
+                         ("动力电池系统    1,000    900",))
+        same_table = "\n".join(hdr + ("储能电池系统    800    700",))
+        other_title = "表 5-2 营业成本构成表"
+        other_table = "\n".join((other_title, "单位：万元") + other_hdr +
+                                ("原材料    2    400",))
         blocks = [
-            (5, 1, ["主营业务分析"], "table", "营业收入构成（分产品）",
-             {"table_title": "营业收入构成"}),
-            (5, 2, ["主营业务分析"], "table_row", "动力电池系统 1,000",
-             {"table_title": "营业收入构成"}),
-            (5, 3, ["主营业务分析"], "table", "营业成本构成",
-             {"table_title": "营业成本构成"}),
-            (5, 4, ["主营业务分析"], "table_row", "原材料成本 800",
-             {"table_title": "营业成本构成"}),
+            (5, 1, ["主营业务分析"], "paragraph", flat),
+            (5, 2, ["主营业务分析"], "paragraph", same_table),
+            (5, 3, ["主营业务分析"], "paragraph", other_table),
         ]
         db = _make_db(Path(td), blocks)
         registry = ToolRegistry(audit_dir=Path(td) / "audit")
         register_bounded_evidence_tool(registry, db_path=db)
         register_resolve_seed_identity_tool(registry, db_path=db)
-        seed = _seed(page=5, block=1, text="营业收入构成（分产品）", etype="table",
-                     payload={"table_title": "营业收入构成"})
+        seed = _seed(page=5, block=1, text=flat)
         res = expand(_request(seed, ("table_continuation",)), registry, run_id="t15")
         adopted_ids = {b.evidence_id for b in res.adopted}
-        check(_eid_of(5, 2, "动力电池系统 1,000", {"table_title": "营业收入构成"}) in adopted_ids,
-              "§四：同 table_title 的 table_row 被采纳")
-        check(_eid_of(5, 3, "营业成本构成", {"table_title": "营业成本构成"}) not in adopted_ids,
-              "§四：异名表（营业成本构成）不被采纳")
-        check(_eid_of(5, 4, "原材料成本 800", {"table_title": "营业成本构成"}) not in adopted_ids,
-              "§四：异名表的 table_row 不被误并")
+        check(_eid_of(5, 2, same_table) in adopted_ids,
+              "§四：重排本表物理表头的续页块被采纳")
+        check(_eid_of(5, 3, other_table) not in adopted_ids,
+              "§四：另一张表（显式异表题 + 不同物理表头）不被采纳")
 
     # ------------------------------------------------------------------
-    # 16. §四：同 table_title 但跨多页（> adjacent_pages）→ 不采纳（页距预算 unread）
+    # 16. §四：同表但续页跨多页（> adjacent_pages）→ 不采纳（页距预算 unread）
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
+        hdr = ("项目    本期金额    上期金额", "产品    收入    收入")
+        flat = "\n".join(("营业收入构成表", "单位：万元") + hdr +
+                         ("动力电池系统    1,000    900",))
+        far_cont = "\n".join(hdr + ("海外收入    2,000    1,800",))
         blocks = [
-            (5, 1, ["主营业务分析"], "table", "营业收入构成（分产品）",
-             {"table_title": "营业收入构成"}),
-            (9, 0, ["主营业务分析"], "table_row", "海外收入 2,000",
-             {"table_title": "营业收入构成"}),
+            (5, 1, ["主营业务分析"], "paragraph", flat),
+            (9, 0, ["主营业务分析"], "paragraph", far_cont),
         ]
         db = _make_db(Path(td), blocks)
         registry = ToolRegistry(audit_dir=Path(td) / "audit")
         register_bounded_evidence_tool(registry, db_path=db)
         register_resolve_seed_identity_tool(registry, db_path=db)
-        seed = _seed(page=5, block=1, text="营业收入构成（分产品）", etype="table",
-                     payload={"table_title": "营业收入构成"})
+        seed = _seed(page=5, block=1, text=flat)
         res = expand(_request(seed, ("table_continuation",)), registry, run_id="t16")
-        far_id = _eid_of(9, 0, "海外收入 2,000", {"table_title": "营业收入构成"})
+        far_id = _eid_of(9, 0, far_cont)
         check(all(b.evidence_id != far_id for b in res.adopted),
-              "§四：跨多页同名 table_row 不被采纳")
+              "§四：跨多页续页块不被采纳")
         check(not any(d.evidence_id == far_id for d in res.outside_boundary_sentinels),
-              "§四：跨多页同名 table_row 不进 outside_boundary_sentinels（页距非结构边界）")
+              "§四：跨多页续页块不进 outside_boundary_sentinels（页距非结构边界）")
         check(any(c.evidence_id == far_id for c in res.candidates_unread),
-              "§四：跨多页同名 table_row 进入 candidates_unread（边界内未读）")
+              "§四：跨多页续页块进入 candidates_unread（边界内未读）")
 
     # ------------------------------------------------------------------
     # 17. §三：正常真实扩读 → derive_enumeration_boundary_proof 无 violation（合法路径不破坏）
@@ -770,8 +805,10 @@ def main() -> dict:
 
     # ------------------------------------------------------------------
     # 24. 修复 A.2：向后扩读发现上一章节标题 → 撤回已暂存块（只留 boundary trace）
-    #     P1-A.4：撤回前提是**结构性证明**——seed 自身带主题小节标题（（二）主营业务情况，
-    #     层级 3），向后遇到的（六）董事…（层级 3）是同级兄弟标题 → 结构证明越界才撤回；
+    #     P1-A.4：撤回前提是**结构性证明**——主题小节标题层级（3）由文档自身标题层级给出
+    #     （本 seed 的 section_path 叶子与文本标题不同名，故层级由 aspect/文档版本级
+    #     topic_level_hint 提供，见 heading_structure.topic_level_from_seed_set），向后遇到的
+    #     （六）董事…（层级 3）是同级兄弟标题 → 结构证明越界才撤回；
     #     纯 ambiguous 且层级未证明的标题绝不撤回同 Topic 材料。
     # ------------------------------------------------------------------
     with tempfile.TemporaryDirectory() as td:
@@ -790,7 +827,8 @@ def main() -> dict:
             company_id=_COMPANY, document_id=_DOC, document_version=_DOCV,
             evidence_set_version=_SETV, seed=seed, directions=("adjacent_blocks",),
             budget=ExpansionBudget(), dependency_fingerprint="dep-fp",
-            aspect_id="company_business_main.main_business")
+            aspect_id="company_business_main.main_business",
+            topic_level_hint=3)
         res = expand(req, registry, run_id="t24")
         exec1 = _eid_of(4, 1, "高管1：张三。")
         exec2 = _eid_of(4, 2, "高管2：李四。")
@@ -833,7 +871,8 @@ def main() -> dict:
             company_id=_COMPANY, document_id=_DOC, document_version=_DOCV,
             evidence_set_version=_SETV, seed=seed, directions=("adjacent_blocks",),
             budget=ExpansionBudget(), dependency_fingerprint="dep-fp",
-            aspect_id="company_business_main.main_business")
+            aspect_id="company_business_main.main_business",
+            topic_level_hint=3)
         res = expand(req, registry, run_id="t25")
         exec1 = _eid_of(4, 1, "高管1：张三。")
         exec2 = _eid_of(4, 2, "高管2：李四。")
@@ -877,7 +916,8 @@ def main() -> dict:
             company_id=_COMPANY, document_id=_DOC, document_version=_DOCV,
             evidence_set_version=_SETV, seed=seed, directions=("adjacent_blocks",),
             budget=ExpansionBudget(), dependency_fingerprint="dep-fp",
-            aspect_id="company_business_main.main_business")
+            aspect_id="company_business_main.main_business",
+            topic_level_hint=3)
         res = expand(req, registry, run_id="t26")
         far = _eid_of(8, 0, "更远处的风险因素说明。")
         check(any(c.evidence_id == far for c in res.candidates_unread),

@@ -1,0 +1,29 @@
+[
+  {
+    "material_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:e6b14793486ce974a8291e94f1489b05",
+    "component_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+    "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+    "payload_hash": "24a81785e7b8fae1e4139c76678f1e74ab642de22b7e64420e23a4ee762f8129",
+    "document_id": "NDSD_2024_year",
+    "document_version": "sha256-b4f1713d7b821eb0",
+    "section_path": "合并财务报表项目注释",
+    "page": 166,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_finance.notes_to_financial_statements": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_finance.notes_to_financial_statements"
+    ]
+  }
+]

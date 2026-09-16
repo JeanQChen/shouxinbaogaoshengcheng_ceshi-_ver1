@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-53c420562c22e2ebcaf51e7e1d0062eb",
+  "component_evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+  "source_content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+  "payload_hash": "fe36140d5bc5cbe30d41626db12e5779df867e2aef7c31fb241207aa4f15a5cc",
+  "payload": "{\"authority_identity\":\"evidence:efcf4a5cdc3a5311f80e99962d3087ec\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"项目  2025年度  2024年度  2023年度\\n  产能（GWh）  772  676  552\\n  产量（GWh）  748  516  389\\n  产能利用率（%）  96.9%  76.3%  70.5%\\n  2023-2025年，公司产能稳步扩张，2024  年公司动力电池系统年产能较  2023年增\\n长22.5%，2025年公司动力电池系统年产能较  2024年增长  14.2%，主要系部分生产线\\n逐步建成、达产所致。2024  年公司电池系统产量较上年增长  32.7%，2025年公司电池\\n\\n系统产量较上年增长  44.9%，2025年公司产能利用率达  96.9%，利用率进一步实现提升。\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"efcf4a5cdc3a5311f80e99962d3087ec\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":310,\"page\":53,\"section_path\":\"主营业务情况\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084\"}"
+}

@@ -1,0 +1,164 @@
+[
+  {
+    "material_id": "mat-0bfbd925089a76a7b0c7f4feee01f092",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:35844493ee2d63fc6bbc94fb0ce501c5",
+    "component_evidence_id": "35844493ee2d63fc6bbc94fb0ce501c5",
+    "source_content_hash": "5002ea0d104b34577566c108090b2dbf4fe1708212a9254118e5bfc2f6815de0",
+    "payload_hash": "1cee029d0bb991114d318b4600c0d443ae570e7198b7e6e7db7a8f703bc6fceb",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "管理层讨论与分析",
+    "page": 18,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  },
+  {
+    "material_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:10ea55aaa7d5e68d711dffe77ceff6cf",
+    "component_evidence_id": "10ea55aaa7d5e68d711dffe77ceff6cf",
+    "source_content_hash": "7b8501a59fc49fad504667ff71154f68f1810d00bf7c12011a5df7abc94deb24",
+    "payload_hash": "e937875a8b5f17036541fdf683e38994ddcdb8549eb9ae1b4ae4cc6ef105d98f",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "管理层讨论与分析",
+    "page": 18,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  },
+  {
+    "material_id": "mat-07a32171769474ec8ea2323147353867",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:048e8c7ac66e717215f4b31d57c98b1b",
+    "component_evidence_id": "048e8c7ac66e717215f4b31d57c98b1b",
+    "source_content_hash": "af2661821a46fa70ae73186bdf5e0ab1f3c63cc5c721d6f011452c7243b9c551",
+    "payload_hash": "bcd0ffca916cc243913db5dad320adb06bb51158506ece9063c05f3c989f0341",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "管理层讨论与分析",
+    "page": 19,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  },
+  {
+    "material_id": "mat-404d5db7dd1a779648abff2f506a634c",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:bbf28063a8cf896b348bbbf0792c62cb",
+    "component_evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+    "source_content_hash": "eafe288c3438d57cfd89e8235d1222059bf24a1764d48ba037ae92d0b43b2873",
+    "payload_hash": "9cbfd0defa9b575d00fcccf97a114ae70ce09155690d8932b35ce491d4dca94d",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "管理层讨论与分析",
+    "page": 19,
+    "block_range": [
+      1,
+      1
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "context_candidate",
+    "boundary_reason_code": "mixed_block_context_candidate",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "context_candidate"
+    },
+    "aspect_role": "context_candidate",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  },
+  {
+    "material_id": "mat-06d9d7712a3a95e4a7930b2257f5f128",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:b6a54ec22e3f44d1a521faf7bb176d95",
+    "component_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+    "source_content_hash": "9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0",
+    "payload_hash": "388f50a0812c169978a0fd406cafb9d5e1c03dfcb5e1e826074d6f900ea90b33",
+    "document_id": "NDSD_2025_year",
+    "document_version": "sha256-c15272977147dee7",
+    "section_path": "管理层讨论与分析",
+    "page": 20,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  },
+  {
+    "material_id": "mat-82f2e4501f11137dbe763160b0e7ddd6",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:0de543287aa812c78eb165f694c9580d",
+    "component_evidence_id": "0de543287aa812c78eb165f694c9580d",
+    "source_content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+    "payload_hash": "cf887ab31699e893e6b28675921c2a7e28e5dcb4ef3eca27f6445cc4ba77befa",
+    "document_id": "NDSD_KCZ_2026",
+    "document_version": "sha256-2b3a1fb3de97f23c",
+    "section_path": "公司竞争优势",
+    "page": 59,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_competitiveness.core_competitiveness": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_competitiveness.core_competitiveness"
+    ]
+  }
+]

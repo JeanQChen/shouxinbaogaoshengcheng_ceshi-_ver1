@@ -1,0 +1,308 @@
+[
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-052d9220ee93221d125e35e87f4e0aa0",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-06d9d7712a3a95e4a7930b2257f5f128",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-07a32171769474ec8ea2323147353867",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "048e8c7ac66e717215f4b31d57c98b1b",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-0b3e918ef629339bd93711b0b0ba3780",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-0bfbd925089a76a7b0c7f4feee01f092",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "35844493ee2d63fc6bbc94fb0ce501c5",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-0f0403fbd0408635f37ecc8af4f2f83f",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "f54abda86a865b6c98c6f6a9fb9f7cc2",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-31dee94d42a825c1453f1387236fa065",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "16028014b760faf0c980965931434b2b",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-404d5db7dd1a779648abff2f506a634c",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "10ea55aaa7d5e68d711dffe77ceff6cf",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5b9c649f413d0e2027d7729e7936abfa",
+    "role": "context_candidate",
+    "disposition": "fragment_projection",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+        "direction": "",
+        "disposition": "outside_boundary_sentinel",
+        "reason_code": "topic_boundary_out_of_topic"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-670ff301db93ba8f20a44fe65f1e4cb3",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "5441c03880d7c9d70f562678e9fbb374",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "coarse_section_sub_heading_transition"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-6a290194bcebb8314eafb327890f0fbe",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "60ceea0ca64a14146bc24abacce5e89f",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-82f2e4501f11137dbe763160b0e7ddd6",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "0de543287aa812c78eb165f694c9580d",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "0de543287aa812c78eb165f694c9580d"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-95ea65c8d6aa9f628b51dce804270d95",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "6188ba20a45db986da49cb8357d206d4",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-a29133697a67f465d16617d2cacbbadd",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "26a4455f61bd7deed6a866d613999297",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-cf1ef1ca6b40626cb2542b973df4b7f0",
+    "role": "context_candidate",
+    "disposition": "inside_boundary",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "1e58e6c97a0da7012747731ff885ba07",
+        "direction": "",
+        "disposition": "inside_boundary",
+        "reason_code": "same_section_continuity"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-f3c37afebfc4a7bf38ff72ad8e24cb44",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "c94b9255f5a0dd6dc5c2e1ecffb1293a",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  }
+]

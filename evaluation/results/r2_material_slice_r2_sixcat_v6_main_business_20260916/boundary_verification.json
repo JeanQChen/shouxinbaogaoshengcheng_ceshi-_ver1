@@ -1,0 +1,189 @@
+{
+  "boundary_verification_algorithm": "document_heading_structure_boundary_verification",
+  "boundary_verification_version": "1",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "aspects": [
+    {
+      "aspect_id": "company_business_main.main_business",
+      "records": [
+        {
+          "aspect_id": "company_business_main.main_business",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "17bdf59f871cb5e6d24db78a31bd430cdb3133cfbf857d664b68f6d8cc32d0c0",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "主营业务情况"
+          ],
+          "heading_levels": [
+            [
+              "（三）员工构成情况",
+              3
+            ],
+            [
+              "（三）各业务板块经营情况",
+              3
+            ]
+          ],
+          "topic_level": 3,
+          "topic_level_source": "section_path_leaf",
+          "in_topic_anchor": "（二）主营业务情况\n  1、主营业务收入分析\n\n表 5-10发行人主营业务收入构成表\n\n单位：万元，%\n  项目  2025年  2024年  2023年\n  金额  占比  金额  占比  金额  占比\n\n动力电池系统  31,650,636.9 74.7  25,304,133.7  69.9  28,525,291.7  71.2\n\n储能电池系统  6,243,982.0  14.7  5,729,046.0  15.8  5,990,052.2  14.9\n\n电池材料及回收  2,186,093.6  5.2  2,869,993.5  7.9  3,360,228.4  8.4\n\n电池矿产资源  597,809.6  1.4  549,300.3  1.5  773,415.1  1.9\n\n其他业务  1,691,661.2  4.0  1,748,781.8  4.8  1,442,717.1  3.6\n\n合计  42,370,183.3100.0  36,201,255.3 100.0  40,091,704.5 100.0\n\n发行人主要营业收入来自于动力电池系统、储能电池系统、电池材料及回收和电池\n矿产资源四大业务板块。2023-2025  年，发行人营业收入分别为  40,091,704.5万元、\n\n36,201,255.3万元和  42,370,183.3万元，2023-2025 年，发行人营业收入增幅分别为  22.0%、\n-9.7%和 17.04%。发行人  2023 年营业收入增长主要得益于动力电池与储能系统两大核\n心业务的快速增长、海外市场加速拓展和产品结构进一步优化。2024  年营业收入较上\n\n一年有所波动，主要由于碳酸锂等原材料价格下降，销售均价有所下调。发行人  2025\n年，营业收入同比增长  6,168,928.00万元，增幅  17.04%。\n\n2、主营业务成本分析\n\n表 5-11发行人主营业务成本构成表\n\n单位：万元，%",
+          "sibling_evidence": [
+            {
+              "evidence_id": "079cd0d80d660e2da39250746c025937",
+              "direction": "adjacent_blocks_before",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_section_closed_sibling_heading",
+              "heading": "（三）员工构成情况",
+              "level": 3,
+              "page_number": 49,
+              "block_index": 0
+            },
+            {
+              "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+              "direction": "adjacent_blocks_after",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_section_closed_sibling_heading",
+              "heading": "（三）各业务板块经营情况",
+              "level": 3,
+              "page_number": 51,
+              "block_index": 0
+            }
+          ],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "ae51b81bc966988d3ab0efde1a830f7a20b33d259d5b42d4549f6576dd8418e9",
+          "fragment_trace_fingerprint": "109c1b5c77db6f35772e89cfc795088ab12d212c230edfdf00b1d3321632afcc",
+          "unread_scope": {},
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "verified",
+          "reason": "document_structure_boundary_verified",
+          "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+          "verification": {
+            "aspect_id": "company_business_main.main_business",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+            "cases": [
+              {
+                "heading": "（二）主营业务情况",
+                "level": 3,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "1、主营业务收入分析",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "2、主营业务成本分析",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "case_id": "candidate-1"
+        },
+        {
+          "aspect_id": "company_business_main.main_business",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "17bdf59f871cb5e6d24db78a31bd430cdb3133cfbf857d664b68f6d8cc32d0c0",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "主营业务情况"
+          ],
+          "heading_levels": [
+            [
+              "2、储能电池系统板块",
+              4
+            ]
+          ],
+          "topic_level": 4,
+          "topic_level_source": "first_heading",
+          "in_topic_anchor": "",
+          "sibling_evidence": [
+            {
+              "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+              "direction": "adjacent_blocks_after",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_section_closed_sibling_heading",
+              "heading": "2、储能电池系统板块",
+              "level": 4,
+              "page_number": 53,
+              "block_index": 0
+            }
+          ],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "2d3a14df75420ff24e359590a54a253d14d5814c8e1d53a4774ee54f339c9737",
+          "fragment_trace_fingerprint": "17e2e5b7cd09deb1ead5c3b576f06b1b8b27916f3c329e7beb81a877d07a2088",
+          "unread_scope": {},
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "boundary_semantics_not_verified: sibling_heading_classified_in_topic: 3、主营业务毛利润及毛利率分析",
+          "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+          "verification": {
+            "aspect_id": "company_business_main.main_business",
+            "verified": false,
+            "reason": "sibling_heading_classified_in_topic: 3、主营业务毛利润及毛利率分析",
+            "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+            "cases": [
+              {
+                "heading": "主营业务情况",
+                "level": 4,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "3、主营业务毛利润及毛利率分析",
+                "level": 4,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（三）各业务板块经营情况",
+                "level": 3,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "1、动力电池板块",
+                "level": 4,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（1）整体情况",
+                "level": 5,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "case_id": "candidate-3"
+        }
+      ]
+    }
+  ]
+}

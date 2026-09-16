@@ -1,0 +1,13 @@
+{
+  "company_finance.notes_to_financial_statements": {
+    "formal_material_ids": [
+      "mat-d71b480f83f65eb0686d68cc9dacf74e"
+    ],
+    "context_candidate_material_ids": [],
+    "outside_boundary_evidence": [],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ]
+  }
+}

@@ -1,0 +1,583 @@
+{
+  "specimen_version": "v14",
+  "frozen_at": "20260916T105234Z",
+  "frozen_at_utc_iso": "2026-09-16T10:52:34.656264+00:00",
+  "frozen_at_unix": 1789555954.656264,
+  "frozen_at_source": "datetime.now(timezone.utc)（真实 UTC 时钟读数；非固定值、非未来时间）",
+  "evaluation_only": true,
+  "purpose": "事前冻结 v14 显式引用（目标真的进入材料库）验收样本：身份复用 v13 + 真实 UTC 冻结时刻 + 输入指纹 + 预期断言 + run 绑定 + 命名空间拆分要求",
+  "authority": "R2 §五/§六（Codex 对 v13 的独立审计结论作为本轮既定输入，不重新论证/不扩大范围）",
+  "round": {
+    "run_version": "v14",
+    "suffix": "20260916",
+    "run_id_prefix": "r2_sixcat_v14_",
+    "rerun_scope": [
+      "company_subsidiaries.major_subsidiaries",
+      "explicit_cross_reference"
+    ],
+    "not_rerun": [
+      "core_competitiveness",
+      "financial_notes",
+      "main_business",
+      "non_300750_fixture"
+    ],
+    "scope_note": "本轮收口只含 §三 P1-1/P1-2/P1-3/P1-4 与 §四 P2 五项机制 + 命名空间拆分记录；不重跑、不调参其余四类样本"
+  },
+  "identity_source": {
+    "prior_specimen": "evaluation/results/r2_xref_specimen_v13_20260916/specimen_manifest.json",
+    "prior_specimen_fingerprint": "acee1205a288391995a14fc464196979f15f196c140b71bd11794b73d8571390",
+    "prior_specimen_frozen_at_label": "20260916T092226Z",
+    "reuse_rule": "v14 的样本身份逐字段取自 v13 事前冻结清单；本轮不重新挑选样本、不因运行结果改绑 run（§六）"
+  },
+  "frozen_before_run": {
+    "run_dirs_present_at_freeze": [],
+    "all_run_dirs_absent": true,
+    "checked": [
+      "r2_material_slice_r2_sixcat_v14_major_subsidiaries_20260916（本轮新 run）",
+      "evaluation/results/*v14*"
+    ],
+    "reused_run_dirs_present_at_freeze": [
+      "r2_material_slice_r2_sixcat_v12_main_business_20260916",
+      "r2_material_slice_r2_sixcat_v12_core_competitiveness_20260916",
+      "r2_material_slice_r2_sixcat_v12_financial_notes_20260916",
+      "r2_material_slice_r2_sixcat_v12_non_300750_fixture_20260916"
+    ],
+    "method": "冻结时刻对 results 根做 glob 扫描；本轮**新跑**的 run 目录与任何 *v14* 命名空间命中即拒绝生成（复用的 v12 run 目录本来就存在，只读不改写）"
+  },
+  "input_identity": {
+    "evidence_db": {
+      "path": "data/evidence.db",
+      "size": 2367488,
+      "sha256": "c413118f3c54ee0a68ae2205ff9704642c22e75ae9ac188a59c3e824727c3727",
+      "mtime_utc": "2026-09-08T04:11:55.520128+00:00"
+    },
+    "harness_db": {
+      "path": "data/harness.db",
+      "size": 6950912,
+      "sha256": "21cdbc70b2048164160eb88ac2e27728ee495759dc0b7dd41d900c7a28853a95",
+      "mtime_utc": "2026-09-16T03:33:13.219479+00:00"
+    },
+    "contract": {
+      "path": "templates/contracts/standard_v3.yaml",
+      "size": 225501,
+      "sha256": "55614227cc670afbd4736c9aebc39c15cdb23bfbc5355a23fe9f124a7668319e",
+      "mtime_utc": "2026-09-13T11:07:26.695729+00:00"
+    },
+    "production_and_test_code": {
+      "harness/table_structure.py": {
+        "path": "harness/table_structure.py",
+        "size": 52905,
+        "sha256": "f61c4c4a11f4dc340fb5d4d5d02a884ac73a63889a46ece9e9978fb821f39391",
+        "mtime_utc": "2026-09-16T10:41:07.021731+00:00"
+      },
+      "harness/evidence_reader.py": {
+        "path": "harness/evidence_reader.py",
+        "size": 59330,
+        "sha256": "0d77ab68ee6e9b955190623e31374346239f7f2ee8ea670320eb933da8d1b050",
+        "mtime_utc": "2026-09-16T10:30:24.915977+00:00"
+      },
+      "harness/context_expansion.py": {
+        "path": "harness/context_expansion.py",
+        "size": 82833,
+        "sha256": "2288c374754b5d66bb50b6d177277a8c1f8b74683635cce49aef1f17a860729f",
+        "mtime_utc": "2026-09-16T09:12:28.803278+00:00"
+      },
+      "harness/topic_materials.py": {
+        "path": "harness/topic_materials.py",
+        "size": 69757,
+        "sha256": "c4d9aadb7bd9ed994f5252273154c7a68d9b68c466db3326f24ff6ecf1070a15",
+        "mtime_utc": "2026-09-16T10:33:12.103985+00:00"
+      },
+      "harness/material_slice_runner.py": {
+        "path": "harness/material_slice_runner.py",
+        "size": 105647,
+        "sha256": "09607168f427bb856ad972aaaa9356e03d203b651762db65372a0100aa61cf6a",
+        "mtime_utc": "2026-09-16T10:35:00.617800+00:00"
+      },
+      "harness/source_object_inventory.py": {
+        "path": "harness/source_object_inventory.py",
+        "size": 38291,
+        "sha256": "6aa3881ca5b51f4aecbc06b2353eb3971bae9fd5d851218141e394e3122360fd",
+        "mtime_utc": "2026-09-16T10:34:10.569106+00:00"
+      },
+      "harness/set_enumeration.py": {
+        "path": "harness/set_enumeration.py",
+        "size": 56055,
+        "sha256": "ebe068751a24e92e2a699e9d360d586163bbdaf6e416c169ebfc5b672ed9f30c",
+        "mtime_utc": "2026-09-16T10:41:11.019726+00:00"
+      },
+      "harness/topic_boundary.py": {
+        "path": "harness/topic_boundary.py",
+        "size": 64516,
+        "sha256": "71ae3952acfa48e068682ea8a68699d96ac557b9bde6986fdeb5b95fa8a62410",
+        "mtime_utc": "2026-09-16T04:03:31.713508+00:00"
+      },
+      "harness/six_category_acceptance.py": {
+        "path": "harness/six_category_acceptance.py",
+        "size": 279607,
+        "sha256": "ec6c9011354c53bbb9b66787c8700954a231431e01617e63a9bda37db2661227",
+        "mtime_utc": "2026-09-16T10:49:12.219930+00:00"
+      },
+      "evals/run_evals.py": {
+        "path": "evals/run_evals.py",
+        "size": 7177,
+        "sha256": "8374f2bfb81c8c738819209d37e7b14539aa01f7e0fe02f11fad3489ac2e4735",
+        "mtime_utc": "2026-09-16T10:50:35.256556+00:00"
+      },
+      "evals/test_r2_v14_closure.py": {
+        "path": "evals/test_r2_v14_closure.py",
+        "size": 31587,
+        "sha256": "b7f01c4d23042872cacee382e35c7ec473c380fd54c156b38df5797a669fefbf",
+        "mtime_utc": "2026-09-16T10:50:14.681045+00:00"
+      },
+      "evals/test_r2_reference_binding.py": {
+        "path": "evals/test_r2_reference_binding.py",
+        "size": 27810,
+        "sha256": "9b40649c7ba59960ff59b35436bdb19243110e62ed0d98142d626e0fc0562122",
+        "mtime_utc": "2026-09-16T09:15:06.266350+00:00"
+      },
+      "evals/test_r2_reference_occurrence.py": {
+        "path": "evals/test_r2_reference_occurrence.py",
+        "size": 28180,
+        "sha256": "3c829f32932ea36e5037b484592034ebef086e7351c2d7656576c60e5cad5c5f",
+        "mtime_utc": "2026-09-16T09:20:01.710562+00:00"
+      },
+      "evals/test_context_expansion.py": {
+        "path": "evals/test_context_expansion.py",
+        "size": 57102,
+        "sha256": "6f877ba9248bde55b6eba6c68736941396122670f9ad6b2847ad6fbc9500d1b1",
+        "mtime_utc": "2026-09-16T06:39:52.038560+00:00"
+      },
+      "evals/test_evidence_reader.py": {
+        "path": "evals/test_evidence_reader.py",
+        "size": 34396,
+        "sha256": "28291c03d57fdd8e0055f06baf5faad18e5ef312c815b6aa5c892eea0153f72d",
+        "mtime_utc": "2026-09-16T10:43:26.309066+00:00"
+      },
+      "evals/test_six_category_acceptance.py": {
+        "path": "evals/test_six_category_acceptance.py",
+        "size": 127187,
+        "sha256": "4a13f3a25b38720a1c221f76d345545b063a0042ad58143c958ac3491e4dbc03",
+        "mtime_utc": "2026-09-16T10:44:32.312945+00:00"
+      },
+      "evals/test_material_slice_runner.py": {
+        "path": "evals/test_material_slice_runner.py",
+        "size": 61060,
+        "sha256": "057a067520e27bdd6dfe7c303fa53c619ef1c45cfce4f31f2ecea2f4450e9b12",
+        "mtime_utc": "2026-09-16T05:15:21.925376+00:00"
+      },
+      "evals/test_topic_materials.py": {
+        "path": "evals/test_topic_materials.py",
+        "size": 38395,
+        "sha256": "30e68558dbcf580a053ef1426f1b2a1b467d03f80c99a08f7f19a41beac4aa3f",
+        "mtime_utc": "2026-09-16T05:14:18.836429+00:00"
+      },
+      "evals/test_source_object_inventory.py": {
+        "path": "evals/test_source_object_inventory.py",
+        "size": 19793,
+        "sha256": "4e20c81d4f8cbf1728c68211a51a8e40b5f07023ffd9f234bd07b9e75c130805",
+        "mtime_utc": "2026-09-16T03:54:53.126772+00:00"
+      }
+    },
+    "seed_manifests": {
+      "main_business": {
+        "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_main_business_20260915/seed_manifest.json",
+        "exists": true,
+        "file_sha256": "b1762e7c01124641a7dc6dd4350b4bdd7fe8dd41cf743560ad032023c3a3c16a",
+        "manifest_version": "1",
+        "manifest_fingerprint": "003ef075df73b79290db4dc51db67c1484ee3b40a3d5c1703ecbd8c8bba01d98",
+        "entries": [
+          {
+            "case_id": "candidate-1",
+            "company_id": "300750",
+            "aspect_id": "company_business_main.main_business",
+            "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+            "document_id": "NDSD_KCZ_2026",
+            "document_version": "sha256-2b3a1fb3de97f23c",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 50,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+            "source_tool": "search_evidence"
+          },
+          {
+            "case_id": "candidate-3",
+            "company_id": "300750",
+            "aspect_id": "company_business_main.main_business",
+            "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+            "document_id": "NDSD_KCZ_2026",
+            "document_version": "sha256-2b3a1fb3de97f23c",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 51,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+            "source_tool": "search_evidence"
+          }
+        ]
+      },
+      "core_competitiveness": {
+        "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_core_competitiveness_20260915/seed_manifest.json",
+        "exists": true,
+        "file_sha256": "86396a2fa2d531c360206050da457a3417bad3783e95d6fb6fe968e3e294a7b3",
+        "manifest_version": "1",
+        "manifest_fingerprint": "94a53faf31398e87ae282ba93a28e8227f02d452e263dd7ca0b9a7e20b3c62e9",
+        "entries": [
+          {
+            "case_id": "candidate-7",
+            "company_id": "300750",
+            "aspect_id": "company_competitiveness.core_competitiveness",
+            "evidence_id": "0de543287aa812c78eb165f694c9580d",
+            "document_id": "NDSD_KCZ_2026",
+            "document_version": "sha256-2b3a1fb3de97f23c",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 59,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "f69a7dce1ec9dcb3bdff0a8268a0122be254b01c6538ea54ff952f6df0f9d1f1",
+            "source_tool": "search_evidence"
+          },
+          {
+            "case_id": "candidate-8",
+            "company_id": "300750",
+            "aspect_id": "company_competitiveness.core_competitiveness",
+            "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+            "document_id": "NDSD_2025_year",
+            "document_version": "sha256-c15272977147dee7",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 20,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "9ddb258e37befcae52e43b3a409e52c51923200a3e973c7195df8e8e560c49f0",
+            "source_tool": "search_evidence"
+          }
+        ]
+      },
+      "major_subsidiaries": {
+        "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_major_subsidiaries_20260915/seed_manifest.json",
+        "exists": true,
+        "file_sha256": "cb67938fa1126aae556fbf9dc73c1507aebcba5d8ddcb9628eef8416dbf848fb",
+        "manifest_version": "1",
+        "manifest_fingerprint": "8f044711374eb08979006a096a50a89cd3e9766c0e5d93bc77f92051920676bb",
+        "entries": [
+          {
+            "case_id": "candidate-13",
+            "company_id": "300750",
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+            "document_id": "NDSD_KCZ_2026",
+            "document_version": "sha256-2b3a1fb3de97f23c",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 41,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+            "source_tool": "search_evidence"
+          },
+          {
+            "case_id": "candidate-15",
+            "company_id": "300750",
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "evidence_id": "467120b8407bbbea6a6684303b632147",
+            "document_id": "NDSD_2024_year",
+            "document_version": "sha256-b4f1713d7b821eb0",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 208,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41",
+            "source_tool": "search_evidence"
+          }
+        ]
+      },
+      "financial_notes": {
+        "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_financial_notes_20260915/seed_manifest.json",
+        "exists": true,
+        "file_sha256": "8b34f41b5d078038d49d7caf405967b7103e37660059389d8dc1c1ac20570456",
+        "manifest_version": "1",
+        "manifest_fingerprint": "5c71e18b6374e5af01564139db0051b40a130ccc24fc6429dc285b7851cfda97",
+        "entries": [
+          {
+            "case_id": "financial-notes-1",
+            "company_id": "300750",
+            "aspect_id": "company_finance.notes_to_financial_statements",
+            "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+            "document_id": "NDSD_2024_year",
+            "document_version": "sha256-b4f1713d7b821eb0",
+            "evidence_set_version": "set-501395a7ad5a",
+            "page_number": 166,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+            "source_tool": "search_evidence"
+          }
+        ]
+      },
+      "non_300750_fixture": {
+        "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_non_300750_fixture_20260915/seed_manifest.json",
+        "exists": true,
+        "file_sha256": "34ad560323e0d17c4fac348d35f5cc7298fef36f8bfdb96a45655aefb2d7f16c",
+        "manifest_version": "1",
+        "manifest_fingerprint": "28a72f187b0d2252988aad71d9d7013213950acfc8204f6c6db571c299f6f1cb",
+        "entries": [
+          {
+            "case_id": "non-300750-1",
+            "company_id": "100001",
+            "aspect_id": "company_business_main.main_business",
+            "evidence_id": "2109887f173b802cef307a5328356ead",
+            "document_id": "NDSD_DEMO",
+            "document_version": "v-demo-001",
+            "evidence_set_version": "set-demo-1",
+            "page_number": 1,
+            "block_index": 0,
+            "evidence_type": "paragraph",
+            "source_content_hash": "ec2b4f5ab3e084472f263b05da2f3c4a505653ed1517bf515d657c37346cdd0b",
+            "source_tool": "synthetic_fixture"
+          }
+        ]
+      }
+    }
+  },
+  "positive_sample": {
+    "category": "major_subsidiaries",
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "frozen_role": "本轮「显式引用目标**真的进入材料库**」（§三 P1-4）能力的**正样本**；身份逐字段取自 v13 事前冻结清单，本轮不重选、不改绑",
+    "identity_reused_from": {
+      "prior_specimen": "evaluation/results/r2_xref_specimen_v13_20260916/specimen_manifest.json",
+      "prior_specimen_fingerprint": "acee1205a288391995a14fc464196979f15f196c140b71bd11794b73d8571390",
+      "reuse_scope": "seed 七字段 + 锚点块身份 + 预期目标行 + 必须拒绝的目标"
+    },
+    "seed_manifest": {
+      "path": "evaluation/results/r2_material_slice_r2_sixcat_v2_major_subsidiaries_20260915/seed_manifest.json",
+      "file_sha256": "cb67938fa1126aae556fbf9dc73c1507aebcba5d8ddcb9628eef8416dbf848fb",
+      "manifest_fingerprint": "8f044711374eb08979006a096a50a89cd3e9766c0e5d93bc77f92051920676bb"
+    },
+    "seed": {
+      "case_id": "candidate-13",
+      "company_id": "300750",
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 41,
+      "block_index": 0,
+      "evidence_type": "paragraph",
+      "source_content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630",
+      "source_tool": "search_evidence"
+    },
+    "same_aspect_sibling_seeds": [
+      {
+        "evidence_id": "467120b8407bbbea6a6684303b632147",
+        "page_number": 208,
+        "block_index": 0,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "source_content_hash": "33d39dda90f2a2fdecaf315a4e103ca9ecf1635ca95dec2ba9b25d35bb0b4c41"
+      }
+    ],
+    "anchor_block": {
+      "source": "data/evidence.db（只读分页取块）",
+      "page_number": 41,
+      "block_index": 0,
+      "text_length": 999,
+      "text_sha256": "abdae581b4e9b8c1ae5bd6db615ad670ce7431a2e5ce7d384b451f73b4e0e538",
+      "content_hash": "d80247f0cdbd6cdb2672f3d4b19a41bcff53115c46c9548e61a9433540c85630"
+    },
+    "pre_declared_expectation": {
+      "marker_occurrences_independent": [
+        {
+          "marker": "如下表",
+          "start": 294,
+          "end": 297
+        }
+      ],
+      "expected_resolution_scope": "same_block",
+      "expected_target": {
+        "line": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "start": 300,
+        "end": 333,
+        "extent_semantics": "本字段只标识**表题行**（行级，冻结时的独立推导）；生产绑定的 target_start/target_end 另含单位/表头/表体行，边界必然 ≥ 本行且包含本行，允许不等",
+        "derived_by": "input-side: first table-caption line at/after first marker occurrence end (no production code)"
+      },
+      "expected_target_after_marker_end": true,
+      "expected_same_block_caption_count": {
+        "value": 1,
+        "captions": [
+          {
+            "line": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+            "start": 300,
+            "end": 333,
+            "extent_semantics": "本字段只标识**表题行**（行级，冻结时的独立推导）；生产绑定的 target_start/target_end 另含单位/表头/表体行，边界必然 ≥ 本行且包含本行，允许不等",
+            "derived_by": "input-side: first table-caption line at/after first marker occurrence end (no production code)"
+          }
+        ],
+        "assertion": "标记之后同块内的表题行数 == 1，故同一 occurrence 下的真实表对象候选数必须为 1（生产侧 same_block_candidate_count 必须等于本值）",
+        "derived_by": "input-side: line-leading caption scan (no production code)"
+      },
+      "expected_body_content_tokens": {
+        "lines": [
+          "1  洛阳栾川钼业集团股份有限公司  洛阳市  24.9%  权益法",
+          "1、洛阳栾川钼业集团股份有限公司",
+          "洛阳栾川钼业集团股份有限公司成立于  1999年12月22日，注册资本  427886.20352",
+          "万元，发行人持股比例为  24.9%，法定代表人为刘建锋，经营范围为钨钼系列产品的采",
+          "截止 2025年12月31日，该公司总资产  2,009.3亿元，总负债1,011.5亿元，所有",
+          "者权益 997.9亿元，2025年实现营业收入  2,066.8亿元，净利润240.3亿元。",
+          "板股票上市规则》《深圳证券交易所上市公司自律监管指引第  2号——创业板上市公司",
+          "则》和《深圳证券交易所上市公司自律监管指引第  2号——创业板上市公司规范运作》",
+          "40"
+        ],
+        "assertion": "受验对象绑定的表体行内容（空白归一化后）必须逐行包含这些真实业务行；对象身份必须随业务文本变化而变化，仅空白/排版差异不得改变身份",
+        "derived_by": "input-side: digit-bearing non-caption lines after caption (no production code)"
+      },
+      "must_be_rejected": [
+        {
+          "evidence_id": "049de1a26d73f3e89611679694ff4f06",
+          "page_number": 43,
+          "title_text": "表5-6 发行人组织结构图",
+          "why": "旧实现忽略同块标记后的真实目标、取后续块第一张表；本轮要求显式拒绝该绑定，且该块不得出现在 output / binding / assembly / 材料关联中",
+          "authority": "R2 §一（P1 缺陷）、§二（逐 occurrence 解析）与 §六（P43 表5-6 不得进入产物）"
+        }
+      ],
+      "assertion_source": "§二/§四/§六：P41「如下表」→ 同块内紧随其后的表5-5 对象；表号/evidence_id 仅出现在评估夹具、真实验收断言与诊断报告中"
+    },
+    "pre_declared_criteria": {
+      "occurrence_identity_end_to_end": "请求 occurrence 身份（marker/start/end/index/kind）必须与 trace、reference_binding、验收侧独立重算三者一致；任一不一致或不存在 → fail-closed",
+      "same_block_first": "标记出现位置之后、同块内的**首个**可验证表对象即目标；标记之前的表绝不作为目标",
+      "table_object_qualification": "表对象必须可验证起点 + 非空结构区 + 至少一条真实表体行；散文/纯表头/仅换行折行的多列外观一律不得判为表对象",
+      "object_identity_binds_content": "表对象身份必须绑定真实表体内容（企业名/金额/比例/期间/币种等任一变化 → 身份变化）且**保列**（有序单元格数组：列边界/列序变化必须改身份）",
+      "object_enters_material_library": "§三 P1-4：验收必须逐层核实 —— 绑定独立重算 + assemblies 中存在该 table_object_id 且 relation=reference_table_object 的唯一投影 + 持久化 payload/表体摘要与真实正文重算一致 + component evidence/material 身份一致 + aspect 归属行显式声明该对象 + 源对象清单以同一身份见证 recovered_ok；任一层缺失或矛盾 → fail-closed",
+      "typed_branch_only": "正式分支只由 typed reference_kind 决定；未知/缺失 kind、偏移/序号/自报目标不一致一律 fail-closed",
+      "no_hardcoding": "生产侧不得出现按公司/页码/表号/evidence_id 分支的规则"
+    }
+  },
+  "bound_run_binding": {
+    "declared_before_run_exists": true,
+    "run_ids": {
+      "main_business": "r2_sixcat_v12_main_business_20260916",
+      "core_competitiveness": "r2_sixcat_v12_core_competitiveness_20260916",
+      "major_subsidiaries": "r2_sixcat_v14_major_subsidiaries_20260916",
+      "financial_notes": "r2_sixcat_v12_financial_notes_20260916",
+      "non_300750_fixture": "r2_sixcat_v12_non_300750_fixture_20260916"
+    },
+    "rerun_this_round": {
+      "company_subsidiaries.major_subsidiaries": {
+        "run_id": "r2_sixcat_v14_major_subsidiaries_20260916",
+        "why": "本轮「目标真的进入材料库 + 保列身份 + 表头/表体角色」四项机制的正样本（§五：只重跑该类别与显式引用类别）"
+      },
+      "explicit_cross_reference": {
+        "run_id": "r2_sixcat_v14_major_subsidiaries_20260916",
+        "why": "显式引用类别的 run 绑定与本清单同时冻结：判据（边界策略可用 + seed 正文含通用引用标记 + 真实 mode=explicit_reference 尝试）在本语料中唯一命中的真实 run 就是该 run；本轮在全新 run_id 上重跑它，不得因某个 run「恰好 resolved」而改绑",
+        "binding_criterion": "边界策略可用 + seed 正文含通用引用标记 + 真实 mode=explicit_reference 尝试（同 document_id / document_version / evidence_set_version）",
+        "criterion_evaluated_before_run": true,
+        "note": "该类别与 major_subsidiaries 类别在本轮共用一个全新 run（v13 亦如此）；本清单同时声明两者，故「重跑范围」在 run 出现之前已固定"
+      }
+    },
+    "reused_from_previous_round": {
+      "main_business": {
+        "run_id": "r2_sixcat_v12_main_business_20260916",
+        "source_round": "v12",
+        "why": "§五/§六：其余四个真实样本本轮不重跑、不调参、不改绑"
+      },
+      "core_competitiveness": {
+        "run_id": "r2_sixcat_v12_core_competitiveness_20260916",
+        "source_round": "v12",
+        "why": "§五/§六：其余四个真实样本本轮不重跑、不调参、不改绑"
+      },
+      "financial_notes": {
+        "run_id": "r2_sixcat_v12_financial_notes_20260916",
+        "source_round": "v12",
+        "why": "§五/§六：其余四个真实样本本轮不重跑、不调参、不改绑"
+      },
+      "non_300750_fixture": {
+        "run_id": "r2_sixcat_v12_non_300750_fixture_20260916",
+        "source_round": "v12",
+        "why": "§五/§六：其余四个真实样本本轮不重跑、不调参、不改绑"
+      }
+    },
+    "explicit_cross_reference_binding": {
+      "run_id": "r2_sixcat_v14_major_subsidiaries_20260916",
+      "bound_sample": "company_subsidiaries.major_subsidiaries",
+      "criterion": "边界策略可用 + seed 正文含通用引用标记 + 真实 mode=explicit_reference 尝试（同 document_id/document_version/evidence_set_version）",
+      "note": "绑定在本清单冻结时确定；v14 验收 manifest 只读本清单，不得因某个 run「恰好 resolved」而改绑（§六）"
+    },
+    "disclosure": "其它 run 的显式引用原始状态（not_exercised / dangling / 边界策略不可用）在 v14 六类 manifest 中逐条如实披露，不隐藏、不删除任何 run 目录"
+  },
+  "not_tested_record": {
+    "category": "financial_notes",
+    "aspect_id": "company_finance.notes_to_financial_statements",
+    "material_state": "not_obtained",
+    "capability_verdict": "NOT_TESTED",
+    "report_impact": "audit_only",
+    "state_reason": "boundary_policy_unavailable",
+    "root_cause": "该 aspect 不在**冻结** Contract v2（templates/contracts/standard_v3.yaml）的 topic_harness 覆盖内，整轮扩读 fail-closed ⇒ 该 run 对本能力无信息量",
+    "evidence": {
+      "contract_path": "templates/contracts/standard_v3.yaml",
+      "contract_sha256": "55614227cc670afbd4736c9aebc39c15cdb23bfbc5355a23fe9f124a7668319e",
+      "aspect_occurrences_in_contract": 0
+    },
+    "r2_policy": "R2 内**不修改**冻结 Contract、不放宽 fail-closed 以求通过（§一）",
+    "unchanged_from": "v12/v13（本轮未触碰该样本）"
+  },
+  "namespace_separation": {
+    "requirement": "「financial_notes 的**显式引用诊断**」与「financial_notes 的**材料能力**」必须落盘在两套**不同命名空间**，任何一方都不得被读成另一方，也不得用一方的状态解释/覆盖另一方的判定",
+    "namespaces": {
+      "explicit_reference_diagnostics": {
+        "namespace": "explicit_reference_diagnostics.<category>",
+        "content": "触发/尝试/解析/绑定独立复算/目标对象是否进入材料库等**引用机制**事实",
+        "scope": "只说明引用机制在该 run 上被演练到什么程度",
+        "does_not_imply": "不构成对任何类别 material_state / capability_verdict 的判定"
+      },
+      "material_capability": {
+        "namespace": "categories.<category>",
+        "content": "material_state / capability_verdict / report_impact / 门与指纹",
+        "scope": "只说明该类别材料的获得与能力状态",
+        "does_not_imply": "不构成对引用机制的判定"
+      }
+    },
+    "v13_conflation": "v13 把显式引用诊断作为 **categories.<category> 的内嵌字段**（explicit_reference_state / explicit_reference_audit）落盘，与材料能力同处一个命名空间；financial_notes 的显式引用诊断（not_exercised，且 trigger_detected=true）因此可能被误读成「financial_notes 材料能力」的一部分",
+    "v14_action": "v14 把显式引用诊断**同时**落盘为顶层独立命名空间 explicit_reference_diagnostics（逐类别），并在其中显式记录material_capability_namespace 指向，二者交叉引用但互不代替",
+    "change_request": "R3-CHG-001",
+    "change_request_scope": "命名空间拆分是 Contract successor / 验收读视图层面的变更需求；R2 内只做「落盘拆分 + 显式交叉引用」，不改冻结 Contract、不放宽任何 fail-closed 规则"
+  },
+  "r3_contract_successor_changelist": [
+    {
+      "id": "R3-CHG-001",
+      "title": "为 financial_notes / company_finance.notes_to_financial_statements 补齐正式 Contract aspect，并拆分「显式引用诊断」与「材料能力」命名空间",
+      "owner_round": "R3（Contract successor）",
+      "blocking_r2": false,
+      "problem": "冻结 Contract v2 无该 aspect ⇒ boundary_policy_unavailable ⇒ 显式引用能力在该真实样本上永远 NOT_TESTED；且 v13 把显式引用诊断与材料能力放在同一命名空间 ⇒ 两个不同问题的事实可能被互相误读",
+      "required_change": [
+        "在 Contract successor 中为该 question 定义 producer_kind/execution_path=topic_harness 与适用的 aspect 定义（含 applicability_policy、source_policy_ref）",
+        "同步更新 Contract 版本与冻结指纹，并补齐该 aspect 的验收夹具与回归测试",
+        "R2 不得为通过本轮而在冻结契约上打补丁",
+        "把「显式引用诊断」与「材料能力」固化为两套**独立读视图命名空间**，并在读视图 schema 中禁止互相代替（v14 已在落盘侧拆分，读视图侧留待 R3 固化）"
+      ],
+      "evidence": {
+        "aspect_id": "company_finance.notes_to_financial_statements",
+        "contract": "templates/contracts/standard_v3.yaml",
+        "aspect_occurrences_in_contract": 0
+      },
+      "v14_addendum": {
+        "added_in_round": "v14",
+        "subject": "命名空间拆分（显式引用诊断 vs 材料能力）",
+        "requirement": "「financial_notes 的**显式引用诊断**」与「financial_notes 的**材料能力**」必须落盘在两套**不同命名空间**，任何一方都不得被读成另一方，也不得用一方的状态解释/覆盖另一方的判定",
+        "v13_conflation": "v13 把显式引用诊断作为 **categories.<category> 的内嵌字段**（explicit_reference_state / explicit_reference_audit）落盘，与材料能力同处一个命名空间；financial_notes 的显式引用诊断（not_exercised，且 trigger_detected=true）因此可能被误读成「financial_notes 材料能力」的一部分",
+        "v14_action": "v14 把显式引用诊断**同时**落盘为顶层独立命名空间 explicit_reference_diagnostics（逐类别），并在其中显式记录material_capability_namespace 指向，二者交叉引用但互不代替",
+        "acceptance_impact": "本轮 financial_notes 仍如实记 NOT_TESTED；不因该 gap 判任何 capability FAIL，也不因该类别被 NOT_TESTED 而对外宣称引用能力通过"
+      },
+      "acceptance_impact": "本轮 financial_notes 如实记 NOT_TESTED；不因该 gap 判任何 capability FAIL",
+      "unchanged_from": "v12（进入 R3 successor changelist，不在本轮返修范围内）"
+    }
+  ],
+  "post_run_rules": [
+    "重跑后不得把显式引用类别改绑到另一个 run（无「优先选 resolved 的 run」逻辑）",
+    "重跑后不得重新挑选正样本；本清单的 seed 与预期断言在重跑前已固定",
+    "重跑后不得修改冻结 Contract / SourcePolicy / WritingSpec / PresentationProfile",
+    "重跑后不得重跑或调参其余四类样本（绑定沿用 v12，逐条披露 reused_from_previous_round）",
+    "若 input_identity 中任一 sha256 与冻结值不符，v14 验收 manifest 必须 fail-closed",
+    "不得把「本样本通过」当作通用机制证明：机制结论必须来自 §三/§四 的独立反例测试"
+  ],
+  "specimen_fingerprint": "9d6c1239aa233c2c18fa79b9689ebe6847d324781e230fa18973e01e910b3b19"
+}

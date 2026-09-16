@@ -1,0 +1,14 @@
+{
+  "company_competitiveness.core_competitiveness": {
+    "version": "2",
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_2025_year",
+    "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+    "expected_source_objects": [],
+    "recovery_results": [],
+    "unmatched_recovered_tables": [],
+    "orphan_assemblies": [],
+    "untitled_recovered_tables": []
+  }
+}

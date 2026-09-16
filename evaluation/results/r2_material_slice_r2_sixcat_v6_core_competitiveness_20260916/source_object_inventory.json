@@ -1,0 +1,194 @@
+{
+  "company_competitiveness.core_competitiveness": {
+    "version": "2",
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_2025_year",
+    "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+    "expected_source_objects": [
+      {
+        "object_id": "title:1)营业收入整体情况",
+        "kind": "table_start_signal",
+        "label": "1）营业收入整体情况",
+        "source_text_index": 10,
+        "line_index": 26,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 24,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:1)营业收入整体情况"
+      },
+      {
+        "object_id": "title:分行业",
+        "kind": "table_start_signal",
+        "label": "分行业",
+        "source_text_index": 10,
+        "line_index": 34,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 24,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:分行业"
+      },
+      {
+        "object_id": "title:适用□不适用",
+        "kind": "table_start_signal",
+        "label": "适用 □不适用",
+        "source_text_index": 11,
+        "line_index": 19,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 25,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:适用□不适用"
+      },
+      {
+        "object_id": "title:1)营业收入及营业成本整体情况",
+        "kind": "table_start_signal",
+        "label": "1）营业收入及营业成本整体情况",
+        "source_text_index": 11,
+        "line_index": 23,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 25,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:1)营业收入及营业成本整体情况"
+      },
+      {
+        "object_id": "title:子电池",
+        "kind": "table_start_signal",
+        "label": "子电池",
+        "source_text_index": 13,
+        "line_index": 39,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 26,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:子电池"
+      },
+      {
+        "object_id": "title:5)不同产品或业务的产销情况",
+        "kind": "table_start_signal",
+        "label": "5）不同产品或业务的产销情况",
+        "source_text_index": 13,
+        "line_index": 45,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 26,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:5)不同产品或业务的产销情况"
+      },
+      {
+        "object_id": "title:是□否",
+        "kind": "table_start_signal",
+        "label": "是 □否",
+        "source_text_index": 13,
+        "line_index": 53,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 26,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dd828b00ae93519fc91bfd67b0cd21d6167b28234b01a46092ed10101fc4d05d|title:是□否"
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:1)营业收入整体情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '1）营业收入整体情况' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:分行业",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '分行业' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:适用□不适用",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '\\uf052适用 □不适用' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:1)营业收入及营业成本整体情况",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '1）营业收入及营业成本整体情况' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:子电池",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '子电池' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:5)不同产品或业务的产销情况",
+        "result": "recovered_ok",
+        "matched_table": "5）不同产品或业务的产销情况",
+        "issue": "",
+        "assembly_id": "asm-8875cdab0014ed8d7851bd0ab9956db9",
+        "component_material_ids": [
+          "mat-0b3e918ef629339bd93711b0b0ba3780"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:是□否",
+        "result": "recovered_ok",
+        "matched_table": "是 □否",
+        "issue": "",
+        "assembly_id": "asm-157bc489707c0fb24c3d8c5a1a3c7e59",
+        "component_material_ids": [
+          "mat-a29133697a67f465d16617d2cacbbadd"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": ""
+      }
+    ],
+    "unmatched_recovered_tables": [],
+    "orphan_assemblies": []
+  }
+}

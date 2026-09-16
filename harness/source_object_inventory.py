@@ -23,12 +23,12 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Sequence
 
 from harness import table_structure as TBL
 
-SOURCE_OBJECT_INVENTORY_VERSION = "2"
+SOURCE_OBJECT_INVENTORY_VERSION = "3"
 
 # 恢复结果四态（每个源对象必须且只能对应一个）。
 RECOVERED_OK = "recovered_ok"
@@ -47,8 +47,14 @@ _SOURCE_OBJECT_KINDS = (
     KIND_TABLE_NUMBER, KIND_TABLE_START, KIND_CONTINUATION, KIND_CROSS_REFERENCE,
 )
 
-# 摊平表恢复产物的 assembly relation（唯一被本清单承认的恢复来源）。
+# 摊平表恢复产物的 assembly relation（摊平表这一条恢复路径的唯一来源）。
 FLATTENED_TABLE_RELATION = "flattened_table_recovery"
+
+# §三 P1-4：显式引用成功解析出的目标表对象投影的 assembly relation。它是**第二条**被本清单
+# 承认的「已获得」来源：引用目标表有自己的内容寻址身份（``table_object_id``），且已经作为
+# 过程侧投影真实落盘 —— 因此源对象必须如实记为已获得并绑定该 assembly，而**不是**
+# ``target_not_obtained``（v13 的缺陷：目标表已被解析并采纳，清单却仍报未获得）。
+REFERENCE_TABLE_OBJECT_RELATION = "reference_table_object"
 
 # 无表号引用（「见第 X 章」）的源对象目标哨兵。
 _PAGE_CHAPTER_SENTINEL = "_pg"
@@ -73,17 +79,23 @@ _PAGE_CHAPTER_REF_RE = re.compile(
 
 @dataclass(frozen=True)
 class SourcePosition:
-    """源对象在权威文档中的规范位置（规范顺序键，绝不用 content-addressed material_id）。"""
+    """源对象在权威文档中的规范位置（规范顺序键，绝不用 content-addressed material_id）。
+
+    P1-B.1/B.3：位置**必须**绑定 document_id + document_version（跨文档同名页不可混淆）
+    与 source_boundary_identity（同一文档内不同主题边界的同名对象不可混淆）。
+    """
 
     document_version: str
     page_number: int
     block_index: int
     fragment_offset: int
     material_id: str
+    document_id: str = ""
+    source_boundary_identity: str = ""
 
     def sort_key(self) -> tuple:
-        return (self.document_version, self.page_number, self.block_index,
-                self.fragment_offset, self.material_id)
+        return (self.document_id, self.document_version, self.page_number,
+                self.block_index, self.fragment_offset, self.material_id)
 
 
 @dataclass(frozen=True)
@@ -94,13 +106,17 @@ class SourceText:
     text: str
 
     @staticmethod
-    def from_texts(texts: Sequence[str]) -> tuple["SourceText", ...]:
+    def from_texts(texts: Sequence[str], *, document_id: str = "",
+                   document_version: str = "",
+                   source_boundary_identity: str = "") -> tuple["SourceText", ...]:
         """测试/内部便捷：按给定顺序合成递增规范位置（block_index = i）。"""
         return tuple(
             SourceText(
-                SourcePosition(document_version="", page_number=0,
+                SourcePosition(document_version=document_version, page_number=0,
                                block_index=i, fragment_offset=0,
-                               material_id=f"synthetic-{i}"),
+                               material_id=f"synthetic-{i}",
+                               document_id=document_id,
+                               source_boundary_identity=source_boundary_identity),
                 t or "")
             for i, t in enumerate(texts))
 
@@ -188,6 +204,19 @@ def flattened_table_structure_identity(table: dict) -> str:
         ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
+def table_object_key(title: str) -> str:
+    """表题 → 本清单使用的**表对象键**（表号优先，否则通用表题 slug；无表题 → ""）。
+
+    与 ``derive_expected_source_object_inventory`` 的 ``table:`` / ``title:`` 对象身份**同源**：
+    任何需要按「同一张表」归并持久化 assembly 的地方都必须复用本函数，绝不复制第二套表身份规则。
+    """
+    num = table_number_of(title or "")
+    if num:
+        return f"table:{num}"
+    slug = _slug(title or "")
+    return f"title:{slug}" if slug else ""
+
+
 def cross_reference_object_target(object_id: str) -> str:
     """从引用源对象身份「cross_ref:{目标}:{text_index}:{line_index}」取回**本对象**的目标。
 
@@ -206,6 +235,10 @@ def cross_reference_object_target(object_id: str) -> str:
 
 @dataclass(frozen=True)
 class ExpectedSourceObject:
+    """期望源对象（P1-B.4）：身份**必须**绑定 document_id/version、source_boundary_identity、
+    source_object_id + 规范位置，绝不只靠块内标签。
+    """
+
     object_id: str
     kind: str
     label: str
@@ -216,16 +249,29 @@ class ExpectedSourceObject:
     block_index: int = 0
     fragment_offset: int = 0
     material_id: str = ""
+    document_id: str = ""
+    source_boundary_identity: str = ""
+    source_object_id: str = ""
 
 
 @dataclass(frozen=True)
 class SourceObjectRecoveryResult:
+    """逐对象恢复结果（P1-B.5）：必须绑定 assembly_id + component_material_ids +
+    recovery_status（持久化 assembly 的真实状态）+ 原因，绝不只报一个结论词。
+    """
+
     object_id: str
     result: str
     matched_table: str = ""
     issue: str = ""
     assembly_id: str = ""
     component_material_ids: tuple[str, ...] = ()
+    recovery_status: str = ""
+    recovery_reason: str = ""
+    # §三 P1-4：见证本对象「已获得」的目标表对象**内容寻址身份**（引用表对象投影的
+    # ``table_object_id``）。使「清单说已获得」与「材料库中确有该目标对象」用同一个身份对账，
+    # 绝不靠表号字符串凑合。
+    table_object_ids: tuple[str, ...] = ()
 
 
 @dataclass
@@ -236,32 +282,65 @@ class ExpectedSourceObjectInventory:
     recovery_results: list[SourceObjectRecoveryResult] = field(default_factory=list)
     unmatched_recovered_tables: list[str] = field(default_factory=list)
     orphan_assemblies: list[str] = field(default_factory=list)
+    # §四.B.6/B.7：无表题/无表号的恢复表 —— 无对象身份可对账，必须**显式披露**，
+    # 与 orphan_assemblies 互斥且共同穷尽全部持久化摊平表 assembly（绝不静默丢弃）。
+    untitled_recovered_tables: list[str] = field(default_factory=list)
+    # §三 P1-4：已落盘的引用表对象投影中，**未被任何源对象认领**者（``table_object_id``）。
+    # 非空即 fail-closed：目标表已被解析并进入材料库，清单却没有对应「已获得」——这正是
+    # 「材料库与清单两套真相」的入口，绝不静默。
+    unclaimed_reference_objects: list[str] = field(default_factory=list)
+    # P1-B.6：恢复事实的**唯一**来源（清单侧绝不自行恢复）。
+    recovery_source: str = "persisted_assemblies"
+    document_id: str = ""
+    source_boundary_identity: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "version": self.version,
             "aspect_id": self.aspect_id,
+            "recovery_source": self.recovery_source,
+            "document_id": self.document_id,
+            "source_boundary_identity": self.source_boundary_identity,
             "expected_source_objects": [
                 {"object_id": o.object_id, "kind": o.kind, "label": o.label,
                  "source_text_index": o.source_text_index, "line_index": o.line_index,
+                 "document_id": o.document_id,
                  "document_version": o.document_version, "page_number": o.page_number,
                  "block_index": o.block_index, "fragment_offset": o.fragment_offset,
-                 "material_id": o.material_id}
+                 "material_id": o.material_id,
+                 "source_boundary_identity": o.source_boundary_identity,
+                 "source_object_id": o.source_object_id or o.object_id}
                 for o in self.expected_objects],
             "recovery_results": [
                 {"object_id": r.object_id, "result": r.result,
                  "matched_table": r.matched_table, "issue": r.issue,
                  "assembly_id": r.assembly_id,
-                 "component_material_ids": list(r.component_material_ids)}
+                 "component_material_ids": list(r.component_material_ids),
+                 "recovery_status": r.recovery_status,
+                 "recovery_reason": r.recovery_reason,
+                 "table_object_ids": list(r.table_object_ids)}
                 for r in self.recovery_results],
             "unmatched_recovered_tables": list(self.unmatched_recovered_tables),
             "orphan_assemblies": list(self.orphan_assemblies),
+            "untitled_recovered_tables": list(self.untitled_recovered_tables),
+            "unclaimed_reference_objects": list(self.unclaimed_reference_objects),
         }
 
 
 # ---------------------------------------------------------------------------
 # 清单生成（材料边界内，先于恢复）
 # ---------------------------------------------------------------------------
+
+def _source_object_id(document_id: str, document_version: str,
+                      source_boundary_identity: str, object_id: str) -> str:
+    """源对象**全局身份**：绑定 document + version + 源边界 + 清单内对象键。
+
+    同一文档内不同主题边界下的同名对象（如两个章节各有一张「主营业务收入构成」）
+    因此互不相同；跨 document_version 的同名对象同样互不相同。
+    """
+    return "|".join((document_id or "", document_version or "",
+                     source_boundary_identity or "", object_id or ""))
+
 
 def derive_expected_source_object_inventory(
         aspect_id: str, sources: Sequence[SourceText]) -> ExpectedSourceObjectInventory:
@@ -274,6 +353,9 @@ def derive_expected_source_object_inventory(
         aspect_id=aspect_id, version=SOURCE_OBJECT_INVENTORY_VERSION)
     seen: set[str] = set()
     ordered = _canonical_order(sources)
+    if ordered:
+        inv.document_id = ordered[0].position.document_id
+        inv.source_boundary_identity = ordered[0].position.source_boundary_identity
     # 通用表题判定在**跨块单一源流**上进行（与摊平表恢复共用同一函数）：真实表题常单独成块，
     # 其单位/表头/数据行在相邻下一块，块内判定会漏掉真表题。
     line_groups = [(s.text or "").splitlines() for s in ordered]
@@ -294,9 +376,14 @@ def derive_expected_source_object_inventory(
                 inv.expected_objects.append(ExpectedSourceObject(
                     object_id=object_id, kind=kind, label=label,
                     source_text_index=ti, line_index=li,
+                    document_id=pos.document_id,
                     document_version=pos.document_version,
                     page_number=pos.page_number, block_index=pos.block_index,
-                    fragment_offset=pos.fragment_offset, material_id=pos.material_id))
+                    fragment_offset=pos.fragment_offset, material_id=pos.material_id,
+                    source_boundary_identity=pos.source_boundary_identity,
+                    source_object_id=_source_object_id(
+                        pos.document_id, pos.document_version,
+                        pos.source_boundary_identity, object_id)))
 
             # 续表信号必须先于表号识别（「表 5-10（续）」是续表，不是普通主表号）。
             if TBL.is_continuation_marker(s):
@@ -326,13 +413,32 @@ def derive_expected_source_object_inventory(
 # 对账（恢复后，逐对象唯一结果）
 # ---------------------------------------------------------------------------
 
+def _map_status(status: str) -> str:
+    """持久化 assembly 的 ``recovery_status`` → 源对象恢复结果（未知一律按 failed）。"""
+    return {"ok": RECOVERED_OK, "partial": RECOVERED_PARTIAL,
+            "failed": RECOVERY_FAILED}.get(str(status or ""), RECOVERY_FAILED)
+
+
 def _flattened_assemblies(assemblies: Iterable[dict]) -> list[dict]:
-    """只承认摊平表恢复产物作为本清单的恢复来源。"""
+    """摊平表恢复产物（孤儿/无题表穷尽披露只覆盖这一条恢复路径）。"""
+    return _by_relation(assemblies, FLATTENED_TABLE_RELATION)
+
+
+def _reference_table_object_assemblies(assemblies: Iterable[dict]) -> list[dict]:
+    """§三 P1-4：显式引用成功解析出的目标表对象投影（第二条「已获得」来源）。
+
+    只承认真正内容寻址的投影（``table_object_id`` 非空）；缺身份者不可作为「已获得」见证。
+    """
+    return [a for a in _by_relation(assemblies, REFERENCE_TABLE_OBJECT_RELATION)
+            if a.get("table_object_id")]
+
+
+def _by_relation(assemblies: Iterable[dict], relation: str) -> list[dict]:
     out = []
     for a in assemblies or ():
         if not isinstance(a, dict):
             continue
-        if a.get("relation") != FLATTENED_TABLE_RELATION:
+        if a.get("relation") != relation:
             continue
         if not a.get("assembly_id"):
             continue
@@ -354,7 +460,11 @@ def reconcile_source_object_inventory(
     该源对象 recovery_failed，绝不静默通过）。
     """
     results: list[SourceObjectRecoveryResult] = []
-    asm = _flattened_assemblies(assemblies)
+    asm_flat = _flattened_assemblies(assemblies)
+    asm_ref = _reference_table_object_assemblies(assemblies)
+    # §三 P1-4：「已获得」由**两条**已落盘恢复路径共同见证（摊平表恢复 / 引用目标表对象），
+    # 两者都是真实持久化投影，绝不在清单侧另行恢复。
+    asm = asm_flat + asm_ref
     known = set(known_material_ids) if known_material_ids is not None else None
 
     tables_by_num: dict[str, list[dict]] = {}
@@ -365,22 +475,35 @@ def reconcile_source_object_inventory(
         tables_by_title.setdefault(_slug(title), []).append(t)
 
     claimed: set[str] = set()
+    claimed_object_ids: set[str] = set()
 
-    def _map_status(status: str) -> str:
-        return {"ok": RECOVERED_OK, "partial": RECOVERED_PARTIAL,
-                "failed": RECOVERY_FAILED}.get(status, RECOVERY_FAILED)
+    def _object_ids(t: dict) -> tuple[str, ...]:
+        oid = str(t.get("table_object_id") or "")
+        return (oid,) if oid else ()
 
-    def _bind(t: dict, result: str, issue: str = "") -> SourceObjectRecoveryResult:
+    def _bind(obj_id: str, t: dict, result: str, issue: str = "",
+              matched: str | None = None) -> SourceObjectRecoveryResult:
         aid = t.get("assembly_id", "") or ""
         comps = tuple(t.get("component_material_ids") or ())
+        raw_status = str(t.get("recovery_status", "") or "")
+        matched_table = (matched if matched is not None
+                         else str(t.get("table_title", "") or ""))
         if known is not None:
             missing = [c for c in comps if c not in known]
             if missing:
                 return SourceObjectRecoveryResult(
-                    "", RECOVERY_FAILED, t.get("table_title", ""),
-                    f"assembly {aid} component 外键不存在: {'|'.join(missing)}", aid, comps)
-        return SourceObjectRecoveryResult("", result, t.get("table_title", ""),
-                                          issue, aid, comps)
+                    obj_id, RECOVERY_FAILED, matched_table,
+                    f"assembly {aid} component 外键不存在: {'|'.join(missing)}", aid, comps,
+                    raw_status, f"dangling_component:{'|'.join(missing)}")
+        return SourceObjectRecoveryResult(obj_id, result, matched_table,
+                                          issue, aid, comps, raw_status, issue,
+                                          _object_ids(t))
+
+    def _claim(r: SourceObjectRecoveryResult) -> SourceObjectRecoveryResult:
+        if r.assembly_id:
+            claimed.add(r.assembly_id)
+        claimed_object_ids.update(r.table_object_ids)
+        return r
 
     recovered_ok_assemblies: set[str] = {
         t.get("assembly_id", "")
@@ -406,39 +529,25 @@ def reconcile_source_object_inventory(
                     f"{obj.label!r} 对账到 {len(hits)} 个 assembly（重复/错误合并）"))
                 continue
             t = hits[0]
-            r = _bind(t, _map_status(t.get("recovery_status", "ok")),
+            r = _bind(obj.object_id, t, _map_status(t.get("recovery_status", "ok")),
                       t.get("recovery_issue") or "")
             # 表号一致性：同号但表题内容不符 → recovery_failed（标题不一致）。
             if r.result == RECOVERED_OK and obj.kind == KIND_TABLE_NUMBER:
                 expected_tc = _title_content(obj.label)
                 actual_tc = _title_content(t.get("table_title", "") or "")
                 if expected_tc and actual_tc and expected_tc != actual_tc:
-                    r = SourceObjectRecoveryResult(
-                        obj.object_id, RECOVERY_FAILED, t.get("table_title", ""),
-                        f"表号 {obj.object_id[len('table:'):]} 标题不一致"
-                        f"（期望 {obj.label!r}，实得 {t.get('table_title')!r}）",
-                        r.assembly_id, r.component_material_ids)
-                else:
-                    r = SourceObjectRecoveryResult(
-                        obj.object_id, r.result, r.matched_table, r.issue,
-                        r.assembly_id, r.component_material_ids)
-            else:
-                r = SourceObjectRecoveryResult(
-                    obj.object_id, r.result, r.matched_table, r.issue,
-                    r.assembly_id, r.component_material_ids)
-            if r.assembly_id:
-                claimed.add(r.assembly_id)
-            results.append(r)
+                    r = replace(r, result=RECOVERY_FAILED,
+                                issue=(f"表号 {obj.object_id[len('table:'):]} 标题不一致"
+                                       f"（期望 {obj.label!r}，实得 "
+                                       f"{t.get('table_title')!r}）"))
+            results.append(_claim(r))
         elif obj.kind == KIND_CONTINUATION:
             target = obj.object_id[len("continuation:"):]
             hits = tables_by_num.get(target, [])
             ok = bool(hits) and hits[0].get("assembly_id", "") in recovered_ok_assemblies
             if ok:
-                results.append(SourceObjectRecoveryResult(
-                    obj.object_id, RECOVERED_OK, target, "",
-                    hits[0].get("assembly_id", ""),
-                    tuple(hits[0].get("component_material_ids") or ())))
-                claimed.add(hits[0].get("assembly_id", ""))
+                results.append(_claim(
+                    _bind(obj.object_id, hits[0], RECOVERED_OK, matched=target)))
             else:
                 results.append(SourceObjectRecoveryResult(
                     obj.object_id, TARGET_NOT_OBTAINED, target,
@@ -458,11 +567,8 @@ def reconcile_source_object_inventory(
             if hit is not None:
                 # 引用的「获得」必须由目标表**真实持久化 assembly**见证：绑定该 assembly_id，
                 # 使 closure 能核实引用所指对象确实存在（不得凭空声明引用已满足）。
-                aid = hit.get("assembly_id", "") or ""
-                results.append(SourceObjectRecoveryResult(
-                    obj.object_id, RECOVERED_OK, target, "", aid,
-                    tuple(hit.get("component_material_ids") or ())))
-                claimed.add(aid)
+                results.append(_claim(
+                    _bind(obj.object_id, hit, RECOVERED_OK, matched=target)))
             else:
                 results.append(SourceObjectRecoveryResult(
                     obj.object_id, TARGET_NOT_OBTAINED, target,
@@ -471,12 +577,21 @@ def reconcile_source_object_inventory(
             results.append(SourceObjectRecoveryResult(
                 obj.object_id, RECOVERY_FAILED, "", f"未知源对象种类 {obj.kind!r}"))
 
-    # 未被任何源对象认领的恢复表：带表题 → 错误合并/清单缺口（显式暴露）。
-    all_ids = {t.get("assembly_id", "") for t in asm if t.get("table_title")}
-    inv.orphan_assemblies = sorted(all_ids - claimed)
+    # 未被任何源对象认领的恢复表必须**穷尽披露**，且两个桶互斥：
+    # - 带表题 → 本应能被某个源对象认领却没认领 ⇒ 错误合并/清单缺口（orphan，硬缺陷）；
+    # - 无表题/无表号 → 没有任何对象身份可对账 ⇒ untitled（诚实披露，非静默跳过）。
+    # 两个桶只覆盖**摊平表恢复**这条路径（其恢复结果必然带表题/表号）；引用表对象由
+    # ``unclaimed_reference_objects`` 独立穷尽披露，两者互不掩盖。
+    titled_ids = {t.get("assembly_id", "") for t in asm_flat if t.get("table_title")}
+    untitled_ids = {t.get("assembly_id", "") for t in asm_flat
+                    if t.get("assembly_id") and not t.get("table_title")}
+    inv.orphan_assemblies = sorted(titled_ids - claimed)
+    inv.untitled_recovered_tables = sorted(untitled_ids - claimed)
     inv.unmatched_recovered_tables = sorted(
-        {t.get("table_title", "") for t in asm
+        {t.get("table_title", "") for t in asm_flat
          if t.get("table_title") and t.get("assembly_id", "") not in claimed})
+    inv.unclaimed_reference_objects = sorted(
+        {oid for t in asm_ref for oid in _object_ids(t)} - claimed_object_ids)
     inv.recovery_results = results
     return inv
 
@@ -496,17 +611,39 @@ def _target_assembly(target: str, tables_by_num: dict[str, list[dict]],
 # 逐项对账门（main_business accepted 的前置：绝不「至少一张表成功」）
 # ---------------------------------------------------------------------------
 
+_STATUS_FOR_RESULT = {RECOVERED_OK: "ok", RECOVERED_PARTIAL: "partial"}
+
+
 def inventory_assembly_closure(
         inv: ExpectedSourceObjectInventory,
-        assemblies: Sequence[dict]) -> str | None:
-    """清单 ↔ 持久化 assembly 双向闭合校验（P1-B.5/B.6），返回失败原因或 None。
+        assemblies: Sequence[dict],
+        known_material_ids: Iterable[str] | None = None) -> str | None:
+    """清单 ↔ 持久化 assembly 双向闭合校验（P1-B.5/B.6/B.7），返回失败原因或 None。
 
-    逐项检查：
+    逐项检查（任一不成立即 fail-closed）：
     - 结果声明 recovered_ok/recovered_partial 的源对象必须绑定**真实存在**的 assembly_id；
     - 其 component_material_ids 必须与持久化 assembly 逐一一致；
-    - 结果声明为「未获得」的源对象不得绑定 assembly（否则是矛盾声明）。
+    - 结果必须与持久化 assembly 的 ``recovery_status`` 一致（ok↔recovered_ok，
+      partial↔recovered_partial）—— 结果词绝不与恢复事实互相矛盾；
+    - component 外键必须真实存在（给出 ``known_material_ids`` 时）；
+    - 结果声明为「未获得/失败」的源对象不得绑定 assembly；
+    - **反向矛盾**：声明失败/未获得、但持久化 assemblies 中确有 recovered_ok 的同名对象
+      → 矛盾（清单=failed 而 assembly=ok 绝不允许）。
     """
-    by_id = {a.get("assembly_id", ""): a for a in _flattened_assemblies(assemblies)}
+    asm = _flattened_assemblies(assemblies)
+    asm_ref = _reference_table_object_assemblies(assemblies)
+    by_id = {a.get("assembly_id", ""): a for a in asm + asm_ref}
+    known = set(known_material_ids) if known_material_ids is not None else None
+    recovered_ok_ids = {
+        a.get("assembly_id", "") for a in asm + asm_ref
+        if _map_status(a.get("recovery_status", "ok")) == RECOVERED_OK}
+    tables_by_num: dict[str, list[dict]] = {}
+    tables_by_title: dict[str, list[dict]] = {}
+    for a in asm + asm_ref:
+        title = a.get("table_title", "") or ""
+        tables_by_num.setdefault(table_number_of(title), []).append(a)
+        tables_by_title.setdefault(_slug(title), []).append(a)
+
     problems: list[str] = []
     for r in inv.recovery_results:
         if r.result in (RECOVERED_OK, RECOVERED_PARTIAL):
@@ -520,29 +657,85 @@ def inventory_assembly_closure(
                 continue
             if tuple(a.get("component_material_ids") or ()) != tuple(r.component_material_ids):
                 problems.append(f"{r.object_id}: component_material_ids 与持久化 assembly 不一致")
-        elif r.assembly_id:
-            problems.append(
-                f"{r.object_id}: 结果为 {r.result} 却绑定 assembly_id {r.assembly_id}（矛盾声明）")
+            want = _STATUS_FOR_RESULT.get(r.result, "")
+            got = str(a.get("recovery_status", "") or "")
+            if want and got and want != got:
+                problems.append(
+                    f"{r.object_id}: 结果为 {r.result} 但持久化 assembly recovery_status={got}")
+            # §三 P1-4：由**引用表对象**见证的「已获得」必须绑定该对象的内容寻址身份，且该身份
+            # 必须与持久化投影里的 ``table_object_id`` 逐一相同（绝不用表号字符串凑合）。
+            if a.get("relation") == REFERENCE_TABLE_OBJECT_RELATION:
+                oid = str(a.get("table_object_id") or "")
+                if not oid or oid not in tuple(r.table_object_ids or ()):
+                    problems.append(
+                        f"{r.object_id}: 由引用表对象见证为已获得，但未绑定其内容寻址身份"
+                        f"（assembly {r.assembly_id} table_object_id={oid!r}，"
+                        f"清单记录={list(r.table_object_ids or ())}）")
+            if known is not None:
+                dangling = [c for c in r.component_material_ids if c not in known]
+                if dangling:
+                    problems.append(
+                        f"{r.object_id}: component 外键悬空: {'|'.join(dangling)}")
+        else:
+            if r.assembly_id:
+                problems.append(
+                    f"{r.object_id}: 结果为 {r.result} 却绑定 assembly_id {r.assembly_id}（矛盾声明）")
+            # 反向矛盾：清单说不存在，但持久化里确有 recovered_ok 的同名恢复表。
+            if r.object_id.startswith("table:"):
+                hits = tables_by_num.get(r.object_id[len("table:"):], [])
+            elif r.object_id.startswith("title:"):
+                hits = tables_by_title.get(r.object_id[len("title:"):], [])
+            elif r.object_id.startswith("continuation:"):
+                hits = tables_by_num.get(r.object_id[len("continuation:"):], [])
+            elif r.object_id.startswith("cross_ref:"):
+                hits = tables_by_num.get(cross_reference_object_target(r.object_id), [])
+            else:
+                hits = []
+            live = [h for h in hits if h.get("assembly_id", "") in recovered_ok_ids]
+            if live:
+                problems.append(
+                    f"{r.object_id}: 结果为 {r.result} 但持久化 assemblies 存在 recovered_ok "
+                    f"的同名恢复表 {live[0].get('assembly_id')}（清单与恢复事实矛盾）")
     return "; ".join(problems) or None
 
 
 def source_object_gate(inv: ExpectedSourceObjectInventory,
-                       assemblies: Sequence[dict] | None = None) -> str | None:
+                       assemblies: Sequence[dict] | None = None,
+                       known_material_ids: Iterable[str] | None = None) -> str | None:
     """逐项对账门：返回失败原因（非空即 fail-closed），全 ok → None。
 
-    - 任一源对象结果 != recovered_ok → 失败；
+    §四.D.9/D.10：本门只判**归因缺陷**与**能力/完整性门失败**，绝不把诚实、可复核的
+    负面材料状态本身当成代码失败：
+
+    - ``recovery_failed``（识别出的表格对象无法恢复，或身份矛盾/重复合并/外键悬空）→ 失败；
+    - ``target_not_obtained``（该源对象在本轮材料中确实不存在）**不是**失败：它由
+      ``recovery_results`` 逐对象如实落盘，并由调用方形成诚实的 material_state
+      （boundary_incomplete / not_obtained）；但**必须带原因**，无原因即不可归因 → 失败；
+    - ``recovered_partial``（真实部分恢复）→ 失败（恢复事实不完整，不得当完整集合用）；
     - 存在未匹配恢复表（错误合并/清单缺口）→ 失败；
-    - 给出 assemblies 时追加清单↔assembly 双向闭合校验。
+    - 给出 assemblies 时追加清单↔assembly 双向闭合校验（含 result↔recovery_status
+      一致性、component 外键存在性、反向矛盾）。
     """
     problems: list[str] = []
     for r in inv.recovery_results:
-        if r.result != RECOVERED_OK:
-            problems.append(f"{r.object_id}:{r.result}" + (f"({r.issue})" if r.issue else ""))
+        if r.result == RECOVERED_OK:
+            continue
+        if r.result == TARGET_NOT_OBTAINED:
+            if not (r.issue or r.recovery_reason):
+                problems.append(f"{r.object_id}:{r.result}(缺原因，不可归因)")
+            continue
+        problems.append(f"{r.object_id}:{r.result}" + (f"({r.issue})" if r.issue else ""))
     if inv.unmatched_recovered_tables:
         problems.append(
             "unmatched_recovered_tables:" + "|".join(inv.unmatched_recovered_tables))
+    if inv.orphan_assemblies:
+        problems.append("orphan_assemblies:" + "|".join(inv.orphan_assemblies))
+    if inv.unclaimed_reference_objects:
+        # §三 P1-4：目标表已被解析并进入材料库，清单却没有对应「已获得」源对象 ⇒ 两套真相。
+        problems.append(
+            "unclaimed_reference_objects:" + "|".join(inv.unclaimed_reference_objects))
     if assemblies is not None:
-        closure = inventory_assembly_closure(inv, assemblies)
+        closure = inventory_assembly_closure(inv, assemblies, known_material_ids)
         if closure:
             problems.append(closure)
     if not problems:

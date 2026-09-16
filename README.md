@@ -4,21 +4,23 @@
 
 ## 当前状态
 
-V2 的 Evidence、Financial Snapshot、Router、Tool Registry、单题 Research Harness、章节 Worker/Evaluator/Store 和只读报告预览基础已经具备。真实样本同时暴露了一个系统性缺口：单题短答案会在 P3→P4 边界压缩连续正文、表格上下文、跨来源事实和互联网研究成果。
+V2 的 Evidence、Financial Snapshot、Router、Tool Registry、单题 Research Harness、章节 Worker/Evaluator/Store 和只读报告预览基础已经具备。真实样本同时暴露了两个相连的系统性缺口：单题短答案会在 P3→P4 边界压缩内容；固定长度 Evidence 又可能跨多个大小标题，导致材料不完整、重复或混入相邻主题。
 
-项目当前执行 **P3R/P4R Topic Research 与章节内容完整性重整**：
+项目当前先执行 P3R/P4R 的 **树结构调整**，它是 R3 前置门：
 
 ```text
-SectionTask
-  → P4 Worker 编排外壳
-  → Harness Topic runtime（按 required aspect 研究、扩读和补缺）
+电子 PDF
+  → PageLayout + DocumentOutline（目录候选 + 正文大小标题/小标题）
+  → OutlineSpan + TableObject
+  → 现有 Retriever / ToolRegistry
+  → Harness Topic runtime（按 required aspect 研究、补缺）
   → TopicResearchPack（材料、事实、来源、预算、冲突、缺口）
   → 同一 P4 Worker 的 writer 阶段
   → Claims + NarrativeParagraphs + Tables
   → Section Evaluator
 ```
 
-因此，历史 Phase 3/4 “测试通过”不等于当前产品内容已经关闭；Phase 5 暂未进入。
+EvidenceBlock 继续作为不可变来源和引用锚点；标题树负责主要材料边界，相邻块/页扩读只作 fallback。标题或简介相似度只能定位候选，不能直接证明内容覆盖。因此，历史 Phase 3/4 “测试通过”不等于当前产品内容已经关闭；树结构验收前不进入 R3，Phase 5 暂未进入。
 
 ## 输入与边界
 
@@ -36,8 +38,9 @@ SectionTask
 2. [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) — 文档权威与历史/现行分类
 3. [DESIGN_V2.md](./DESIGN_V2.md) — 现行 V2 设计
 4. [V2_IMPLEMENTATION_PLAN.md](./V2_IMPLEMENTATION_PLAN.md) — 阶段路线与门禁
-5. [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md) — 当前唯一任务书
-6. [V2_TODO.md](./V2_TODO.md) — 当前工作区和下一动作
+5. [PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md](./PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md) — 当前父级任务书
+6. [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md) — 当前唯一可执行子任务
+7. [V2_TODO.md](./V2_TODO.md) — 当前工作区和下一动作
 
 `DESIGN.md`、旧任务书和交付报告均为历史基线。`CLAUDE.md` 只是 Claude Code 导航页，不是第二份项目宪法。
 

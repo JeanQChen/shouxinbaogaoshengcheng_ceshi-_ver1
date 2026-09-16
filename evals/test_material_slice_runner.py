@@ -979,7 +979,8 @@ def main() -> dict:
     fake_mat = types.SimpleNamespace(
         material_id="mat-block0",
         authority_assessment=types.SimpleNamespace(evidence_id="ev-block0", page=1))
-    mt_asm = [_build_flattened_table_assembly(t, [fake_mat], {}) for t in mtables]
+    mt_asm = [_build_flattened_table_assembly(t, [fake_mat], {}, [multi_table_block])
+              for t in mtables]
     mt_asm = [a for a in mt_asm if a is not None]
     check(len(mt_asm) == 2 and mt_asm[0].assembly_id != mt_asm[1].assembly_id,
           "P1-3：同 component 的两张表 → 异 assembly_id（结构并入身份，杜绝冲突）")

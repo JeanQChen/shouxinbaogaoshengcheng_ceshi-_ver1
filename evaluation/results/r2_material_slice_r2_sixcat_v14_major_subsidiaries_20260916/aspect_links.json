@@ -1,0 +1,58 @@
+[
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "role": "source",
+    "reference_table_objects": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "target_object_id": "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c",
+        "assembly_id": "asm-df3f64f94b1162d70bf3850b959ae3da",
+        "table_object_key": "table:5-5",
+        "table_title": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "object_schema_version": "3",
+        "binding_version": "3",
+        "anchor_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "anchor_material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+        "target_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "target_material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+        "component_evidence_ids": [
+          "c783f2277baa5eda1659bc5c3fab5d46"
+        ],
+        "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96"
+      }
+    ],
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "role": "source",
+    "reference_table_objects": [],
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "evidence_id": "467120b8407bbbea6a6684303b632147",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  }
+]

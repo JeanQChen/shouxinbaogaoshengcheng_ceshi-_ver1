@@ -1,0 +1,65 @@
+{
+  "run_manifest_version": "1",
+  "run_id": "r2_sixcat_v10_non_300750_fixture_20260916",
+  "generated_at": "2026-09-16T06:41:08.248956+00:00",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "contract": {
+    "version": "v2",
+    "content_fingerprint": "5c45eabcad4989622aa3d483d9414304b3dbd0a5127db726f513409d14c6b410"
+  },
+  "source_policy": {
+    "version": "v1",
+    "content_fingerprint": "12921c67f82dd18876a8bbef4175a47e0b157e6b5921a3693350ad9aa48cbf17"
+  },
+  "seed_manifest_fingerprint": "de4fabe4fb2f3e8574c31f1d349167be9298d64486f093bc6d97b1eadf654b86",
+  "artifacts": {
+    "seed_manifest.json": "97c7e7fe94db9783cb106857df70f5b719ac82a35452a6b9f7e5fe8af4a825bd",
+    "resolved_seed_manifest.json": "3ec35dee87cb71292d2126c27b38577c405426d649348843c677511a9fc9c1ea",
+    "seed_discovery_trace.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "expansion_trace.jsonl": "d2c976508f97a6a30457a92942d9954268c714cd255d42c5e57b16ed197d1331",
+    "unread_scope.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "boundary_decisions.json": "78b07dc9f8656f8214dbf3662a73a1ebbecd95dbf45215a0cd356dc954cd21f8",
+    "boundary_verification.json": "23b4b45fc10025fc8d1d4532085571ae8624673c27bb3c1e9c996c3d7c92b22b",
+    "rolling_read_outcomes.json": "704439b32c8737abf1fb66a321472cc46a709bec22b383c08510846bd55227ae",
+    "aspect_membership.json": "ad088c63ca89259ba2caef67413c03974f04aff3a0d1de449b3ebbbe47a59ea5",
+    "set_enumeration.json": "09875e97266ef67aa2684919aafd2c46d81468533c2b9227ff02268528736f40",
+    "source_object_inventory.json": "3ea8f03a211613f8aafff810cb936845eddd7b346d7586ca6ccc2f3a025e96a6",
+    "topic_boundary_coverage.json": "f9382ac331705c3957f64aef25644984dc55d3e09ece070a7f8095f8b9cfbbb6",
+    "aspect_material_matrix.json": "e79b71cb8af51993bcaa8f583adec12c786c7e124ce7b5fee52a41ae4b80beee",
+    "aspect_links.json": "3763af41b11c6fdc322a4773fcc9e2396ad748faf5c59722723fb7d3e0709f7c",
+    "budget_profile.json": "3afa137ede5d27239be281302e7c26305a6a9354d17543b04bfb64e6a4cf87b4",
+    "assemblies.json": "2acd6c0e9fe88f2f31623c3fe5ec3b076154f03075e0229766c179d13568552a",
+    "assemblies_superseded.json": "b84b203752f4e19fbc73a6140e1bac34c4528da5a7bbd839bb246fde4e2a610a",
+    "material_index.json": "a1034ff0d4d35d82e9419990b16e9fd14961460761b1a408cd43de513cb2a0f8"
+  },
+  "counts": {
+    "seed_count": 1,
+    "resolved_count": 1,
+    "unresolved_count": 0,
+    "material_count": 1,
+    "assembly_count": 1,
+    "assembly_superseded_count": 0,
+    "boundary_decision_count": 1,
+    "unread_scope_count": 0,
+    "rolling_target_count": 3,
+    "direction_unread_count": 0
+  },
+  "evidence_db": {
+    "path": "C:\\Users\\jeank\\AppData\\Local\\Temp\\non300750_fixture_v10_4aehsyza\\evidence.db"
+  },
+  "harness_db": {
+    "path": "C:\\Users\\jeank\\AppData\\Local\\Temp\\non300750_fixture_v10_4aehsyza\\harness.db"
+  },
+  "accept_reject_audit": {
+    "rejected_aspects": [],
+    "unread_aspects": [],
+    "boundary_incomplete_aspects": [],
+    "topic_boundary_unavailable_aspects": [],
+    "missing_artifacts": []
+  },
+  "extra": {
+    "budget_profile_name": "acceptance",
+    "budget_profile_version": "1"
+  },
+  "run_manifest_fingerprint": "5dd735fe30988ec03871269542b1df699492a130e183146f194b7d740de54003"
+}

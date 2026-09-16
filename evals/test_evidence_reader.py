@@ -30,10 +30,12 @@ from harness.evidence_reader import (
     BoundedEvidenceInspectionAdapter,
     EvidenceReadResult,
     INSPECT_EVIDENCE_BOUNDED_SPEC,
+    REFERENCE_KIND_NAMED,
     ReadonlyEvidenceReader,
     RESOLVE_SEED_IDENTITY_TOOL_NAME,
     TOOL_NAME,
     _parse_section_reference,
+    iter_reference_occurrences,
     recompute_evidence_identity,
     register_bounded_evidence_tool,
     register_resolve_seed_identity_tool,
@@ -73,6 +75,10 @@ _BLOCKS = [
      "24、所有权或使用权受到限制的资产", None),
     (9, 0, ["货币资金"], "paragraph", "详见 24、所有权或使用权受到限制的资产", None),
     (10, 0, ["存货"], "heading", "24、存货", None),
+    # v14 typed 契约 fixture：①唯一可解析的命名引用发起块（目标为无编号标题）；
+    # ②悬空引用发起块（目标编号不存在）。二者都必须是**真实 occurrence**。
+    (9, 1, ["货币资金"], "paragraph", "公司受限资产情况详见风险因素。", None),
+    (9, 2, ["货币资金"], "paragraph", "详见 30、不存在的资产", None),
 ]
 
 
@@ -86,6 +92,24 @@ def _block_identity(page: int, blk: int,
             eid = evidence_ids.make_evidence_id(company, doc, docv, setv, page, blk, ch)
             return eid, ch
     raise KeyError((page, blk))
+
+
+def _named_req_args(page: int, block: int, **extra) -> dict:
+    """按 fixture 真值重算某发起块的 **typed 命名 occurrence** 请求参数。
+
+    v14 契约：命名引用请求必须携带 ``reference_kind == "named"`` 与
+    (marker, start, end, occurrence_index) 身份，且 ``reference_target`` 必须等于该
+    occurrence 从发起块正文重算出的目标文本。身份字段一律由真实正文重算（不手写常量），
+    以免 fixture 与生产重算漂移。
+    """
+    text = next(t for (p, b, _s, _et, t, _pl) in _BLOCKS if p == page and b == block)
+    occ = next(o for o in iter_reference_occurrences(text)
+               if o.reference_kind == REFERENCE_KIND_NAMED)
+    args = {"mode": "explicit_reference", "page_number": page, "block_index": block,
+            "reference_target": occ.declared_target}
+    args.update(occ.request_args())
+    args.update(extra)
+    return args
 
 
 def _make_evidence_db(dirpath: Path, *, doc_status: str = "current",
@@ -390,31 +414,41 @@ def main() -> dict:
         check([b["evidence_id"] for b in adj.data["blocks"]] == [eid_5_2, eid_5_3, eid_5_4],
               "adjacent_after 返回有界块")
 
-        tc = adapter.execute({
+        # §二 P1-A：续表身份**由锚点块内未闭合表结构确定性派生**（不再按 evidence_type
+        # 过滤、也不信调用方声明的 table_title）。本 fixture 的块文本是单行表格行/表题，
+        # 不含可承接的结构（真实含结构表头的正样本由 evals.test_context_expansion 与
+        # evals.test_r2_table_continuation 覆盖）。此处只断言本模块该保证的 fail-closed 面：
+        # 缺锚点、锚点无结构、声明身份与锚点派生身份无从对齐——一律诚实 EMPTY，绝不猜。
+        tc_no_anchor = adapter.execute({
             "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
             "evidence_set_version": _SETV, "mode": "table_continuation",
             "page_number": 5, "block_index": 1, "limit": 10,
             "table_title": "营业收入构成"})
-        check(tc.status == "SUCCESS", "table_continuation（有 table_title）→ SUCCESS")
-        etypes = {b["evidence_type"] for b in tc.data["blocks"]}
-        check(etypes <= {"table", "table_row"}, "table_continuation 只返回 table/table_row")
-        check([b["evidence_id"] for b in tc.data["blocks"]] == [eid_5_2, eid_5_3, eid_5_4],
-              "table_continuation 按同 table_title 返回 table + 两个 table_row")
+        check(tc_no_anchor.status == "EMPTY"
+              and "无锚点块" in (tc_no_anchor.message or ""),
+              "table_continuation 无锚点块（evidence_id）→ EMPTY（身份不得按声明猜测）")
+        check("blocks" not in (tc_no_anchor.data or {}),
+              "EMPTY 结果不携带 blocks（缺证明不得被读成空材料）")
 
-        # 反例（§四）：无 table_title → EMPTY，绝不猜续表身份。
-        tc_notitle = adapter.execute({
+        # 反例（§二 P1-A）：锚点块内无未闭合表结构 → EMPTY，绝不按 evidence_type 猜续表。
+        tc_no_struct = adapter.execute({
             "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
             "evidence_set_version": _SETV, "mode": "table_continuation",
-            "page_number": 5, "block_index": 1, "limit": 10})
-        check(tc_notitle.status == "EMPTY", "table_continuation 无 table_title → EMPTY")
+            "page_number": 5, "block_index": 2, "limit": 10,
+            "evidence_id": eid_5_2, "table_title": "营业收入构成"})
+        check(tc_no_struct.status == "EMPTY"
+              and "无未闭合表结构" in (tc_no_struct.message or ""),
+              "table_continuation 锚点块无未闭合表结构 → EMPTY（不按 structured_payload 猜）")
 
-        # 反例（§四）：table_title 与后续表身份不一致 → 停止链，不误并独立表。
-        tc_other = adapter.execute({
+        # 反例（§二 P1-A）：锚点块内有未闭合结构，但前向无承接块 → EMPTY（结构派生链止）。
+        tc_chain_stop = adapter.execute({
             "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
             "evidence_set_version": _SETV, "mode": "table_continuation",
-            "page_number": 5, "block_index": 1, "limit": 10,
-            "table_title": "营业成本构成"})
-        check(tc_other.status == "EMPTY", "table_continuation 不一致 table_title → EMPTY")
+            "page_number": 6, "block_index": 0, "limit": 10,
+            "evidence_id": eid_6_0})
+        check(tc_chain_stop.status == "EMPTY"
+              and "无有界读取结果" in (tc_chain_stop.message or ""),
+              "table_continuation 锚点有结构但前向无承接块 → EMPTY（不伪造续表材料）")
 
         empty = adapter.execute({
             "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
@@ -478,6 +512,7 @@ def main() -> dict:
     # ------------------------------------------------------------------
     # 4b. 修复 D：同文档命名跨章节引用解析（find_by_section_reference）
     # ------------------------------------------------------------------
+    eid_7_0, _ = _block_identity(7, 0)
     eid_8_0, _ = _block_identity(8, 0)
     eid_10_0, _ = _block_identity(10, 0)
 
@@ -513,34 +548,50 @@ def main() -> dict:
             _COMPANY, _DOC, _DOCV, _SETV, "详见 30、不存在的资产")
         check(r_dangling == [], "修复 D：悬空引用 → 0 匹配")
 
-        # 执行器级：标题唯一解析 → SUCCESS（identity 经 evidence.ids 重算通过）。
+        # 执行器级：typed 命名引用唯一解析 → SUCCESS（identity 经 evidence.ids 重算通过）。
         adapter = BoundedEvidenceInspectionAdapter(db)
-        xr_ok = adapter.execute({
-            "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
-            "evidence_set_version": _SETV, "mode": "explicit_reference",
-            "reference_target": "所有权或使用权受到限制的资产",
-            "page_number": 9, "block_index": 0})
+        xr_ok = adapter.execute(dict(
+            _named_req_args(9, 1, company_id=_COMPANY, document_id=_DOC,
+                            document_version=_DOCV, evidence_set_version=_SETV)))
         check(xr_ok.status == "SUCCESS"
-              and xr_ok.data["blocks"][0]["evidence_id"] == eid_8_0,
-              "修复 D：explicit_reference 标题解析 → SUCCESS 返回目标块")
+              and xr_ok.data["blocks"][0]["evidence_id"] == eid_7_0,
+              "修复 D：typed explicit_reference 唯一命名解析 → SUCCESS 返回目标块")
 
         # 执行器级：同号异题 → 歧义 EMPTY（fail-closed）。
-        xr_amb = adapter.execute({
-            "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
-            "evidence_set_version": _SETV, "mode": "explicit_reference",
-            "reference_target": "详见 24、所有权或使用权受到限制的资产",
-            "page_number": 9, "block_index": 0})
+        xr_amb = adapter.execute(dict(
+            _named_req_args(9, 0, company_id=_COMPANY, document_id=_DOC,
+                            document_version=_DOCV, evidence_set_version=_SETV)))
         check(xr_amb.status == "EMPTY" and "歧义" in (xr_amb.message or ""),
               "修复 D：explicit_reference 多匹配 → EMPTY（歧义 fail-closed）")
 
         # 执行器级：悬空 → EMPTY（dangling）。
-        xr_dangling = adapter.execute({
-            "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
-            "evidence_set_version": _SETV, "mode": "explicit_reference",
-            "reference_target": "详见 30、不存在的资产",
-            "page_number": 9, "block_index": 0})
+        xr_dangling = adapter.execute(dict(
+            _named_req_args(9, 2, company_id=_COMPANY, document_id=_DOC,
+                            document_version=_DOCV, evidence_set_version=_SETV)))
         check(xr_dangling.status == "EMPTY" and "dangling" in (xr_dangling.message or ""),
               "修复 D：explicit_reference 悬空 → EMPTY（dangling）")
+
+        # 反例（v14 §三 P1-3）：typed 身份被篡改/缺失 → 一律 fail-closed，绝不退回
+        # 「按 reference_target 文本猜种类」或「缺字段退回 occurrences[0]」。
+        tampered_occ = adapter.execute(dict(
+            _named_req_args(9, 1, company_id=_COMPANY, document_id=_DOC,
+                            document_version=_DOCV, evidence_set_version=_SETV,
+                            marker_start=3, marker_end=5)))
+        check(tampered_occ.status == "EMPTY" and "occurrence" in (tampered_occ.message or ""),
+              "反例：typed 身份偏移被篡改 → EMPTY（fail-closed，不按文本推断）")
+        untyped = adapter.execute({
+            "company_id": _COMPANY, "document_id": _DOC, "document_version": _DOCV,
+            "evidence_set_version": _SETV, "mode": "explicit_reference",
+            "reference_target": "风险因素", "page_number": 9, "block_index": 1})
+        check(untyped.status == "EMPTY" and "reference_kind" in (untyped.message or ""),
+              "反例：legacy 请求缺 typed reference_kind → EMPTY（fail-closed）")
+        mismatched_target = adapter.execute(dict(
+            _named_req_args(9, 1, company_id=_COMPANY, document_id=_DOC,
+                            document_version=_DOCV, evidence_set_version=_SETV,
+                            reference_target="所有权或使用权受到限制的资产")))
+        check(mismatched_target.status == "EMPTY"
+              and "不一致" in (mismatched_target.message or ""),
+              "反例：请求自报目标 ≠ 重算目标 → EMPTY（fail-closed）")
 
     # ------------------------------------------------------------------
     # 5. evidence.ids 权威身份原语回归（§九）

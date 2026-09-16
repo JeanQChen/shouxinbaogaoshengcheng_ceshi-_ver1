@@ -1,0 +1,110 @@
+[
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-06d9d7712a3a95e4a7930b2257f5f128",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-07a32171769474ec8ea2323147353867",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "048e8c7ac66e717215f4b31d57c98b1b",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-0bfbd925089a76a7b0c7f4feee01f092",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "35844493ee2d63fc6bbc94fb0ce501c5",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-404d5db7dd1a779648abff2f506a634c",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "bbf28063a8cf896b348bbbf0792c62cb",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "10ea55aaa7d5e68d711dffe77ceff6cf",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "b6a54ec22e3f44d1a521faf7bb176d95"
+    ]
+  },
+  {
+    "aspect_id": "company_competitiveness.core_competitiveness",
+    "material_id": "mat-82f2e4501f11137dbe763160b0e7ddd6",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_competitiveness.core_competitiveness",
+        "evidence_id": "0de543287aa812c78eb165f694c9580d",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "0de543287aa812c78eb165f694c9580d"
+    ]
+  }
+]

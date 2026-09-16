@@ -18,8 +18,10 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import Iterable
 
 from harness import table_structure as TBL
+from harness import topic_boundary as TB
 from harness import topic_schema as TS
 from harness import source_object_inventory as SOI
 from harness.context_expansion import ExpansionCandidateRef, ExpansionResult
@@ -274,24 +276,75 @@ def _split_columns(s: str) -> list[str]:
 _NUMERIC_TOKEN_CHARS = set("0123456789,，.%-+（）()")
 
 
-def _is_numeric_token(p: str) -> bool:
-    """单个数字 token：非空、含数字、且只由数字/千分位/小数点/百分号/正负号构成。"""
-    return bool(p) and any(ch.isdigit() for ch in p) and all(
-        ch in _NUMERIC_TOKEN_CHARS for ch in p)
+def normalize_header_cells(cells) -> tuple[str, ...]:
+    """表头/数据行单元的归一化（NFC + 折叠空白 + 去首尾）。
 
-
-def _is_numeric_cell(c: str) -> bool:
-    """数字单元。真实 PDF 会把若干列数字挤进一个空白分隔的单元
-    （如「7,544,197.2 67.8 23.8」「4.15%-11.04%」）；这类单元仍是**数据**单元，
-    绝不因粘连而误判为表头行（否则整张表会被当成 3 行表头而 fail）。
+    只用于「同一行是否为已收集表头的重复」这一**结构相等**判定；空单元保留（列结构不被压缩）。
     """
-    s = (c or "").strip()
-    if not s:
-        return False
-    if re.match(r"^[-+]?[\d,，.]+(?:%|％)?$", s):
-        return True
-    parts = s.split()
-    return bool(parts) and all(_is_numeric_token(p) for p in parts)
+    return tuple(
+        " ".join(unicodedata.normalize("NFC", str(c or "")).split()).strip()
+        for c in (cells or ()))
+
+
+def continuation_span_facts(text: str, header_rows) -> dict:
+    """**续页 span 的通用结构事实**（恢复侧与证明侧共用同一套列切分规则，绝不复制第二套）。
+
+    给一段摊平文本 + 该表**源文本中实际出现的表头行**（分组行/叶子行等**物理表头行**，而非
+    合并后的表头），确定性给出：
+      - ``header_repeat_matched``：该 span 内存在与任一物理表头行归一化一致的**重复表头行**
+        （PDF 续页重排表头 —— 通用续表标记）；
+      - ``unit_lines``：该 span 内声明的单位（``单位：`` 行）；
+      - ``data_row_widths``：该 span **续页段**内被判为数据行（≥1 数字单元）的行列宽；
+      - ``closure_width``：该 span 续页段内「合计/总计/小计」行的列宽（无 → None）；
+      - ``has_prose``：该 span 续页段内是否出现表后散文行。
+
+    「续页段」= 从 span 起（含）到**下一张显式表题行 / 表后散文行**为止的连续区段。只有这一
+    段的结构才属于本表：同一 span 里随后出现的另一张表（如实测 P51 段内的下一张表）不得污染
+    本表的列连续性判定。
+    """
+    heads = {normalize_header_cells(h) for h in (header_rows or ()) if h}
+    repeat = False
+    units: list[str] = []
+    widths: list[int] = []
+    closure_width: int | None = None
+    prose = False
+    for raw in (text or "").splitlines():
+        s = unicodedata.normalize("NFC", raw or "").strip()
+        if not s or _is_page_number_line(s):
+            continue
+        # 显式表题行（本表续页内出现的下一张表，或该 span 根本不是本表的续页）→ 续页段结束；
+        # 此时该 span 对本表**没有**任何结构贡献（由调用方 fail-closed 判定）。
+        if _is_explicit_table_title_line(s):
+            break
+        m = re.search(r"单位\s*[:：]\s*(.+)", s)
+        if m:
+            units.append(m.group(1).strip())
+            continue
+        cols = _split_columns(s)
+        if heads and normalize_header_cells(cols) in heads:
+            repeat = True
+            continue
+        if any(_is_numeric_cell(c) for c in cols):
+            if any(k in s for k in _CLOSURE_MARKERS):
+                if closure_width is None:
+                    closure_width = len(cols)
+            else:
+                widths.append(len(cols))
+            continue
+        if len(cols) >= 2 and not _PROSE_PUNCT.search(s):
+            continue
+        if _PROSE_PUNCT.search(s) or len(cols) == 1:
+            prose = True
+            break
+    return {"header_repeat_matched": repeat, "unit_lines": units,
+            "data_row_widths": widths, "closure_width": closure_width,
+            "has_prose": prose}
+
+
+# 「数字单元」是结构侧与恢复侧**共用**的单一原语（见 ``table_structure.is_numeric_cell``）：
+# 表头/数据行角色裁定、数据行识别与表对象资格必须用同一口径，绝不各写一套。
+_is_numeric_token = TBL.is_numeric_token
+_is_numeric_cell = TBL.is_numeric_cell
 
 
 # 表题行通用信号（P1-B.3：委托 table_structure 的复合结构信号，绝不本地复刻第二套规则）。
@@ -315,8 +368,14 @@ def recover_flattened_tables(texts: list[str]) -> list[dict]:
     （无空格/单空格两种粘连）；表头（分组+叶子两行）合并 + 表头/数据行/合计列数一致校验；
     ``recovery_status`` ∈ ok|partial|failed 逐表显式（诚实标记，不伪造恢复）。
 
+    §四增强（**通用**：无表号/页码/公司/固定文本规则）：**续页重复表头**识别。PDF 跨页续表在
+    续页会**重排原表头**；该行与当前表已有表头行归一化一致且表内已有数据行/合计时，它是续表
+    标记（``repeated_header_text_indices`` / ``continuation_text_indices``）而非新的分组/叶子
+    表头行 —— 否则表头行数 >2 会让整张真续表被判 failed 而丢弃。
+
     每个返回表 dict：title / unit / headers / rows / total_row / title_text_indices /
     structure_text_indices / header_text_index / row_text_indices / total_text_index /
+    repeated_header_text_indices / continuation_text_indices / header_cell_rows /
     recovery_status / recovery_issue。
     """
     tables: list[dict] = []
@@ -328,6 +387,7 @@ def recover_flattened_tables(texts: list[str]) -> list[dict]:
             "total_row": None, "title_text_indices": set(),
             "structure_text_indices": set(), "header_text_index": None,
             "row_text_indices": [], "total_text_index": None,
+            "repeated_header_text_indices": [], "continuation_text_indices": set(),
             "header_lines": [], "dropped_header_lines": 0,
             "recovery_status": "ok", "recovery_issue": None,
         }
@@ -357,13 +417,19 @@ def recover_flattened_tables(texts: list[str]) -> list[dict]:
                     return
         if len(hl) == 1:
             cur["headers"] = hl[0]
-        elif len(hl) == 2:
-            # 分组表头（项目/产品…）+ 叶子表头（金额/占比…）→ 合并为 [名称列] + 叶子列。
-            cur["headers"] = ([hl[0][0]] + hl[1]) if hl[0] else hl[1]
+        elif len(hl) == 2 and TBL.second_header_layer_cells(
+                hl[0], hl[1], cur.get("rows") or []):
+            # §三 P2：分组表头（项目/产品…）+ 子列表头（金额/占比…）→ 合并为 [名称列] + 子列。
+            # 判据与 ``table_structure._second_header_layer`` 同一（子列行更窄 且 表体里仍有更宽的
+            # 结构行），**绝不**按「恰好两行表头」的位置规则贪心吞并首个数据行。
+            cur["headers"] = ([hl[0][0]] + list(hl[1])) if hl[0] else list(hl[1])
         else:
             cur["headers"] = None
             cur["recovery_status"] = "failed"
-            cur["recovery_issue"] = "多行表头（>2）且无与数据行同宽的叶子表头"
+            cur["recovery_issue"] = (
+                f"多行表头（{len(hl)}）且无与数据行同宽的叶子表头，"
+                f"第二层子列表头亦无法由列结构确定性判定"
+                f"（fail-closed，绝不按行数一刀切合并）")
 
     def flush() -> None:
         nonlocal cur
@@ -374,9 +440,16 @@ def recover_flattened_tables(texts: list[str]) -> list[dict]:
                 status, issue = _validate_recovered_table(cur)
                 cur["recovery_status"] = status
                 cur["recovery_issue"] = cur.get("recovery_issue") or issue
+                # 保留**物理表头行**（分组/叶子等源文本中真实出现的表头行，合并前的原样），
+                # 供续表证明核对「续页是否重排本表表头」——合并后的表头行在源文本中往往不存在。
+                cur["header_cell_rows"] = [list(h) for h in (cur["header_lines"] or [])]
                 cur.pop("header_lines", None)
                 cur["title_text_indices"] = sorted(cur["title_text_indices"])
                 cur["structure_text_indices"] = sorted(cur["structure_text_indices"])
+                cur["repeated_header_text_indices"] = sorted(
+                    cur["repeated_header_text_indices"])
+                cur["continuation_text_indices"] = sorted(
+                    cur["continuation_text_indices"])
                 tables.append(cur)
             cur = None
 
@@ -429,6 +502,18 @@ def recover_flattened_tables(texts: list[str]) -> list[dict]:
                 cur["structure_text_indices"].add(ti)
                 continue
             if len(cols) >= 2 and not _PROSE_PUNCT.search(s):
+                # §四：**续页重复表头**（通用续表标记）。PDF 跨页续表在续页重排原表头；当该行与
+                # 当前表已有表头行归一化一致、且表内已有数据行/合计时，它是「同一张表继续」的
+                # 结构标记，不是新的分组/叶子表头行（按新表头收集会让表头行数 >2 → 整表被判
+                # failed，真续表被丢弃）。判定只用行内单元与已收集表头的**归一化相等**，无表号/
+                # 页码/公司/固定文本规则。
+                if (cur["rows"] or cur["total_row"] is not None) and \
+                        normalize_header_cells(cols) in {
+                            normalize_header_cells(h) for h in cur["header_lines"]}:
+                    cur["repeated_header_text_indices"].append(ti)
+                    cur["continuation_text_indices"].add(ti)
+                    cur["structure_text_indices"].add(ti)
+                    continue
                 # 表头行（全非数字多列、无句读）：收集分组/叶子行，flush 时合并。
                 cur["header_lines"].append(cols)
                 if cur["header_text_index"] is None:
@@ -578,6 +663,22 @@ def _enumerate_subsidiaries(resolved_payloads) -> list[str]:
     return members
 
 
+def _source_object_id_of(title: str) -> str:
+    """恢复表标题 → 源对象身份（与 ``source_object_inventory`` 同形：表号优先，否则表题 slug）。"""
+    num = SOI.table_number_of(title or "")
+    if num:
+        return f"table:{num}"
+    return f"title:{SOI._slug(title or '')}"
+
+
+def _result_of_object(inventory, object_id: str) -> str:
+    """该源对象在清单中的**真实**恢复结果（未列为一等对象时如实记 ``unlisted``）。"""
+    for r in inventory.recovery_results:
+        if r.object_id == object_id:
+            return r.result
+    return "unlisted"
+
+
 def _enumerate_business(resolved_payloads, assemblies=(),
                         known_material_ids=None) -> tuple[list[str], str | None, dict | None]:
     members: list[str] = []
@@ -612,6 +713,20 @@ def _enumerate_business(resolved_payloads, assemblies=(),
         if gate is not None:
             # 逐项对账未闭合（缺失/重复/错误合并/标题不一致/续表未闭合）→ fail-closed。
             return [], gate, inventory.to_dict()
+        # §四.B.5/B.6/D.9/D.10：枚举成员只能来自**已被持久化 assembly 见证**的恢复表
+        # （单一恢复事实来源）。诚实的 ``target_not_obtained`` 本身不是能力失败，但**不得**
+        # 让枚举侧由此退回自行恢复并把未持久化的表当成支持证据 —— 那会把「恢复结果与持久化
+        # 事实不一致」伪装成 material_type_supported=True。
+        ok_objects = {r.object_id for r in inventory.recovery_results
+                      if r.result == SOI.RECOVERED_OK}
+        unpersisted = [t for t in complete
+                       if _source_object_id_of(t.get("title") or "") not in ok_objects]
+        if unpersisted:
+            detail = "; ".join(
+                f"{oid}:{_result_of_object(inventory, oid)}"
+                for oid in (_source_object_id_of(t.get("title") or "") for t in unpersisted))
+            return [], ("摊平表恢复结果未与持久化 assembly 逐对象闭合"
+                        f"（枚举侧绝不自行恢复）：{detail}"), inventory.to_dict()
         recovered: list[str] = []
         for table in complete:
             if table.get("recovery_status") != "ok":
@@ -674,28 +789,40 @@ def _has_item_boundary(raw: str | None) -> bool:
 
 
 def source_positions_of(
-        resolved_payloads) -> tuple[SOI.SourceText, ...]:
+        resolved_payloads, *, aspect_id: str = "") -> tuple[SOI.SourceText, ...]:
     """把已解析 payload 投影为带**规范源位置**的源文本（P1-B.1）。
 
-    位置取自 payload locator：``document_version → page → block_range[0] → offset``。
-    清单随后按该规范顺序排序，绝不按 content-addressed material_id 排序。
+    位置取自 payload locator：``document_id → document_version → page → block_range[0] →
+    offset``，并绑定 ``source_boundary_identity``（P1-B.1/B.3：跨文档/跨版本/跨边界的同名
+    对象必须互不相同）。清单随后按该规范顺序排序，绝不按 content-addressed material_id 排序。
     """
     out: list[SOI.SourceText] = []
     for rp in resolved_payloads:
         loc = getattr(rp, "locator", None)
+        di = str(getattr(loc, "document_id", "") or "")
         dv = str(getattr(loc, "document_version", "") or "")
         page = getattr(loc, "page", None)
         br = getattr(loc, "block_range", None)
         off = getattr(loc, "offset", None)
         block_index = int(br[0]) if isinstance(br, (list, tuple)) and br else 0
         frag = int(off) if isinstance(off, int) else 0
+        section_path = getattr(loc, "section_path", "") or ""
         out.append(SOI.SourceText(
             position=SOI.SourcePosition(
                 document_version=dv,
                 page_number=int(page) if isinstance(page, int) else 0,
                 block_index=block_index,
                 fragment_offset=frag,
-                material_id=str(getattr(rp, "material_id", "") or "")),
+                material_id=str(getattr(rp, "material_id", "") or ""),
+                document_id=di,
+                source_boundary_identity=(
+                    TB.source_boundary_identity(
+                        aspect_id=aspect_id or "",
+                        document_id=di, document_version=dv,
+                        evidence_set_version=str(
+                            getattr(loc, "evidence_set_version", "") or ""),
+                        section_path=section_path)
+                    or section_path)),
             text=_content_of(rp).get("text", "") or ""))
     return tuple(out)
 
@@ -713,7 +840,7 @@ def build_source_object_inventory(
 
     即使 boundary proof 最终不闭合，调用方也必须生成并持久化本清单（绝不因提前 return 得到 null）。
     """
-    sources = source_positions_of(resolved_payloads)
+    sources = source_positions_of(resolved_payloads, aspect_id=aspect_id)
     inv = SOI.derive_expected_source_object_inventory(aspect_id, sources)
     return SOI.reconcile_source_object_inventory(inv, assemblies, known_material_ids)
 
@@ -932,7 +1059,16 @@ class FormalSetEnumerationVerifier:
                   resolved_payloads: tuple[TS.ResolvedPayload, ...],
                   dependency_fingerprint: str,
                   assemblies: tuple = (),
+                  known_material_ids: Iterable[str] | None = None,
                   ) -> TS.SetEnumerationResult | None:
+        """枚举该 aspect 的集合成员。
+
+        ``known_material_ids``：assembly component 外键的**存在性宇宙**。缺省（None）时退化为
+        本 aspect 的 formal 材料集合；生产调用方必须传入**本次运行全部已持久化材料**的
+        material_id 集合 —— 摊平表 assembly 的组件可能来自同一运行的 context_candidate 材料，
+        若只用 formal 子集做外键校验，会把**真实存在**的组件误判为悬空外键（§四.B.6/B.7：
+        清单与持久化 assembly 只有一个恢复事实来源）。
+        """
         version = self.verifier_version
         aspect_id = assessment.aspect_id
 
@@ -978,7 +1114,8 @@ class FormalSetEnumerationVerifier:
         elif aspect_id.endswith("main_business"):
             members, strategy_issue, source_object_inventory = _enumerate_business(
                 resolved_payloads, assemblies,
-                {m.material_id for m in materials})
+                known_material_ids if known_material_ids is not None
+                else {m.material_id for m in materials})
         else:
             members, strategy_issue = _enumerate_competitiveness(resolved_payloads)
             source_object_inventory = None

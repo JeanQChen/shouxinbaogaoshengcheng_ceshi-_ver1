@@ -1,0 +1,202 @@
+{
+  "boundary_verification_algorithm": "document_heading_structure_boundary_verification",
+  "boundary_verification_version": "1",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "aspects": [
+    {
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "records": [
+        {
+          "aspect_id": "company_competitiveness.core_competitiveness",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "f264ea4979ea82cbc84e6af4acbed8e4e46fcb0ce7c67cc9beb933991b1b58e6",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "公司竞争优势"
+          ],
+          "heading_levels": [],
+          "topic_level": 3,
+          "topic_level_source": "section_path_leaf",
+          "in_topic_anchor": "",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "7a5483c8c033a9ae229625880c9ba0b85ebea2091cfe2dc7d14ee0ce0121aa45",
+          "fragment_trace_fingerprint": "69a0f767bde3b4d461b3b524e02f5aa6ff6904c215ad52519bb3bfc7b71cfb3d",
+          "unread_scope": {},
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "no_in_topic_anchor: 未观察到任何可归入主题内的标题锚点",
+          "policy_version": "f97d3dfd01ee1d4fce0365d1f005ddfba65643565ea0edc05f9a4fe32a251776",
+          "verification": {
+            "aspect_id": "company_competitiveness.core_competitiveness",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "f97d3dfd01ee1d4fce0365d1f005ddfba65643565ea0edc05f9a4fe32a251776",
+            "cases": [
+              {
+                "heading": "（四）公司竞争优势",
+                "level": 3,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "1、宁德时代的长期核心竞争力，根植于以技术创新和领先产品为基石，持续驱动",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "2、一是研发为核，产品矩阵持续迭代。依托行业顶尖的研发团队与持续高强度的",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "3、二是市场领跑，全球化根基稳固。公司动力与储能电池市占率已连续多年领跑",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "4、三是极限制造，铸就品质与效率标杆。公司拥有全球规模最大的现有及在建产",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "5、四是全域增量，拓宽生态护城河。公司将电动化延伸至低空、船舶等更广阔领",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "0de543287aa812c78eb165f694c9580d",
+          "case_id": "candidate-7"
+        },
+        {
+          "aspect_id": "company_competitiveness.core_competitiveness",
+          "document_id": "NDSD_2025_year",
+          "document_version": "sha256-c15272977147dee7",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "5d07b7fbaad79388b8074b66f338c4fff29bd41847dfe90b7f3bcc71e9c7a823",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "管理层讨论与分析"
+          ],
+          "heading_levels": [
+            [
+              "（4） 公司已签订的重大销售合同、重大采购合同截至本报告期的履行情况",
+              5
+            ]
+          ],
+          "topic_level": 2,
+          "topic_level_source": "first_heading",
+          "in_topic_anchor": "",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [
+            {
+              "evidence_id": "926198c81c13b25dc545ef1d4e219a34",
+              "direction": "adjacent_blocks_after",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_boundary_out_of_topic",
+              "heading": "（4） 公司已签订的重大销售合同、重大采购合同截至本报告期的履行情况",
+              "level": 5,
+              "page_number": 27,
+              "block_index": 0
+            }
+          ],
+          "expansion_trace_fingerprint": "bee47d3064ed450efb42df2acfdad8d11e64a0f016c37413f9c3681124fd621d",
+          "fragment_trace_fingerprint": "6021ff9b5e668643a4893ee4d3df809b88564b042046b7aabe3506b71258874e",
+          "unread_scope": {
+            "reason": null,
+            "budget_axis": null,
+            "stop_reason": null,
+            "directions": [
+              {
+                "direction": "explicit_reference:discovered:1",
+                "target": "如下表",
+                "budget_axis": "explicit_references",
+                "reason": "dangling_target",
+                "stop_reason": "cross reference target dangling"
+              },
+              {
+                "direction": "explicit_reference:discovered:2",
+                "target": "下表",
+                "budget_axis": "explicit_references",
+                "reason": "dangling_target",
+                "stop_reason": "cross reference target dangling"
+              }
+            ]
+          },
+          "budget_exhaustion": [
+            {
+              "axis": "adjacent_blocks_before",
+              "consumed": 4,
+              "limit": 4
+            }
+          ],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [
+            {
+              "target": "如下表",
+              "direction": "explicit_reference:discovered:1",
+              "reason": "dangling_target",
+              "stop_reason": "cross reference target dangling"
+            },
+            {
+              "target": "下表",
+              "direction": "explicit_reference:discovered:2",
+              "reason": "dangling_target",
+              "stop_reason": "cross reference target dangling"
+            }
+          ],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "no_in_topic_anchor: 未观察到任何可归入主题内的标题锚点",
+          "policy_version": "f97d3dfd01ee1d4fce0365d1f005ddfba65643565ea0edc05f9a4fe32a251776",
+          "verification": {
+            "aspect_id": "company_competitiveness.core_competitiveness",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "f97d3dfd01ee1d4fce0365d1f005ddfba65643565ea0edc05f9a4fe32a251776",
+            "cases": [
+              {
+                "heading": "管理层讨论与分析",
+                "level": 2,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "四、主营业务分析",
+                "level": 2,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "1、概述",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+          "case_id": "candidate-8"
+        }
+      ]
+    }
+  ]
+}

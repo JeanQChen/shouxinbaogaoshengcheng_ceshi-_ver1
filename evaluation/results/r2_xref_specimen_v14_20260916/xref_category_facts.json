@@ -1,0 +1,158 @@
+{
+  "namespace": "explicit_reference_diagnostics.explicit_cross_reference",
+  "material_capability_namespace": "categories.major_subsidiaries",
+  "run_id": "r2_sixcat_v14_major_subsidiaries_20260916",
+  "run_dir": "evaluation/results/r2_material_slice_r2_sixcat_v14_major_subsidiaries_20260916",
+  "recomputed_at_utc": "2026-09-16T10:52:49.688539+00:00",
+  "recomputed_from": "harness.six_category_acceptance.verify_category（只读 run 目录原始产物，不信 runner 自报）",
+  "explicit_reference_state": "resolved",
+  "explicit_reference_audit": {
+    "state": "resolved",
+    "detail": "识别 + 尝试 + 真实解析成功，且目标经**独立复算**（标记 occurrence 偏移、目标对象身份与位置、同文档性、目标已采纳、且目标对象已作为引用表对象进入材料库并在 aspect/清单/验收逐层闭合）：目标 evidence=['c783f2277baa5eda1659bc5c3fab5d46']；结构性表引用尝试=1（已复核 1，进入材料库 1），命名引用尝试=0",
+    "trigger_detected": true,
+    "trigger_from_text": true,
+    "trigger_from_trace": true,
+    "declared_targets": [
+      "如下表"
+    ],
+    "trigger_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "trigger_targets": [
+      "如下表"
+    ],
+    "resolution_attempted": true,
+    "attempt_step_count": 1,
+    "attempt_outputs": [],
+    "resolved_targets": [],
+    "resolution_targets": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "verified_binding_targets": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "table_ref_attempt_count": 1,
+    "named_ref_attempt_count": 0,
+    "untyped_ref_attempt_count": 0,
+    "untyped_ref_attempts": [],
+    "named_ref_problems": [],
+    "reference_binding_checks": [
+      {
+        "step_index": 2,
+        "reference_target": "如下表",
+        "outputs": [],
+        "binding": {
+          "binding_version": "3",
+          "object_schema_version": "3",
+          "anchor_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+          "reference_kind": "table",
+          "reference_marker": "如下表",
+          "marker_start": 294,
+          "marker_end": 297,
+          "reference_occurrence_index": 0,
+          "marker_occurrence_count": 1,
+          "marker_offset_consistent": true,
+          "same_block_candidate_count": 1,
+          "candidate_object_ids": [
+            "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c"
+          ],
+          "nearest_candidate_reason": "unique_candidate",
+          "table_title_declared": "",
+          "company_id": "300750",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "resolution_scope": "same_block",
+          "target_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+          "target_object_id": "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c",
+          "target_table_title": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+          "target_unit": "",
+          "target_header_rows": [
+            "序号  重要的合营企业或联营企业  注册地  持股比例  对合营企业或联营企业"
+          ],
+          "target_header_decision": "second_row_is_first_body_row",
+          "target_column_count": 5,
+          "target_body_row_texts": [
+            "1  洛阳栾川钼业集团股份有限公司  洛阳市  24.9%  权益法"
+          ],
+          "target_body_rows": 1,
+          "target_closure_row": "",
+          "target_body_digest": "09b2a989651a44b050462bf5bb141410c2e105d8abfaf68e818c7ba036c9f0b8",
+          "target_structure_rows": 3,
+          "target_start": 300,
+          "target_end": 423,
+          "target_end_boundary": "prose_line",
+          "target_closed": false,
+          "reason": "same_block_first_verifiable_table_object_after_marker"
+        },
+        "problems": []
+      }
+    ],
+    "reference_binding_problems": [],
+    "reference_table_object_checks": [
+      {
+        "step_index": 2,
+        "table_object_id": "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c",
+        "target_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "problems": []
+      }
+    ],
+    "reference_table_object_problems": [],
+    "verified_reference_object_ids": [
+      "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c"
+    ],
+    "duplicate_consumption": [],
+    "unbacked_outputs": [],
+    "target_resolved": true,
+    "target_dangling": false,
+    "seed_document_identity": [
+      "300750",
+      "NDSD_KCZ_2026",
+      "sha256-2b3a1fb3de97f23c",
+      "set-501395a7ad5a"
+    ],
+    "attempt_documents": [
+      [
+        "300750",
+        "NDSD_KCZ_2026",
+        "sha256-2b3a1fb3de97f23c",
+        "set-501395a7ad5a"
+      ]
+    ],
+    "attempt_document_mismatches": [],
+    "attempt_document_unknown_steps": [],
+    "same_document_bound": true,
+    "dangling_attempted": false,
+    "attempt_stop_reasons": [
+      "target exhausted"
+    ],
+    "trace_stop_reasons": [
+      "previous section heading (backward rollback)",
+      "target exhausted"
+    ],
+    "explicit_direction_unread": 0,
+    "not_exercised": false
+  },
+  "reference_table_object_projections": [
+    {
+      "assembly_id": "asm-df3f64f94b1162d70bf3850b959ae3da",
+      "table_object_id": "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c",
+      "table_title": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+      "object_schema_version": "3",
+      "binding_version": "3",
+      "component_evidence_ids": [
+        "c783f2277baa5eda1659bc5c3fab5d46"
+      ],
+      "component_material_ids": [
+        "mat-8598026babf35bdd5b094206fd0f3f66"
+      ],
+      "target_start": 300,
+      "target_end": 423,
+      "reference_kind": "table",
+      "reference_marker": "如下表",
+      "reference_occurrence_index": 0
+    }
+  ],
+  "reference_table_object_projection_count": 1,
+  "claim_scope": "本文件只陈述**引用机制**在新 run 上被演练到什么程度；不构成对任何类别 material_state / capability_verdict 的判定"
+}

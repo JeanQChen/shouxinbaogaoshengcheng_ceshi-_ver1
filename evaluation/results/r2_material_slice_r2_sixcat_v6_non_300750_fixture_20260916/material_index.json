@@ -1,0 +1,29 @@
+[
+  {
+    "material_id": "mat-af55be316eb53661a2abd589378b922e",
+    "material_type": "evidence_span",
+    "source_identity": "evidence:2109887f173b802cef307a5328356ead",
+    "component_evidence_id": "2109887f173b802cef307a5328356ead",
+    "source_content_hash": "ec2b4f5ab3e084472f263b05da2f3c4a505653ed1517bf515d657c37346cdd0b",
+    "payload_hash": "8318a2aa4d5283b917790319b75ed8b6ef4a9c30fe7dc93b4074f4f78df37122",
+    "document_id": "NDSD_DEMO",
+    "document_version": "v-demo-001",
+    "section_path": "主营业务分析",
+    "page": 1,
+    "block_range": [
+      0,
+      0
+    ],
+    "table_title": null,
+    "authority_verdict": "authoritative",
+    "boundary_disposition": "seed",
+    "boundary_reason_code": "seed",
+    "aspect_roles": {
+      "company_business_main.main_business": "source"
+    },
+    "aspect_role": "source",
+    "aspect_ids": [
+      "company_business_main.main_business"
+    ]
+  }
+]

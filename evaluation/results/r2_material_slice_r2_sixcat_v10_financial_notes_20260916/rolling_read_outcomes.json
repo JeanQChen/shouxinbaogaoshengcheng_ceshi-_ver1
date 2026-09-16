@@ -1,0 +1,15 @@
+{
+  "targets": [],
+  "direction_unread": [
+    {
+      "direction": "adjacent_blocks_after",
+      "target": "",
+      "budget_axis": "adjacent_blocks_after",
+      "reason": "boundary",
+      "stop_reason": "seed block forward boundary: 七、合并财务报表项目注释",
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "case_id": "financial-notes-1"
+    }
+  ]
+}

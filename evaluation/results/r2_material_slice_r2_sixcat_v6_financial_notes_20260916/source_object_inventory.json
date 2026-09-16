@@ -1,0 +1,94 @@
+{
+  "company_finance.notes_to_financial_statements": {
+    "version": "2",
+    "aspect_id": "company_finance.notes_to_financial_statements",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_2024_year",
+    "source_boundary_identity": "5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(1)应收票据分类列示",
+        "kind": "table_start_signal",
+        "label": "（1） 应收票据分类列示",
+        "source_text_index": 0,
+        "line_index": 25,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "page_number": 166,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8",
+        "source_object_id": "NDSD_2024_year|sha256-b4f1713d7b821eb0|5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8|title:(1)应收票据分类列示"
+      },
+      {
+        "object_id": "title:(2)期末公司已质押的应收票据",
+        "kind": "table_start_signal",
+        "label": "（2） 期末公司已质押的应收票据",
+        "source_text_index": 0,
+        "line_index": 32,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "page_number": 166,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8",
+        "source_object_id": "NDSD_2024_year|sha256-b4f1713d7b821eb0|5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8|title:(2)期末公司已质押的应收票据"
+      },
+      {
+        "object_id": "title:(1)按账龄披露",
+        "kind": "table_start_signal",
+        "label": "（1） 按账龄披露",
+        "source_text_index": 0,
+        "line_index": 44,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "page_number": 166,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8",
+        "source_object_id": "NDSD_2024_year|sha256-b4f1713d7b821eb0|5b1a1a5a251c5808c6c49868c87a632440cffd69b1b791ad6db316cca31ec4f8|title:(1)按账龄披露"
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(1)应收票据分类列示",
+        "result": "recovered_ok",
+        "matched_table": "（1） 应收票据分类列示",
+        "issue": "",
+        "assembly_id": "asm-7655548cefc68cf706e1ab8e873d95f0",
+        "component_material_ids": [
+          "mat-d71b480f83f65eb0686d68cc9dacf74e"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:(2)期末公司已质押的应收票据",
+        "result": "recovered_ok",
+        "matched_table": "（2） 期末公司已质押的应收票据",
+        "issue": "",
+        "assembly_id": "asm-466b28b524cc82c97825c808a693623d",
+        "component_material_ids": [
+          "mat-d71b480f83f65eb0686d68cc9dacf74e"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:(1)按账龄披露",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（1） 按账龄披露' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      }
+    ],
+    "unmatched_recovered_tables": [],
+    "orphan_assemblies": []
+  }
+}

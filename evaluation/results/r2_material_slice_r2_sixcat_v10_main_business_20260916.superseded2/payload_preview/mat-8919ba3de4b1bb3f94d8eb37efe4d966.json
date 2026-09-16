@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-8919ba3de4b1bb3f94d8eb37efe4d966",
+  "component_evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+  "source_content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+  "payload_hash": "c4f7067395d44d26b51b074ae5a449bd06d49dc8a4173fc7e58751aea2946cd5",
+  "payload": "{\"authority_identity\":\"evidence:d1606fc111d0de496c337714ddbb3dfa\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"项目  2025年  2024年度  2023年度\\n  金额  占比  金额  占比  金额  占比\\n动力电池系统  24,106,439.7  77.2  19,246,128.2  70.4  22,171,419.3  71.7\\n储能电池系统  4,576,368.9  14.6  4,191,400.3  15.3  4,564,778.2  14.8\\n电池材料及回收  1,589,981.3  5.1  2,568,291.6  9.4  2,977,774.5  9.6\\n电池矿产资源  530,559.9  1.7  502,461.1  1.8  619,789.0  2.0\\n其他业务成本  434,979.9  1.4  843,614.7  3.1  573,282.4  1.9\\n\\n49\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"d1606fc111d0de496c337714ddbb3dfa\",\"locator\":{\"block_range\":[1,1],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":null,\"page\":50,\"section_path\":\"主营业务情况\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9\"}"
+}

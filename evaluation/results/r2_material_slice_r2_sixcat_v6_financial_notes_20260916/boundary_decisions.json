@@ -1,0 +1,182 @@
+{
+  "boundary_disposition_version": "1",
+  "topic_boundary_version": "2",
+  "decisions": [
+    {
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 166,
+      "block_index": 0,
+      "section_path": [
+        "合并财务报表项目注释"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "合并财务报表项目注释"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable",
+        "boundary_status",
+        "boundary_policy_unavailable",
+        "topic_level_source",
+        "section_path_leaf"
+      ],
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05"
+    }
+  ],
+  "policy_status": {
+    "company_finance.notes_to_financial_statements": {
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "status": "boundary_policy_unavailable",
+      "eligible": false,
+      "reason": "boundary_policy_unavailable: aspect 不在冻结 Contract v2 topic_harness 覆盖内",
+      "topic_level": 2,
+      "topic_level_source": "section_path_leaf",
+      "verification": {
+        "aspect_id": "company_finance.notes_to_financial_statements",
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "evidence_set_version": "set-501395a7ad5a",
+        "source_boundary_identity": "c7febe9a6aaf4ced221dfeb7c56b479d5d35b3e56604cb18ee8bb953c85e6adc",
+        "verification_algorithm": "document_heading_structure_boundary_verification",
+        "verification_version": "1",
+        "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+        "section_path": [
+          "合并财务报表项目注释"
+        ],
+        "heading_levels": [],
+        "topic_level": 2,
+        "topic_level_source": "section_path_leaf",
+        "in_topic_anchor": "",
+        "sibling_evidence": [],
+        "parent_evidence": [],
+        "out_of_topic_evidence": [],
+        "expansion_trace_fingerprint": "b10957fcc6a097480d174c2c9050d4a0d11c97851a4e8f7a33b4500dadf5ea3a",
+        "fragment_trace_fingerprint": "69a0f767bde3b4d461b3b524e02f5aa6ff6904c215ad52519bb3bfc7b71cfb3d",
+        "unread_scope": {},
+        "budget_exhaustion": [],
+        "unresolved_ambiguity": [],
+        "unresolved_reference": [],
+        "unresolved_continuation": [],
+        "status": "unavailable",
+        "reason": "boundary_policy_unavailable: aspect 不在冻结 Contract v2 topic_harness 覆盖内",
+        "policy_version": "2",
+        "verification": {
+          "aspect_id": "company_finance.notes_to_financial_statements",
+          "verified": false,
+          "reason": "boundary_policy_unavailable: aspect 不在冻结 Contract v2 topic_harness 覆盖内",
+          "policy_version": "",
+          "cases": [
+            {
+              "heading": "七、合并财务报表项目注释",
+              "level": 2,
+              "relation": "topic_heading",
+              "source": "section_path"
+            },
+            {
+              "heading": "1、货币资金",
+              "level": 4,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "2、交易性金融资产",
+              "level": 4,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "3、应收票据",
+              "level": 4,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "（1） 应收票据分类列示",
+              "level": 5,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "（2） 期末公司已质押的应收票据",
+              "level": 5,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "第十节 财务报告”之“ 七、合并财务报表项目注释”“24、所有权或使用权受到",
+              "level": 1,
+              "relation": "sibling_or_outer",
+              "source": "block_heading"
+            },
+            {
+              "heading": "七、合并财务报表项目注释”“24、所有权或使用权受到",
+              "level": 2,
+              "relation": "sibling_or_outer",
+              "source": "block_heading"
+            },
+            {
+              "heading": "24、所有权或使用权受到",
+              "level": 4,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "4、应收账款",
+              "level": 4,
+              "relation": "child",
+              "source": "block_heading"
+            },
+            {
+              "heading": "（1） 按账龄披露",
+              "level": 5,
+              "relation": "child",
+              "source": "block_heading"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "decision_identities": [
+    {
+      "identity": [
+        "company_finance.notes_to_financial_statements",
+        "e6b14793486ce974a8291e94f1489b05",
+        "seed",
+        "seed",
+        "seed",
+        "seed",
+        [
+          "合并财务报表项目注释"
+        ],
+        "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "e6b14793486ce974a8291e94f1489b05",
+          "direction": "seed",
+          "relation": "seed"
+        }
+      ]
+    }
+  ],
+  "effective_disposition_by_aspect_evidence": [
+    {
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "disposition": "seed",
+      "reason_code": "seed"
+    }
+  ]
+}

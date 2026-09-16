@@ -1,0 +1,31 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "de4fabe4fb2f3e8574c31f1d349167be9298d64486f093bc6d97b1eadf654b86",
+  "entries": [
+    {
+      "case_id": "fixture-generic-company-1",
+      "company_id": "100001",
+      "aspect_id": "company_business_main.main_business",
+      "query": "主营业务",
+      "evidence_id": "2109887f173b802cef307a5328356ead",
+      "document_id": "NDSD_DEMO",
+      "document_version": "v-demo-001",
+      "evidence_set_version": "set-demo-1",
+      "page_number": 1,
+      "block_index": 0,
+      "section_path": [
+        "主营业务分析"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "ec2b4f5ab3e084472f263b05da2f3c4a505653ed1517bf515d657c37346cdd0b",
+      "selection_reason": "非目标公司合成 fixture（证明无公司硬编码）",
+      "text": "（二）主营业务情况\n表 1 主营业务收入构成表\n单位：万元\n项目  2025年  2024年\n智能装备  12,000  10,000\n软件服务  8,000  6,500\n合计  20,000  16,500\n公司主营业务收入主要来自智能装备与软件服务两大板块。\n",
+      "source_name": "示例年报.pdf",
+      "source_tool": "synthetic_fixture",
+      "rank": 1,
+      "score": 1.0,
+      "is_current_document": true,
+      "is_current_set": true
+    }
+  ]
+}

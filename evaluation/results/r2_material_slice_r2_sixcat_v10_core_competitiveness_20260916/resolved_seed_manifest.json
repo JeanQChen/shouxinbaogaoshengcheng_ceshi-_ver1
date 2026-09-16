@@ -1,0 +1,24 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "94a53faf31398e87ae282ba93a28e8227f02d452e263dd7ca0b9a7e20b3c62e9",
+  "entries": [
+    {
+      "case_id": "candidate-7",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "0de543287aa812c78eb165f694c9580d",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "seed block forward boundary: （四）公司竞争优势",
+      "material_count": 1
+    },
+    {
+      "case_id": "candidate-8",
+      "aspect_id": "company_competitiveness.core_competitiveness",
+      "evidence_id": "b6a54ec22e3f44d1a521faf7bb176d95",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "seed block forward boundary: 四、主营业务分析",
+      "material_count": 5
+    }
+  ]
+}

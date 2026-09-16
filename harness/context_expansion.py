@@ -22,19 +22,31 @@ from harness.evidence_reader import (
     RESOLVE_SEED_IDENTITY_TOOL_NAME,
     TOOL_NAME,
     EvidenceReadResult,
+    ReferenceOccurrence,
+    iter_reference_occurrences,
     table_title_of,
 )
+from harness.evidence_reader import (
+    _NAMED_REFERENCE_MARKERS as ER_NAMED_REFERENCE_MARKERS,
+    _NAMED_REFERENCE_TERMINATORS as ER_NAMED_REFERENCE_TERMINATORS,
+    _TABLE_REFERENCE_MARKERS as ER_TABLE_REFERENCE_MARKERS,
+)
 from harness import heading_structure as HS
+from harness.table_structure import open_table_signature
 from harness.topic_boundary import (
     TOPIC_IN_TOPIC,
     TOPIC_OUT_OF_TOPIC,
     BOUNDARY_POLICY_UNAVAILABLE,
     BOUNDARY_SEMANTICS_VERIFIED,
+    DIRECTION_AFTER,
+    DIRECTION_BEFORE,
     block_start_topic_class,
     boundary_eligibility,
+    build_boundary_verification_record,
     classify_heading_topic,
     find_topic_boundary,
     is_structurally_outer_heading,
+    source_boundary_identity,
     verify_boundary_semantics,
     verification_cases_from_material,
 )
@@ -94,10 +106,12 @@ BOUNDARY_DISPOSITIONS = (
 DISPOSITION_FRAGMENT_PROJECTION = "fragment_projection"
 
 # 交叉引用标记：命名章节引用（详见/参见）与结构性表引用（见下表/如下表/下表/续表/接上表）。
-_NAMED_REFERENCE_MARKERS = ("详见", "参见")
-_TABLE_REFERENCE_MARKERS = ("见下表", "如下表", "下表", "续表", "接上表")
+# **单一真相**：标记表与 occurrence 扫描都在 ``harness.evidence_reader``（那里也是解析侧）；
+# 本模块只保留同名别名，避免出现「检测侧/解析侧各一套标记表」。
+_TABLE_REFERENCE_MARKERS = ER_TABLE_REFERENCE_MARKERS
+_NAMED_REFERENCE_MARKERS = ER_NAMED_REFERENCE_MARKERS
 # 命名引用目标终止符（句末/分号）；换行不作终止，因 PDF 提取会把目标折行。
-_REFERENCE_TARGET_TERMINATORS = ("。", "；")
+_REFERENCE_TARGET_TERMINATORS = ER_NAMED_REFERENCE_TERMINATORS
 
 
 # ---------------------------------------------------------------------------
@@ -167,35 +181,32 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text))
 
 
-def _detect_reference_targets(text: str) -> tuple[str, ...]:
-    """提取 seed 文本中的显式交叉引用**目标**（不是仅标记词）。
+def detect_reference_occurrences(text: str) -> tuple[ReferenceOccurrence, ...]:
+    """**唯一**的显式引用提取规则（生产侧与验收侧共用）：逐 occurrence 返回 typed 身份。
 
-    通用确定性提取（无 LLM/公司硬编码）：
-    - 结构性表引用（见下表/如下表/下表/续表/接上表）→ 返回标记本身，executor 按
-      「seed 之后同 section 第一个 table」确定性解析；
-    - 命名引用（详见/参见 …）→ 取标记后到句末/分号为止的目标文本（含「N、标题」
-      编号，供 find_by_section_reference 解析叶子编号），例如
-      「详见 …“24、所有权或使用权受到限制的资产”」→ 该目标文本。
-    提取不到目标 → 空（该方向不产生读取）。
+    §二（v13 P1-1）：生产侧引用检测**直接返回 occurrence**，而不是只返回字符串 ——
+    旧实现按标记字符串做 ``m in text`` 子串判定，同一处「如下表」会被同时匹配成「如下表」
+    与它的子串「下表」，于是同一次引用发出两条请求；且请求不携带身份，读取侧只能取
+    ``occurrences[0]``。现在每个 occurrence 自带 ``marker/start/end/index/kind/declared_target``，
+    请求逐字携带该身份，读取侧按身份解析，验收侧三方比对（请求 ↔ 绑定 ↔ 正文重算）。
+    零 LLM/公司硬编码。
     """
-    targets: list[str] = []
-    for m in _TABLE_REFERENCE_MARKERS:
-        if m in text:
-            targets.append(m)
-    for m in _NAMED_REFERENCE_MARKERS:
-        idx = text.find(m)
-        while idx != -1:
-            tail = text[idx + len(m):]
-            end = len(tail)
-            for term in _REFERENCE_TARGET_TERMINATORS:
-                p = tail.find(term)
-                if p != -1 and p < end:
-                    end = p
-            target = tail[:end].strip(" \t\r\n“”‘’\"'（）()：:，,")
-            if target:
-                targets.append(target)
-            idx = text.find(m, idx + len(m))
-    return tuple(targets)
+    return iter_reference_occurrences(text)
+
+
+def _detect_reference_targets(text: str) -> tuple[str, ...]:
+    """目标**文本**投影（表引用 = 标记本身；命名引用 = 目标文本）；提取不到 → 空。"""
+    return tuple(o.request_target for o in detect_reference_occurrences(text)
+                 if o.request_target)
+
+
+def detect_reference_targets(text: str) -> tuple[str, ...]:
+    """公开入口：显式引用目标的**唯一**通用提取规则（生产侧与验收侧共用，绝不复制第二套）。
+
+    验收侧（``harness.six_category_acceptance``）用它从**真实材料文本**判定「是否存在引用标记」，
+    从而使「未测（无触发/无尝试）」与「已尝试但不可达」可被确定性区分。
+    """
+    return _detect_reference_targets(text)
 
 
 # ---------------------------------------------------------------------------
@@ -390,6 +401,22 @@ class ExpansionStep:
     tool_version: str | None = None
     # 逐块 adopt/reject 理由（§三.6）：(evidence_id, outcome) outcome ∈ adopt|dup|boundary|budget。
     block_outcomes: tuple[tuple[str, str], ...] = ()
+    # §三.3：本步所属的 **seed frontier**（真实 seed evidence_id）。没有它，「续表材料是否
+    # 回指**同一 seed/frontier** 的真实扩读链」在产物层不可判定 —— 第二 seed 的步骤会与
+    # 第一 seed 的步骤混为一谈。逐 seed 独立记录，绝不跨 seed 归因。
+    seed_evidence_id: str = ""
+    # §三.3/§二 P1-A：本步**真实锚点块**的 evidence_id（读取是从哪一块发起的）。
+    # seed 自身的读取（adjacent / seed 引用）锚点即 seed；续表与「新采纳材料再入 frontier」
+    # 的读取锚点是该锚点块；由后续材料发现的引用锚点是发起块。验收侧据此重建「同一
+    # seed/frontier 内发起过哪些读取」，**无需从缺省字段推断**（缺省推断会让真实续表扩读
+    # 步骤被误判为「锚点不在任何 frontier」）。
+    anchor_evidence_id: str = ""
+    # §二（R2 定点修复）：结构性表引用的**确定性绑定记录**（anchor/marker occurrence 偏移/
+    # 目标对象身份与位置/同块或后续块/文档版本集合身份/理由）。没有它，验收侧只能凭
+    # 「输出属于已采纳材料」判 resolved —— 那正是错误绑定的错误正例来源（输出的确是真实
+    # 已采纳材料，但与引用对象不匹配）。绑定由**读取侧**（执行器）派生并逐字进 trace，
+    # 验收侧据此**独立复算**，不信任步骤自报。
+    reference_binding: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -412,23 +439,77 @@ class UnreadScope:
 
 @dataclass(frozen=True)
 class FragmentProjection:
-    """修复 A：mixed block 的主题内前缀片段投影（保留完整原子材料，另建有界关联）。
+    """修复 A + A.8：mixed block 的**按方向切出**的主题内片段投影（保留完整原子材料）。
 
-    引用**完整原子 EvidenceBlock**（``evidence_id``/``content_hash`` 不变），仅投影
-    「首个主题外标题之前」的主题内前缀（``prefix_text = block.text[:char_offset]``）。
-    不新建材料类型、不修改原文/来源 content_hash；真正有界关联经 locator.offset 表达。
+    引用**完整原子 EvidenceBlock**（``evidence_id``/``content_hash`` 不变），仅投影该块中
+    **文档结构证明的主题内区域**：
+    - 前向块（本块在 seed 之后）：首个边界标题之前的文本；
+    - 后向块（本块在 seed 之前）：块内最后一个主题内标题之后、下一个边界标题之前的文本
+      （块首的上一章节正文绝不进入片段）。
+    不新建材料类型、不修改原文/来源 content_hash；有界关联经 locator.offset 表达。
     """
 
     evidence_id: str
     block: EvidenceReadResult
-    char_offset: int                # 边界标题起始字符位置
-    prefix_text: str                # 主题内相关前缀（原文[:char_offset] 的 strip 后）
-    out_of_topic_heading: str       # 首个边界标题（主题外或结构性关闭的兄弟小节标题）
+    direction: str                  # adjacent_blocks_before | adjacent_blocks_after
+    fragment_start: int             # 片段起始字符位置（含）
+    fragment_end: int               # 片段结束字符位置（不含）
+    fragment_text: str              # 主题内片段文本（原文[start:end] 的 strip 后）
+    boundary_heading: str           # 界定该片段的边界标题（主题外或结构性关闭的兄弟标题）
+    fragment_grounding: str = ""    # boundary_heading_prefix | in_topic_heading_suffix
 
     def fragment_identity(self) -> tuple:
         """片段投影身份（P1-A.6）：与同 evidence 的原始哨兵身份互不相同（locator 维度）。"""
-        return ("fragment_projection", self.evidence_id, self.char_offset,
-                self.block.content_hash)
+        return ("fragment_projection", self.evidence_id, self.direction,
+                self.fragment_start, self.fragment_end, self.block.content_hash)
+
+    @property
+    def char_offset(self) -> int:
+        """locator 中的有界偏移：前向 = 片段结束（边界标题起始），后向 = 片段起始。"""
+        return self.fragment_end if self.direction == DIRECTION_AFTER else self.fragment_start
+
+    @property
+    def prefix_text(self) -> str:
+        """主题内片段文本（兼容旧名；方向语义见 ``fragment_grounding``）。"""
+        return self.fragment_text
+
+    @property
+    def out_of_topic_heading(self) -> str:
+        """界定片段的首个边界标题（兼容旧名）。"""
+        return self.boundary_heading
+
+
+def _fragment_signals(tb) -> tuple[str, ...]:
+    """边界决策中的片段证据信号（真实观察：方向/锚定方式/字符区间/片段文本）。"""
+    if not tb.has_fragment:
+        return ()
+    return ("fragment_direction", tb.direction,
+            "fragment_grounding", tb.fragment_grounding,
+            "fragment_start", str(tb.fragment_start),
+            "fragment_end", str(tb.fragment_end),
+            "fragment_text", tb.fragment_text[:200])
+
+
+def _fragment_projection(block, direction: str, tb) -> "FragmentProjection":
+    """由**已证明有主题内片段**的边界判定构造片段投影（绝不伪造空/越界片段）。"""
+    return FragmentProjection(
+        evidence_id=block.evidence_id, block=block, direction=direction,
+        fragment_start=int(tb.fragment_start), fragment_end=int(tb.fragment_end),
+        fragment_text=tb.fragment_text,
+        boundary_heading=tb.boundary_heading or "",
+        fragment_grounding=tb.fragment_grounding)
+
+
+def _seed_boundary_signals(tb) -> tuple[str, ...]:
+    """seed 自身前向边界信号（A.8）：把「seed 内部已关闭边界」写成真实结构观察。"""
+    if tb is None:
+        return ()
+    return ("seed_block_forward_boundary", tb.boundary_heading or "",
+            "boundary_kind",
+            "out_of_topic" if tb.has_out_of_topic else "sibling_section_closed",
+            "heading_level", str(tb.closure_level),
+            "topic_level", str(tb.topic_level),
+            "in_topic_prefix_end", str(tb.fragment_end))
 
 
 @dataclass(frozen=True)
@@ -443,6 +524,10 @@ class ContextExpansionRequest:
     dependency_fingerprint: str
     # 修复 A：主题边界分类按 aspect 版本化；None 表示不启用主题边界分类（回退既有逻辑）。
     aspect_id: str | None = None
+    # P1-A.3（v6）：同 aspect/同 document_version 内由**其它 seed 的真实文本**（文档自身
+    # 标题层级）确定的主题小节标题层级。仅当本 seed 文本未命中 section_path 叶子标题时
+    # 使用；None 表示无文档结构证据 → 层级 unknown，绝不用「首个标题层级」猜测。
+    topic_level_hint: int | None = None
 
 
 @dataclass(frozen=True)
@@ -472,6 +557,15 @@ class ExpansionResult:
     # P1-A.3：主题小节标题层级（文档结构权威）与其来源（section_path_leaf/first_heading/unknown）。
     topic_level: int | None = None
     topic_level_source: str = "unknown"
+    # 运行时派生的边界验证记录（身份 + 观察 + verified/incomplete/unavailable 状态）。
+    # 诚实的 ``incomplete`` 是合法结论（material_state=boundary_incomplete），不是缺陷。
+    boundary_verification_record: dict = field(default_factory=dict)
+    # P1-C.2：逐**引用/续表目标**的滚动扩读观察（limit+1 探针 / has_more / 预算消耗 /
+    # 未读范围 / 未决原因 / 停止原因），每个目标独立一行，绝不互相覆盖。
+    target_outcomes: tuple[dict, ...] = ()
+    # P1-C.4：逐方向未读因果链（方向 → 原因/预算轴/停止原因），某一方向的最终 stop
+    # 绝不覆盖另一方向已记录的未读原因。
+    direction_unread: tuple[dict, ...] = ()
 
     @property
     def outside_boundary_sentinels(self) -> tuple[BoundaryDecision, ...]:
@@ -526,6 +620,13 @@ def expand(request: ContextExpansionRequest, registry, *,
     boundary_eligible = False
     boundary_reason = ""
     boundary_verification: dict = {}
+    boundary_verification_obj = None
+    # seed 复验结果块（authority 失败路径下未赋值；boundary_record 需安全读取）。
+    seed_block = None
+    boundary_semantics = None
+    # P1-C.2/C.4：逐目标滚动观察 + 逐方向未读因果链（互不覆盖）。
+    target_outcomes: list[dict] = []
+    direction_unread: list[dict] = []
 
     def remaining(axis: str) -> int:
         return max(0, budget.as_limits()[axis] - consumed.get(axis, 0))
@@ -539,14 +640,22 @@ def expand(request: ContextExpansionRequest, registry, *,
                     result_error_code: str | None = None,
                     result_trace_id: str | None = None,
                     tool_version: str | None = None,
-                    block_outcomes: tuple[tuple[str, str], ...] = ()) -> None:
+                    block_outcomes: tuple[tuple[str, str], ...] = (),
+                    anchor_evidence_id: str | None = None,
+                    reference_binding: dict | None = None) -> None:
         steps.append(ExpansionStep(
             step_index=len(steps), action=action, tool_call=call,
             inputs=dict(inputs), outputs=tuple(outputs),
             stop_reason=step_stop, budget_remaining=snapshot_remaining(),
             result_status=result_status, result_error_code=result_error_code,
             result_trace_id=result_trace_id, tool_version=tool_version,
-            block_outcomes=block_outcomes))
+            block_outcomes=block_outcomes,
+            seed_evidence_id=str(getattr(seed, "evidence_id", "") or ""),
+            # §三.3：未显式给出锚点时，本步锚点就是本请求的 seed（seed 自身的读取）。
+            anchor_evidence_id=str(
+                anchor_evidence_id if anchor_evidence_id is not None
+                else (getattr(seed, "evidence_id", "") or "")),
+            reference_binding=dict(reference_binding) if reference_binding else None))
 
     def issue(arguments: dict, idem: str, tool_name: str = TOOL_NAME
               ) -> tuple[C.ToolCall, C.ToolResult]:
@@ -586,6 +695,50 @@ def expand(request: ContextExpansionRequest, registry, *,
             seed_section_path=seed.section_path,
             path_quality=section_path_quality(block.section_path),
             structural_signals=signals))
+
+    def boundary_record(verification) -> tuple[object | None, dict]:
+        """运行时派生 ``BoundaryVerificationRecord``（§四.A.1–A.3）。
+
+        输入全部是**本次运行真实观察到的文档结构**：实际 section_path/标题层级、in-topic
+        anchor、sibling/parent/out-of-topic 边界证据、扩读/片段 trace 指纹、未读范围、预算
+        耗尽、未决歧义/引用/续表。绝不以 Contract 词表自洽代替真实边界验证。
+        """
+        unresolved_reference = tuple(
+            {"target": t.get("target", ""), "direction": t.get("direction", ""),
+             "reason": t.get("unresolved_reason", ""), "stop_reason": t.get("stop_reason", "")}
+            for t in target_outcomes
+            if t.get("mode") == "explicit_reference" and t.get("unresolved_reason"))
+        unresolved_continuation = tuple(
+            {"target": t.get("target", ""), "direction": t.get("direction", ""),
+             "reason": t.get("unresolved_reason", ""), "stop_reason": t.get("stop_reason", "")}
+            for t in target_outcomes
+            if t.get("mode") == "table_continuation" and t.get("unresolved_reason"))
+        unread_scope = {}
+        if direction_unread:
+            unread_scope = {
+                "reason": unread_reason, "budget_axis": unread_axis,
+                "stop_reason": unread_stop_reason,
+                "directions": [dict(u) for u in direction_unread],
+            }
+        rec = build_boundary_verification_record(
+            aspect_id=request.aspect_id or "",
+            document_id=request.document_id,
+            document_version=request.document_version,
+            evidence_set_version=request.evidence_set_version,
+            section_path=tuple(seed.section_path or ()),
+            dependency_fingerprint=request.dependency_fingerprint,
+            verification=verification,
+            topic_level=topic_level,
+            topic_level_source=topic_level_source,
+            seed_heading=seed_block.text if seed_block is not None else "",
+            boundary_decisions=tuple(d.to_dict() for d in boundary_decisions),
+            fragment_identities=tuple(f.fragment_identity() for f in fragments),
+            unread_scope=unread_scope,
+            budget_consumed=dict(consumed),
+            budget_limits=budget.as_limits(),
+            unresolved_reference=unresolved_reference,
+            unresolved_continuation=unresolved_continuation)
+        return rec, rec.to_dict()
 
     def classify(block: EvidenceReadResult, relation: str,
                  section_check: bool, page_check: bool, direction: str,
@@ -668,7 +821,9 @@ def expand(request: ContextExpansionRequest, registry, *,
         # （table_continuation/explicit_reference 的目标块不做主题边界分类）。
         if request.aspect_id is not None and relation == "adjacent":
             tb = find_topic_boundary(block.text, request.aspect_id,
-                                     topic_level=topic_level)
+                                     topic_level=topic_level, direction=direction,
+                                     section_path=seed.section_path)
+            frag_signals = _fragment_signals(tb)
             if tb.has_out_of_topic:
                 record_decision(
                     block, DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL,
@@ -677,11 +832,9 @@ def expand(request: ContextExpansionRequest, registry, *,
                      "stop_direction", "true",
                      "heading_level", str(tb.closure_level),
                      "topic_level", str(tb.topic_level),
-                     "relevant_prefix", tb.relevant_prefix[:200]))
-                fragments.append(FragmentProjection(
-                    evidence_id=block.evidence_id, block=block,
-                    char_offset=tb.char_offset or 0, prefix_text=tb.relevant_prefix,
-                    out_of_topic_heading=tb.out_of_topic_heading or ""))
+                     "topic_level_source", topic_level_source) + frag_signals)
+                if tb.has_fragment:
+                    fragments.append(_fragment_projection(block, direction, tb))
                 return "boundary", "topic boundary (out-of-topic heading)", None, None
             # 块首即主题外标题（无主题内前缀）：直接哨兵停止，无片段投影。
             if block_start_topic_class(block.text, request.aspect_id) == TOPIC_OUT_OF_TOPIC:
@@ -693,27 +846,20 @@ def expand(request: ContextExpansionRequest, registry, *,
                 return "boundary", "topic boundary (out-of-topic heading)", None, None
             # P1-A.4：文档结构证明的**兄弟小节标题**（层级 ≤ 主题小节标题层级）→ 主题小节
             # 在此关闭。它**不是**主题外（不冒充 out_of_topic），也不回溯撤回同 Topic 材料；
-            # 只关闭边界、停止该方向，并保留主题内前缀片段投影。
+            # 只关闭边界、停止该方向，并保留主题内片段投影（A.8：按方向切出，绝不取边界
+            # 标题之前的任意文本）。
             if tb.has_closure:
                 signals = ("topic_section_closed", tb.closure_heading or "",
                            "closure_kind", tb.closure_kind or "",
                            "heading_level", str(tb.closure_level),
                            "topic_level", str(tb.topic_level),
                            "topic_level_source", topic_level_source)
-                if not tb.relevant_prefix:
-                    # 块首即兄弟小节标题：整块不属于本主题小节（无前缀可投影）。
-                    record_decision(
-                        block, DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL,
-                        REASON_TOPIC_SECTION_CLOSED, relation, direction, signals)
-                    return "boundary", "topic section closed (sibling heading)", None, None
                 record_decision(
                     block, DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL,
                     REASON_TOPIC_SECTION_CLOSED, relation, direction,
-                    signals + ("relevant_prefix", tb.relevant_prefix[:200]))
-                fragments.append(FragmentProjection(
-                    evidence_id=block.evidence_id, block=block,
-                    char_offset=tb.char_offset or 0, prefix_text=tb.relevant_prefix,
-                    out_of_topic_heading=tb.closure_heading or ""))
+                    signals + frag_signals)
+                if tb.has_fragment:
+                    fragments.append(_fragment_projection(block, direction, tb))
                 return "boundary", "topic section closed (sibling heading)", None, None
         # 采纳：inside_boundary 或 context_candidate（保守，均非 supporting）。
         mixed_heading = _detect_new_heading_inside(block.text)
@@ -750,7 +896,8 @@ def expand(request: ContextExpansionRequest, registry, *,
                         section_check: bool, page_check: bool, direction: str,
                         extra: dict | None = None,
                         anchor_page: int | None = None,
-                        anchor_block: int | None = None) -> None:
+                        anchor_block: int | None = None,
+                        anchor_evidence_id: str | None = None) -> None:
         """滚动 frontier 有界扩读（§三.1/三.2）：以最后确认仍在边界内的块为 frontier，
         继续请求下一批，直到真实结构边界或明确预算停止。绝不整篇加载、绝不
         list_document_evidence；每批用 limit+1 探针显化 has_more。"""
@@ -761,9 +908,42 @@ def expand(request: ContextExpansionRequest, registry, *,
         # 类结构表引用相对发起块解析，而非 seed）。
         frontier_page = seed.page_number if anchor_page is None else anchor_page
         frontier_block = seed.block_index if anchor_block is None else anchor_block
+        # §三.3：本目标**真实锚点块**身份（进 trace，供验收侧重建 seed/frontier 闭包）。
+        # 显式锚点 > 目标参数里的证据锚点（续表/滚动） > 本请求 seed（seed 自身读取）。
+        step_anchor = (anchor_evidence_id or (extra or {}).get("evidence_id")
+                       or (str(getattr(seed, "evidence_id", "") or "")
+                           if anchor_page is None else ""))
         direction_budget = budget.as_limits()[axis]
         # 修复 A.2：向后方向已暂存（尚未确定归属）的块；一旦发现上一章节标题即撤回。
         backward_pending: list[str] = []
+        # P1-C.2：本目标的滚动观察（probe/has_more/预算消耗/未读/未决/停止原因），独立成行。
+        obs: dict = {
+            "direction": direction, "mode": mode, "relation": relation,
+            "target": ((extra or {}).get("reference_target")
+                       or (extra or {}).get("table_title") or ""),
+            # §二 P1-A：续表锚点的**真实 evidence_id**（trace 必须能回指锚点块）。
+            "anchor_evidence_id": (extra or {}).get("evidence_id") or "",
+            "probe_limit": None, "has_more": None, "batches": 0, "adopted": 0,
+            "budget_axis": axis, "budget_consumed": 0, "unread_scope": "",
+            "unresolved_reason": "", "stop_reason": "", "_done": False,
+        }
+
+        def _finish(reason: str, *, unresolved: str = "") -> None:
+            if obs["_done"]:
+                return
+            obs["_done"] = True
+            obs["budget_consumed"] = consumed.get(axis, 0)
+            obs["stop_reason"] = reason
+            if unresolved:
+                obs["unresolved_reason"] = unresolved
+                obs["unread_scope"] = obs["unread_scope"] or reason
+                direction_unread.append({
+                    "direction": direction, "target": obs["target"],
+                    "budget_axis": axis, "reason": unresolved,
+                    "stop_reason": reason,
+                })
+            target_outcomes.append({k: v for k, v in obs.items() if not k.startswith("_")})
+
         while direction not in direction_stops:
             remaining_dir = max(0, direction_budget - consumed[axis])
             remaining_request = max(0, budget.per_request_cap - consumed["per_request_cap"])
@@ -771,8 +951,11 @@ def expand(request: ContextExpansionRequest, registry, *,
             if batch <= 0:
                 # 预算已耗尽：classify 在上一批的探针块处已把第一个未读块记为
                 # unread_inside_boundary（block_budget_axis / per_request_cap）。
+                _finish(f"hard budget ({axis})", unresolved="budget")
                 break
             probe_limit = batch + 1
+            obs["probe_limit"] = probe_limit
+            obs["batches"] += 1
             args = base_args()
             args["mode"] = mode
             args["limit"] = probe_limit
@@ -789,7 +972,21 @@ def expand(request: ContextExpansionRequest, registry, *,
                 direction_stops[direction] = "tool error"
                 record_step("inspect_bounded", call, args, (), direction_stops[direction],
                             result_status=res.status, result_error_code=res.error_code,
-                            result_trace_id=res.trace_id, tool_version=res.tool_version)
+                            result_trace_id=res.trace_id, tool_version=res.tool_version,
+                            anchor_evidence_id=step_anchor)
+                _finish(f"tool error: {res.status}", unresolved="tool_error")
+                return
+            elif res.status == "EMPTY" and mode == "table_continuation":
+                # §二 P1-A：锚点块内**无未闭合表结构**（或声明身份与锚点结构派生表题不一致）
+                # → 该锚点诚实地无续表可读。这不是能力失败，也不进 direction_stops
+                # （故不改写最终 stop 聚合），只把真实原因落进本目标的 obs/step。
+                step_stop = f"no open table structure: {res.message or ''}"
+                obs["has_more"] = False
+                record_step("inspect_bounded", call, args, (), step_stop,
+                            result_status=res.status, result_error_code=res.error_code,
+                            result_trace_id=res.trace_id, tool_version=res.tool_version,
+                            anchor_evidence_id=step_anchor)
+                _finish(step_stop)
                 return
             elif res.status == "EMPTY" and mode == "explicit_reference" and \
                     (extra or {}).get("reference_target"):
@@ -800,9 +997,15 @@ def expand(request: ContextExpansionRequest, registry, *,
                     unread_stop_reason = "cross reference target dangling"
                 record_step("inspect_bounded", call, args, (), direction_stops[direction],
                             result_status=res.status, result_error_code=res.error_code,
-                            result_trace_id=res.trace_id, tool_version=res.tool_version)
+                            result_trace_id=res.trace_id, tool_version=res.tool_version,
+                            anchor_evidence_id=step_anchor)
+                _finish("cross reference target dangling", unresolved="dangling_target")
                 return
-            has_more = len(blocks) == probe_limit
+            # P1-C.2：has_more 由执行器的 limit+1 探针**如实**报告（目标本身已读完时执行器
+            # 可确定性地报 False）；执行器未提供该字段时才退回块数探针。
+            reported = res.data.get("has_more") if isinstance(res.data, dict) else None
+            has_more = len(blocks) == probe_limit if reported is None else bool(reported)
+            obs["has_more"] = has_more
             outcomes: list[tuple[str, str]] = []
             adopted_in_batch = 0
             for b in blocks:
@@ -887,12 +1090,25 @@ def expand(request: ContextExpansionRequest, registry, *,
                         unread_stop_reason = stop
                     break
             new_ids = tuple(eid for eid, o in outcomes if o == "adopt")
+            obs["adopted"] += adopted_in_batch
+            # §二 P1-A：trace 必须能独立复核本目标的**真实停止原因**。「无边界/预算停止」≠
+            # 「原因未知」：has_more=False 表示目标物本身已读完（真实结构终点），与
+            # ``_finish`` 与 rolling_read_outcomes 用同一措辞；仅「仍在滚动」才留 None。
             record_step("inspect_bounded", call, args, new_ids,
-                        direction_stops.get(direction),
+                        direction_stops.get(direction)
+                        or (None if has_more else "target exhausted"),
                         result_status=res.status, result_error_code=res.error_code,
                         result_trace_id=res.trace_id, tool_version=res.tool_version,
-                        block_outcomes=tuple(outcomes))
+                        block_outcomes=tuple(outcomes),
+                        anchor_evidence_id=step_anchor,
+                        # §二：绑定记录只在**首批**（锚点即发起块）随步落盘；后续批次的
+                        # 锚点已推进到 frontier 块，其绑定与本步 anchor 不同源，绝不混写。
+                        reference_binding=(res.data.get("reference_binding")
+                                           if obs["batches"] == 1
+                                           and isinstance(res.data, dict) else None))
             if not has_more:
+                # 目标物已读完（真实结构终点 / 目标本身有界）→ 该目标无未读残留。
+                _finish(direction_stops.get(direction) or "target exhausted")
                 break
             if adopted_in_batch == 0:
                 # has_more 但本批无 adopt（全 dup/拒绝）→ 前进 frontier 避免死循环，并计
@@ -906,9 +1122,18 @@ def expand(request: ContextExpansionRequest, registry, *,
                     if unread_reason is None:
                         unread_reason = "budget"
                         unread_stop_reason = "no new material"
+                    _finish("no new material", unresolved="budget")
                     break
             else:
                 no_new_streak = 0
+        else:
+            # while 的判停条件（direction in direction_stops，由 classify 的 boundary/budget
+            # 落点设置）→ 预算或边界停；未读原因在该分支内已如实记录。
+            _finish(direction_stops.get(direction)
+                    or unread_stop_reason or "direction stopped",
+                    unresolved=("budget" if unread_reason == "budget"
+                                else "boundary" if unread_reason == "boundary" else ""))
+        _finish(direction_stops.get(direction) or "rolling read ended")
 
     # -- Step 0：resolve seed（fail-closed，经独立 resolve_seed_identity ToolSpec） --
     seed_args = base_args()
@@ -931,12 +1156,18 @@ def expand(request: ContextExpansionRequest, registry, *,
             reason="authority",
             scope_desc=f"seed {seed.evidence_id} 复验失败，未进行任何扩读：{msg}",
             refs=(), budget_axis=None)
+        boundary_verification_obj, boundary_verification = boundary_record(
+            boundary_semantics)
         return ExpansionResult(
             seed=seed, adopted=(), candidates_unread=(), stop_reason="authority",
             unread_scope=unread,
             trace=ContextExpansionTrace(trace_id=trace_id, request=request,
                                         steps=tuple(steps)),
-            budget_consumed=dict(consumed))
+            budget_consumed=dict(consumed),
+            boundary_verification=boundary_verification,
+            boundary_verification_record=boundary_verification,
+            target_outcomes=tuple(target_outcomes),
+            direction_unread=tuple(direction_unread))
 
     seed_block = EvidenceReadResult.from_dict(seed_res.data["blocks"][0])
     adopted[seed_block.evidence_id] = seed_block
@@ -944,22 +1175,55 @@ def expand(request: ContextExpansionRequest, registry, *,
     # -- P1-A.2/A.3：消费边界资格状态（由 seed 自身材料 + section_path 派生） --
     # 主题小节标题层级来自**文档自身编号形式**（section_path 叶子命中优先），验证用例同理；
     # 二者都不来自策略关键词，故构成对策略的独立验证。
+    topic_level: int | None = None
+    topic_level_source = "not_applicable"
     if request.aspect_id is not None:
         topic_level, topic_level_source = HS.topic_level_of(
             seed_block.text, seed.section_path)
-        _verification = verify_boundary_semantics(
+        # P1-A.3（v6）：本 seed 未命中主题标题时，用**同一 aspect / 文档版本**内其它
+        # seed 文本的真实标题层级（请求由 runner 从 seed manifest 文本确定性派生）；
+        # 两者都没有 → unknown，绝不猜（旧实现用「首个标题层级」猜测 → 假失败/误停）。
+        if topic_level is None and request.topic_level_hint is not None:
+            topic_level = request.topic_level_hint
+            topic_level_source = "aspect_seed_document_structure"
+        boundary_semantics = verify_boundary_semantics(
             request.aspect_id,
             verification_cases_from_material(
-                request.aspect_id, (seed_block.text,), seed.section_path))
-        _elig = boundary_eligibility(request.aspect_id, verification=_verification)
+                request.aspect_id, (seed_block.text,), seed.section_path,
+                topic_level_hint=topic_level))
+        _elig = boundary_eligibility(request.aspect_id, verification=boundary_semantics)
         boundary_status = _elig.status
         boundary_eligible = _elig.eligible
         boundary_reason = _elig.reason
-        boundary_verification = _verification.to_dict()
+        boundary_verification = boundary_semantics.to_dict()
+    # A.8：seed 自身文本中若已出现**前向边界标题**（首个边界标题之前的主题内区域已在
+    # seed 内部结束），则 seed 之后的所有前向内容都属被关闭的小节/主题外 → 前向方向
+    # （相邻块/续表/显式引用）一律**不读取**，并如实记录该结构信号（旧实现继续前向滚动，
+    # 把兄弟小节正文采纳为 aspect 材料）。后向方向不受影响（其边界按块逐个判定）。
+    seed_forward_boundary = None
+    if request.aspect_id is not None:
+        seed_tb = find_topic_boundary(seed_block.text, request.aspect_id,
+                                      topic_level=topic_level,
+                                      direction=DIRECTION_AFTER)
+        if seed_tb.stop_direction:
+            seed_forward_boundary = seed_tb
     record_decision(seed_block, DISPOSITION_SEED, "seed", "seed", "seed",
                     ("seed_section_path_quality", section_path_quality(seed.section_path),
                      "boundary_status", boundary_status or "not_applicable",
-                     "topic_level_source", topic_level_source))
+                     "topic_level", str(topic_level),
+                     "topic_level_source", topic_level_source)
+                    + _seed_boundary_signals(seed_forward_boundary))
+    if seed_forward_boundary is not None:
+        _stop = (f"seed block forward boundary: "
+                 f"{seed_forward_boundary.boundary_heading or ''}")
+        for key in ("adjacent_blocks_after", "table_continuation",
+                    "explicit_references"):
+            direction_stops.setdefault(key, _stop)
+        direction_unread.append({
+            "direction": "adjacent_blocks_after", "target": "",
+            "budget_axis": "adjacent_blocks_after",
+            "reason": "boundary", "stop_reason": _stop,
+        })
     consumed["per_seed_cap"] += 1
     # seed 同样计入 per_request_cap（classify 的 len(adopted) 门槛含 seed）。
     consumed["per_request_cap"] += 1
@@ -967,7 +1231,13 @@ def expand(request: ContextExpansionRequest, registry, *,
     consumed["max_tokens"] += _estimate_tokens(seed_block.text)
     seed_is_current_document = bool(seed_res.data.get("is_current_document"))
     seed_is_current_set = bool(seed_res.data.get("is_current_set"))
+    # §二 P1-A：seed 的续表身份必须与 executor 的结构派生结果**同源**（同一 primitive），
+    # 故优先用块内未闭合表结构的表题；块内无表结构时退回块级表身份（此时 executor 会
+    # 诚实 EMPTY，身份一致性问题不存在）。
     seed_table_title = table_title_of(seed_block)
+    _seed_open_sig = open_table_signature(seed_block.text or "")
+    if _seed_open_sig is not None:
+        seed_table_title = _seed_open_sig.get("title") or seed_table_title
     record_step("resolve_seed", seed_call, {"seed_evidence_id": seed.evidence_id},
                 (seed_block.evidence_id,), None,
                 result_status=seed_res.status, result_error_code=seed_res.error_code,
@@ -981,6 +1251,8 @@ def expand(request: ContextExpansionRequest, registry, *,
     if request.aspect_id is not None and boundary_status == BOUNDARY_POLICY_UNAVAILABLE:
         record_step("stop", None, {"boundary_status": boundary_status}, (),
                     "boundary policy unavailable: no expansion")
+        boundary_verification_obj, boundary_verification = boundary_record(
+            boundary_semantics)
         return ExpansionResult(
             seed=seed, adopted=tuple(adopted.values()), candidates_unread=(),
             stop_reason="boundary policy unavailable: no expansion",
@@ -1000,6 +1272,9 @@ def expand(request: ContextExpansionRequest, registry, *,
             boundary_status=boundary_status, boundary_eligible=boundary_eligible,
             boundary_reason=boundary_reason,
             boundary_verification=boundary_verification,
+            boundary_verification_record=boundary_verification,
+            target_outcomes=tuple(target_outcomes),
+            direction_unread=tuple(direction_unread),
             topic_level=topic_level, topic_level_source=topic_level_source)
 
     # -- 各方向（独立停止） --
@@ -1012,45 +1287,98 @@ def expand(request: ContextExpansionRequest, registry, *,
             do_rolling_read("adjacent_after", "adjacent_blocks_after",
                             "adjacent", True, True, "adjacent_blocks_after")
         elif direction == "table_continuation":
-            # §四：续表必须落在同一权威边界（同 section）+ 合理页/块连续性；无 title/continued_from
-            # 身份信号绝不猜（executor 层 fail-closed），跨 section/跨多页的同名表不采纳。
+            # §二 P1-A：续表身份**由锚点块内未闭合表结构确定性派生**（executor 层，
+            # 与验收侧共用 table_structure 的同一 primitive）；锚点 = seed 本身，其
+            # evidence_id 必须进 trace（否则无法复核「哪一块作为续表锚点被读了」）。
+            # 无未闭合表结构 → 该方向诚实 EMPTY（绝不按 evidence_type 猜）。
             # P1-C.1：续表**滚动**闭合（limit+1 探针 + has_more），预算耗尽时把首个未读
             # 续表块显式记 unread_inside_boundary，绝不 single read_once 静默丢弃链尾。
             do_rolling_read("table_continuation", "table_continuation",
                             "continuation", True, True, "table_continuation",
-                            extra={"table_title": seed_table_title} if seed_table_title else None)
+                            extra={"evidence_id": seed.evidence_id,
+                                   "table_title": seed_table_title or ""})
         elif direction == "explicit_reference":
-            markers = _detect_reference_targets(seed.text)
-            if not markers:
+            occurrences = detect_reference_occurrences(seed.text)
+            if not occurrences:
                 continue  # 无交叉引用 → 该方向不产生读取，也不伪造正读。
             # P1-C.2：每个引用目标**独立**有界滚动读取（独立停止/未读/预算消耗）。
-            # 旧实现把多目标 join 成单一 reference_target，仅解析最后一个编号、漏掉其余目标。
-            for i, target in enumerate(markers):
+            # §二.4（v13）：逐 **occurrence**（不是逐去重后的标记字符串）—— 每个 occurrence
+            # 自带 start/end/index/kind，请求逐字携带该身份，读取侧按身份解析；同一处重叠标记
+            # （「如下表」⊃「下表」）只产生**一个** occurrence，不再重复请求。
+            for occ in occurrences:
+                i = occ.occurrence_index
                 direction_key = "explicit_reference" if i == 0 else f"explicit_reference:{i}"
                 do_rolling_read("explicit_reference", "explicit_references",
                                 "reference", False, False, direction_key,
-                                extra={"reference_target": target})
+                                extra={"reference_target": occ.request_target,
+                                       **occ.request_args()})
+
+    # -- §二 P1-A：续表滚动 frontier（**新采纳材料再入 frontier**） --
+    # 旧缺陷：table_continuation 只在**原始 seed** 上执行一次；seed 之后新采纳的材料
+    # （例如「相邻读取」带回来的跨页续表块）即使自身仍含未闭合表结构，也永远不会成为
+    # 新的续表锚点 —— 于是候选 1 的扩读链在 seed 处断掉，P51 只能靠**另一个候选**作为
+    # 第二 seed 碰进来（「同表恢复」通过而「续表扩读」并未真的发生）。
+    #
+    # 现在：任一新采纳材料只要自身仍含**未闭合表结构**（表题/表头/续表候选未闭合），
+    # 就成为新的 table_continuation 锚点，在同一 document_id/document_version/
+    # evidence_set_version、同一 section 与**版本化预算**内继续读取；新采纳的材料再入
+    # frontier，直到表闭合 / 真结构边界 / 无新材料 / 预算耗尽。
+    #
+    # 有界性（绝不无限递归）：(1) 每个锚点至多扩读一次（seen_anchors）；(2) 已被读越的
+    # 锚点不再重读 —— 前向读取是**连续扫描**，若其后方已有更晚采纳的块，说明该锚点前方
+    # 已被读遍，重读只会得到 duplicate；(3) 预算仍由 do_rolling_read 的 table_continuation
+    # 轴与 per_request_cap 统一扣减（本循环不新增任何预算轴）。
+    if "table_continuation" in request.directions:
+        seen_anchors: set[str] = {seed.evidence_id}
+        pending_anchors = [b for b in adopted.values()
+                           if b.evidence_id != seed.evidence_id]
+        while pending_anchors:
+            anchor_material = pending_anchors.pop(0)
+            if anchor_material.evidence_id in seen_anchors:
+                continue
+            seen_anchors.add(anchor_material.evidence_id)
+            anchor_sig = open_table_signature(anchor_material.text or "")
+            if anchor_sig is None:
+                continue      # 该材料自身已无未闭合表结构 → 不是续表锚点（绝不猜）
+            anchor_pos = (anchor_material.page_number, anchor_material.block_index)
+            if any((b.page_number, b.block_index) > anchor_pos
+                   for b in adopted.values()):
+                continue      # 已被读越（前向连续扫描语义；避免重读得到 duplicate）
+            before = set(adopted)
+            do_rolling_read(
+                "table_continuation", "table_continuation", "continuation",
+                True, True, f"table_continuation:rolling:{len(seen_anchors)}",
+                extra={"evidence_id": anchor_material.evidence_id,
+                       "table_title": anchor_sig.get("title") or ""},
+                anchor_page=anchor_material.page_number,
+                anchor_block=anchor_material.block_index)
+            pending_anchors.extend(adopted[e] for e in adopted if e not in before)
 
     # P1-C.3：跟随后续扩读材料中新发现的显式引用（不只扫描 seed 文本）。
-    # 有界**单遍**：仅对方向循环结束时已采纳的**非 seed**块扫描引用；每个目标经
-    # seen_targets 去重只 follow 一次（绝不无限递归）；锚点用**发起块**位置，保证
-    # 「见下表」类结构表引用相对发起块解析。发现引用仍受 explicit_references 预算
-    # 约束（do_rolling_read 内部按 consumed["explicit_references"] 扣减）。
+    # 有界**单遍**：仅对方向循环结束时已采纳的**非 seed**块扫描引用；每个 **occurrence**
+    # 经 ``(evidence_id, marker, start, end)`` 身份去重只 follow 一次（绝不无限递归；也绝不
+    # 按标记字符串去重 —— 同一块内两个同名字符串的标记是**两个**不同 occurrence）；锚点用
+    # **发起块**位置，保证「见下表」类结构表引用相对发起块解析。发现引用仍受
+    # explicit_references 预算约束（do_rolling_read 内部按 consumed["explicit_references"] 扣减）。
     if "explicit_reference" in request.directions:
-        seen_targets = set(_detect_reference_targets(seed.text))
+        seen_occurrences = {(seed.evidence_id, o.marker, o.start, o.end)
+                            for o in detect_reference_occurrences(seed.text)}
         for blk in list(adopted.values()):
             if blk.evidence_id == seed.evidence_id:
                 continue
-            for target in _detect_reference_targets(blk.text):
-                if target in seen_targets:
+            for occ in detect_reference_occurrences(blk.text):
+                key = (blk.evidence_id, occ.marker, occ.start, occ.end)
+                if key in seen_occurrences:
                     continue
-                seen_targets.add(target)
-                direction_key = f"explicit_reference:discovered:{len(seen_targets)}"
+                seen_occurrences.add(key)
+                direction_key = f"explicit_reference:discovered:{len(seen_occurrences)}"
                 do_rolling_read("explicit_reference", "explicit_references",
                                 "reference", False, False, direction_key,
-                                extra={"reference_target": target},
+                                extra={"reference_target": occ.request_target,
+                                       **occ.request_args()},
                                 anchor_page=blk.page_number,
-                                anchor_block=blk.block_index)
+                                anchor_block=blk.block_index,
+                                anchor_evidence_id=blk.evidence_id)
 
     # 最终停止原因聚合：工具错误 > 各方向停止（按**实际处理序**，即 dict 插入序）>
     # 无新增 > 默认。按插入序而非固定名单，确保 per-target 的 explicit_reference:N 停止
@@ -1086,6 +1414,8 @@ def expand(request: ContextExpansionRequest, registry, *,
         stop_reason=unread_stop_reason)
 
     adopted_tuple = tuple(adopted.values())
+    boundary_verification_obj, boundary_verification = boundary_record(
+        boundary_semantics)
     return ExpansionResult(
         seed=seed, adopted=adopted_tuple, candidates_unread=unread_refs,
         stop_reason=final_stop, unread_scope=unread,
@@ -1100,6 +1430,9 @@ def expand(request: ContextExpansionRequest, registry, *,
         boundary_status=boundary_status, boundary_eligible=boundary_eligible,
         boundary_reason=boundary_reason,
         boundary_verification=boundary_verification,
+        boundary_verification_record=boundary_verification,
+        target_outcomes=tuple(target_outcomes),
+        direction_unread=tuple(direction_unread),
         topic_level=topic_level, topic_level_source=topic_level_source)
 
 

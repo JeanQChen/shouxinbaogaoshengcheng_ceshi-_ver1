@@ -34,7 +34,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
@@ -65,6 +65,10 @@ _SUBHEADING_ANYWHERE = re.compile(
 TOPIC_IN_TOPIC = "in_topic"
 TOPIC_OUT_OF_TOPIC = "out_of_topic"
 TOPIC_AMBIGUOUS = "ambiguous"
+
+# 扩读方向（主题内片段必须按方向切出，A.8）：before = 本块在 seed 之前，after = 之后。
+DIRECTION_BEFORE = "adjacent_blocks_before"
+DIRECTION_AFTER = "adjacent_blocks_after"
 
 # 边界策略不可用标记（fail-closed）：该 aspect 主题边界无法从冻结契约派生 → 上层扩读/验收
 # 据此保持 boundary_incomplete，绝不默认 ambiguous 无限采纳、绝不静默视为边界闭合。
@@ -468,7 +472,8 @@ class BoundarySemanticsVerification:
 
 
 def verification_cases_from_material(aspect_id: str, block_texts: tuple[str, ...] | list[str],
-                                     section_path: tuple[str, ...] | list[str] | None
+                                     section_path: tuple[str, ...] | list[str] | None,
+                                     topic_level_hint: int | None = None
                                      ) -> tuple[HeadingCase, ...]:
     """从**真实材料**派生独立验证用例（P1-A.1/A.3）。
 
@@ -479,6 +484,9 @@ def verification_cases_from_material(aspect_id: str, block_texts: tuple[str, ...
     - ``sibling_or_outer``：层级**同级或更浅**的标题（结构上关闭主题小节）。
 
     只有层级两侧都已知时才产生 child/sibling_or_outer 用例（层级未知绝不虚构期望）。
+    ``topic_level_hint``：同一 aspect / 文档版本内由**其它 seed 文本**确定的主题层级
+    （见 ``heading_structure.topic_level_from_seed_set``）；本批文本未命中主题标题时使用，
+    避免用「首个标题层级」猜测而产生假失败。
     """
     from harness import heading_structure as HS
 
@@ -505,9 +513,9 @@ def verification_cases_from_material(aspect_id: str, block_texts: tuple[str, ...
             if topic_heading:
                 break
         if not topic_heading:
-            topic_level, _src = HS.topic_level_of(texts[0] if texts else "",
-                                                  tuple(section_path or ()))
             topic_heading = leaf_body
+            if topic_level_hint is not None:
+                topic_level = topic_level_hint
 
     cases: list[HeadingCase] = []
     seen: set[tuple[str, str]] = set()
@@ -759,14 +767,365 @@ def extract_new_headings(text: str | None) -> list[tuple[int, str]]:
     return headings
 
 
+# ---------------------------------------------------------------------------
+# 运行时派生的边界验证记录（BoundaryVerificationRecord）
+# ---------------------------------------------------------------------------
+#
+# 旧实现只有「策略内部自洽（policy_self_consistent，循环自证）」与「文档结构独立验证
+# （boundary_semantics_verified）」两个瞬时结论，**没有**把一次真实运行实际观察到的文档结构
+# 落成可复核记录；下游消费者只能看见一个布尔，无法独立复核「边界到底被什么证据证明/未证明」。
+#
+# ``BoundaryVerificationRecord`` 把一次真实扩读运行观察到的结构证据全部钉死：
+# - **身份**：aspect_id / document_id / document_version / evidence_set_version /
+#   source_boundary_identity / verification_algorithm+version / dependency_fingerprint；
+# - **观察**：实际 section_path 与标题层级、in-topic anchor、sibling/parent/out-of-topic
+#   边界证据、expansion/fragment trace fingerprint、unread scope、budget exhaustion、
+#   unresolved ambiguity/reference/continuation；
+# - **状态**：verified / incomplete / unavailable + 确定性原因。
+#
+# 关键纪律：**未验证边界绝不伪装成 verified**；诚实的 ``incomplete`` 是合法结论
+# （对应 material_state=boundary_incomplete + capability_verdict=PASS），不是缺陷。
+
+BOUNDARY_VERIFICATION_ALGORITHM = "document_heading_structure_boundary_verification"
+BOUNDARY_VERIFICATION_VERSION = "1"
+
+BOUNDARY_VERIFIED = "verified"
+BOUNDARY_INCOMPLETE = "incomplete"
+BOUNDARY_UNAVAILABLE = "unavailable"
+
+
+def source_boundary_identity(*, aspect_id: str, document_id: str,
+                             document_version: str, evidence_set_version: str,
+                             section_path: tuple[str, ...] | list[str] | str
+                             ) -> str:
+    """源边界身份（内容寻址，64 hex）：绑定 aspect + 文档身份 + 真实 section_path。
+
+    同一 aspect 在不同文档/版本/小节下是**不同边界**，必须得到不同身份；下游
+    （SourceObjectInventory / 边界验证记录 / 验收器）共用本函数，绝不各自拼串。
+    """
+    path = section_path
+    if isinstance(path, str):
+        path = (path,)
+    identity = {
+        "aspect_id": aspect_id or "",
+        "document_id": document_id or "",
+        "document_version": document_version or "",
+        "evidence_set_version": evidence_set_version or "",
+        "section_path": [str(s) for s in (path or ())],
+        "algorithm": BOUNDARY_VERIFICATION_ALGORITHM,
+        "version": BOUNDARY_VERIFICATION_VERSION,
+    }
+    return hashlib.sha256(json.dumps(
+        identity, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class BoundaryVerificationRecord:
+    """一次真实扩读运行的边界验证记录（身份 + 观察 + 状态，全部可复核）。"""
+
+    # -- 身份 --
+    aspect_id: str
+    document_id: str
+    document_version: str
+    evidence_set_version: str
+    source_boundary_identity: str
+    verification_algorithm: str
+    verification_version: str
+    dependency_fingerprint: str
+    # -- 观察：文档结构 --
+    section_path: tuple[str, ...] = ()
+    heading_levels: tuple[tuple[str, int | None], ...] = ()
+    topic_level: int | None = None
+    topic_level_source: str = "unknown"
+    in_topic_anchor: str = ""
+    sibling_evidence: tuple[dict, ...] = ()
+    parent_evidence: tuple[dict, ...] = ()
+    out_of_topic_evidence: tuple[dict, ...] = ()
+    # -- 观察：读写轨迹 --
+    expansion_trace_fingerprint: str = ""
+    fragment_trace_fingerprint: str = ""
+    unread_scope: dict = field(default_factory=dict)
+    budget_exhaustion: tuple[dict, ...] = ()
+    # -- 观察：未决 --
+    unresolved_ambiguity: tuple[dict, ...] = ()
+    unresolved_reference: tuple[dict, ...] = ()
+    unresolved_continuation: tuple[dict, ...] = ()
+    # -- 结论 --
+    status: str = BOUNDARY_INCOMPLETE
+    reason: str = ""
+    policy_version: str = ""
+    verification: dict = field(default_factory=dict)
+
+    @property
+    def verified(self) -> bool:
+        return self.status == BOUNDARY_VERIFIED
+
+    def identity(self) -> tuple:
+        """记录身份（至少含 aspect/document/version/set/source boundary/算法/依赖指纹）。"""
+        return (self.aspect_id, self.document_id, self.document_version,
+                self.evidence_set_version, self.source_boundary_identity,
+                self.verification_algorithm, self.verification_version,
+                self.dependency_fingerprint)
+
+    def to_dict(self) -> dict:
+        return {
+            "aspect_id": self.aspect_id,
+            "document_id": self.document_id,
+            "document_version": self.document_version,
+            "evidence_set_version": self.evidence_set_version,
+            "source_boundary_identity": self.source_boundary_identity,
+            "verification_algorithm": self.verification_algorithm,
+            "verification_version": self.verification_version,
+            "dependency_fingerprint": self.dependency_fingerprint,
+            "section_path": list(self.section_path),
+            "heading_levels": [[h, l] for h, l in self.heading_levels],
+            "topic_level": self.topic_level,
+            "topic_level_source": self.topic_level_source,
+            "in_topic_anchor": self.in_topic_anchor,
+            "sibling_evidence": [dict(e) for e in self.sibling_evidence],
+            "parent_evidence": [dict(e) for e in self.parent_evidence],
+            "out_of_topic_evidence": [dict(e) for e in self.out_of_topic_evidence],
+            "expansion_trace_fingerprint": self.expansion_trace_fingerprint,
+            "fragment_trace_fingerprint": self.fragment_trace_fingerprint,
+            "unread_scope": dict(self.unread_scope),
+            "budget_exhaustion": [dict(b) for b in self.budget_exhaustion],
+            "unresolved_ambiguity": [dict(u) for u in self.unresolved_ambiguity],
+            "unresolved_reference": [dict(u) for u in self.unresolved_reference],
+            "unresolved_continuation": [dict(u) for u in self.unresolved_continuation],
+            "status": self.status,
+            "reason": self.reason,
+            "policy_version": self.policy_version,
+            "verification": dict(self.verification),
+        }
+
+
+def _heading_kind(heading: str, level: int | None, aspect_id: str,
+                  topic_level: int | None) -> tuple[str, str]:
+    """把观察到的标题按**结构与策略分类**归入 verified 证据类别。
+
+    返回 (bucket, classification)。bucket ∈ {in_topic_anchor, sibling, parent,
+    out_of_topic, ambiguous}。``ambiguous`` 绝不等同 ``out_of_topic``（P1-A.4）。
+    """
+    from harness import heading_structure as HS
+
+    cls = classify_heading_topic(heading, aspect_id, level=level,
+                                 topic_level=topic_level)
+    if cls == TOPIC_IN_TOPIC:
+        return "in_topic_anchor", cls
+    if cls == TOPIC_OUT_OF_TOPIC:
+        return "out_of_topic", cls
+    if level is not None and topic_level is not None and level < topic_level:
+        return "parent", cls
+    if HS.sibling_or_outer(level, topic_level):
+        return "sibling", cls
+    return "ambiguous", cls
+
+
+def _decision_evidence(decision: dict) -> dict:
+    """从一条 BoundaryDecision dict 提取边界证据（标题/层级/分类/方向，全部真实观察）。"""
+    signals = decision.get("structural_signals") or []
+    heading = ""
+    level = None
+    signals = list(signals)
+    for i, s in enumerate(signals):
+        if s == "topic_boundary" and i + 1 < len(signals):
+            heading = str(signals[i + 1])
+        if s == "topic_section_closed" and i + 1 < len(signals):
+            heading = str(signals[i + 1])
+        if s == "heading_level" and i + 1 < len(signals):
+            try:
+                level = int(signals[i + 1])
+            except (TypeError, ValueError):
+                level = None
+    out = {
+        "evidence_id": decision.get("evidence_id", ""),
+        "direction": decision.get("direction"),
+        "relation": decision.get("relation", ""),
+        "disposition": decision.get("disposition", ""),
+        "reason_code": decision.get("reason_code", ""),
+        "heading": heading,
+        "level": level,
+        "page_number": decision.get("page_number"),
+        "block_index": decision.get("block_index"),
+    }
+    return out
+
+
+def _trace_fingerprint(payload: dict) -> str:
+    """确定性轨迹指纹（不绑定 trace_id/时间/随机 id，只绑定真实观察到的结构）。"""
+    return hashlib.sha256(json.dumps(
+        payload, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def build_boundary_verification_record(
+        *, aspect_id: str, document_id: str, document_version: str,
+        evidence_set_version: str, section_path: tuple[str, ...] | list[str] | str,
+        dependency_fingerprint: str, verification: BoundarySemanticsVerification | None,
+        topic_level: int | None, topic_level_source: str,
+        seed_heading: str, boundary_decisions: tuple[dict, ...] | list[dict] = (),
+        fragment_identities: tuple[tuple, ...] | list[tuple] = (),
+        unread_scope: dict | None = None,
+        budget_consumed: dict | None = None,
+        budget_limits: dict | None = None,
+        unresolved_reference: tuple[dict, ...] | list[dict] = (),
+        unresolved_continuation: tuple[dict, ...] | list[dict] = (),
+        ) -> BoundaryVerificationRecord:
+    """由**本次真实运行观察到的文档结构**派生边界验证记录（确定性，无随机/时间输入）。
+
+    状态派生（确定性规则）：
+    - ``unavailable``：该 aspect 主题边界无法从冻结契约派生（boundary_policy_unavailable）；
+    - ``verified``：策略可用 + 文档结构独立验证通过 + 观察到 in-topic anchor +
+      无未决边界歧义（ambiguous 标题在主题层级处未能归类 → 边界无法闭合）；
+    - ``incomplete``：其余（诚实保留，**绝不**伪装 verified）。
+
+    未决的显式引用/续表**不**把边界本身降级（边界仍被证明），它们只作为观察记录
+    （对应 material_state=not_obtained，而非 boundary_incomplete）。
+    """
+    path = tuple(str(s) for s in (section_path or ())) if not isinstance(section_path, str) \
+        else (section_path,)
+    sb_id = source_boundary_identity(
+        aspect_id=aspect_id, document_id=document_id,
+        document_version=document_version, evidence_set_version=evidence_set_version,
+        section_path=path)
+
+    decisions = [d for d in (boundary_decisions or ()) if isinstance(d, dict)]
+    anchors: list[dict] = []
+    siblings: list[dict] = []
+    parents: list[dict] = []
+    outs: list[dict] = []
+    ambiguous: list[dict] = []
+    headings: list[tuple[str, int | None]] = []
+    trace_headings: list[dict] = []
+    for d in decisions:
+        ev = _decision_evidence(d)
+        heading = ev["heading"]
+        if not heading:
+            continue
+        level = ev["level"]
+        headings.append((heading, level))
+        bucket, cls = _heading_kind(heading, level, aspect_id, topic_level)
+        trace_headings.append({**ev, "classification": cls, "bucket": bucket})
+        if bucket == "in_topic_anchor":
+            anchors.append(ev)
+        elif bucket == "sibling":
+            siblings.append(ev)
+        elif bucket == "parent":
+            parents.append(ev)
+        elif bucket == "out_of_topic":
+            outs.append(ev)
+        else:
+            ambiguous.append(ev)
+
+    policy = topic_boundary_policy(aspect_id)
+    trace_fp = _trace_fingerprint({
+        "algorithm": BOUNDARY_VERIFICATION_ALGORITHM,
+        "version": BOUNDARY_VERIFICATION_VERSION,
+        "aspect_id": aspect_id,
+        "source_boundary_identity": sb_id,
+        "policy_version": policy.policy_version,
+        "topic_level": topic_level,
+        "topic_level_source": topic_level_source,
+        "headings": trace_headings,
+    })
+    frag_fp = _trace_fingerprint({
+        "version": BOUNDARY_VERIFICATION_VERSION,
+        "fragments": [list(map(str, f)) for f in (fragment_identities or ())],
+    })
+
+    # budget exhaustion：真实观察到的「预算轴已耗尽」事实（非推断）。
+    limits = dict(budget_limits or {})
+    consumed = dict(budget_consumed or {})
+    exhausted: list[dict] = []
+    for axis, limit in sorted(limits.items()):
+        used = consumed.get(axis)
+        if isinstance(used, int) and isinstance(limit, int) and used >= limit:
+            exhausted.append({"axis": axis, "consumed": used, "limit": limit})
+    if isinstance(limits.get("per_request_cap"), int) and \
+            isinstance(consumed.get("per_request_cap"), int) and \
+            consumed["per_request_cap"] >= limits["per_request_cap"]:
+        if not any(e["axis"] == "per_request_cap" for e in exhausted):
+            exhausted.append({"axis": "per_request_cap",
+                              "consumed": consumed["per_request_cap"],
+                              "limit": limits["per_request_cap"]})
+
+    seed_anchor = ""
+    if seed_heading:
+        bucket, _cls = _heading_kind(seed_heading, topic_level, aspect_id, topic_level)
+        if bucket == "in_topic_anchor":
+            seed_anchor = seed_heading
+
+    # -- 状态派生 --
+    if not policy.available:
+        status = BOUNDARY_UNAVAILABLE
+        reason = policy.reason or f"{BOUNDARY_POLICY_UNAVAILABLE}: 主题边界策略不可用"
+    elif verification is None or not verification.verified:
+        status = BOUNDARY_INCOMPLETE
+        reason = ("boundary_semantics_not_verified: " +
+                  ((verification.reason if verification is not None
+                    else "no_document_derived_verification")))
+    elif not (seed_anchor or anchors):
+        status = BOUNDARY_INCOMPLETE
+        reason = "no_in_topic_anchor: 未观察到任何可归入主题内的标题锚点"
+    elif topic_level is None or str(topic_level_source or "") in ("", "unknown"):
+        # §四.A.7：文档自身编号结构**没有**给出主题小节层级时，边界不能声明 verified ——
+        # 此时「策略与文档结构一致」只是词表自洽（层级未知 → 兄弟/子标题无法结构性区分）。
+        status = BOUNDARY_INCOMPLETE
+        reason = ("no_document_derived_topic_level: 文档自身编号结构未给出主题小节层级"
+                  "（未观察到可核的标题层级 → 不得伪装 verified）")
+    elif ambiguous:
+        status = BOUNDARY_INCOMPLETE
+        reason = (f"unresolved_ambiguity: {len(ambiguous)} 个标题既非主题内也非主题外，"
+                  "边界无法确定性闭合")
+    else:
+        status = BOUNDARY_VERIFIED
+        reason = "document_structure_boundary_verified"
+
+    return BoundaryVerificationRecord(
+        aspect_id=aspect_id, document_id=document_id,
+        document_version=document_version,
+        evidence_set_version=evidence_set_version,
+        source_boundary_identity=sb_id,
+        verification_algorithm=BOUNDARY_VERIFICATION_ALGORITHM,
+        verification_version=BOUNDARY_VERIFICATION_VERSION,
+        dependency_fingerprint=dependency_fingerprint or "",
+        section_path=path, heading_levels=tuple(headings),
+        topic_level=topic_level, topic_level_source=topic_level_source,
+        in_topic_anchor=seed_anchor or (anchors[0]["heading"] if anchors else ""),
+        sibling_evidence=tuple(siblings), parent_evidence=tuple(parents),
+        out_of_topic_evidence=tuple(outs),
+        expansion_trace_fingerprint=trace_fp,
+        fragment_trace_fingerprint=frag_fp,
+        unread_scope=dict(unread_scope or {}),
+        budget_exhaustion=tuple(exhausted),
+        unresolved_ambiguity=tuple(ambiguous),
+        unresolved_reference=tuple(dict(u) for u in (unresolved_reference or ())),
+        unresolved_continuation=tuple(dict(u) for u in (unresolved_continuation or ())),
+        status=status, reason=reason, policy_version=policy.policy_version,
+        verification=(verification.to_dict() if verification is not None else {}))
+
+
 @dataclass(frozen=True)
 class TopicBoundaryResult:
-    """mixed block 的主题边界判定结果。
+    """mixed block 的主题边界判定结果（**方向敏感**，A.8）。
 
+    边界标题之外的主题内区域必须**按方向**切出，绝不取「边界标题之前的任意文本」：
+
+    - ``adjacent_blocks_after``（前向：本块在 seed 之后）：主题内区域 = 首个边界标题
+      **之前**的文本（``fragment_grounding="boundary_heading_prefix"``）；
+    - ``adjacent_blocks_before``（后向：本块在 seed 之前）：主题内区域 = 块内**真实出现的
+      主题小节标题**之后、其首个边界标题之前的文本（``"topic_section_heading_suffix"``）。
+      后向块的块首通常是上一章节（高管/治理/其它板块）正文，取「边界标题之前」会把它当成
+      主题内材料（A.8 真实污染）；只按层级取锚点同样会锚到上一章节自身的子标题（其层级
+      也深于主题小节标题）。无主题小节标题证明、或标题行后无正文 → **不产出片段**。
+
+    字段：
     - ``has_out_of_topic``：块内是否出现**关键词证明的**主题外标题；
     - ``out_of_topic_heading``：首个真实主题外标题（存在时）；
-    - ``relevant_prefix``：主题内相关前缀（边界标题之前的文本，已 strip）；
-    - ``char_offset``：边界标题起始字符位置（前缀 == 原文[:char_offset]）；
+    - ``fragment_text`` / ``fragment_start`` / ``fragment_end`` / ``fragment_grounding``：
+      主题内片段文本与其在原文中的字符区间（``fragment_text == 原文[start:end].strip()``）；
+    - ``boundary_heading``：界定该片段的边界标题；
     - ``stop_direction``：是否停止该方向扩读（出现边界标题即 True）；
     - ``closure_heading`` / ``closure_kind``（P1-A.4）：**结构性关闭**点——同级/更浅的
       兄弟小节标题，文档层级证明主题小节在此结束。它**不是** ``out_of_topic``
@@ -775,9 +1134,13 @@ class TopicBoundaryResult:
 
     has_out_of_topic: bool
     out_of_topic_heading: str | None
-    relevant_prefix: str
-    char_offset: int | None
+    fragment_text: str
+    fragment_start: int | None
+    fragment_end: int | None
     stop_direction: bool
+    fragment_grounding: str = ""
+    boundary_heading: str | None = None
+    direction: str = DIRECTION_AFTER
     closure_heading: str | None = None
     closure_kind: str | None = None
     closure_level: int | None = None
@@ -786,6 +1149,27 @@ class TopicBoundaryResult:
     @property
     def has_closure(self) -> bool:
         return self.closure_kind is not None
+
+    @property
+    def has_fragment(self) -> bool:
+        """是否存在**可采纳**的主题内片段（无锚点/空正文 → False，绝不伪造片段）。"""
+        return bool(self.fragment_text) and self.fragment_start is not None \
+            and self.fragment_end is not None
+
+    @property
+    def relevant_prefix(self) -> str:
+        """主题内片段文本（兼容旧名；方向语义见 ``fragment_grounding``）。"""
+        return self.fragment_text
+
+    @property
+    def char_offset(self) -> int | None:
+        """片段在原文中的**方向一致**边界字符位置（供 locator 有界关联）。
+
+        前向：片段结束位置（= 首个边界标题起始）；后向：片段起始位置。"""
+        if self.fragment_start is None or self.fragment_end is None:
+            return None
+        return self.fragment_end if self.direction == DIRECTION_AFTER \
+            else self.fragment_start
 
 
 def block_start_topic_class(text: str | None, aspect_id: str) -> str | None:
@@ -809,17 +1193,28 @@ def block_start_topic_class(text: str | None, aspect_id: str) -> str | None:
 
 
 def find_topic_boundary(text: str | None, aspect_id: str,
-                        topic_level: int | None = None) -> TopicBoundaryResult:
-    """在 mixed block 内定位主题边界：返回首个边界标题 + 其前的主题内前缀。
+                        topic_level: int | None = None,
+                        direction: str = DIRECTION_AFTER,
+                        section_path=None) -> TopicBoundaryResult:
+    """在 block 内定位主题边界：返回边界标题 + **按方向切出**的主题内片段。
 
     两类边界（P1-A.3/A.4）：
 
-    1. **关键词证明的主题外标题**（external 命中）→ ``has_out_of_topic=True``，
-       按旧口径给出哨兵 + 前缀片段；
+    1. **关键词证明的主题外标题**（external 命中）→ ``has_out_of_topic=True``；
     2. **文档结构证明的兄弟标题**（层级 ≤ 主题小节标题层级，且不是主题外标题）→
        ``closure_kind="same_or_shallower_level_sibling"``，``has_out_of_topic`` 仍为
        False：主题小节在此结束（同级小节开始），但**不冒充主题外**，也不回溯撤回此前已
        采纳的同 Topic 材料。
+
+    主题内片段（A.8）按方向切出，绝不取「边界标题之前的任意文本」：
+
+    - ``direction == "adjacent_blocks_after"``：片段 = 首个边界标题**之前**的文本
+      （本块紧随主题内 seed，其块首主题内区域由 seed 连续性证明）；
+    - ``direction == "adjacent_blocks_before"``：片段**必须由块内真实出现的主题小节
+      标题**（``section_path`` 叶子）证明，取 ``[主题小节标题起始, 其后首个边界标题起始
+      或 块尾)``；无主题小节标题、或标题行后无正文 → **无片段**。后向块块首多为上一章节
+      正文，且上一章节**自身的深层子标题**层级也深于主题小节标题，只按层级取锚点会把
+      上一章节正文当主题内材料。
 
     无边界 → ``has_out_of_topic=False`` 且无 ``closure``（不停止，交由上层既有
     mixed-block 逻辑）。``topic_level`` 未知（None）→ 不做结构性关闭（绝不猜）。
@@ -829,29 +1224,113 @@ def find_topic_boundary(text: str | None, aspect_id: str,
 
     s = unicodedata.normalize("NFC", (text or "").strip())
     if not s:
-        return TopicBoundaryResult(False, None, s, None, False, topic_level=topic_level)
-    for span in HS.iter_heading_spans(s):
+        return TopicBoundaryResult(False, None, "", None, None, False,
+                                   direction=direction, topic_level=topic_level)
+    spans = HS.iter_heading_spans(s)
+    boundary: tuple[str, int, str] | None = None  # (heading, offset, kind)
+    for span in spans:
         heading, level = span.heading, span.level
         cls = classify_heading_topic(heading, aspect_id, level=level,
                                      topic_level=topic_level)
         if cls == TOPIC_OUT_OF_TOPIC:
-            return TopicBoundaryResult(
-                has_out_of_topic=True,
-                out_of_topic_heading=heading,
-                relevant_prefix=s[:span.offset].strip(),
-                char_offset=span.offset,
-                stop_direction=True,
-                closure_level=level,
-                topic_level=topic_level)
+            boundary = (heading, span.offset, "out_of_topic")
+            break
         if cls != TOPIC_IN_TOPIC and HS.sibling_or_outer(level, topic_level):
-            return TopicBoundaryResult(
-                has_out_of_topic=False,
-                out_of_topic_heading=None,
-                relevant_prefix=s[:span.offset].strip(),
-                char_offset=span.offset,
-                stop_direction=True,
-                closure_heading=heading,
-                closure_kind="same_or_shallower_level_sibling",
-                closure_level=level,
-                topic_level=topic_level)
-    return TopicBoundaryResult(False, None, s, None, False, topic_level=topic_level)
+            boundary = (heading, span.offset, "closure")
+            break
+    if boundary is None:
+        return TopicBoundaryResult(False, None, "", None, None, False,
+                                   direction=direction, topic_level=topic_level)
+    heading, offset, kind = boundary
+    start, end, grounding = _in_topic_span(
+        s, spans, aspect_id, topic_level, direction, offset, section_path)
+    frag = s[start:end].strip() if start is not None and end is not None else ""
+    if not frag:
+        # 无可采纳的主题内片段（后向无锚点 / 空正文）→ 不伪造片段。
+        start = end = None
+    return TopicBoundaryResult(
+        has_out_of_topic=(kind == "out_of_topic"),
+        out_of_topic_heading=heading if kind == "out_of_topic" else None,
+        fragment_text=frag,
+        fragment_start=start,
+        fragment_end=end,
+        stop_direction=True,
+        fragment_grounding=grounding if frag else "",
+        boundary_heading=heading,
+        direction=direction,
+        closure_heading=heading if kind == "closure" else None,
+        closure_kind="same_or_shallower_level_sibling" if kind == "closure" else None,
+        closure_level=next((sp.level for sp in spans
+                            if sp.offset == offset), None),
+        topic_level=topic_level)
+
+
+def _topic_section_witness_span(spans, section_path) -> object | None:
+    """块内出现**本主题小节标题**（``section_path`` 叶子）的标题片段；无 → None。
+
+    后向片段的**唯一**结构根据：只有「块内真实出现主题小节标题」才证明该块跨入了主题小节
+    内部，其后的正文才可归入主题。层级（更深 = 主题内）**不足以**作后向根据：上一章节
+    自身的子标题同样比主题小节标题更深（如高管章节的「（1）员工总数」），仅凭层级会把
+    上一章节正文当主题内材料（A.8 可达泄漏）。
+    """
+    from harness import heading_structure as HS
+
+    leaf = _topic_leaf(section_path)
+    if not leaf:
+        return None
+    leaf_body = HS.strip_leading_numbering(leaf)
+    if not leaf_body:
+        return None
+    for span in spans:
+        body = HS.strip_leading_numbering(span.heading)
+        if not body:
+            continue
+        if body == leaf_body or body.startswith(leaf_body) or leaf_body.startswith(body):
+            return span
+    return None
+
+
+def _topic_leaf(section_path) -> str:
+    """``section_path`` 中最深的一段非空文本（主题小节标题的来源）。"""
+    for seg in reversed(tuple(section_path or ())):
+        if seg and str(seg).strip():
+            return str(seg).strip()
+    return ""
+
+
+def _in_topic_span(s: str, spans, aspect_id: str, topic_level: int | None,
+                   direction: str, boundary_offset: int, section_path=None
+                   ) -> tuple[int | None, int | None, str]:
+    """按扩读方向切出主题内片段区间 ``[start, end)``（A.8，无方向特判公司/页码）。
+
+    前向：``[0, 边界标题起始)`` —— 本块紧随主题内 seed 之后，其块首区域由 seed 的
+    主题内位置连续性证明（块内出现边界标题即截止）。
+
+    后向：片段**必须由块内主题小节标题证明**（``section_path`` 叶子）。块首通常是上一
+    章节正文，而以「最后一个被判主题内的标题」为锚点会锚到上一章节**自身的子标题**
+    （层级更深 → 被判主题内），把上一章节正文投影成主题内材料。区间取
+    ``[主题小节标题起始, 其后的第一个边界标题起始 或 块尾)``；无主题小节标题、或标题行
+    之后无正文 → **不产出片段**。
+    """
+    from harness import heading_structure as HS
+
+    if direction != DIRECTION_BEFORE:
+        return 0, boundary_offset, "boundary_heading_prefix"
+    witness = _topic_section_witness_span(spans, section_path)
+    if witness is None:
+        return None, None, ""
+    end = len(s)
+    for span in spans:
+        if span.offset <= witness.offset:
+            continue
+        cls = classify_heading_topic(span.heading, aspect_id, level=span.level,
+                                     topic_level=topic_level)
+        if cls == TOPIC_OUT_OF_TOPIC or (
+                cls != TOPIC_IN_TOPIC and HS.sibling_or_outer(span.level, topic_level)):
+            end = span.offset
+            break
+    body = s[witness.end:end].strip() if witness.end else ""
+    if not body:
+        # 主题小节标题行后没有正文（例如紧跟同级兄弟标题）→ 无可采纳主题内正文。
+        return None, None, ""
+    return witness.offset, end, "topic_section_heading_suffix"

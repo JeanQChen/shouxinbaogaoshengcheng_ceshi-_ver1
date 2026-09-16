@@ -1,0 +1,80 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": true,
+    "verifier_version": "1",
+    "reason": "deterministic structural enumeration",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_DEMO",
+        "document_version": "v-demo-001",
+        "source_boundary": "主营业务分析",
+        "result": {
+          "material_type_supported": true,
+          "enumerated_member_ids": [
+            "business_segment:智能装备",
+            "business_segment:软件服务"
+          ],
+          "payload_hash": "536cfa7a609002ca742803cbbfbb2cb4d4ea759524c300c34d707f25f65cf722",
+          "boundary_identity": "5d90384fdbe5785f912c01106594a6f3769026c081dfc268a05ad151f504b1fc",
+          "verifier_version": "1",
+          "reason": "deterministic structural enumeration",
+          "source_object_inventory": {
+            "version": "2",
+            "aspect_id": "company_business_main.main_business",
+            "recovery_source": "persisted_assemblies",
+            "document_id": "NDSD_DEMO",
+            "source_boundary_identity": "da5a9522b63e11578420f6e684cd74eeb79f59ab90148f1c06bb6138863a6227",
+            "expected_source_objects": [
+              {
+                "object_id": "table:1",
+                "kind": "table_number",
+                "label": "表 1 主营业务收入构成表",
+                "source_text_index": 0,
+                "line_index": 1,
+                "document_id": "NDSD_DEMO",
+                "document_version": "v-demo-001",
+                "page_number": 1,
+                "block_index": 0,
+                "fragment_offset": 0,
+                "material_id": "",
+                "source_boundary_identity": "da5a9522b63e11578420f6e684cd74eeb79f59ab90148f1c06bb6138863a6227",
+                "source_object_id": "NDSD_DEMO|v-demo-001|da5a9522b63e11578420f6e684cd74eeb79f59ab90148f1c06bb6138863a6227|table:1"
+              }
+            ],
+            "recovery_results": [
+              {
+                "object_id": "table:1",
+                "result": "recovered_ok",
+                "matched_table": "表 1 主营业务收入构成表",
+                "issue": "",
+                "assembly_id": "asm-b0f0d7a61974ec34c4da75e13b890a7b",
+                "component_material_ids": [
+                  "mat-af55be316eb53661a2abd589378b922e"
+                ],
+                "recovery_status": "ok",
+                "recovery_reason": ""
+              }
+            ],
+            "unmatched_recovered_tables": [],
+            "orphan_assemblies": []
+          }
+        }
+      }
+    ]
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

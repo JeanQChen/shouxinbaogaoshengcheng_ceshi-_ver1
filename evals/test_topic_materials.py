@@ -458,8 +458,11 @@ def main() -> dict:
     check(flat_blocks[3].evidence_id in fa.body_evidence_ids
           and flat_blocks[4].evidence_id in fa.body_evidence_ids,
           "修复三：摊平表 body 划分（数据行同页 → body）")
-    check(flat_blocks[5].evidence_id in fa.continuation_evidence_ids,
-          "修复三：摊平表合计行进 continuation（闭合）")
+    # §四语义修正：**同页**合计行是表体闭合行（body），不是跨页续表。旧实现把任意合计行都塞进
+    # continuation_evidence_ids，会让「续块身份重复或同表头」把单页表判成 invalid 续表。
+    check(flat_blocks[5].evidence_id in fa.body_evidence_ids
+          and flat_blocks[5].evidence_id not in fa.continuation_evidence_ids,
+          "修复三§四：摊平表同页合计行归 body（同页闭合 ≠ 跨页续表）")
     title_mid = _fmat(flat_blocks[0]).material_id
     check(len(fa.component_material_ids) == 5 and title_mid not in fa.component_material_ids,
           "修复三：component 覆盖 5 个摊平块（title 块不计入 component）")

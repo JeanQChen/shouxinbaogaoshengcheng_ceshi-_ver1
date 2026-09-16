@@ -1,6 +1,6 @@
 # Phase 4 开发任务书：章节 Worker、Claim 与章节质量门
 
-> **HISTORICAL / NON-EXECUTABLE（2026-09-12）**：本文保留 Phase 4 基础模块的历史实施与验收要求；其中“P4 直接消费单题 `ResearchOutcome`/`ResearchAnswer`，归并 `answer.claims` 后由 Renderer 输出正文”的内容生产接口已被替代。现行接口与关闭条件以 `DESIGN_V2.md` v0.6 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 为准：公司/行业 Worker 消费与 SectionTask 完全匹配的 `TopicResearchPack` 集，财务 Worker 消费 `FinancialFactPack` 与经验证的 Evidence 附注事实；章节同时产出可审计 Claim 和多 Claim 支撑的 `NarrativeParagraph`/表格。本文正文不得重新执行，历史代码与测试不等于产品内容已关闭。
+> **HISTORICAL / NON-EXECUTABLE（2026-09-16 更新继任指针）**：本文保留 Phase 4 基础模块的历史实施与验收要求；其中“P4 直接消费单题 `ResearchOutcome`/`ResearchAnswer`，归并 `answer.claims` 后由 Renderer 输出正文”的内容生产接口已被替代。现行接口与关闭条件以 `DESIGN_V2.md` v0.9 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.3 为准；R3 前先执行 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md)，后续 P4 只能消费由 OutlineSpan/TableObject 支撑的完整 Pack，不能直接消费跨标题混合 Evidence。本文正文不得重新执行，历史代码与测试不等于产品内容已关闭。
 
 > 面向执行者：Claude Code  
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`templates/contracts/standard_v2.yaml`  

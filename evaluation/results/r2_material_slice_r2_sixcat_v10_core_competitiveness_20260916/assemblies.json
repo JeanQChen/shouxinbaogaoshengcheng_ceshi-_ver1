@@ -1,0 +1,15 @@
+[
+  {
+    "assembly_id": "asm-e1f4cd0ebbe04b527140cf61333ac5a3",
+    "context_parent_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "component_material_ids": [
+      "mat-5998f52d5168428577d2fd5121c3c006",
+      "mat-0bfbd925089a76a7b0c7f4feee01f092",
+      "mat-07a32171769474ec8ea2323147353867",
+      "mat-404d5db7dd1a779648abff2f506a634c",
+      "mat-06d9d7712a3a95e4a7930b2257f5f128"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P18–P20"
+  }
+]

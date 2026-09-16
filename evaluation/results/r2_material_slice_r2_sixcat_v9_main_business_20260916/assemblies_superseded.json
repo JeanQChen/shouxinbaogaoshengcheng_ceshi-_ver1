@@ -1,0 +1,49 @@
+{
+  "superseded_count": 2,
+  "superseded": [
+    {
+      "table_object_key": "table:5-11",
+      "superseded_assembly_id": "asm-3778afec6fd7c64561cf1c82857592d8",
+      "retained_assembly_id": "asm-41af5b7b7ad13396366285d3e48ba358",
+      "table_title": "表 5-11发行人主营业务成本构成表",
+      "component_material_ids": [
+        "mat-24f27df39d96b0d2e4ad91875c56b732",
+        "mat-8919ba3de4b1bb3f94d8eb37efe4d966",
+        "mat-8ebf18a3f86ea8b04dca3532114c16b9"
+      ],
+      "retained_component_material_ids": [
+        "mat-24f27df39d96b0d2e4ad91875c56b732",
+        "mat-8919ba3de4b1bb3f94d8eb37efe4d966",
+        "mat-3c4ce91ad8058258d6598b71f62e826d"
+      ],
+      "less_covered_blocks": [
+        {
+          "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "superseded_fragment_offset": 1044,
+          "retained_fragment_offset": 0
+        }
+      ],
+      "reason": "同一源对象（同一张表）的较不完整投影：同一 Block 的文本覆盖更少（主题内前缀片段投影），已被更完整投影取代；两条投影的恢复结构一致"
+    },
+    {
+      "table_object_key": "table:5-12",
+      "superseded_assembly_id": "asm-9f87dfb03d01217e46cc0afee66d0886",
+      "retained_assembly_id": "asm-f0908be7768f427d7cf089d30740bb2d",
+      "table_title": "表5-12发行人主营业务毛利润及毛利率构成表",
+      "component_material_ids": [
+        "mat-8ebf18a3f86ea8b04dca3532114c16b9"
+      ],
+      "retained_component_material_ids": [
+        "mat-3c4ce91ad8058258d6598b71f62e826d"
+      ],
+      "less_covered_blocks": [
+        {
+          "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "superseded_fragment_offset": 1044,
+          "retained_fragment_offset": 0
+        }
+      ],
+      "reason": "同一源对象（同一张表）的较不完整投影：同一 Block 的文本覆盖更少（主题内前缀片段投影），已被更完整投影取代；两条投影的恢复结构一致"
+    }
+  ]
+}

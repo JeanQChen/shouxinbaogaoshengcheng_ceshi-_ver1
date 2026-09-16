@@ -1,0 +1,20 @@
+[
+  {
+    "aspect_id": "company_finance.notes_to_financial_statements",
+    "material_id": "mat-d71b480f83f65eb0686d68cc9dacf74e",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_finance.notes_to_financial_statements",
+        "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "e6b14793486ce974a8291e94f1489b05"
+    ]
+  }
+]

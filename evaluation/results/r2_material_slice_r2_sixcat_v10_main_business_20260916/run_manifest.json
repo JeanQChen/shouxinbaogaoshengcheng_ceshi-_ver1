@@ -1,0 +1,65 @@
+{
+  "run_manifest_version": "1",
+  "run_id": "r2_sixcat_v10_main_business_20260916",
+  "generated_at": "2026-09-16T06:41:07.477121+00:00",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "contract": {
+    "version": "v2",
+    "content_fingerprint": "5c45eabcad4989622aa3d483d9414304b3dbd0a5127db726f513409d14c6b410"
+  },
+  "source_policy": {
+    "version": "v1",
+    "content_fingerprint": "12921c67f82dd18876a8bbef4175a47e0b157e6b5921a3693350ad9aa48cbf17"
+  },
+  "seed_manifest_fingerprint": "003ef075df73b79290db4dc51db67c1484ee3b40a3d5c1703ecbd8c8bba01d98",
+  "artifacts": {
+    "seed_manifest.json": "b1762e7c01124641a7dc6dd4350b4bdd7fe8dd41cf743560ad032023c3a3c16a",
+    "resolved_seed_manifest.json": "36ed4c3524694b1325cef3313394b3201bdb8593079d6dccfcdaf39fa1be37a6",
+    "seed_discovery_trace.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "expansion_trace.jsonl": "a97045ecd1dc7baf1571f9c7e7f5f508ba2389da5475b093ad516f3f0c01047f",
+    "unread_scope.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "boundary_decisions.json": "9e837a03d4f607ac722245fc4b81a4bb7ed1c07b313ab55e232a70683f9791e6",
+    "boundary_verification.json": "ab9b331524a1c7a02dbe4b1841e7cbe89a50a6b32c0f75f92330d0a0a819edb6",
+    "rolling_read_outcomes.json": "4d10c9fa66d1c4c8a177a8338df4c0e17bed5494988ad9a352492a0abcf0066e",
+    "aspect_membership.json": "8d11d45d7c7da26472f0e667a6c465bfb8fdd681335d390aba905d169d5a0ac0",
+    "set_enumeration.json": "55451167546a10a61adcbd6fb3a59aee70e1469d40826f0438ef3c10df5cec57",
+    "source_object_inventory.json": "cc60e7ea943fc573fb76d841e564214cc1c383f0cd73f64d8302e85aa5ec640c",
+    "topic_boundary_coverage.json": "20bfa471d7639722bae00258af56bafe5c0615028fb4a5863ef7ec2d48d27773",
+    "aspect_material_matrix.json": "c2c7b8c512c540a74bb6c5f34b7fecfdd239672be6f9be26f66ada7c79ad22e6",
+    "aspect_links.json": "5830794c7e0cf83f734738b5406779125b7a992aa075b2ebb9a9c79ae01a0307",
+    "budget_profile.json": "66777c14cebc1b473511f82abf6cd487617337ce7ba86ae177dcc24764b61bec",
+    "assemblies.json": "464bd2d41c76175484a1f75946f8c2a1eb33a2918c0eece0e90a8fa9150a2b42",
+    "assemblies_superseded.json": "be558207f4e89ce1ad488099c63fb32ba4a834a7daea1ee6cc89fc158fdafbbb",
+    "material_index.json": "20c56d9def99e8a886dde23bf0c9ccecd96c63054d0f7b87c7182bb0a7305ab9"
+  },
+  "counts": {
+    "seed_count": 2,
+    "resolved_count": 2,
+    "unresolved_count": 0,
+    "material_count": 4,
+    "assembly_count": 4,
+    "assembly_superseded_count": 1,
+    "boundary_decision_count": 9,
+    "unread_scope_count": 0,
+    "rolling_target_count": 4,
+    "direction_unread_count": 1
+  },
+  "evidence_db": {
+    "path": "data/evidence.db"
+  },
+  "harness_db": {
+    "path": "data/harness.db"
+  },
+  "accept_reject_audit": {
+    "rejected_aspects": [],
+    "unread_aspects": [],
+    "boundary_incomplete_aspects": [],
+    "topic_boundary_unavailable_aspects": [],
+    "missing_artifacts": []
+  },
+  "extra": {
+    "budget_profile_name": "acceptance",
+    "budget_profile_version": "1"
+  },
+  "run_manifest_fingerprint": "890e57175988e0d93c77bab44aba28ad710cd9964aea2cf780ec320c34e30924"
+}

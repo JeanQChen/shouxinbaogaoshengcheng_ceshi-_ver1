@@ -1,0 +1,656 @@
+{
+  "boundary_disposition_version": "1",
+  "topic_boundary_version": "2",
+  "decisions": [
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable",
+        "boundary_status",
+        "boundary_semantics_verified",
+        "topic_level_source",
+        "section_path_leaf"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_section_closed_sibling_heading",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 49,
+      "block_index": 0,
+      "section_path": [
+        "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "unreliable",
+      "structural_signals": [
+        "topic_section_closed",
+        "（三）员工构成情况",
+        "closure_kind",
+        "same_or_shallower_level_sibling",
+        "heading_level",
+        "3",
+        "topic_level",
+        "3",
+        "topic_level_source",
+        "section_path_leaf",
+        "relevant_prefix",
+        "理，瑞银证券有限责任公司投资银行部副董事、董事、执行董事，国开证券有限责任公\n司董事会办公室主任。现任本公司副总经理、董事会秘书，兼任天津市滨海产业基金管\n理有限公司、小康人寿保险有限责任公司等董事。\n\n（4）郑舒先生，财务总监，1979  年出生，中国国籍，无境外永久居留权，福州大\n学会计学、计算机科学与技术双学士，会计师。曾任本公司财务部负责人，中国铁通集\n\n团福建分公司财务部副经理，华为技术"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_section_closed_sibling_heading",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "topic_section_closed",
+        "（三）各业务板块经营情况",
+        "closure_kind",
+        "same_or_shallower_level_sibling",
+        "heading_level",
+        "3",
+        "topic_level",
+        "3",
+        "topic_level_source",
+        "section_path_leaf",
+        "relevant_prefix",
+        "项目  2025年  2024年度  2023年度\n  金额  占比  金额  占比  金额  占比\n\n合计  31,238,329.7100.0  27,351,895.9100.0 30,907,043.4100.0\n\n2023-2025年，发行人营业成本分别为  30,907,043.4万元、27,351,895.9万元和\n\n31,238,329.7万元，总体成本控制稳定。2023-2025"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22"
+    },
+    {
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "seed",
+      "reason_code": "seed",
+      "relation": "seed",
+      "direction": "seed",
+      "page_number": 51,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "seed_section_path_quality",
+        "reliable",
+        "boundary_status",
+        "policy_self_consistent",
+        "topic_level_source",
+        "first_heading"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_before",
+      "page_number": 50,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "1、主营业务收入分析"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 51,
+      "block_index": 1,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 52,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "mixed_block",
+        "（2）销售情况"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    },
+    {
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_section_closed_sibling_heading",
+      "relation": "adjacent",
+      "direction": "adjacent_blocks_after",
+      "page_number": 53,
+      "block_index": 0,
+      "section_path": [
+        "主营业务情况"
+      ],
+      "evidence_type": "paragraph",
+      "content_hash": "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084",
+      "document_id": "NDSD_KCZ_2026",
+      "document_version": "sha256-2b3a1fb3de97f23c",
+      "evidence_set_version": "set-501395a7ad5a",
+      "seed_section_path": [
+        "主营业务情况"
+      ],
+      "path_quality": "reliable",
+      "structural_signals": [
+        "topic_section_closed",
+        "2、储能电池系统板块",
+        "closure_kind",
+        "same_or_shallower_level_sibling",
+        "heading_level",
+        "4",
+        "topic_level",
+        "4",
+        "topic_level_source",
+        "first_heading",
+        "relevant_prefix",
+        "项目  2025年度  2024年度  2023年度\n  产能（GWh）  772  676  552\n  产量（GWh）  748  516  389\n  产能利用率（%）  96.9%  76.3%  70.5%\n  2023-2025年，公司产能稳步扩张，2024  年公司动力电池系统年产能较  2023年增\n长22.5%，2025年公司动力电池系统年产能较  2024年增长  14.2%，"
+      ],
+      "aspect_id": "company_business_main.main_business",
+      "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503"
+    }
+  ],
+  "policy_status": {
+    "company_business_main.main_business": {
+      "aspect_id": "company_business_main.main_business",
+      "status": "policy_self_consistent",
+      "eligible": false,
+      "reason": "boundary_semantics_not_verified: 策略内部自洽未经文档结构独立验证",
+      "topic_level": 4,
+      "topic_level_source": "first_heading",
+      "verification": {
+        "aspect_id": "company_business_main.main_business",
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "evidence_set_version": "set-501395a7ad5a",
+        "source_boundary_identity": "17bdf59f871cb5e6d24db78a31bd430cdb3133cfbf857d664b68f6d8cc32d0c0",
+        "verification_algorithm": "document_heading_structure_boundary_verification",
+        "verification_version": "1",
+        "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+        "section_path": [
+          "主营业务情况"
+        ],
+        "heading_levels": [
+          [
+            "2、储能电池系统板块",
+            4
+          ]
+        ],
+        "topic_level": 4,
+        "topic_level_source": "first_heading",
+        "in_topic_anchor": "",
+        "sibling_evidence": [
+          {
+            "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+            "direction": "adjacent_blocks_after",
+            "relation": "adjacent",
+            "disposition": "outside_boundary_sentinel",
+            "reason_code": "topic_section_closed_sibling_heading",
+            "heading": "2、储能电池系统板块",
+            "level": 4,
+            "page_number": 53,
+            "block_index": 0
+          }
+        ],
+        "parent_evidence": [],
+        "out_of_topic_evidence": [],
+        "expansion_trace_fingerprint": "2d3a14df75420ff24e359590a54a253d14d5814c8e1d53a4774ee54f339c9737",
+        "fragment_trace_fingerprint": "17e2e5b7cd09deb1ead5c3b576f06b1b8b27916f3c329e7beb81a877d07a2088",
+        "unread_scope": {},
+        "budget_exhaustion": [],
+        "unresolved_ambiguity": [],
+        "unresolved_reference": [],
+        "unresolved_continuation": [],
+        "status": "incomplete",
+        "reason": "boundary_semantics_not_verified: sibling_heading_classified_in_topic: 3、主营业务毛利润及毛利率分析",
+        "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+        "verification": {
+          "aspect_id": "company_business_main.main_business",
+          "verified": false,
+          "reason": "sibling_heading_classified_in_topic: 3、主营业务毛利润及毛利率分析",
+          "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+          "cases": [
+            {
+              "heading": "主营业务情况",
+              "level": 4,
+              "relation": "topic_heading",
+              "source": "section_path"
+            },
+            {
+              "heading": "3、主营业务毛利润及毛利率分析",
+              "level": 4,
+              "relation": "sibling_or_outer",
+              "source": "block_heading"
+            },
+            {
+              "heading": "（三）各业务板块经营情况",
+              "level": 3,
+              "relation": "sibling_or_outer",
+              "source": "block_heading"
+            },
+            {
+              "heading": "1、动力电池板块",
+              "level": 4,
+              "relation": "sibling_or_outer",
+              "source": "block_heading"
+            },
+            {
+              "heading": "（1）整体情况",
+              "level": 5,
+              "relation": "child",
+              "source": "block_heading"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "decision_identities": [
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "079cd0d80d660e2da39250746c025937",
+        "adjacent_blocks_before",
+        "adjacent",
+        "topic_section_closed_sibling_heading",
+        "outside_boundary_sentinel",
+        [
+          "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+        ],
+        "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "direction": "adjacent_blocks_before",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "53c9b3721904922b1afa7cff95d39d22",
+        "adjacent_blocks_before",
+        "adjacent",
+        "mixed_block_context_candidate",
+        "context_candidate",
+        [
+          "主营业务情况"
+        ],
+        "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "adjacent_blocks_before",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "53c9b3721904922b1afa7cff95d39d22",
+        "seed",
+        "seed",
+        "seed",
+        "seed",
+        [
+          "主营业务情况"
+        ],
+        "0ae928d501ab0d7af2d8f3ac7d0a1c88eeaf9d7162887bb73df8b70d842fc613"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "direction": "seed",
+          "relation": "seed"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "b2d68bb7d99951150e0a4ce40c6df3c7",
+        "adjacent_blocks_after",
+        "adjacent",
+        "mixed_block_context_candidate",
+        "context_candidate",
+        [
+          "主营业务情况"
+        ],
+        "e2ea59b911bffbae16a56d91ab19508cdd53a7adaf3e63932a6e3abfe63c4fa9"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "adjacent_blocks_after",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "c614f024a06bb87fdefa127200b2d503",
+        "adjacent_blocks_after",
+        "adjacent",
+        "topic_section_closed_sibling_heading",
+        "outside_boundary_sentinel",
+        [
+          "主营业务情况"
+        ],
+        "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "direction": "adjacent_blocks_after",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "c614f024a06bb87fdefa127200b2d503",
+        "seed",
+        "seed",
+        "seed",
+        "seed",
+        [
+          "主营业务情况"
+        ],
+        "9ecaf70bcbfdeb1ee81d09f9e3a47e8fb216d63a18a2bf33349c66fd29812ec0"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "seed",
+          "relation": "seed"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "d1606fc111d0de496c337714ddbb3dfa",
+        "adjacent_blocks_after",
+        "adjacent",
+        "same_section_continuity",
+        "inside_boundary",
+        [
+          "主营业务情况"
+        ],
+        "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+          "direction": "adjacent_blocks_after",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "d1606fc111d0de496c337714ddbb3dfa",
+        "adjacent_blocks_before",
+        "adjacent",
+        "same_section_continuity",
+        "inside_boundary",
+        [
+          "主营业务情况"
+        ],
+        "658710e277e95bc09c222f4567da985db9bd6539bc01a1befa8c1a82dd21a4a9"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "adjacent_blocks_before",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "dc28a391017b78bc653aeadc6401d2ff",
+        "adjacent_blocks_after",
+        "adjacent",
+        "same_section_continuity",
+        "inside_boundary",
+        [
+          "主营业务情况"
+        ],
+        "1e937b1b0fe028e8ec90517043ed3a05566e0bc6df753b25d1dd2472643194d2"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "adjacent_blocks_after",
+          "relation": "adjacent"
+        }
+      ]
+    },
+    {
+      "identity": [
+        "company_business_main.main_business",
+        "efcf4a5cdc3a5311f80e99962d3087ec",
+        "adjacent_blocks_after",
+        "adjacent",
+        "topic_section_closed_sibling_heading",
+        "outside_boundary_sentinel",
+        [
+          "主营业务情况"
+        ],
+        "4bc03223c5d2524f7369cc0d1f152c62ebbbf1d271b681ef6802783bbc0dd084"
+      ],
+      "occurrences": [
+        {
+          "seed_evidence_id": "c614f024a06bb87fdefa127200b2d503",
+          "direction": "adjacent_blocks_after",
+          "relation": "adjacent"
+        }
+      ]
+    }
+  ],
+  "effective_disposition_by_aspect_evidence": [
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "079cd0d80d660e2da39250746c025937",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_section_closed_sibling_heading"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "53c9b3721904922b1afa7cff95d39d22",
+      "disposition": "seed",
+      "reason_code": "seed"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "b2d68bb7d99951150e0a4ce40c6df3c7",
+      "disposition": "context_candidate",
+      "reason_code": "mixed_block_context_candidate"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "c614f024a06bb87fdefa127200b2d503",
+      "disposition": "seed",
+      "reason_code": "seed"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "d1606fc111d0de496c337714ddbb3dfa",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "dc28a391017b78bc653aeadc6401d2ff",
+      "disposition": "inside_boundary",
+      "reason_code": "same_section_continuity"
+    },
+    {
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "efcf4a5cdc3a5311f80e99962d3087ec",
+      "disposition": "outside_boundary_sentinel",
+      "reason_code": "topic_section_closed_sibling_heading"
+    }
+  ]
+}

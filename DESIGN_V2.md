@@ -1,6 +1,6 @@
 # 授信报告生成器 V2 设计文档
 
-> 状态：实施纲领 v0.8（2026-09-14：R1-B 关闭、R2 编码前架构闭环；文档治理、TopicResearchPack、覆盖驱动研究、只读缺口展示、状态栏与独立全报告 Assurance）
+> 状态：实施纲领 v0.9（2026-09-16：树结构调整已批准；EvidenceBlock 降为来源锚点，PageLayout/DocumentOutline/OutlineSpan/TableObject 成为本地材料结构；R3 暂停）
 > 基线：历史 V1 `DESIGN.md`、已交付的 V2 基础能力与当前代码
 > 目的：定义 V2 的产品边界、报告契约、Evidence 架构、检索、Research Harness、评测与全报告质量保障。本文首先用于确认设计，不代表所有模块已经实现。
 > 实现状态：Phase 0A～3 的历史验收和冻结结果原样保留；Phase 3 frozen_final 是安全性、路由与单题实际路径基线，不等于已经满足完整主题研究。Phase 4 的规划、Worker、Evaluator、Store 与 UI 基础已实现，但因 P3→P4 信息吞吐和内容完整性不足，于 2026-09-12 重开 P3R/P4R 内容能力门；Phase 5 暂不进入。§4.3 财务指标口径仍以 `FORMULA_REVIEW.md` 为准。
@@ -72,7 +72,7 @@
 |---|---|---|
 | G-01 | `TopicResearchPack` 是公司/行业等开放研究 Topic 从 P3 向 P4 的唯一正式内容交付物 | `ResearchOutcome` 只作为一次原子研究运行记录和兼容评测对象；P4 不得再只遍历 `answer.claims` 生成章节。财务确定性 Workflow 继续交付独立权威的 `FinancialFactPack` |
 | G-02 | `required_aspects` 是研究调度和完成判断的最小业务单元 | 一个宽问题必须在内部形成 aspect 待办，不因找到一条相关 Evidence 或写出一句答案而提前结束 |
-| G-03 | 命中后执行受控上下文扩读 | 同文档版本内按章节路径、相邻块/页、表题—表头—续表、明确交叉引用扩读；到章节边界、主题无关或预算上限即停止，禁止无界“往后读” |
+| G-03 | 命中后按树结构读取，必要时执行受控后备扩读 | 正常路径先定位同文档版本的最小充分 Outline 节点/子树并读取 `OutlineSpan/TableObject`；只有 outline 不可用、低置信、文本截断或跨节点引用时，才按相邻块/页、续表和明确交叉引用有界扩读；禁止无界“往后读” |
 | G-04 | 预算按 Topic 复杂度动态分档且始终有硬上限 | 预算不足时保存已取得材料并明确未覆盖 aspect；不得只把统一单题预算调大，也不得无限循环 |
 | G-05 | 只有一条正式研究主链 | `SectionContract/Task → Worker编排外壳 → Harness Topic runtime → (Router → ToolRegistry)* → TopicResearchPack → Worker writer`；实验 topic research 可作为算法候选，但不得形成第二套运行时 |
 | G-06 | P4 同时保留原子事实和连贯表达 | `SectionClaim` 用于审计，`NarrativeParagraph`/表格用于人读；一个段落可由多条 Claim 支撑，但不得创造 Pack 中不存在的事实或数字 |
@@ -90,7 +90,7 @@ R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计
 
 | 资产 | 载体 | 状态 |
 |---|---|---|
-| Contract v2（草稿，非默认） | `templates/contracts/standard_v3.yaml` | 52 问（28 topic_harness / 13 financial_workflow / 3 phase4_section_derived / 8 phase5_synthesizer）、187 aspect、每 aspect 22 字段、49 evidence 需求 |
+| Contract v2（已冻结，尚未接入默认运行时） | `templates/contracts/standard_v3.yaml` | 52 问（28 topic_harness / 13 financial_workflow / 3 phase4_section_derived / 8 phase5_synthesizer）、187 aspect、每 aspect 22 字段、49 evidence 需求 |
 | 来源政策 v1 | `templates/policies/source_policy_v1.yaml` | A/B/C/D 分级、关键结论支撑、独立性、时效窗口、行业风险传导四层 |
 | WritingSpec v1 | `templates/writing_specs/credit_report_v1.yaml` | 逐字 8/5/9 H2 目录 + 187 primary / 6 secondary_reference，每 aspect 恰一 primary |
 | PresentationProfile v1 | `templates/presentation_profiles/interview_demo_v1.yaml` | 只允许 display/folding/screenshots/appendix，禁止 fact/coverage/citation/business_judgment 变更 |
@@ -98,7 +98,7 @@ R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计
 | 只读代码 | `contracts/loader_v2.py` `validator_v2.py` `source_policy.py` `sections/writing_spec.py` `presentation_profile.py` `contracts/review/topic_aspect_evidence_review.py` | 纯声明式，不 import Router/Harness/Worker/Writer |
 | 离线测试 | `evals/test_contract_v2_assets.py`（已注册 `run_evals`） | 153 项全绿 |
 
-硬边界：`standard_v2.yaml`（v1）未被覆盖（固定 SHA256 `23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45`）；Contract v2 未设为默认、未接线 Router/Harness/Worker/Writer；未改检索/预算/Prompt/LLM；未迁移/checkpoint/Fact Registry；已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。R1-B 已于 2026-09-14 正式关闭（见 §0.8）；R2～R7、Phase 5/6 未进入。R1-A 专项 153 passed / 0 failed、完整 eval 4218 passed / 0 failed / 0 skipped 全绿，但只证明资产自洽，不宣称 P3R/P4R 或 Phase 4 内容关闭。
+硬边界：`standard_v2.yaml`（v1）未被覆盖（固定 SHA256 `23e1735e3b77e94dacae70be03712ca93c98d8f545cc087f8d8b092ad841ae45`）；Contract v2 在 **R1-A 冻结时点**尚未设为默认、尚未接线 Router/Harness/Worker/Writer；当时未改检索/预算/Prompt/LLM，未迁移/checkpoint/Fact Registry，并已按职责提交（`30dbc83` `884edd4` `4f4b654` `ee51cd8` `b5c6e5b`）。后续阶段事实以 §0.8～§0.10 和 `V2_TODO.md` 为准，不从本段历史快照推断当前进度。R1-A 专项 153 passed / 0 failed、完整 eval 4218 passed / 0 failed / 0 skipped 全绿，但只证明资产自洽，不宣称 P3R/P4R 或 Phase 4 内容关闭。
 
 ### 0.7 2026-09-13 面试版交互、状态栏与最终审核边界（现行）
 
@@ -112,13 +112,54 @@ R1-A 只生成「版本化声明资产 + 只读 schema/loader/validator + 审计
 
 本次范围修订不删除历史 checkpoint、ResolutionRecord、财务确认或依赖失效代码，也不禁止未来产品版本实现补件闭环；只是将它们从当前面试版 Phase 5/6 出口中移除。当前缺口是只读审计产物，不是待用户在线处理的工作队列。预算耗尽、来源不足和必须人工判断均应形成明确状态，但页面不提供“继续研究”或“补充材料”动作。
 
-### 0.8 2026-09-14 R1-B 关闭与 R2 编码前状态（现行）
+### 0.8 2026-09-14 R1-B 关闭与 R2 编码前状态（历史状态；现行见 §0.9～§0.10）
 
 R1-B 已正式关闭：唯一 `TopicResearchPack` schema（v2）+ append-only Pack Store + 追加式 migration 2 + `set_complete` 独立枚举接口（`SetEnumerationVerifier`）+ SourcePolicyRef Pack 内唯一绑定；旧 v1 Pack 的 current/checkpoint/历史默认读一律 fail-closed，历史不 UPDATE/DELETE。完整离线 eval 基线 4467 passed / 0 failed / 0 skipped 全绿；`standard_v2.yaml`（v1）固定 SHA256 不变、未接 runtime/真实 LLM/博查/网络、未生成真实报告。
 
-正式、版本化、确定性的 `SetEnumerationVerifier` **实现**尚待 R2，由唯一正式组合入口注入后，才建立「内部确实读取过 payload bytes」的信任；接线前生产运行链不得完成 `set_complete` aspect，枚举器版本必须进入 R2 dependency fingerprint。
+当时正式、版本化、确定性的 `SetEnumerationVerifier` 实现尚待 R2；该句仅记录当时入口状态。后续实现与精确工作区事实见 `V2_TODO.md`。其信任边界仍有效：Store 只能交叉校验身份与结果，不能从任意注入实现的自报证明其内部执行过程。
 
-R2（材料构建 / 受控上下文扩读）当前为「实施计划已批准、开始编码」；R3～R7、Phase 5/6 未进入。精确工作区 / 测试数字只记录在 `V2_TODO.md`。
+R2 后续形成的只读访问、Store、哈希、authority、trace、显式引用和 fail-closed 能力继续复用；其旧材料边界假设已由 §0.10 的树结构调整取代。精确工作区 / 测试数字只记录在 `V2_TODO.md`。
+
+### 0.9 2026-09-16 R2 材料能力验收：三轴状态模型与完成定义（现行）
+
+本节是 **R2 完成定义的冻结**，覆盖此前所有以「六类 material 全部 complete/accepted」为目标的表述。
+
+**三轴状态模型（分别建模、禁止互相自动映射）。** 每个材料的验收结果由三条**独立**轴表示，三条轴之间**没有**任何自动映射或等价关系：
+
+| 轴 | 取值 |
+|---|---|
+| `material_state` | `complete` / `partial` / `boundary_incomplete` / `not_obtained` / `unsupported` / `invalid` |
+| `capability_verdict` | `PASS` / `FAIL` / `NOT_TESTED` |
+| `report_impact` | `blocking` / `non_blocking` / `audit_only` |
+
+合法组合示例：`boundary_incomplete / PASS / blocking`、`not_obtained / PASS / non_blocking`。`capability_verdict = PASS` 只表示**系统正确、可复核地得出了该材料状态**，**不**表示材料完整，**也不**表示报告可发布。旧调用方使用的 `verdict` 字段只是三轴的确定性兼容视图，权威输出是三轴本身。
+
+**完成定义（R2 不以「全部 material complete/accepted」为关闭条件）。** 诚实的 `boundary_incomplete` / `not_obtained` / `unsupported` 可以是 `capability_verdict = PASS`，并且**不**自动构成代码缺陷；负面材料状态本身不得被当成代码失败（失败门只表达能力门或完整性门失败）。
+
+**R2 职责边界。** R2 只负责：材料构建、受控上下文扩读、边界证明、持久化、材料能力验收。以下属于 **R3 正式事实形成与 Pack 状态**职责，R2 **不做**、也不得代做：授信金额语义模式、币种推断、used/unused 业务对账、multi-source conflict 双轴、授信 `REPORT_BLOCKED` 映射、授信正式 Writer/报告展示。
+
+**授信预览的定位。** 现存 `evaluation/results/r2_credit_dual_axis_*_preview_*` 各轮均保留为 **evaluation diagnostic / R3 candidate**：它们不是 R2 或树结构调整的关闭门，也**不得**被引用来宣称「正式运行链接线完成」。具体轮次与现场状态只记录在 `V2_TODO.md`；历史预览与相关代码不删除、不回滚，只标记定位。
+
+本节不修改冻结的 Contract（`templates/contracts/*.yaml`）、SourcePolicy（`templates/policies/source_policy_v1.yaml`）、WritingSpec（`templates/writing_specs/credit_report_v1.yaml`）与 PresentationProfile（`templates/presentation_profiles/interview_demo_v1.yaml`）；R2 中任何验收都不得通过放宽 authority、`set_complete`、来源边界或 hash 校验来提高完成率。
+
+### 0.10 2026-09-16 树结构调整（已确认，现行）
+
+真实年报和募集说明书审计证明，现有 `EvidenceBlock` 主要由页内双换行、字符上限和兼容标题提示决定：它具有可靠来源身份，却不是可靠的章节、段落、表格或业务对象边界。一个 Evidence 可以跨越多个正文小标题、多个 Contract 主题或表格与表后分析；旧 `section_path` 也可能是表格行、年份或残片。继续围绕相邻块、固定页距和 seed 哨兵修补，无法从根本上保证材料完整性。
+
+以下决定已经用户确认，覆盖本文中把“整块 Evidence + section_path/相邻块”当作正常材料边界的旧表述：
+
+| ID | 已确认决定 | 实施含义 |
+|---|---|---|
+| T-01 | `EvidenceBlock` 降为不可变来源与引用锚点 | 历史 Evidence ID/Evidence Set 不回写；整块文本不能因为一次命中直接成为语义材料或覆盖证明 |
+| T-02 | 每个支持的电子 PDF 生成版本化 `PageLayout` 与只读 `DocumentOutline` | 从原始 PDF 或同一 canonical layout 派生；目录/书签只是候选，必须由正文大小标题、小标题、编号连续性和版式锚点确认 |
+| T-03 | `OutlineSpan` 与 `TableObject` 是正式本地消费单位 | 一个 Evidence 可映射多个 span，一个节点可聚合多个 span；表格与叙述文字分读，并保留表题、单位、表头、表体、合计、续表和关联关系 |
+| T-04 | RAG、Pack 与 P4 切换为树感知消费 | 先定位候选节点，再加载最小充分节点/子树的 span/table；引用仍回指底层 Evidence 与精确字符/页/坐标定位 |
+| T-05 | Contract→标题树相似度只用于导航 | 标题、确定性简介、子标题和表题参与候选排序；aspect covered 仍由合格材料、事实、引用、权威和 Contract completion rule 决定 |
+| T-06 | 旧扩读能力降为有界后备 | 相邻块/页、rolling frontier、显式引用用于 outline 不可用、低置信、文本截断或跨节点引用；不再承担普通文档的主要业务边界判断 |
+| T-07 | 权威分离保持不变 | `TableObject` 是 Evidence-backed 结构对象，不是新的数字权威；FinancialSnapshot、Evidence 附注事实、普通业务表和 ExternalSnapshot 继续分别校验 |
+| T-08 | 树结构调整是 R2→R3 强制门 | 标题层级、跨标题 span、TableObject、树感知检索/材料消费及真实纵向样本通过前，不进入 R3，不继续围绕旧 seed/邻接边界做局部补丁 |
+
+树结构是非破坏性结构层，不要求立刻重写历史 Evidence。若原 Evidence 文本覆盖不足或无法建立精确 span，允许从同一原始 PDF 生成新的 append-only `evidence_set_version`；旧集合只读保留，不 UPDATE、不伪造字符范围。节点 synopsis 只作导航元数据，不能作为 Evidence、Citation 或事实来源。
 
 ---
 
@@ -132,7 +173,7 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
 
 | 维度 | V1 | V2 |
 |---|---|---|
-| 知识单元 | PDF text chunk | 带来源、结构、时间和实体的 `EvidenceBlock` |
+| 知识单元 | PDF text chunk | `EvidenceBlock` 来源锚点 + `PageLayout/DocumentOutline` 结构层 + `OutlineSpan/TableObject` 材料单元 |
 | 检索 | 固定查询 + Dense top-k + 简单加权 | Information Need Router + 结构化查询 + Hybrid + 深度检索 |
 | 章节目标 | Markdown guidance | 可执行的 `SectionContract` |
 | Agent 行为 | 固定调用若干 Agent | Workflow 为主，开放研究使用共享 Research Harness |
@@ -198,11 +239,17 @@ V2 是一个面向客户经理的、以证据驱动信用研究为核心的授�
                  ▼
        Parse / Normalize / Quality Check
                  │
-          ┌──────┴─────────┐
-          ▼                ▼
-   Evidence Store     Financial Store
-          │                │
-          └──────┬─────────┘
+          ┌──────┴──────────────────┐
+          ▼                         ▼
+ Evidence Store                Financial Store
+ (immutable provenance)             │
+          │                          │
+          ▼                          │
+ PageLayout → DocumentOutline       │
+          │                          │
+          ▼                          │
+ OutlineSpan / TableObject          │
+          └──────────┬───────────────┘
                  ▼
       Report Planner / Section Tasks
                  │
@@ -261,7 +308,7 @@ Topic + Aspect 待办          │
 
 1. **先定义章节，再定义检索。** `SectionContract` 决定 Planner 要拆什么问题。
 2. **检索按 Information Need 发生。** 不在任务开始时统一召回一大包上下文。
-3. **Evidence 是统一事实接口。** 内部文档、Web、API 和结构化数据都需要可追溯来源。
+3. **EvidenceBlock 是统一来源接口，不是统一语义材料。** 内部文档、Web、API 和结构化数据都需要可追溯来源；电子 PDF 的业务结构由版本化 `PageLayout/DocumentOutline` 派生，RAG/Pack/P4 以 `OutlineSpan/TableObject` 消费。
 4. **Harness 是共享运行时。** 公司、行业、项目研究使用不同 Policy，不复制三套 Loop。
 5. **Evaluator 和 Verifier 分工。** Evaluator 控制章节是否需要返工；Verifier/Assurance 判断最终报告能否交付。
 6. **综合不是重写。** Synthesizer 可建立跨章节关系，但不得创造新事实或新数字。
@@ -308,7 +355,7 @@ Topic + Aspect 待办          │
 
 ## 4. 报告结构与 Section Contracts
 
-机器可读 `SectionContract` v1 已存在并保留历史兼容，但真实纵向样本已证明其部分 aspect、来源角色、展示语义和 `not_found` 门槛不足以支持完整 Topic 研究。P3R 的 R1 必须发布兼容的 Contract v2，并对新增/变更业务语义做聚焦复核；禁止原地覆盖 v1 或让 Prompt/代码补出影子 Contract。
+机器可读 `SectionContract` v1 继续作为固定 hash 的历史兼容资产；R1-A 已发布并冻结兼容 Contract v2（52 问 / 187 aspects）及 SourcePolicy/WritingSpec/PresentationProfile。现行实现必须消费这些冻结资产，禁止原地覆盖 v1/v2 或让 Prompt/代码补出影子 Contract。本轮树结构调整只改变本地材料结构与定位，不改变 Contract 业务语义。
 
 ### 4.1 通用 Section Contract Schema
 
@@ -328,9 +375,9 @@ class SectionContract:
     missing_policies: list[MissingPolicy]
 ```
 
-`[已确认]` 第一阶段目录和章节主题按本节执行；SC-01～SC-05 的 blocking 业务语义已固化。R1 的 Contract v2 要细化 aspect/evidence/source/display/not_found，不重开已经确认的章节范围。
+`[已确认]` 第一阶段目录和章节主题按本节执行；SC-01～SC-05 的 blocking 业务语义已固化。Contract v2 已细化 aspect/evidence/source/display/not_found，未重开已经确认的章节范围。
 
-外部能力在 Contract v2 中必须显式区分：`search_external_sources` 授权候选搜索，`fetch_external_content` 授权模型从允许候选中选择正文获取；fetch 成功后的 `snapshot_external_source` 仍是 Rules-internal 原子步骤，不暴露为模型动作，但必须受 fetch 授权、Registry、预算和审计约束。v1 当前只列 search，是已知兼容缺口，R1 必须迁移 schema/validator/Contract 后，R4 才可依此闭环。
+外部能力在冻结 Contract v2 中显式区分：`search_external_sources` 授权候选搜索，`fetch_external_content` 授权模型从允许候选中选择正文获取；fetch 成功后的 `snapshot_external_source` 仍是 Rules-internal 原子步骤，不暴露为模型动作，但必须受 fetch 授权、Registry、预算和审计约束。v1 只列 search，属于历史兼容限制；R4 以 Contract v2/SourcePolicy 为准接线。
 
 ### 4.2 公司信用研究
 
@@ -581,9 +628,120 @@ class EvidenceBlock:
 
 **Evidence ID 建议**：基于 `document_id + page + block_index + content_hash` 生成稳定 ID；文件重新解析但内容未变化时尽量保持稳定。
 
+`EvidenceBlock` 的正式语义限于来源身份、原文内容、版本、页码/定位和内容哈希。旧集合中的 `section_path`、`evidence_type` 与切块边界是兼容元数据/弱提示，不能证明一个块只属于一个标题、一个表格或一个 Contract aspect，也不能直接作为 `covered`/`set_complete` 的依据。历史 Evidence 保持只读；若 canonical PageLayout 发现旧集合漏页、误跳页或无法精确映射，发布新的 append-only `evidence_set_version`，不得覆写旧块。
+
 `[已确认 E-01]` PDF 表格保留表格坐标、行列头、原始单元格、单位和页码。  
 `[已确认 E-02]` 外部网页至少保存支持 Claim 的正文快照、URL、标题、发布日期和抓取时间。  
 `[已确认 E-03/O-07]` Evidence 按公司在本地独立资源库长期保留并保留多个版本；允许用户主动按公司或任务删除，但删除前必须检查最终报告引用关系。
+
+### 5.2.1 PageLayout、DocumentOutline 与正式材料单元
+
+```python
+@dataclass(frozen=True)
+class PageLayout:
+    layout_id: str
+    document_id: str
+    document_version: str
+    parser_version: str
+    pages: tuple[LayoutPage, ...]       # 行、阅读顺序、bbox、字体/字号/粗体、表格区域
+    content_fingerprint: str
+
+@dataclass(frozen=True)
+class DocumentOutline:
+    outline_id: str
+    document_id: str
+    document_version: str
+    layout_id: str
+    outline_version: str
+    root_node_ids: tuple[str, ...]
+    node_ids: tuple[str, ...]
+    unassigned_span_ids: tuple[str, ...]
+    dependency_fingerprint: str
+
+@dataclass(frozen=True)
+class OutlineNode:
+    node_id: str
+    outline_id: str
+    parent_node_id: str | None
+    level: int
+    title: str
+    normalized_title: str
+    ordinal_path: tuple[str, ...]
+    child_node_ids: tuple[str, ...]
+    span_ids: tuple[str, ...]
+    table_object_ids: tuple[str, ...]
+    heading_anchor: SourceLocator
+    navigation_synopsis: "NavigationSynopsis"
+    confidence: str
+    quality_flags: tuple[str, ...]
+
+@dataclass(frozen=True)
+class EvidenceSpanRef:
+    evidence_id: str
+    char_start: int
+    char_end: int
+    alignment_record_id: str
+    normalization_version: str
+
+@dataclass(frozen=True)
+class OutlineSpan:
+    span_id: str
+    outline_id: str
+    node_id: str | None                  # None 仅用于显式 unassigned
+    evidence_refs: tuple[EvidenceSpanRef, ...]
+    page_start: int
+    page_end: int
+    content_hash: str
+    role: str                         # heading | narrative | list_item | caption | footnote
+
+@dataclass(frozen=True)
+class TableObject:
+    table_object_id: str
+    outline_id: str
+    node_id: str
+    component_span_ids: tuple[str, ...]
+    title: str | None
+    unit: str | None
+    header: tuple[tuple[str, ...], ...]
+    rows: tuple[tuple[str, ...], ...]
+    totals: tuple[tuple[str, ...], ...]
+    continuation_ids: tuple[str, ...]
+    relation_ids: tuple[str, ...]
+    content_hash: str
+    quality_flags: tuple[str, ...]
+
+@dataclass(frozen=True)
+class NavigationSynopsis:
+    status: str                         # available | unavailable
+    text: str
+    source_span_ids: tuple[str, ...]    # 抽取式简介的原文范围
+    algorithm_version: str
+    reason_codes: tuple[str, ...]
+    content_hash: str
+
+@dataclass(frozen=True)
+class AspectNavigationProfile:
+    profile_id: str
+    contract_fingerprint: str
+    aspect_id: str
+    query_terms: tuple[str, ...]
+    source_intents: tuple[str, ...]
+    algorithm_version: str
+    vocabulary_version: str
+    content_fingerprint: str
+```
+
+以上是稳定业务语义，具体字段可在树结构任务书的获批实现计划中版本化细化，但不得缩减以下不变量：
+
+- `PageLayout` 从原始电子 PDF 或同一 canonical layout 源构建，不从旧 `section_path` 反推；无文本层/低质量文档继续 fail fast，不启用 OCR。
+- `DocumentOutline` 是只读、版本化派生物。PDF bookmark/目录只产生候选；正文全页大小标题、小标题、编号连续性、字体、缩进和坐标负责确认。一个节点默认延伸至下一个同级或更高层标题。
+- 同名标题按完整路径和来源坐标区分；低置信或无法归属的正文进入显式 `unassigned`，不得静默丢弃。
+- 一个 Evidence 可以被多个不重叠 `OutlineSpan` 引用，一个 span 也可以按源顺序引用多个 Evidence ranges；一个节点可以聚合多个 span。span 必须无损回指 Evidence 内容和字符范围，禁止越界、自报或重写原文。旧 Evidence 未覆盖的原文必须先进入新的 append-only evidence set，不能伪造 offsets。
+- PageLayout 原始文本与 Evidence 规范化文本之间必须保存版本化 alignment 记录；alignment 不能唯一确认时 fail-closed 或发布新的 append-only evidence set，禁止猜测字符偏移。
+- `TableObject` 将表题、单位、物理表头、表体、合计、续表与文字说明分开；通过 `introduces`、`explains`、`continued_by`、`footnote_of`、`references`、`reconciles_with` 等 typed relation 组合。
+- 每个可导航节点必须有确定性、抽取式且可回溯的 `NavigationSynopsis`，例如由节点标题、子标题及有界原文句生成；无法生成时必须记录 `status=unavailable` 与原因。简介只能用于候选导航，不能成为 Citation、SupportedFact、coverage 或 set_complete 依据。
+- `AspectNavigationProfile` 只能由冻结 Contract 字段和公司无关、版本化的通用词汇规则确定性派生；不得内置公司名、固定页码、答案关键词或另造业务要求。profile、词汇和排序算法版本必须进入依赖指纹并写入检索审计。
+- layout/outline/span/table/parser/index 版本进入依赖指纹，任一变化使相应索引与 Pack stale，不得静默复用。
 
 ### 5.3 InformationNeed 与 RouteDecision
 
@@ -648,7 +806,7 @@ class AspectResearchResult:
 @dataclass
 class ResearchMaterial:
     material_id: str
-    material_type: str          # evidence_span | table_context | structured | external_snapshot
+    material_type: str          # outline_span | table_object | structured | external_snapshot
     source_identity: str
     locator: MaterialLocator                       # 按 material_type 区分的严格联合类型（见 R1-B §1）
     payload_ref: MaterialPayloadRef                # 不可变解析引用（替代裸 content_or_payload_ref）
@@ -742,7 +900,7 @@ class TopicResearchPack:
 - `schema_version/company_id/report_as_of/contract_version/contract_fingerprint/source_policy_version/task_id/topic_id` 是显式身份，不得只藏在不透明的 dependency hash 中；P4 必须逐字段校验后再消费。
 - 搜索结果的 title/URL/snippet 仅是候选导航；只有经过 inspect 或 fetch→snapshot、并通过权威校验的正文/结构化记录才能进入 `materials` 和 `facts`。
 - 一个材料可以支持多个 aspect，一个 aspect 也可以由多个材料共同支持；不得把“一条命中”机械等同于整个 aspect covered。
-- 本地文本命中后允许受控扩读同版本相邻块、同章节和表格上下文；扩读范围、停止原因与未读范围必须进入审计字段。
+- 本地文本一律以 `outline_id/node_id/span_id/table_object_id` 定位最小充分节点/子树。即使进入相邻块、同页/跨页或明确引用 fallback，结果也必须形成带精确来源范围的 `OutlineSpan`（低置信或无标题内容进入 `unassigned`），不得把整个 `EvidenceBlock` 提升为正式材料类型。fallback 原因、范围、未读结构和 outline 置信状态必须进入审计字段；fallback/unassigned 材料可以支撑候选事实，但不得单独使集合型 aspect 达到 `set_complete`，缺少已验证 outline/table 边界时保持 `boundary_incomplete` 或 `partial`。
 - 财务 `FinancialFactPack` 保持独立权威来源，但对 P4 暴露与 `TopicResearchPack` 可组合的只读事实视图；PDF 附注 Evidence 事实不得伪装成 FinancialSnapshot 事实。
 - 所有可能进入报告的数字统一投影为可查询的 `SupportedFact.value_identity`/财务事实只读视图，供各 Topic 复用；这是一层统一 Fact Registry 读模型，不是把 FinancialSnapshot、Evidence 附注、授信/担保/研发和外部数据强行写进同一权威表。来源类型、原始定位、期间、单位、scope 与语义类别必须保留，LLM 不能把不同权威或口径的同值互换。
 - `AspectCoverageResult` 和 `ExternalFunnelProjection` 可以从 Pack 派生或作为其审计字段，但不能替代 Pack 的材料、事实、预算和未解决项。
@@ -935,13 +1093,16 @@ class VerificationIssue:
 ```text
 RawDocument
   → 文件识别与归属校验
-  → 页面解析
-  → 标题/段落/表格结构识别
-  → EvidenceBlock 切分
-  → 实体、期间和来源元数据绑定
+  → canonical PageLayout（全页行、坐标、样式、阅读顺序、表格区域）
+  → bookmark/目录候选 + 正文全量大小标题/小标题 + 编号/版式对齐
+  → versioned read-only DocumentOutline
+  → EvidenceBlock 来源锚点 + OutlineSpan / TableObject 派生
+  → 实体、期间、来源元数据与对象关系绑定
   → 质量检测
-  → Evidence Store + 检索索引
+  → append-only Structure Store + outline-aware 检索索引
 ```
+
+构建器不得因为某行包含“目录”两个字就跳过整页；目录识别必须使用页面结构，并保留目录页作为候选来源。正文页始终参加标题锚点与内容覆盖检查。每个非空正文范围必须落入可信 Outline 节点、`TableObject` 或显式 `unassigned`，并输出未映射原因；不得以标题识别失败为由静默删除内容。
 
 财务材料使用额外分支：
 
@@ -964,7 +1125,9 @@ Excel / 电子 PDF / 审计报告附注 / 征信报告
 ### 6.2 V1 兼容策略
 
 - 保留 `parsers.pdf_parser.parse()` 作为底层文本解析入口。
-- 在 `TextChunk` 与 ChromaDB 之间增加 Evidence 构建层。
+- 历史 `TextChunk → EvidenceBlock`、Evidence ID、Evidence Set、旧索引和既有运行产物只读保留；旧 `section_path` 不升级为正式标题树。
+- 新增 PageLayout/DocumentOutline/OutlineSpan/TableObject 派生层与版本化索引。正常本地检索不再把整块 Evidence 直接作为写作材料。
+- 若旧 Evidence 未覆盖 canonical PageLayout 中的正文，生成新的 append-only `evidence_set_version`；新旧集合严格隔离，历史引用继续可读。
 - V1 `RetrievedChunk` 在迁移期可由 `EvidenceBlock` 适配生成。
 - 不直接删除现有 collection；新旧索引使用 schema version 区分。
 - 财务 PDF 新增独立抽取/校验路径，不复用普通段落 RAG 直接生成财务数字。
@@ -979,6 +1142,10 @@ Excel / 电子 PDF / 审计报告附注 / 征信报告
 - Web Evidence 必须记录 URL、标题、发布日期（如可得）和抓取时间。
 - 财务 Evidence 必须记录表名、行名、列名、单位、合并/母公司口径和原始坐标。
 - Evidence 按公司单独保存并支持版本化；被最终报告引用的版本不可因清理运行缓存而删除。
+- Outline 必须覆盖正文一级标题、二/三级标题和项目级小标题；目录与正文锚点无法一致时显式标记冲突或低置信，不得任选其一静默通过。
+- 跨标题 Evidence 必须拆为字符范围不重叠、可无损回查的 spans；任何 span 越界、重叠冲突、内容哈希不符或跨 document version 均 fail-closed。
+- TableObject 必须能回查 component span/cell、表题、单位、表头、表体、合计与续表关系；结构不足时标记 partial/unsupported，不得把摊平文本伪装为完整结构化表。
+- 每份文档必须报告未映射正文、`unassigned`、低置信节点、目录—正文不一致和表格结构缺口。
 
 ---
 
@@ -1009,14 +1176,17 @@ Excel / 电子 PDF / 审计报告附注 / 征信报告
 
 ```text
 InformationNeed
-  → metadata filter
-  → BM25/Sparse 与 Dense 并行召回
+  → Contract aspect / source / time metadata filter
+  → OutlineNode candidate retrieval（title/path/synopsis/child titles/table titles）
+  → Span/Table Sparse 与 Dense 并行召回
   → rank fusion
   → reranker
-  → 去重与来源多样性控制
-  → context/evidence assembly
+  → node/subtree 结构约束、去重与来源多样性控制
+  → OutlineSpan/TableObject context assembly
   → EvidencePack
 ```
+
+检索分为“导航候选”和“正式内容”两层：节点标题、路径和 synopsis 用于定位，正式上下文只来自可回查的 span/table payload。缺少高置信标题命中时，先检索全文、祖先/子节点、`unassigned`、同公司其他文档、表格对象和结构化数据；不能直接以“无标题命中”触发外部搜索。只有本地要求仍未满足且 SourcePolicy/Contract 允许时，才进入外部漏斗。
 
 ### 7.3 统一接口
 
@@ -1028,7 +1198,7 @@ def retrieve(
 ) -> EvidencePack: ...
 ```
 
-该接口继续承担强制日志职责，禁止 Worker 绕过接口直接访问 ChromaDB。
+该接口继续承担强制日志职责，禁止 Worker 绕过接口直接访问 ChromaDB。树结构调整后，接口的本地结果必须携带 outline/node/span/table identity 与底层 Evidence locator；旧整块 Evidence 返回只能使用明确的兼容/fallback 状态。
 
 ### 7.4 Reranker 与 Fusion
 
@@ -1041,7 +1211,7 @@ V2 不使用一个全局固定 top-k，也不把 top-k 调大视为默认优化�
 
 - `candidate_k`：Sparse/Dense 各自初召回的候选数。
 - `rerank_k`：融合后进入重排的候选数。
-- `context_k`：最终进入 EvidencePack/模型上下文的证据数。
+- `context_k`：最终进入 EvidencePack/模型上下文的 span/table 材料数；不得用整块 Evidence 数量掩盖节点内信息密度。
 
 参数按 Route、章节和证据类型配置。例如精确字段通常需要较小 `context_k`，跨文件问题需要更大的候选池但仍限制最终上下文。首轮使用 PageHit@K、AllGroupHit、MRR、页级精度代理和延迟；真正的 Context Precision 与生成 token 成本待相应标注/生成评测具备后启用。
 
@@ -1139,7 +1309,8 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
                        ↓
               Router → ToolRegistry 执行
                        ↓
-          命中后按边界 inspect / 扩读 / 表格恢复
+          命中后定位 Outline 节点/子树并读取 span/table
+             （结构不可用或跨节点引用时才有界后备扩读）
                        ↓
             抽取并校验事实，更新覆盖与预算
                        ↓
@@ -1150,7 +1321,7 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
                           P4 Section Worker / Evaluator
 ```
 
-宽问题的初始查询可以同时覆盖多个 aspect；系统应把一次结果映射回所有被支持的 aspect，而不是机械地“每个 aspect 必搜一次”。只有未覆盖 aspect 才触发定向查询。命中一页后，Harness 应在明确边界内扩读上下文，以恢复定义、列表、业务过程、原因、表头/单位和续表；扩读不是新建平行检索器，仍经既有 Evidence/工具接口并落 Trace。
+宽问题的初始查询可以同时覆盖多个 aspect；系统应把一次结果映射回所有被支持的 aspect，而不是机械地“每个 aspect 必搜一次”。只有未覆盖 aspect 才触发定向查询。命中后，Harness 先读取候选节点的完整标题路径、相关子节点、`OutlineSpan` 和 `TableObject`，以恢复定义、列表、业务过程、原因、表头/单位和续表。只有 outline 缺失、低置信、内容截断或明确跨节点引用时才启用旧扩读能力；它不是新建平行检索器，仍经既有 Evidence/工具接口并落 Trace。
 
 外部研究按“查询意图 → 候选排序 → fetch → snapshot → 事实采纳”执行。候选是否值得抓取按来源等级、日期、域名独立性和目标 aspect 判断；低价值未抓候选不得永久阻断为另一未覆盖 aspect 发起新查询。单一 URL、snippet 或 D 级来源不能让 aspect 完成。
 
@@ -1162,7 +1333,7 @@ Harness 是模型运行环境，不只是 guardrails。它负责：
 - 关键 Claim 达到最低证据数量和来源要求。
 - 无新的高价值检索动作。
 - 达到最大轮数、token、时间或外部搜索预算。
-- 连续两轮无新增 Evidence。
+- 连续两轮无新增合格材料或事实；同一混合 Evidence 的重复返回不算新增。
 - 出现不可恢复错误或必须人工确认事项。
 
 `[已确认 H-01，2026-09-12 修订]` 历史单题公司/行业 6 轮作为 Phase 3 frozen 评测基线保留；正式内容生产改为版本化的 Topic 复杂度预算。简单字段题可沿用小预算，多 aspect 本地题、混合结构化题和外部研究题分别提高上限，但每档必须同时限制 rounds、tool calls、local/external searches、fetch/snapshot、tokens 和 elapsed time。预算由 aspect 数、来源类型和未覆盖缺口确定，不由公司名称、case_id 或 gold 决定。
@@ -1281,15 +1452,19 @@ UI 至少展示：
 
 ### 10.2 综合 Claim 的来源
 
-综合结论必须使用 `derived_from_claim_ids` 指向章节 Claim，而章节 Claim 再指向 Evidence。这样形成：
+综合结论必须使用 `derived_from_claim_ids` 指向章节 Claim；章节 Claim 再经受支持事实或材料对象追溯到来源锚点。这样形成：
 
 ```text
 综合方案评价
   → 综合判断
     → 章节 Claim
-      → EvidenceBlock / Financial Metric
-        → 原始文件、页码或外部来源
+      → SupportedFact / ResearchMaterial
+        → OutlineSpan / TableObject / FinancialFact / ExternalFact
+          → EvidenceBlock + PageLayout source coordinates / FinancialSnapshot / ExternalSnapshot
+            → 原始文件、页码或外部来源
 ```
+
+`DocumentOutline` 的标题、路径和导航简介只帮助定位，不能作为 Claim 的直接证据。P4 引用必须落到 `OutlineSpan`、`TableObject` 的 component provenance、结构化财务事实或外部快照正文；最终仍可回查原始文件与精确位置。
 
 ---
 
@@ -1347,13 +1522,14 @@ V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告�
 
 评测不是最终报告的一次总分，而是沿数据流分层定位问题。
 
-### 12.1 六层离线评测
+### 12.1 七层离线评测
 
 | 层 | 主要指标 | 基准数据需要什么 |
 |---|---|---|
 | Evidence 构建 | 页码准确率、结构类型准确率、表格完整率、来源完整率 | 文档页面与人工标注 Evidence |
+| 文档结构 | 目录/正文标题对齐率、大小标题层级准确率、正文归属率、跨标题切片准确率、TableObject 完整率 | 真实 PDF 的标题树、正文区间、表格与未归属内容人工标注 |
 | Router | Route Accuracy、严重误路由率、fallback 成功率 | Information Need + 人工路由标签 |
-| Retrieval | Recall@K、MRR、nDCG、Context Precision、证据多样性 | Query + gold Evidence IDs |
+| Retrieval | Recall@K、MRR、nDCG、Context Precision、跨标题污染率、材料多样性 | Query + gold node/span/table IDs + 底层 Evidence IDs |
 | Research Harness | 必答项完成率、有效工具调用率、无效循环率、恢复成功率 | Section Task + gold requirements |
 | Section | Coverage、Faithfulness、Citation Correctness、信用相关性 | 章节 rubric + 参考证据 |
 | Full Report | 数值准确、实体准确、时效、跨章节一致、决策充分性 | 报告级 case + 专家 rubric |
@@ -1361,6 +1537,8 @@ V1 `agents.verifier` 保留为迁移起点，但 V2 将回检扩展为全报告�
 P3R/P4R 必须在原六层之间增加可定位的内容吞吐指标，而不是只看最终 FULL 或 `eval 0 failed`：
 
 - **研究完整性**：required aspect 终态率、supported aspect coverage、Pack 事实保留率、命中后上下文扩读有效率、材料跨来源多样性。
+- **结构保真度**：正文小标题召回率、父子/同级关系准确率、跨标题旧块正确拆分率、正文未归属率、TableObject 标题/单位/表头/表体/合计/续表完整率。
+- **树感知检索质量**：候选节点命中率、span/table 返回率、整块混合 Evidence 直接进入上下文的比例、导航简介被误当证据的次数（必须为 0）。
 - **外部研究价值**：每 aspect 候选/fetch/snapshot/adopt 数、A/B/C/D 分布、日期合格率、失败发生在 query/provider/fetch/snapshot/policy 的具体层。
 - **章节表达**：Pack fact→Claim 保留率、Claim→NarrativeParagraph 覆盖率、表文一致率、宽 Topic 的结构完整性和人工可读性 rubric。
 - **安全正确性**：错误事实、无来源数字、引用不可回查、期间/单位/主体错配进入正式正文必须为 0；安全正确性和研究完整性分别报告，不能互相替代。
@@ -1727,6 +1905,12 @@ credit-report-demo/
 │   ├── schema.py                 # EvidenceBlock / EvidenceRef
 │   ├── builder.py                # parser 输出 → Evidence
 │   └── store.py                  # Evidence CRUD
+├── document_structure/
+│   ├── schema.py                 # PageLayout / DocumentOutline / OutlineSpan / TableObject
+│   ├── layout_builder.py         # 原始电子 PDF → 版本化页面布局
+│   ├── outline_builder.py        # 目录候选 + 正文标题 → 标题树
+│   ├── table_builder.py          # 表格对象与跨页续表关系
+│   └── store.py                  # 只读派生结构的版本化持久化
 ├── planning/
 │   └── report_planner.py         # Contract → SectionTask / InformationNeed
 ├── routing/
@@ -1735,6 +1919,7 @@ credit-report-demo/
 │   ├── sparse.py                 # BM25
 │   ├── hybrid.py                 # fusion
 │   ├── reranker.py               # 可选 rerank
+│   ├── outline_indexer.py        # 标题路径、简介、子标题和表题索引
 │   └── retriever_v2.py           # 统一入口 + 强制日志
 ├── tools/
 │   ├── contracts.py              # Tool schema / ToolResult
@@ -1790,7 +1975,10 @@ def load_contracts(path: str) -> list[SectionContract]: ...
 CLI：
 
 ```bash
+# V1 固定哈希兼容示例；不是当前 Contract v2 默认接线声明
 python -m contracts.loader templates/contracts/standard_v2.yaml
+# 冻结 Contract v2 的只读校验入口
+python -m contracts.loader_v2 --validate templates/contracts/standard_v3.yaml
 ```
 
 依赖：仅 schema 和配置文件。
@@ -1809,6 +1997,31 @@ python -m evidence.builder data/samples/300750/announcements/example.pdf --compa
 
 依赖：现有 `parsers.pdf_parser`，不直接依赖 ChromaDB。
 
+### 16.2.1 `document_structure`
+
+```python
+def build_page_layout(pdf_path: str, context: DocumentContext) -> PageLayout: ...
+def build_document_outline(layout: PageLayout) -> DocumentOutline: ...
+def build_outline_spans(
+    outline: DocumentOutline,
+    evidence_set: list[EvidenceBlock],
+) -> list[OutlineSpan]: ...
+def build_table_objects(
+    layout: PageLayout,
+    outline: DocumentOutline,
+    spans: list[OutlineSpan],
+) -> list[TableObject]: ...
+```
+
+CLI（名称可在实施计划中确定，但职责不得合并为第二套研究运行时）：
+
+```bash
+python -m document_structure.build_outline <electronic.pdf> --company <company_id> --validate-only
+python -m document_structure.inspect_outline --document-id <id> --version <version>
+```
+
+依赖与边界：直接读取不可变电子 PDF 和当前文档身份；不依赖 LLM、Router 或业务 Contract 才能形成基础标题树。目录、书签和版式仅提供候选，正文标题、小标题和源坐标负责确认。若旧 Evidence 未覆盖原文，允许为同一文档版本追加新的 `evidence_set_version`，禁止覆盖历史 Evidence。
+
 ### 16.3 `planning.report_planner`
 
 ```python
@@ -1818,6 +2031,7 @@ def plan(job: ReportJob, contracts: list[SectionContract]) -> ReportPlan: ...
 CLI：
 
 ```bash
+# 当前命令仍是 V1 兼容入口；树结构任务不得借此把 V1 重新定义为当前业务权威
 python -m planning.report_planner --job data/cache/job.json --contracts templates/contracts/standard_v2.yaml
 ```
 
@@ -1968,6 +2182,21 @@ python -m evaluation.run_baseline \
 
 历史退出条件（固定预算停止、恢复、trace、安全门）继续有效。生产内容能力追加退出条件：至少用本地叙述、本地表格/附注、结构化财务、外部时效、事件/负面核验五类 Topic 验证 Pack；命中后扩读、跨 Evidence 归拢、逐 aspect 覆盖和缺口均可审计；P4 不再依赖单题简短答案补全内容。
 
+### P3R/P4R 前置门：树结构调整
+
+该门位于 R2 既有只读、权威、哈希、Store 与审计能力之后、R3 aspect 调度接线之前。它不是重做 R1/R2，而是替换已经证明不可靠的“整块 Evidence + 相邻块猜边界”材料主路径。
+
+产出：
+
+- 每份受支持电子 PDF 的版本化只读 `PageLayout` 与 `DocumentOutline`；
+- 目录/书签候选与正文一级至小标题的确定性对齐，以及显式 `unassigned` 内容；
+- 可把跨多个标题的旧 Evidence 精确映射为多个 `OutlineSpan`；
+- 将表题、单位、物理表头、表体、合计、续表及 component provenance 独立表达的 `TableObject`；
+- 返回 node/span/table 的树感知本地检索；
+- 与 TopicResearchPack/P4 引用、dependency fingerprint、stale 和旧 schema 兼容的版本化接线。
+
+退出条件：三份真实文档和一个非 300750 fixture 证明正文不因目录误判丢失、小标题层级可用、跨标题块被正确拆分、所有正文被归属或显式标记未归属、真实表格结构可回查、检索不再把混合整块 Evidence 直接作为正式材料；主营业务、核心竞争力、主要子公司与财务附注样本的重复和跨标题污染显著下降。通过前不得进入 R3。
+
 ### Phase 4：第一阶段章节契约化
 
 产出：
@@ -2004,7 +2233,7 @@ python -m evaluation.run_baseline \
 以下是建议验收标准，具体数值应在 V1 baseline 后冻结：
 
 1. 同一输入可以生成可重复的 ReportPlan 和 SectionTask。
-2. 每个关键 Claim 可追溯到 Evidence ID 或结构化财务结果。
+2. 每个关键 Claim 可经 `OutlineSpan`/`TableObject` component provenance 追溯到 Evidence ID，或追溯到结构化财务/外部快照权威结果；导航标题和简介不得充当证据。
 3. 任何 RAG/Web 查询均有完整日志和 trace。
 4. 财务章节不存在由 LLM 新计算的数值。
 5. Research Harness 在预算内停止，并记录明确 stop reason。
@@ -2042,7 +2271,7 @@ python -m evaluation.run_baseline \
 - [x] B-02：external-only 排除出本地 Retrieval 总分，混合题只评价本地部分。
 - [x] B-03：`Macro RequiredPageCoverage@10` 等权，不按 P0/P1 人为加权；同时强制展示 P0 `RequiredPageCoverage@10` 独立关键指标。
 - [x] B-04/B-05：全部必需本地页可靠映射后整题参评；41问全部页码为且关系。
-- Phase 0B 的 `SectionContract` v1 及 SC-01～SC-05 已完成业务复核。P3R 的 R1 必须基于真实内容缺口重新审计全部 52 问的 aspect/evidence/source/display/not_found 语义，发布兼容 Contract v2，并对新增/变更语义进行一次聚焦业务复核；不覆盖 v1 或历史指纹。
+- [x] Phase 0B 的 `SectionContract` v1 及 SC-01～SC-05 已完成业务复核；P3R R1-A 已完成全部 52 问的 aspect/evidence/source/display/not_found 审计并冻结兼容 Contract v2，不覆盖 v1 或历史指纹。
 
 ### 19.3 历史技术拆分（已落地，不是当前待办）
 
@@ -2094,10 +2323,12 @@ python -m evaluation.run_baseline \
 
 推荐按以下顺序推进：
 
-1. R0 已关闭、R1-A 已批准并冻结（已按职责提交，未接线）、R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举 + SourcePolicyRef 唯一绑定，完整离线 eval 4467/0/0）。当前动作是完成 R2 编码前架构闭环并等待 R2 计划批准；测试全绿不等于批准。
-2. R2 获批后实现材料构建与受控上下文扩读：所有扩读读取经现有 ToolRegistry 正式链、bounded Evidence 只读适配器、正式 `SetEnumerationVerifier`、atomic `ResearchMaterial` + `MaterialAssembly`/`TableAssembly`；不回写 v1、不接 R3 调度。
-3. 按 R2～R4 实现受控上下文扩读、aspect 缺口调度、Topic 级动态有界预算和外部研究漏斗；内部恢复保留累计预算，但当前 UI 不提供用户续跑。
-4. 按 R5 改造 P4 公司/行业 Worker，使其只从 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
-5. 按 R6/R7 先跑跨主题合成集和少量真实纵向切片，覆盖本地叙述、表格/附注、结构化财务、外部时效、事件/负面核验；内容完整性门通过后再生成完整 Demo。Phase 5 在此之前保持未进入。
+1. 保留 R0、R1-A、R1-B 与 R2 已完成的 Contract、Pack schema/Store、只读访问、权威、双哈希、trace、显式引用和 fail-closed 基础，不再围绕个别 seed、页码或相邻块继续局部打补丁。
+2. 先完成本设计、路线图和现行任务书同步，再由执行者按 `TREE_STRUCTURE_ADJUSTMENT_TASK.md` 输出逐文件实施计划、迁移/兼容冲突审计与 commit 切分；经用户和 Codex 审批后才编码。
+3. 实施并验收 `PageLayout → DocumentOutline → OutlineSpan/TableObject → tree-aware retrieval`。真实纵向样本通过前，R3–R7 与 Phase 5/6 保持阻塞。
+4. 树结构门通过后进入 R3：对 115 个 `topic_harness` aspects 执行 Contract 驱动的候选节点定位、逐 aspect 缺口调度和动态有界预算；标题/简介相似度只负责候选导航，覆盖仍由事实、引用、权威和 completion rules 决定。
+5. 按 R4 实现外部研究漏斗；只有完成本地树、全文、表格、结构化数据及必要 fallback 搜索后，才按 SourcePolicy 进入外部检索。
+6. 按 R5 改造 P4 公司/行业 Worker，使其只从完整 Pack 生成可审计 Claim，再从多 Claim 生成 NarrativeParagraph 与表格；财务 Worker 消费 FinancialFactPack 与 Evidence 附注事实的组合视图。
+7. 按 R6/R7 跑跨主题合成和真实纵向切片，内容完整性门通过后再生成完整 Demo；Phase 5 在此之前保持未进入。
 
 目前不需要业务方逐章手写所有表达。业务方只需复核正式 Contract 的业务语义、来源门槛和真实纵向切片是否达到授信报告深度；技术字段、调度器和材料包内部结构由任务书约束下的实现负责。

@@ -1,0 +1,104 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "version": "3",
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_2024_year",
+    "source_boundary_identity": "2c566e756a4d390c0379793d7c0b28f3c068ce04bfabfb37f6b00c21248f3cf8",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(1)主要子公司情况",
+        "kind": "table_start_signal",
+        "label": "（1） 主要子公司情况",
+        "source_text_index": 0,
+        "line_index": 4,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "page_number": 208,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "2c566e756a4d390c0379793d7c0b28f3c068ce04bfabfb37f6b00c21248f3cf8",
+        "source_object_id": "NDSD_2024_year|sha256-b4f1713d7b821eb0|2c566e756a4d390c0379793d7c0b28f3c068ce04bfabfb37f6b00c21248f3cf8|title:(1)主要子公司情况"
+      },
+      {
+        "object_id": "title:(1)在子公司所有者权益份额发生变化的情况说明",
+        "kind": "table_start_signal",
+        "label": "（1） 在子公司所有者权益份额发生变化的情况说明",
+        "source_text_index": 0,
+        "line_index": 39,
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "page_number": 208,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "2c566e756a4d390c0379793d7c0b28f3c068ce04bfabfb37f6b00c21248f3cf8",
+        "source_object_id": "NDSD_2024_year|sha256-b4f1713d7b821eb0|2c566e756a4d390c0379793d7c0b28f3c068ce04bfabfb37f6b00c21248f3cf8|title:(1)在子公司所有者权益份额发生变化的情况说明"
+      },
+      {
+        "object_id": "table:5-5",
+        "kind": "table_number",
+        "label": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "source_text_index": 1,
+        "line_index": 15,
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "page_number": 41,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "554b451e818a2298be4a3a0fae04e1936de387619196f3452166609ad2784733",
+        "source_object_id": "NDSD_KCZ_2026|sha256-2b3a1fb3de97f23c|554b451e818a2298be4a3a0fae04e1936de387619196f3452166609ad2784733|table:5-5"
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(1)主要子公司情况",
+        "result": "recovered_ok",
+        "matched_table": "（1） 主要子公司情况",
+        "issue": "",
+        "assembly_id": "asm-ee9a76b15d178241c43798ece79d79c3",
+        "component_material_ids": [
+          "mat-bda123b2364cfda1c60bfcff6e40e109"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": "",
+        "table_object_ids": []
+      },
+      {
+        "object_id": "title:(1)在子公司所有者权益份额发生变化的情况说明",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（1） 在子公司所有者权益份额发生变化的情况说明' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": "",
+        "table_object_ids": []
+      },
+      {
+        "object_id": "table:5-5",
+        "result": "recovered_ok",
+        "matched_table": "表5-5截至2025年12月末发行人主要参股及联营、合营企业情况",
+        "issue": "",
+        "assembly_id": "asm-df3f64f94b1162d70bf3850b959ae3da",
+        "component_material_ids": [
+          "mat-8598026babf35bdd5b094206fd0f3f66"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": "",
+        "table_object_ids": [
+          "e0f86a0a74ea2903735baccd9cc6ec0997ee960965fad7db1215a22219911f0c"
+        ]
+      }
+    ],
+    "unmatched_recovered_tables": [],
+    "orphan_assemblies": [],
+    "untitled_recovered_tables": [
+      "asm-836c53ac5957f46fad81ffdafc35d9dd",
+      "asm-d97e5035ba3032414e6e064220d48630"
+    ],
+    "unclaimed_reference_objects": []
+  }
+}

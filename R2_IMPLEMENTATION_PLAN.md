@@ -1,6 +1,8 @@
 # R2 实施计划（编码前最后一次架构闭环）：材料构建与受控上下文扩读
 
-> 版本：v3.1 · 2026-09-14 · 状态：已批准、开始编码
+> **SUPERSEDED_IN_PART_BY_TREE_STRUCTURE_ADJUSTMENT（2026-09-16）**：本文保留 R2 的实际设计、执行与验收历史。其只读 Evidence 访问、payload/Pack Store、双哈希、authority、trace、显式引用、版本与 fail-closed 能力继续复用；但“一份正式 ResearchMaterial = 一个完整 EvidenceBlock”以及以 `section_path + 相邻块/页` 作为主要业务材料边界的方案，已被 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md) 取代。后续不得按本文继续第 15 轮 seed/页码/哨兵局部返修；相邻扩读只保留为标题树缺失、低置信、`unassigned` 或显式跨节点引用时的有界 fallback。本文以下正文不回写，以保留历史事实。
+
+> 历史编制时版本/状态：v3.1 · 2026-09-14 · 当时已批准、开始编码；当前真实状态只看顶部 superseded note 与 `V2_TODO.md`
 > 依据权威顺序：`AGENTS.md` > `DESIGN_V2.md` > 已确认基线（`templates/contracts/standard_v3.yaml`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`）> `V2_IMPLEMENTATION_PLAN.md` > `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` > `V2_TODO.md` > `CLAUDE.md`。
 > 本文件不推翻已关闭的 R1-B；本轮只做「R2 编码前最后一次架构闭环」，按六项已确认架构问题 + 依赖版本/schema 裁决 + commit/测试重排 + 墙钟工时修订上一版计划。
 
@@ -691,6 +693,51 @@ material_id = "mat-" + sha256(canonical_json(material_identity))[:32]
 12. **授信口径（非阻断语义）**：`company_debt_credit.authorized_application_ceiling`（拟申请额度上限）为新增后续 aspect，缺失不阻断报告（NOT REPORT_BLOCKED）；`total_credit_line` = not_obtained（实际获批总额无披露，绝不 authority_failed、绝不回填 6000 亿）；used/unused 口径不一致绝不求和（→ `scope_not_reconciled`）。
 13. **冻结资产零修改**：本轮未修改任何冻结 Contract / SourcePolicy / WritingSpec / PresentationProfile；`standard_v2.yaml`（v1）固定 SHA256 不变；真实案例的页码/表号/evidence_id 只出现在 evaluation fixture、测试断言与真实验收产物，未写入生产代码。
 
+## 21. 验收后补充记录（2026-09-16 R2 完成定义冻结 + 材料能力最终收口，不改变上文计划正文）
+
+**这是完成定义调整，不是局部测试口径调整。** 本节按权威顺序（`DESIGN_V2.md` §0.9 → `V2_IMPLEMENTATION_PLAN.md` → 任务书 → 本文 → `V2_TODO.md`）同步，覆盖此前所有以「六类 material 全部 accepted / complete」为 R2 关闭目标的表述。
+
+1. **三轴状态模型（冻结，禁止互相自动映射）**：
+   - `material_state` ∈ {complete, partial, boundary_incomplete, not_obtained, unsupported, invalid}
+   - `capability_verdict` ∈ {PASS, FAIL, NOT_TESTED}
+   - `report_impact` ∈ {blocking, non_blocking, audit_only}
+   合法组合示例：`boundary_incomplete / PASS / blocking`；`not_obtained / PASS / non_blocking`。`capability_verdict=PASS` 只表示系统正确、可复核地得出了该 material_state，**不代表材料完整，也不代表报告可发布**。`material_state` 非 complete **不得自动判 capability FAIL**（与 §四.D.9/§四.D.10 一致）。
+2. **驳回旧目标**：`core_competitiveness = boundary_incomplete`、`major_subsidiaries = boundary_incomplete`、`explicit_cross_reference = sample_not_obtained` 可能是正确的真实材料结果，**不自动构成代码缺陷**；不得为把它们改成 accepted 而调整边界、预算或集合规则。
+3. **R2 职责收敛**：R2 只负责材料构建、受控扩读、边界证明、持久化与**材料能力**验收。以下属 R3 正式事实形成与 Pack 状态职责，本轮停止继续扩展：授信币种解释、授信事实语义、used/unused 业务对账、multi-source conflict 双轴、Contract 报告阻断映射、授信正式 Writer/报告展示。
+4. **R2 本轮收口范围**：A 主题边界（`BoundaryVerificationRecord` 运行时派生、生产身份、禁止只以 `evidence_id` 跨 aspect 做 rank-max 合并、`ambiguous ≠ out_of_topic`、未验证边界不得伪装 verified）；B `SourceObjectInventory` 与 assembly（真实原文顺序身份、删除宽泛关键词作表格必要条件、改组合结构信号、恢复结果与 inventory 单一事实来源、多个显式引用逐个建对象）；C 滚动扩读/续表/显式引用（有界滚动扩读、逐目标 limit+1 probe/has_more/budget/unread/stop reason、unread 方向与原因不被覆盖、正式读取并验证 `continued_from` 字段）；D 六类独立强验收器（不信任 runner 自报，独立重算并交叉校验，JSON/JSONL 类型错误 fail-closed）。另含通用材料身份权威（material_id 按正式算法重算或取自权威 Store/Pack；aspect association 来自权威 Pack/Store 或完整内容寻址并经独立验收器验证的关联资产；`context_candidate` 不得直接产生正式事实；payload/Evidence current identity/Contract/SourcePolicy/R2 dependency 可验证绑定；resolver 返回不可变 typed resolved material）。
+5. **关联验证规则（`harness/credit_authority.py`，本轮落地）**：`RUN_ARTIFACTS` 增列 `boundary_decisions.json` 作为**独立佐证源**；`PROMOTION_RULE_VERSION="1"` 为 resolver 侧常量，**不从关联资产自报读取**；`ROLE_DISPOSITIONS = {"source": {"seed"}, "supporting": {"inside_boundary","fragment_projection"}}`。关联条目必须同时满足：aspect 匹配、role ∈ FORMAL_ROLES、disposition ∈ 该 role 的白名单、与 `material_index` 条目的 `boundary_disposition` 一致、`source_content_hash` 非空、`boundary_disposition_identity` 能在真实 `boundary_decisions.json["decisions"]` 中按 (aspect_id, evidence_id, disposition, reason_code) 命中且该记录 `content_hash` 等于该条目的 `source_content_hash`。**两轴正交**：边界 disposition（seed / inside_boundary / fragment_projection / context_candidate / outside_boundary_sentinel / unread_inside_boundary / rejected_boundary_mismatch）与 aspect role（seed material 为 `source`，其余扩读材料一律 `context_candidate`）可合法不一致，`supporting` 由 R3 判定。
+6. **六类正确验收定义**：主营业务 → capability 必须 PASS，逐对象对账已识别表格及分析正文；non-300750 fixture → capability 必须 PASS，不得因普通章节标题假阳性失败；财务附注 → 当前样本如确无有效同表续页证明可 `boundary_incomplete`+PASS，但**续表能力必须有至少一个真实正向证明；没有已确认真实正向样本时记录 `positive_control_not_available`，R2 暂不关闭，不得伪造通过**；核心竞争力 → 允许 `boundary_incomplete`+PASS，前提是逐 document_version 枚举、缺口与边界证明真实可靠；主要子公司 → 同上，不得跨版本伪造完整全集；显式跨页/跨章引用 → 真实目标不可达时允许 `not_obtained`+PASS，前提是逐目标解析、滚动查找与 dangling 审计完整。
+7. **R2 最终关闭条件（同时满足才可提交审议）**：六类 `capability_verdict=PASS`；主营业务与 non-300750 正向能力样本通过；至少一个真实 continuation 正向样本通过；负面 `material_state` 均有不可伪造证据链；A–D 与通用材料身份 P1 全部关闭；tamper 反例不能绕过验收器；inventory/assembly、boundary/membership、unread/budget/trace 无矛盾；内容缺口允许带入 R3，**不再因 `material_state` 非 complete 反复修改 R2**。**实施方不得自行宣布 R2 关闭。**
+8. **当前 R2 关闭状态（截至本记录）**：**未关闭**。第 7 条中「至少一个真实 continuation 正向样本」为 `{"satisfied": false, "positive_control_not_available": true}`。R2 仍未 commit、未进入 R3/R4/R5。
+9. **授信预览定位**：`evaluation/results/r2_credit_dual_axis_v7_preview_20260916`（及后续 v9/v10/v11 预览）保留为 **evaluation diagnostic / R3 candidate**，**不作为 R2 关闭门**，也**不得宣称正式运行链接线完成**。不删除、不回滚既有预览代码与产物；中间轮次的缺陷以 additive 注记（`VOID.md` / `SUPERSEDED.md` / `DIAGNOSTIC_AND_SUPERSEDED.md`）保留现场证据。
+10. **冻结资产零修改**：本轮未修改 `templates/contracts/standard_v3.yaml`、`templates/policies/source_policy_v1.yaml`、`templates/writing_specs/credit_report_v1.yaml`、`templates/presentation_profiles/interview_demo_v1.yaml`、`templates/contracts/standard_v2.yaml`。
+11. **执行纪律**：反例先行；每条命令单独执行（无 `|`、`&&`、`;`、heredoc）；不放宽 authority / set_complete / fail-closed；不全局放大预算；不写公司/页码/表号/evidence_id 特判；不新增第二套 Router/Harness/Retriever/ToolRegistry；不调真实 LLM/博查/网络；不写 Evidence/Financial DB；不删除或覆盖历史产物；不 commit、不 `git add .`；不进入 R3/R4/R5。
+
+## 22. 验收后补充记录（2026-09-16 R2 真实扩读能力最后定点修复，不改变上文计划正文）
+
+**范围**：本轮只做「把 table_continuation / explicit_reference 真正接通到既有扩读链并如实判决」这一件事；不重新定义完成，不改写三轴模型，不把六类材料强行改成 complete/accepted。承接 §21 第 8 条「未关闭」的**唯一原因**（`至少一个真实 continuation 正向样本` 为假）。
+
+1. **滚前缘根因与修复（P1-A）**：`ExpansionStep` 新增 `anchor_evidence_id`（生产侧逐目标落盘该步**真实锚点块**身份），验收侧据此重建每个 seed 的 frontier 闭包。此前锚点只能从「参数是否存在」推断，而 seed 自身相邻读取本就不带显式目标参数 → seed 相邻读取带回的**表头块**被判为「不在任何 frontier」，真实续表扩读正向样本因此被误判为未获证（v10 及更早的 `outputs=[]` 现象即由此而来）。
+2. **能力态拆分（P1-A，冻结）**：关闭条件 3 拆为 `3a_same_table_recovery_positive` 与 `3b_table_continuation_expansion_positive`。两页材料经**其它途径**（含第二 seed / 邻页扩读）恢复同一张表**只**使 3a 成立；3b 要求**同一 seed/frontier** 的真实 `mode=table_continuation` 步骤真的 output**并**被采纳。`outputs=[]`、仅靠第二 seed 引入、仅靠最终装配，均不得使 3b 为真。
+3. **续表证明防篡改（P1-B）**：`identity_source=recovered_structure` 时 `header_repeat_verified` / `boundary_consecutive` / `section_path_shared` / `same_document_verified` 必须**显式 `is True`**，且必须存在 `header_repeat_matched` 为真的事实；验收侧从真实产物**独立复算**整条链，绝不采信落盘 `valid=true`；`recovered_structure` 缺失见证 → `inconsistent`，不计正向。
+4. **显式引用真实执行（P1-C）**：`detect_reference_targets` → ContextExpansion → ToolRegistry → 有界 reader 全链真实执行；目标必须同 `document_id`/`document_version`；真实不可达时**必须真的做过一次解析尝试**并记录 `cross reference target dangling`，材料态诚实保持未获得，允许 `capability_verdict=PASS` 而 `target_resolved=false`；无触发且无尝试 ⇒ 仍 `NOT_TESTED`。**本轮真实结果**：`major_subsidiaries` 真实解析出目标并被采纳（`relation="reference"`）；`core_competitiveness` 真实尝试 + 目标 dangling ⇒ `not_obtained`+PASS；`financial_notes` **未执行**（其 aspect `company_finance.notes_to_financial_statements` 不在冻结 Contract v2 的 `topic_harness` 覆盖内 ⇒ `boundary_policy_unavailable` ⇒ P1-A.2 整轮 fail-closed）⇒ 如实 `not_exercised`/`NOT_TESTED`。
+5. **显式引用类别 run 绑定（需用户/Codex 裁决）**：v9/v10 把该类别绑在 `financial_notes`；v11 改绑 `major_subsidiaries`。理由是**事前可陈述的能力判据**（①正文含通用引用标记；②该 aspect 边界策略可用——`boundary_policy_unavailable` 的 run 对本能力**无信息量**；③真实 `mode=explicit_reference` 尝试可复核且目标同文档同版本），满足者优先取「真实解析出并采纳目标」的 run。**不是删除不利样本**：五个候选 run 的原始四态由生产验收器逐条重算并全量列在 v11 README 中，`financial_notes` 的 NOT_TESTED 状态与根因如实保留。
+6. **边界未知态 fail-closed（P1-D）**：全路径复用 `_boundary_status_severity()`，未知态取最严重、不抛异常、不回落 `verified`、不被忽略、不阻断 manifest 输出。
+7. **本轮真实结果（v11，新 run_id，不覆盖 v9/v10）**：六类均 `boundary_incomplete / PASS / blocking`（无 failed gate）；关闭条件 1–7 `satisfied=True`、8 `None`；A–D 与 P1 全部 `satisfied=True`；`3a` 与 `3b` 均为 True（`expansion_sample_count=1`，来源 `main_business`）。
+   **未获排他性证明的遗留点（必须由用户/Codex 裁决，实施方不自行认定通过）**：`3b` 的唯一正向样本来自 `main_business`，其真实链路为 seed `53c9b3721904`（p50）自身的 `mode=table_continuation` 步骤真实 `outputs=['c614f024a06b']`（p51），该块被采纳为 `mat-3c4ce91ad8`——**trace 事实与采纳事实均真实成立**（修复前该步骤 `outputs=[]`）；但同一块**同时是本 run 为该 aspect 声明的第二个 seed**（`c614f024a06b`，p51），因此在「材料为何进入材料池」这一因果问题上，验收判据是**合取**（步骤真有输出 ∧ 块在已采纳集合内），**不是排他证明**（无法证明「若无续表步骤则该块不会进池」）。另注：`ExpansionStep` 不含逐步骤 `adopted` 字段，采纳事实只能由材料池成员关系表达，这是该判据不具排他性的结构原因。
+8. **本轮未做**：未 commit、未 `git add .`、未进入 R3/R4/R5、未调真实 LLM/博查/网络、未初始化/迁移/写入 Evidence 或 Financial DB、未修改任何冻结 Contract/SourcePolicy/WritingSpec/PresentationProfile、未新建第二套 Router/Harness/Retriever/ToolRegistry、未覆盖/删除/改名任何历史结果目录（v10 及更早原样保留）。
+9. **§七 publication 历史产物只读诊断结论**：`evaluation/results/publication_run_20260911T_jsonfix/{publication.json,report.md}` 在本环境（Claude Code / VS Code 扩展，仓库根 `D:\Claude_shouxin_ver1\shouxinbaogaoshengcheng_ceshi-_ver1`）**完全正常**：`git status --short` 对该目录为空；`git ls-files --stage` 二者均 `100644` 且 stage 0；`HEAD:path` blob 均存在；index / HEAD / worktree 三者 blob sha **逐字节相同**（`1fd3533f…` / `dfd43c22…`）；文件可读（277990 / 42850 字节）；无 `.gitattributes`（排除 EOL/filter 解释）。此前在 Codex 沙箱观察到的「文件缺失」**在本环境不可复现**，而本环境也无法进入 Codex 沙箱复核 ⇒ 记为 **`ENVIRONMENT_DISCREPANCY`（跨环境观测不一致，未解决）**，**不宣布该问题已消失**，不 restore/checkout/reset/改 ACL/删除/覆盖。
+
 ---
 
 **计划输出完毕，停止。** 本轮未调真实 LLM/博查/网络、未迁移/写入 Evidence/Financial DB、未新建第二套 Router/Harness/Retriever/ToolRegistry、未 commit、未进入 R3/R4/R5；真实材料读取全部经既有 ToolRegistry 与只读 Evidence reader。
+
+## 23. 后继裁决：树结构调整（2026-09-16，仅声明现行效力，不改写历史）
+
+1. `EvidenceBlock` 继续作为不可变来源/引用锚点，但不再默认等同于一份业务材料。
+2. 正式材料主路径改为 `PageLayout → DocumentOutline → OutlineSpan / TableObject`；RAG、TopicResearchPack 与 P4 均须消费该结构化材料层。
+3. 目录/书签只提供候选；正文大小标题、小标题、编号、版式和源坐标确认真实范围。标题/导航简介相似度只用于候选定位，不能直接产生 covered、set_complete 或 SupportedFact。
+4. 一个旧 Evidence 跨多个标题时允许按字符/源坐标映射为多个 spans；若旧 Evidence 本身漏掉原文，可追加新的 `evidence_set_version`，不得覆盖历史 Evidence。
+5. `TableObject` 独立表达表题、单位、物理表头、表体、合计、续表及 component provenance；它是 Evidence-backed read model，不替代 FinancialSnapshot 或 Evidence-backed note facts 的权威。
+6. R1-B/R2 的 locator、payload、resolver、Pack schema、Store、checkpoint 和 dependency fingerprint 若不足以表达新身份，必须发布 successor schema/migration；历史 schema/migration 不原地修改。
+7. `TREE_STRUCTURE_ADJUSTMENT_TASK.md` 是当前唯一可执行下位任务。树结构真实纵向验收通过前，不进入 R3；执行者下一步只输出逐文件实施计划与架构冲突/兼容迁移审计，获批后方可编码。

@@ -132,11 +132,27 @@ def main() -> dict:
               if r.object_id.startswith("table:")}
     check(r_none and all(v == SOI.TARGET_NOT_OBTAINED for v in r_none.values()),
           "无持久化 assembly：清单侧四个表号全部 target_not_obtained（绝不自报 ok）")
-    check(SOI.source_object_gate(inv_none, []) is not None,
-          "无持久化 assembly：source_object_gate 失败（fail-closed）")
+    # §四.D.9/D.10：诚实逐对象负面结果**不**制造代码失败 —— 但每个未获得必须带原因
+    # （可归因/可复核）；无原因的「未获得」才 fail-closed。
+    check(all(r.issue or r.recovery_reason for r in inv_none.recovery_results
+              if r.result == SOI.TARGET_NOT_OBTAINED),
+          "无持久化 assembly：每个 target_not_obtained 均带原因（可归因，非能力失败）")
+    check(SOI.source_object_gate(inv_none, []) is None,
+          "无持久化 assembly：诚实 target_not_obtained 不制造 gate 失败（§四.D.10）")
+    inv_none_blank = SOI.reconcile_source_object_inventory(
+        SOI.derive_expected_source_object_inventory(_ASPECT, sources), [])
+    # 抹掉原因（结果 record 为 frozen，整体替换）→ 不可归因 → 必须失败。
+    inv_none_blank.recovery_results = [
+        SOI.SourceObjectRecoveryResult(r.object_id, r.result, r.matched_table, "",
+                                       r.assembly_id, r.component_material_ids,
+                                       r.recovery_status, "")
+        for r in inv_none_blank.recovery_results]
+    blank_gate = SOI.source_object_gate(inv_none_blank, [])
+    check(blank_gate is not None and "缺原因" in blank_gate,
+          "无持久化 assembly：无原因的 target_not_obtained → gate 失败（不可归因）")
 
     # ------------------------------------------------------------------
-    # 2. 缺失表号 → target_not_obtained → gate 失败
+    # 2. 缺失表号 → target_not_obtained（逐对象如实落盘，非能力失败）
     # ------------------------------------------------------------------
     # 只恢复 5-10（5-11/5-12/5-13 缺失）。
     partial = _persist([
@@ -147,9 +163,13 @@ def main() -> dict:
     r11 = next(r for r in inv2.recovery_results if r.object_id == "table:5-11")
     check(r11.result == SOI.TARGET_NOT_OBTAINED,
           "缺失表：表 5-11 → target_not_obtained（不逃逸验收）")
-    gate2 = SOI.source_object_gate(inv2, partial)
-    check(gate2 is not None and "target_not_obtained" in gate2,
-          "缺失表：source_object_gate 失败（含 target_not_obtained）")
+    check(bool(r11.issue),
+          "缺失表：表 5-11 的 target_not_obtained 带真实原因（逐对象审计完整）")
+    check(SOI.source_object_gate(inv2, partial) is None,
+          "缺失表：诚实 target_not_obtained 不制造能力失败（完整性后果由集合枚举裁决）")
+    check(inv2.orphan_assemblies == []
+          and inv2.unmatched_recovered_tables == [],
+          "缺失表：无孤儿/未匹配（缺失 ≠ 错误合并）")
 
     # ------------------------------------------------------------------
     # 3. 重复恢复（同表号两张）→ recovery_failed（重复/错误合并）
@@ -265,6 +285,49 @@ def main() -> dict:
         _asm("表 5-10 发行人主营业务收入构成表"),
         _asm("表 5-12 发行人毛利率构成表")]) is None,
           "cross_ref recovered_ok：清单 ↔ assembly 闭合一致（closure 通过）")
+
+    # ------------------------------------------------------------------
+    # 11. §四.B.3/B.7：普通章节标题不得成为表格目标 —— 其后的正文行隔断了它与
+    #     下一块表体的关系（真实材料中「（1）整体情况」正是被前一块结尾 + 下一块表体
+    #     误判为表格起点）。候选行与其表体之间出现**正文行（含句读）**即不是表格起点。
+    # ------------------------------------------------------------------
+    sec_texts = [
+        # 块 0：正文段落，末行为普通章节标题（其后紧跟正文，不是表体）。
+        "公司主营业务成本构成如下。成本主要由原材料构成。\n"
+        "（1）整体情况\n"
+        "公司动力电池产品包括电芯、模组及电池包，覆盖不同能量密度区间。",
+        # 块 1：真正的表体（单位 + 表头 + 数据行 + 合计），它属于**上一块**的表题。
+        "表 5-14 发行人分产品毛利率构成表\n单位：万元，%\n"
+        "项目  金额  占比\n动力电池系统  31,650  74.7\n合计  42,370  100.0\n",
+    ]
+    inv_sec = SOI.derive_expected_source_object_inventory(
+        _ASPECT, [_src(sec_texts[0], page=51, block=0, mat="mat-sec"),
+                  _src(sec_texts[1], page=52, block=0, mat="mat-tbl")])
+    sec_objs = {o.object_id: o.kind for o in inv_sec.expected_objects}
+    check(not any(o.kind == SOI.KIND_TABLE_START
+                  for o in inv_sec.expected_objects
+                  if "整体情况" in (o.label or "")),
+          "反例 B.7：普通章节标题「（1）整体情况」不是表格目标（其后正文行隔断表体）")
+    check("table:5-14" in sec_objs,
+          "反例 B.7：正文隔断不影响**下一块自己的显式表号** table:5-14 入清单")
+
+    # ------------------------------------------------------------------
+    # 12. §四.B.6/B.7：清单与持久化 assembly 只有一个恢复事实来源 —— 无表号的恢复表
+    #     必须被**显式披露**（untitled_recovered_tables），绝不静默当作「不存在」。
+    # ------------------------------------------------------------------
+    untitled = {"assembly_id": "asm-" + "u" * 32,
+                "relation": SOI.FLATTENED_TABLE_RELATION,
+                "component_material_ids": ["mat-a"], "table_title": "",
+                "recovery_status": "failed", "recovery_issue": "缺表题与单位"}
+    inv_u = SOI.reconcile_source_object_inventory(
+        SOI.derive_expected_source_object_inventory(
+            _ASPECT, [_src(_FOUR_TABLES.split("表 5-11")[0])]),
+        [_asm("表 5-10 发行人主营业务收入构成表"), untitled],
+        known_material_ids={"mat-a"})
+    check(list(inv_u.untitled_recovered_tables) == [untitled["assembly_id"]],
+          "反例 B.6：无表题恢复表进入 untitled_recovered_tables（显式披露，非静默丢弃）")
+    check(inv_u.orphan_assemblies == [],
+          "反例 B.6：无表题恢复表不得同时被计为孤儿（两个桶互斥且穷尽）")
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 

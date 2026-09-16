@@ -1,0 +1,222 @@
+[
+  {
+    "assembly_id": "asm-08d31b3fbb42f7c9730069ff85dec914",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66",
+      "mat-ad5dbfc32add7d1c4c5ff1d46822c8c1"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P41–P42"
+  },
+  {
+    "assembly_id": "asm-d97e5035ba3032414e6e064220d48630",
+    "context_parent_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "component_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P41",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+    "body_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "序号",
+      "直接",
+      "间接"
+    ],
+    "rows": [
+      [
+        "4",
+        "瑞庭时代（上海）新能源科技有限公",
+        "上海市",
+        "50,000.0100.0/",
+        "设立"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 3 列 vs 数据行 5 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+      "continuation_evidence_ids": [],
+      "header_page": 41,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed",
+      "recovered_title": "",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "序号",
+        "直接",
+        "间接"
+      ],
+      "recovered_row_count": 1,
+      "recovered_total": null,
+      "component_order": [
+        "mat-8598026babf35bdd5b094206fd0f3f66"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-836c53ac5957f46fad81ffdafc35d9dd",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "广东邦普循环科技有限",
+      "非同一"
+    ],
+    "rows": [
+      [
+        "公司",
+        "人民币",
+        "132,741 佛山市",
+        "佛山市",
+        "制造业",
+        "69.08%",
+        "控制下"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 7 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+      "continuation_evidence_ids": [],
+      "header_page": 208,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed",
+      "recovered_title": "",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "广东邦普循环科技有限",
+        "非同一"
+      ],
+      "recovered_row_count": 1,
+      "recovered_total": null,
+      "component_order": [
+        "mat-bda123b2364cfda1c60bfcff6e40e109"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-88ba7943c3967aa988cd6a26c961776d",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109",
+      "mat-08f8fea94173dd4834c87ab0374a9f9c",
+      "mat-986918c22280fd9e82ba12c0549a4d3a"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P208–P209"
+  },
+  {
+    "assembly_id": "asm-ee9a76b15d178241c43798ece79d79c3",
+    "context_parent_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "component_material_ids": [
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P208",
+    "table_title": "（1） 主要子公司情况",
+    "unit": "千元",
+    "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+    "body_evidence_ids": [
+      "467120b8407bbbea6a6684303b632147"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "子公司名称",
+      "币种",
+      "注册资本",
+      "营地",
+      "注册地",
+      "质",
+      "式"
+    ],
+    "rows": [
+      [
+        "江苏时代新能源科技有",
+        "人民币",
+        "1,000,000 溧阳市",
+        "溧阳市",
+        "制造业",
+        "100.00%",
+        "设立"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null,
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "（1） 主要子公司情况",
+      "header_evidence_id": "467120b8407bbbea6a6684303b632147",
+      "continuation_evidence_ids": [],
+      "header_page": 208,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "ok",
+      "issue": "续块身份重复或同表头; 非跨页续表",
+      "recovered_title": "（1） 主要子公司情况",
+      "recovered_unit": "千元",
+      "recovered_headers": [
+        "子公司名称",
+        "币种",
+        "注册资本",
+        "营地",
+        "注册地",
+        "质",
+        "式"
+      ],
+      "recovered_row_count": 1,
+      "recovered_total": null,
+      "component_order": [
+        "mat-bda123b2364cfda1c60bfcff6e40e109"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  }
+]

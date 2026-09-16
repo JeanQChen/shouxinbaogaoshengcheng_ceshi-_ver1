@@ -1,0 +1,37 @@
+{
+  "budget_profile_version": "1",
+  "profile_name": "acceptance",
+  "budget_limits": {
+    "adjacent_blocks_before": 4,
+    "adjacent_blocks_after": 16,
+    "adjacent_pages": 10,
+    "table_continuation": 4,
+    "explicit_references": 4,
+    "max_bytes": 262144,
+    "max_tokens": 65536,
+    "no_new_material_steps": 4,
+    "per_seed_cap": 32,
+    "per_request_cap": 128
+  },
+  "seed_budget_records": [
+    {
+      "case_id": "financial-notes-1",
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "budget_consumed": {
+        "adjacent_blocks_before": 0,
+        "adjacent_blocks_after": 0,
+        "adjacent_pages": 0,
+        "table_continuation": 0,
+        "explicit_references": 0,
+        "max_bytes": 1230,
+        "max_tokens": 630,
+        "no_new_material_steps": 0,
+        "per_seed_cap": 1,
+        "per_request_cap": 1
+      },
+      "stop_reason": "boundary policy unavailable: no expansion",
+      "unread_scope": "主题边界策略不可用（boundary_policy_unavailable）：boundary_policy_unavailable: aspect 不在冻结 Contract v2 topic_harness 覆盖内；除 seed 外未进行任何扩读"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Phase 3 Tool Layer + Research Harness 开发任务书
 
-> **HISTORICAL / NON-EXECUTABLE（2026-09-12）**：本文记录 Phase 3 v1 的工具层、单题 Research Harness 与 frozen 评测要求，历史验收继续有效；但本文中“单个 InformationNeed → 简短 `ResearchOutcome` → Phase 4 直接消费”、统一单题短预算以及“预览反馈只留给 P4”的条款，已不能作为正式内容生产接口。现行 P3R/P4R 以 `DESIGN_V2.md` v0.6 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.1 为准：`ResearchOutcome` 降为原子运行记录，Harness 所有的 `TopicResearchPack` 才是 P3→P4 唯一正式交付物。不得执行本文正文或据此重新启用平行 topic research 链。
+> **HISTORICAL / NON-EXECUTABLE（2026-09-16 更新继任指针）**：本文记录 Phase 3 v1 的工具层、单题 Research Harness 与 frozen 评测要求，历史验收继续有效；但本文中“单个 InformationNeed → 简短 `ResearchOutcome` → Phase 4 直接消费”、统一单题短预算以及“预览反馈只留给 P4”的条款，已不能作为正式内容生产接口。现行父级边界以 `DESIGN_V2.md` v0.9 和 `PHASE3_PHASE4_TOPIC_RESEARCH_REFACTOR_TASK.md` v1.3 为准；R3 前当前唯一可执行子任务是 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md)。不得执行本文正文或据此重新启用平行 topic research 链。
 
 > 面向执行者：Claude Code  
 > 编制日期：2026-09-08  

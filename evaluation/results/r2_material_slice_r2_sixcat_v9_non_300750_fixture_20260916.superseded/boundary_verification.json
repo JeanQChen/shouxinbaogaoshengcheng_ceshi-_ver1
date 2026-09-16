@@ -1,0 +1,58 @@
+{
+  "boundary_verification_algorithm": "document_heading_structure_boundary_verification",
+  "boundary_verification_version": "1",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "aspects": [
+    {
+      "aspect_id": "company_business_main.main_business",
+      "records": [
+        {
+          "aspect_id": "company_business_main.main_business",
+          "document_id": "NDSD_DEMO",
+          "document_version": "v-demo-001",
+          "evidence_set_version": "set-demo-1",
+          "source_boundary_identity": "fd124d5ab719d5cee28d38638c7aacfa89292f2fe85685246aef7ca6e14e9734",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "主营业务分析"
+          ],
+          "heading_levels": [],
+          "topic_level": null,
+          "topic_level_source": "unknown",
+          "in_topic_anchor": "（二）主营业务情况\n表 1 主营业务收入构成表\n单位：万元\n项目  2025年  2024年\n智能装备  12,000  10,000\n软件服务  8,000  6,500\n合计  20,000  16,500\n公司主营业务收入主要来自智能装备与软件服务两大板块。\n",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "ee3b328159906a9c4418574f021e96cbcd4769a0d1af66247af08539110b6c17",
+          "fragment_trace_fingerprint": "69a0f767bde3b4d461b3b524e02f5aa6ff6904c215ad52519bb3bfc7b71cfb3d",
+          "unread_scope": {},
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "no_document_derived_topic_level: 文档自身编号结构未给出主题小节层级（未观察到可核的标题层级 → 不得伪装 verified）",
+          "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+          "verification": {
+            "aspect_id": "company_business_main.main_business",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "38172eb493f381ff5dd425c815a2eaa85c5809cc05e9a3dbb28d72051a27d79b",
+            "cases": [
+              {
+                "heading": "主营业务分析",
+                "level": null,
+                "relation": "topic_heading",
+                "source": "section_path"
+              }
+            ]
+          },
+          "seed_evidence_id": "2109887f173b802cef307a5328356ead",
+          "case_id": "non-300750-1"
+        }
+      ]
+    }
+  ]
+}

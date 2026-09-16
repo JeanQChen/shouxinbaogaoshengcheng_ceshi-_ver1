@@ -33,6 +33,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evidence import ids as evidence_ids
+from harness import heading_structure as HS
 from harness import topic_boundary as TB
 from harness.context_expansion import (
     DISPOSITION_CONTEXT_CANDIDATE,
@@ -75,6 +76,53 @@ _SAME_TOPIC_CHILDREN = (
 )
 
 _SEED_TEXT = "（二）主营业务情况\n1、主营业务收入分析\n公司主营业务为动力电池。"
+
+# --- A.8 反例语料（形态取自真实产物，通用化：无公司名、无固定页码、无表号特判）------
+_COMMON_SIBLING_BODY = (
+    "  动力电池系统包括电芯、模组和电池包，其销售构成公司主要收入来源。\n"
+    "（2）销售情况\n"
+)
+# 向后混合块：主题外正文（高管履历）在前，主题内锚点标题（章标题）与兄弟小节标题在后。
+_BACKWARD_SIBLING_MIXED_BLOCK = (
+    "理，瑞银证券有限责任公司投资银行部副董事、董事、执行董事。现任本公司副总经理、\n"
+    "董事会秘书，兼任天津市滨海产业基金管理有限公司等董事。\n\n"
+    "（4）郑舒先生，财务总监，1979 年出生，中国国籍，无境外永久居留权。\n\n"
+    "（三）员工构成情况\n  截至 2025年末，发行人员工构成情况如下：\n\n"
+    "八、主营业务经营情况\n（一）经营范围\n"
+    "  发行人是全球领先的零碳新能源科技公司，主要从事动力电池、储能电池的研发、生产、销售。\n"
+)
+_SIBLING_BODY_KEYWORDS = ("郑舒", "副总经理", "财务总监", "员工构成")
+# 向后块：上一章节正文 → 上一章节**自身的深层子标题**（层级深于主题小节标题，仅凭层级被
+# 判为主题内）→ 兄弟小节标题关闭主题小节。旧实现取「最后一个被判主题内的标题之后的正文」
+# 作片段 → 把上一章节正文投影成主题内材料（A.8 可达泄漏，无主题标题锚点亦不设防）。
+_BACKWARD_DEEP_HEADING_BLOCK = (
+    "上一章节正文：公司治理与人员情况概述。\n"
+    "（1）员工总数\n"
+    "  发行人员工总数为 12,000 人。\n"
+    "（三）员工构成情况\n"
+    "  公司员工构成情况详见下表。\n"
+)
+_BACKWARD_DEEP_SIBLING_KEYWORDS = ("员工总数", "12,000", "员工构成")
+# seed 自身尾部已出现兄弟小节标题（真实页码 51 型 seed）。
+_SEED_WITH_FORWARD_BOUNDARY = (
+    "（二）主营业务情况\n1、主营业务收入分析\n\n表 5-10发行人主营业务收入构成表\n\n"
+    "单位：万元，%\n  项目  2025年  2024年\n\n合计  42,370,183.3  36,201,255.3\n\n"
+    "2、主营业务成本分析\n\n表 5-11发行人主营业务成本构成表\n\n单位：万元，%\n\n"
+    "合计  31,238,329.7  27,351,895.9\n\n"
+    "（三）各业务板块经营情况\n1、动力电池板块\n（1）整体情况\n"
+)
+_SIBLING_SECTION_BLOCK = (
+    _COMMON_SIBLING_BODY + "  公司动力电池系统销售收入为 28,000,000 万元。\n"
+)
+_SIBLING_SECTION_BLOCK_2 = (
+    "（3）生产情况\n  公司动力电池系统产能利用率为 96.9%。\n"
+)
+# seed 自身不含主题标题（真实页码 51 型 seed 的另一种形态）。
+_NO_TOPIC_HEADING_SEED_TEXT = (
+    "3、主营业务毛利润及毛利率分析\n"
+    "  2023-2025 年，发行人主营业务毛利率分别为 22.0%、-9.7% 和 17.04%。\n"
+    "（三）各业务板块经营情况\n1、动力电池板块\n（1）整体情况\n"
+)
 
 
 def _eid_of(page: int, blk: int, text: str) -> str:
@@ -153,11 +201,13 @@ def _seed(section=("主营业务情况",), text: str = _SEED_TEXT,
         section_path=section, evidence_type="paragraph", text=text, content_hash=ch)
 
 
-def _request(seed: ExpansionSeed, aspect_id: str) -> ContextExpansionRequest:
+def _request(seed: ExpansionSeed, aspect_id: str,
+             topic_level_hint: int | None = None) -> ContextExpansionRequest:
     return ContextExpansionRequest(
         company_id=_COMPANY, document_id=_DOC, document_version=_DOCV,
         evidence_set_version=_SETV, seed=seed, directions=("adjacent_blocks",),
-        budget=ExpansionBudget(), dependency_fingerprint="dep-fp", aspect_id=aspect_id)
+        budget=ExpansionBudget(), dependency_fingerprint="dep-fp", aspect_id=aspect_id,
+        topic_level_hint=topic_level_hint)
 
 
 def _registry(td: Path, blocks) -> ToolRegistry:
@@ -338,6 +388,111 @@ def main() -> dict:
         status = getattr(res, "boundary_status", None)
         check(status == TB.BOUNDARY_SEMANTICS_VERIFIED,
               "A.2 真实文档结构验证通过：结果携带 boundary_status=boundary_semantics_verified")
+
+    # ------------------------------------------------------------------
+    # 7b. A.8 反例（v6 真实现象）：真实主营材料不得混入 sibling（高管/治理/其它板块）正文
+    # ------------------------------------------------------------------
+    # 现象 1（真实页码 49 型向后混合块）：向后相邻块 = 高管履历正文 +「（三）员工构成情况」
+    # + 主题章标题「八、主营业务经营情况」+「（一）经营范围」正文。旧实现把「首个边界标题
+    # 之前的文本」当作主题内前缀 → **主题外正文**（高管履历）被投影成 aspect 材料。
+    with tempfile.TemporaryDirectory() as td:
+        registry = _registry(Path(td), [
+            (5, 0, ["主营业务情况"], "paragraph", _BACKWARD_SIBLING_MIXED_BLOCK),
+            (5, 1, ["主营业务情况"], "paragraph", _SEED_TEXT),
+        ])
+        seed = _seed(page=5, block=1)
+        res = expand(_request(seed, _ASPECT), registry, run_id="a8-backward")
+        block_id = _eid_of(5, 0, _BACKWARD_SIBLING_MIXED_BLOCK)
+        check(block_id not in [b.evidence_id for b in res.adopted],
+              "A.8 向后混合块整体不被采纳（主题外 sentinel，原始字节不拆分）")
+        frags = [f for f in res.fragment_projections if f.evidence_id == block_id]
+        check(not any(k in f.prefix_text for f in frags
+                      for k in _SIBLING_BODY_KEYWORDS),
+              "A.8 反例：向后方向片段投影不得含主题外正文（高管履历/财务总监/员工构成）")
+        check(all(k not in f.prefix_text for f in frags
+                  for k in _SIBLING_BODY_KEYWORDS),
+              "A.8 反例：向后方向片段只能取**主题内**区域（非边界标题之前的任意文本）")
+
+    # 现象 4（A.8 可达泄漏）：后向块首为上一章节正文，块内先出现**上一章节自身的深层
+    # 子标题**（层级深于主题小节标题 → 仅凭层级被判主题内，回滚路径不触发），再出现兄弟
+    # 小节标题。旧实现以「最后一个被判主题内的标题」为向后片段锚点 → 把上一章节正文投影
+    # 成主题内片段。片段必须由**块内主题小节标题**证明（无主题锚点 → 无片段）。
+    with tempfile.TemporaryDirectory() as td:
+        registry = _registry(Path(td), [
+            (5, 0, ["主营业务情况"], "paragraph", _BACKWARD_DEEP_HEADING_BLOCK),
+            (5, 1, ["主营业务情况"], "paragraph", _SEED_TEXT),
+        ])
+        seed = _seed(page=5, block=1)
+        res = expand(_request(seed, _ASPECT), registry, run_id="a8-backward-deep")
+        block_id = _eid_of(5, 0, _BACKWARD_DEEP_HEADING_BLOCK)
+        frags = [f for f in res.fragment_projections if f.evidence_id == block_id]
+        check(all(k not in f.prefix_text for f in frags
+                  for k in _BACKWARD_DEEP_SIBLING_KEYWORDS),
+              "A.8 反例：后向块内上一章节自身子标题不得构成主题内片段锚点")
+        check(block_id not in [b.evidence_id for b in res.adopted],
+              "A.8 反例：后向越界块整体不被采纳（兄弟标题关闭主题小节）")
+
+    # 现象 2（真实页码 51 型 seed）：seed 自身尾部已出现兄弟小节标题
+    # 「（三）各业务板块经营情况」→ 前向内容（动力电池板块销售/产能正文）属兄弟小节，
+    # 旧实现继续前向滚动并把它采纳为 context_candidate。
+    with tempfile.TemporaryDirectory() as td:
+        registry = _registry(Path(td), [
+            (5, 0, ["主营业务情况"], "paragraph", _SEED_WITH_FORWARD_BOUNDARY),
+            (5, 1, ["主营业务情况"], "paragraph", _SIBLING_SECTION_BLOCK),
+            (6, 0, ["主营业务情况"], "paragraph", _SIBLING_SECTION_BLOCK_2),
+        ])
+        seed = _seed(page=5, block=0, text=_SEED_WITH_FORWARD_BOUNDARY)
+        res = expand(_request(seed, _ASPECT), registry, run_id="a8-seed-boundary")
+        sib_ids = {_eid_of(5, 1, _SIBLING_SECTION_BLOCK),
+                   _eid_of(6, 0, _SIBLING_SECTION_BLOCK_2)}
+        check(not (sib_ids & {b.evidence_id for b in res.adopted}),
+              "A.8 反例：seed 自身前向已越界 → 兄弟小节正文块绝不被采纳")
+        check(seed.evidence_id in [b.evidence_id for b in res.adopted],
+              "A.8 seed 自身仍被采纳（边界只约束越界方向，不撤销 seed）")
+        decs = _decisions(res, seed.evidence_id)
+        check(any("（三）各业务板块经营情况" in " ".join(str(s) for s in (d.structural_signals or ()))
+                  for d in decs),
+              "A.8 seed 自身前向边界以结构化信号显式记录（不静默停止）")
+
+    # 现象 3（A.2/A.3）：seed 自身不含主题标题时，旧实现用「文本首个标题层级」猜测主题
+    # 层级（得到 4）→ 主题内子标题「3、主营业务毛利润及毛利率分析」（层级 4）被标成
+    # **兄弟标题** → 独立验证假失败（sibling_heading_classified_in_topic）。
+    lvl_guess, src_guess = HS.topic_level_of(_NO_TOPIC_HEADING_SEED_TEXT,
+                                             ("主营业务情况",))
+    check(lvl_guess is None and src_guess == "unknown",
+          "A.2 反例：seed 未含主题标题 → 主题层级 unknown（绝不用首个标题层级猜测）")
+    hint, hint_src = HS.topic_level_from_seed_set(
+        (_NO_TOPIC_HEADING_SEED_TEXT, _SEED_TEXT), ("主营业务情况",))
+    check(hint == 3 and hint_src == "aspect_seed_document_structure",
+          "A.2 主题层级来自同 aspect seed 集的**文档自身结构**（命中 section_path 叶子标题）")
+    check(HS.topic_level_from_seed_set((_NO_TOPIC_HEADING_SEED_TEXT,),
+                                       ("主营业务情况",)) == (None, "unknown"),
+          "A.2 seed 集内无命中 → 层级 unknown（绝不猜，绝不虚构结构性关闭）")
+    cases_hint = TB.verification_cases_from_material(
+        _ASPECT, (_NO_TOPIC_HEADING_SEED_TEXT,), ("主营业务情况",),
+        topic_level_hint=hint)
+    sib_heads = [c.heading for c in cases_hint if c.relation == "sibling_or_outer"]
+    check("3、主营业务毛利润及毛利率分析" not in sib_heads,
+          "A.2 反例：文档结构层级下主题内子标题不得被标为兄弟标题")
+    check("（三）各业务板块经营情况" in sib_heads,
+          "A.2 文档结构层级下兄弟小节标题仍被标为结构性关闭信号")
+    check(TB.verify_boundary_semantics(_ASPECT, cases_hint).verified is True,
+          "A.2 反例：层级来自文档结构 → 独立验证不再假失败（document_structure_agrees）")
+
+    with tempfile.TemporaryDirectory() as td:
+        registry = _registry(Path(td), [
+            (5, 0, ["主营业务情况"], "paragraph", _NO_TOPIC_HEADING_SEED_TEXT),
+            (5, 1, ["主营业务情况"], "paragraph", _SIBLING_SECTION_BLOCK),
+        ])
+        seed = _seed(page=5, block=0, text=_NO_TOPIC_HEADING_SEED_TEXT)
+        req = _request(seed, _ASPECT, topic_level_hint=3)
+        res = expand(req, registry, run_id="a2-hint-consume")
+        check(res.topic_level == 3
+              and res.topic_level_source == "aspect_seed_document_structure",
+              "A.2 扩读路径消费 seed 集主题层级（topic_level_source 如实标注来源）")
+        check(_eid_of(5, 1, _SIBLING_SECTION_BLOCK) not in
+              [b.evidence_id for b in res.adopted],
+              "A.2 主题层级已知 → 兄弟小节正文块被结构性关闭（不采纳）")
 
     # ------------------------------------------------------------------
     # 7. A.7-4：未独立验证的 policy 不得进入已验证状态（无文档证据 → 不判定主题外）

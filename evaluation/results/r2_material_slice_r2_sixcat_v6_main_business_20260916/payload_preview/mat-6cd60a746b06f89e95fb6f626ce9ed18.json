@@ -1,0 +1,7 @@
+{
+  "material_id": "mat-6cd60a746b06f89e95fb6f626ce9ed18",
+  "component_evidence_id": "079cd0d80d660e2da39250746c025937",
+  "source_content_hash": "709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df",
+  "payload_hash": "140477dfd2b108662ffbe86e5c8f79fed1b4584fe657dd9893594cf35041cfec",
+  "payload": "{\"authority_identity\":\"evidence:079cd0d80d660e2da39250746c025937\",\"content\":{\"evidence_type\":\"paragraph\",\"structured_payload\":null,\"text\":\"理，瑞银证券有限责任公司投资银行部副董事、董事、执行董事，国开证券有限责任公\\n司董事会办公室主任。现任本公司副总经理、董事会秘书，兼任天津市滨海产业基金管\\n理有限公司、小康人寿保险有限责任公司等董事。\\n\\n（4）郑舒先生，财务总监，1979  年出生，中国国籍，无境外永久居留权，福州大\\n学会计学、计算机科学与技术双学士，会计师。曾任本公司财务部负责人，中国铁通集\\n\\n团福建分公司财务部副经理，华为技术有限公司海外区域预算经理、子公司财务负责人，\\n万鼎硅钢集团有限公司财务部总经理，搜狐畅游财务总监。现任本公司财务总监，兼任\\n晋江闽投电力储能科技有限公司、北京普莱德新材料有限公司董事。\"},\"created_dependency_fingerprint\":\"dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96\",\"document_identity\":{\"company_id\":\"300750\",\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"evidence_set_version\":\"set-501395a7ad5a\"},\"evidence_id\":\"079cd0d80d660e2da39250746c025937\",\"locator\":{\"block_range\":[0,0],\"document_id\":\"NDSD_KCZ_2026\",\"document_version\":\"sha256-2b3a1fb3de97f23c\",\"locator_type\":\"evidence\",\"offset\":294,\"page\":49,\"section_path\":\"瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立\",\"table_title\":null},\"material_payload_version\":1,\"object_type\":\"evidence_span\",\"source_content_hash\":\"709e9a667e23e2300d51605bc4112f48540c32cf959e434799f15fc33999f1df\"}"
+}

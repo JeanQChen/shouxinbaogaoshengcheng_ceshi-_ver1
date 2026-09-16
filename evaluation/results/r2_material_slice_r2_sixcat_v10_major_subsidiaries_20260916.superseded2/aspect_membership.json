@@ -1,0 +1,20 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "formal_material_ids": [
+      "mat-8598026babf35bdd5b094206fd0f3f66",
+      "mat-bda123b2364cfda1c60bfcff6e40e109"
+    ],
+    "context_candidate_material_ids": [
+      "mat-af87f339b162b419086ddde2e2c0cd1f"
+    ],
+    "outside_boundary_evidence": [
+      "8080da6dbede07c335162abe5d6535a7",
+      "e02f783179254174984733b254ae0ad0"
+    ],
+    "unread_inside_boundary": [],
+    "seed_evidence_ids": [
+      "c783f2277baa5eda1659bc5c3fab5d46",
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  }
+}

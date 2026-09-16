@@ -1,0 +1,184 @@
+{
+  "company_debt_credit.total_credit_line": {
+    "version": "2",
+    "aspect_id": "company_debt_credit.total_credit_line",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_KCZ_2026",
+    "source_boundary_identity": "98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b",
+    "expected_source_objects": [
+      {
+        "object_id": "cross_ref:_pg:0:0",
+        "kind": "cross_reference",
+        "label": "第七章  发行人资信状况",
+        "source_text_index": 0,
+        "line_index": 0,
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "page_number": 111,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b",
+        "source_object_id": "NDSD_KCZ_2026|sha256-2b3a1fb3de97f23c|98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b|cross_ref:_pg:0:0"
+      },
+      {
+        "object_id": "table:7-1",
+        "kind": "table_number",
+        "label": "表 7-1发行人及其下属子公司债券待偿还情况一览表",
+        "source_text_index": 0,
+        "line_index": 39,
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "page_number": 111,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b",
+        "source_object_id": "NDSD_KCZ_2026|sha256-2b3a1fb3de97f23c|98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b|table:7-1"
+      },
+      {
+        "object_id": "title:债)",
+        "kind": "table_start_signal",
+        "label": "债）",
+        "source_text_index": 1,
+        "line_index": 5,
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "page_number": 112,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b",
+        "source_object_id": "NDSD_KCZ_2026|sha256-2b3a1fb3de97f23c|98b1e8dbadfa32973e473760c26ebdde1f4601ec3ece038ccd95e3aa1b7a6e4b|title:债)"
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "cross_ref:_pg:0:0",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "显式引用未指明目标表号，无法裁决",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "table:7-1",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "表号 7-1 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:债)",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '债）' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      }
+    ],
+    "unmatched_recovered_tables": [
+      "5202年12月 31日"
+    ],
+    "orphan_assemblies": [
+      "asm-0063a5e41fc910a9bbc4236bdc27f849"
+    ]
+  },
+  "company_debt_credit.unused_credit": {
+    "version": "2",
+    "aspect_id": "company_debt_credit.unused_credit",
+    "recovery_source": "persisted_assemblies",
+    "document_id": "NDSD_2025_year",
+    "source_boundary_identity": "dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db",
+    "expected_source_objects": [
+      {
+        "object_id": "title:(1)公司开展套期业务进行风险管理",
+        "kind": "table_start_signal",
+        "label": "（ 1）公司开展套期业务进行风险管理",
+        "source_text_index": 6,
+        "line_index": 4,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 212,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db|title:(1)公司开展套期业务进行风险管理"
+      },
+      {
+        "object_id": "title:5202年12月31日",
+        "kind": "table_start_signal",
+        "label": "5202年12月 31日",
+        "source_text_index": 6,
+        "line_index": 26,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 212,
+        "block_index": 0,
+        "fragment_offset": 0,
+        "material_id": "",
+        "source_boundary_identity": "dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db|title:5202年12月31日"
+      },
+      {
+        "object_id": "title:第三层级公允价值计量的资产主要包括以公允价值计量",
+        "kind": "table_start_signal",
+        "label": "第三层级公允价值计量的资产主要包括以公允价值计量且其变动计入当期损益以及以公允价值计量",
+        "source_text_index": 8,
+        "line_index": 25,
+        "document_id": "NDSD_2025_year",
+        "document_version": "sha256-c15272977147dee7",
+        "page_number": 214,
+        "block_index": 0,
+        "fragment_offset": 744,
+        "material_id": "",
+        "source_boundary_identity": "dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db",
+        "source_object_id": "NDSD_2025_year|sha256-c15272977147dee7|dc73251d53b2b242772914531b6383843e16b20e693a0af0ac414bac30fee8db|title:第三层级公允价值计量的资产主要包括以公允价值计量"
+      }
+    ],
+    "recovery_results": [
+      {
+        "object_id": "title:(1)公司开展套期业务进行风险管理",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '（ 1）公司开展套期业务进行风险管理' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:5202年12月31日",
+        "result": "recovered_ok",
+        "matched_table": "5202年12月 31日",
+        "issue": "",
+        "assembly_id": "asm-0063a5e41fc910a9bbc4236bdc27f849",
+        "component_material_ids": [
+          "mat-5b0506db47256cb86d7b439ae8f8a663"
+        ],
+        "recovery_status": "ok",
+        "recovery_reason": ""
+      },
+      {
+        "object_id": "title:第三层级公允价值计量的资产主要包括以公允价值计量",
+        "result": "target_not_obtained",
+        "matched_table": "",
+        "issue": "通用表题 '第三层级公允价值计量的资产主要包括以公允价值计量且其变动计入当期损益以及以公允价值计量' 在持久化 assemblies 中缺失",
+        "assembly_id": "",
+        "component_material_ids": [],
+        "recovery_status": "",
+        "recovery_reason": ""
+      }
+    ],
+    "unmatched_recovered_tables": [],
+    "orphan_assemblies": []
+  }
+}

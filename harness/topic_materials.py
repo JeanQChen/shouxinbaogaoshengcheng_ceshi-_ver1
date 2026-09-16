@@ -35,10 +35,15 @@ from harness.context_expansion import (
 )
 from harness.evidence_reader import (
     EvidenceReadResult,
+    REFERENCE_KIND_TABLE,
+    continued_from_of,
     recompute_evidence_identity,
+    table_id_of,
     table_title_of,
 )
 from harness import source_object_inventory as SOI
+from harness import table_structure as TBL
+from harness import set_enumeration as SE
 from harness.set_enumeration import recover_flattened_tables
 from harness.topic_store import MaterialPayloadRecord
 
@@ -85,22 +90,81 @@ class TableAssembly(MaterialAssembly):
     continuation_proof: "TableContinuationProof | None" = None
 
 
-TABLE_CONTINUATION_PROOF_VERSION = "1"
+# §三 P1-4：显式引用**成功解析**出的目标表对象，作为过程侧投影进入材料库。
+# 它不是「锚点 Evidence 已在材料库」的另一种说法：目标表有自己的**内容寻址身份**
+# （``table_object_id`` = 规范保列 payload 的 SHA256），并绑定锚点/marker/偏移/occurrence
+# 身份、component evidence 身份、表题/单位/表头层/表体/闭合行/终止边界与依赖指纹。
+REFERENCE_TABLE_OBJECT_RELATION = "reference_table_object"
+
+
+@dataclass(frozen=True)
+class ReferenceTableObjectAssembly(MaterialAssembly):
+    """引用目标表对象投影（relation = ``reference_table_object``）。
+
+    §三 P1-4 的六层闭环（绑定 → 材料/assembly → aspect link → 清单 → 验收）靠本类型承载
+    同一份身份：``table_object_id``（内容寻址）、规范保列 ``table_payload``、component
+    evidence 身份、锚点/marker/偏移/序号、以及表题/单位/表头层/列数/表体/闭合行/终止边界。
+    验收侧由**绑定记录 + 真实正文**独立重算上述每一项，绝不采信本投影的自报值。
+    """
+
+    table_object_id: str
+    object_schema_version: str
+    binding_version: str
+    table_payload: dict
+    table_title: str
+    unit: str
+    header_rows: tuple[tuple[str, ...], ...]
+    header_decision: str
+    column_count: int
+    body_rows: tuple[tuple[str, ...], ...]
+    closure_row: tuple[str, ...]
+    body_digest: str
+    structure_rows: int
+    # 锚点 / 标记 occurrence 身份（与绑定记录同源，逐字段可复核）。
+    anchor_evidence_id: str
+    anchor_material_id: str
+    target_evidence_id: str
+    reference_kind: str
+    reference_marker: str
+    marker_start: int
+    marker_end: int
+    reference_occurrence_index: int
+    # 目标对象在源文本中的位置与终止边界。
+    target_start: int
+    target_end: int
+    target_end_boundary: str
+    target_closed: bool
+    component_evidence_ids: tuple[str, ...]
+    dependency_fingerprint: str
+
+
+TABLE_CONTINUATION_PROOF_VERSION = "2"
+# 证明的身份来源：结构化表（structured_payload 有 table_title/unit/cells）或**恢复出的结构**
+# （PDF 摊平段落恢复：表身份/结构连续性只能由恢复结果 + 真实 span 文本派生）。
+IDENTITY_SOURCE_STRUCTURED = "structured_payload"
+IDENTITY_SOURCE_RECOVERED = "recovered_structure"
 
 
 @dataclass(frozen=True)
 class TableContinuationProof:
-    """跨页续表「同一张表」证明（§修复 C）。
+    """跨页续表「同一张表」证明（§修复 C / §四）。
 
-    不是「两页上各有一张独立表」，而是**同一张表**的续表。``valid()`` 只有 7 个条件全真
+    不是「两页上各有一张独立表」，而是**同一张表**的续表。``valid()`` 只有条件全真
     才成立：
       1. 有真实续表（continuation_evidence_ids 非空）；
-      2. 同表身份：header 与每个续块归一化表题一致（title_compatible）；
-      3. 单位兼容（unit_compatible）；
-      4. 列兼容：续块列 == 表头列（column_compatible）；
-      5. 行列连续：续块每行宽 == 表头列数（row_column_continuity，确定性结构校验）；
+      2. 同表身份（title_compatible）：
+         - structured_payload：header 与每个续块归一化表题一致；
+         - recovered_structure：恢复出非空表题，且**首个续页 span 重复本表表头行**
+           （PDF 续页重排表头的通用续表标记）；
+      3. 单位兼容（unit_compatible）：续页 span 未声明与本表冲突的单位；
+      4. 列兼容（column_compatible）：续页段内数据行/合计行列宽 == 表头列数；
+      5. 行列连续（row_column_continuity，确定性结构校验）；
       6. 续块来自不同块/页：续块 evidence_id 互异且不同于表头，且跨页；
-      7. 恢复 ok（final_recovery_status == "ok"）。
+      7. 恢复 ok（final_recovery_status == "ok"）；
+      8. 每个续页 span 必须贡献真实结构（recovered_structure 专有，防 phantom span）；
+      9. 同文档 + 同 document_version、边界相邻、无中介主题/章节边界
+         （recovered_structure 专有，见 ``boundary_consecutive`` / ``section_path_shared``
+         / ``same_document_verified``）。
     无真实续表 → ``sample_not_obtained``（绝不伪造接受）。
     """
 
@@ -116,6 +180,25 @@ class TableContinuationProof:
     final_recovery_status: str
     proof_version: str = TABLE_CONTINUATION_PROOF_VERSION
     issue: str = ""
+    # -- P1-C.5：**恢复后的结构**（title / unit / headers / rows / total / component 顺序）--
+    recovered_title: str = ""
+    recovered_unit: str = ""
+    recovered_headers: tuple[str, ...] = ()
+    recovered_row_count: int = 0
+    recovered_total: tuple[str, ...] | None = None
+    component_order: tuple[str, ...] = ()
+    # -- P1-C.6：真实 ``continued_from`` 链（逐块读取 + 验证指向前一块）--
+    # ``continued_from_verified``：None = 材料未声明该字段（不可据此判定）；
+    # True = 所有声明值均指向前一块；False = 链断裂（证明 invalid）。
+    continued_from_chain: tuple[dict, ...] = ()
+    continued_from_verified: bool | None = None
+    # -- §四：身份来源 + 摊平续表结构见证（None = 该条件不适用，绝不代表通过）--
+    identity_source: str = IDENTITY_SOURCE_STRUCTURED
+    header_repeat_verified: bool | None = None
+    boundary_consecutive: bool | None = None
+    section_path_shared: bool | None = None
+    same_document_verified: bool | None = None
+    span_facts: tuple[dict, ...] = ()
 
     @property
     def has_continuation(self) -> bool:
@@ -140,7 +223,7 @@ class TableContinuationProof:
 
     @property
     def valid(self) -> bool:
-        """7 条件全真才是同一张表的续表；任一不满足 → False（fail-closed）。"""
+        """全条件真才是同一张表的续表；任一不满足 → False（fail-closed）。"""
         return (
             self.has_continuation
             and bool(self.header_evidence_id)
@@ -152,6 +235,14 @@ class TableContinuationProof:
             and self._distinct_blocks()
             and self._cross_page()
             and self.final_recovery_status == "ok"
+            # P1-C.6：材料若**声明**了 continued_from，则链必须真的指向前一块
+            # （None = 未声明，不由该字段裁决；绝不把「未声明」当成已验证）。
+            and self.continued_from_verified is not False
+            # §四：摊平续表结构见证（None = 不适用；False = 明确不成立 → invalid）。
+            and self.header_repeat_verified is not False
+            and self.boundary_consecutive is not False
+            and self.section_path_shared is not False
+            and self.same_document_verified is not False
         )
 
 
@@ -194,6 +285,8 @@ class MaterialBuildResult:
     stop_reason: str
     budget_consumed: dict
     payload_records: tuple[MaterialPayloadRecord, ...]
+    # §三 P1-4：引用表对象的 aspect 归属声明（每条 = 一个成功解析、内容寻址的目标对象）。
+    reference_table_objects: tuple[dict, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -449,6 +542,7 @@ def build_material_result(expansion: ExpansionResult, *,
     # 修复 A：mixed block 主题内前缀片段投影 → 独立 evidence_span material（locator.offset
     # 记录主题外标题字符界，payload text 为主题内前缀，source_content_hash 仍为完整块 hash）。
     # 完整原子材料保留（block 仍在 boundary_decisions 里作为主题外 sentinel 记录）。
+    fragment_texts: dict[str, str] = {}
     for frag in expansion.fragment_projections:
         frag_block = frag.block
         bm = build_atomic_material(
@@ -459,12 +553,27 @@ def build_material_result(expansion: ExpansionResult, *,
             table_title=None, fragment_offset=frag.char_offset,
             fragment_text=frag.prefix_text)
         built.setdefault(bm.material.material_id, bm)
+        # 该 material 的真实正文 = 其 payload 里持久化的前缀文本（同一来源，不复制第二套规则）。
+        fragment_texts[bm.material.material_id] = str(frag.prefix_text or "")
 
     materials = tuple(sorted(
         (bm.material for bm in built.values()), key=_material_sort_key))
 
     assemblies = build_assemblies(materials, blocks_by_id,
-                                  relations=expansion.adopted_relations)
+                                  relations=expansion.adopted_relations,
+                                  fragment_texts_by_material_id=fragment_texts,
+                                  reference_bindings=_reference_bindings_of(expansion),
+                                  dependency_fingerprint=dependency_fingerprint)
+
+    # §三 P1-4：引用表对象投影的**正式 aspect 绑定声明**（落盘到 aspect_links 的归属行）。
+    # 只有真正产出了内容寻址投影的目标对象才产生声明 —— 「锚点 Evidence 在材料库里」本身
+    # 绝不构成「目标对象已被采纳」。
+    reference_links: tuple[dict, ...] = ()
+    if aspect_id is not None:
+        reference_links = tuple(
+            reference_table_object_link(a, aspect_id)
+            for a in assemblies
+            if isinstance(a, ReferenceTableObjectAssembly))
 
     aspect_links: tuple[AspectMaterialLink, ...] = ()
     if aspect_id is not None:
@@ -495,6 +604,7 @@ def build_material_result(expansion: ExpansionResult, *,
         stop_reason=expansion.stop_reason,
         budget_consumed=expansion.budget_consumed,
         payload_records=tuple(bm.payload_record for bm in built.values()),
+        reference_table_objects=reference_links,
     )
 
 
@@ -516,6 +626,9 @@ def _materials_by_evidence_id(materials: tuple[TS.ResearchMaterial, ...]) -> dic
 def build_assemblies(materials: tuple[TS.ResearchMaterial, ...],
                      blocks_by_evidence_id: dict[str, EvidenceReadResult],
                      relations: dict[str, str] | None = None,
+                     fragment_texts_by_material_id: dict[str, str] | None = None,
+                     reference_bindings: list[dict] | None = None,
+                     dependency_fingerprint: str = "",
                      ) -> tuple[MaterialAssembly, ...]:
     """从一组 atomic materials + 其 Block 派生组合投影（表链 / 相邻链 / 交叉引用）。
 
@@ -542,7 +655,8 @@ def build_assemblies(materials: tuple[TS.ResearchMaterial, ...],
         assemblies.append(_build_table_assembly(run, blocks_by_evidence_id))
 
     # ---- TableAssembly：PDF 摊平段落恢复（§五修复三，过程侧投影，非第 4 权威） ----
-    assemblies.extend(_build_flattened_table_assemblies(materials, blocks_by_evidence_id))
+    assemblies.extend(_build_flattened_table_assemblies(
+        materials, blocks_by_evidence_id, fragment_texts_by_material_id))
 
     # ---- MaterialAssembly：evidence_span materials 的相邻/跨页链 ----
     span_mats = [m for m in materials if m.material_type == "evidence_span"]
@@ -567,6 +681,10 @@ def build_assemblies(materials: tuple[TS.ResearchMaterial, ...],
     # ---- MaterialAssembly：交叉引用（explicit_reference 采纳的 reference 目标） ----
     assemblies.extend(_build_reference_assemblies(
         materials, mat_by_ev, relations or {}))
+
+    # ---- ReferenceTableObjectAssembly：成功解析的引用目标表对象（§三 P1-4） ----
+    assemblies.extend(_build_reference_table_object_assemblies(
+        materials, mat_by_ev, list(reference_bindings or ()), dependency_fingerprint))
 
     return tuple(sorted(assemblies, key=lambda a: a.assembly_id))
 
@@ -715,9 +833,138 @@ def _build_reference_assemblies(materials: tuple[TS.ResearchMaterial, ...],
     return assemblies
 
 
+def _reference_bindings_of(expansion: ExpansionResult) -> list[dict]:
+    """扩读 trace 中**真实发生**的表引用绑定记录（逐步骤、保持源序，绝不另行推断）。"""
+    out: list[dict] = []
+    for step in getattr(expansion.trace, "steps", ()) or ():
+        b = getattr(step, "reference_binding", None)
+        if isinstance(b, dict) and b:
+            out.append(b)
+    return out
+
+
+def _build_reference_table_object_assemblies(
+        materials: tuple[TS.ResearchMaterial, ...],
+        mat_by_ev: dict[str, TS.ResearchMaterial],
+        bindings: list[dict],
+        dependency_fingerprint: str) -> list[ReferenceTableObjectAssembly]:
+    """§三 P1-4：把**成功解析**的表引用目标投影为内容寻址、可复核的引用表对象。
+
+    只有全部为真才产出（任一不成立 → 不产出该投影；验收侧据此 fail-closed，绝不把「锚点
+    Evidence 已在材料库」当成「目标表对象已被采纳」）：
+
+    1. 绑定记录种类为结构性表引用（``reference_kind == "table"``）；
+    2. 由绑定记录可重建**规范保列 payload**，且重算 ``table_object_id`` 与自报 ID 一致
+       （内容寻址：自报 ID 与 payload 不符 ⇒ 记录被篡改 ⇒ 不产出）；
+    3. 重算表体摘要与自报 ``target_body_digest`` 一致；
+    4. 目标块 material 真实存在于本扩展的已采纳材料中（目标必须真的被采纳）；
+    5. component evidence 身份 = 目标块 + （存在则含）锚点块，去重保序。
+
+    ``assembly_id`` 的判别串为**内容身份 + occurrence 身份**：同一 occurrence 重复消费 →
+    同一 ID 去重为一条（幂等）；同一锚点内不同 occurrence 指向同一张表 → 各自独立可追溯。
+    """
+    out: list[ReferenceTableObjectAssembly] = []
+    for b in bindings:
+        if str(b.get("reference_kind") or "") != REFERENCE_KIND_TABLE:
+            continue
+        payload = TBL.table_object_payload_from_binding(b)
+        if payload is None:
+            continue
+        recomputed_id = TBL.table_object_id(
+            title=str(b["target_table_title"]), unit=str(b["target_unit"]),
+            header_rows=[str(h) for h in b["target_header_rows"]],
+            body_row_texts=[str(r) for r in b["target_body_row_texts"]],
+            closure_row=str(b["target_closure_row"]),
+            structure_rows=int(b["target_structure_rows"]))
+        if recomputed_id != str(b.get("target_object_id") or ""):
+            continue
+        body_digest = TBL.table_object_body_digest(
+            [str(r) for r in b["target_body_row_texts"]],
+            str(b["target_closure_row"]))
+        if body_digest != str(b.get("target_body_digest") or ""):
+            continue
+        target_eid = str(b.get("target_evidence_id") or "")
+        target_mat = mat_by_ev.get(target_eid)
+        if target_mat is None:
+            continue
+        anchor_eid = str(b.get("anchor_evidence_id") or "")
+        anchor_mat = mat_by_ev.get(anchor_eid)
+        component_mats = [target_mat]
+        if anchor_mat is not None and anchor_mat.material_id != target_mat.material_id:
+            component_mats.append(anchor_mat)
+        component = tuple(m.material_id for m in component_mats)
+        component_evidence_ids = tuple(
+            dict.fromkeys(str(m.authority_assessment.evidence_id) for m in component_mats))
+        discriminator = "|".join((
+            recomputed_id, anchor_eid, str(b.get("reference_marker") or ""),
+            str(b.get("marker_start")), str(b.get("marker_end")),
+            str(b.get("reference_occurrence_index"))))
+        out.append(ReferenceTableObjectAssembly(
+            assembly_id=_assembly_id(component, REFERENCE_TABLE_OBJECT_RELATION, discriminator),
+            context_parent_id=component[0],
+            component_material_ids=component,
+            relation=REFERENCE_TABLE_OBJECT_RELATION,
+            boundary_desc=_span_boundary_desc(component_mats),
+            table_object_id=recomputed_id,
+            object_schema_version=str(b.get("object_schema_version") or ""),
+            binding_version=str(b.get("binding_version") or ""),
+            table_payload=payload,
+            table_title=str(b["target_table_title"]),
+            unit=str(b["target_unit"]),
+            header_rows=tuple(tuple(t) for t in payload["header_rows"]),
+            header_decision=str(b.get("target_header_decision") or ""),
+            column_count=int(b.get("target_column_count") or 0),
+            body_rows=tuple(tuple(t) for t in payload["body_rows"]),
+            closure_row=tuple(payload["closure_row"]),
+            body_digest=body_digest,
+            structure_rows=int(b["target_structure_rows"]),
+            anchor_evidence_id=anchor_eid,
+            anchor_material_id=(anchor_mat.material_id if anchor_mat is not None else ""),
+            target_evidence_id=target_eid,
+            reference_kind=REFERENCE_KIND_TABLE,
+            reference_marker=str(b.get("reference_marker") or ""),
+            marker_start=int(b.get("marker_start") or 0),
+            marker_end=int(b.get("marker_end") or 0),
+            reference_occurrence_index=int(b.get("reference_occurrence_index") or 0),
+            target_start=int(b.get("target_start") or 0),
+            target_end=int(b.get("target_end") or 0),
+            target_end_boundary=str(b.get("target_end_boundary") or ""),
+            target_closed=bool(b.get("target_closed")),
+            component_evidence_ids=component_evidence_ids,
+            dependency_fingerprint=dependency_fingerprint,
+        ))
+    return out
+
+
+def reference_table_object_link(obj: ReferenceTableObjectAssembly,
+                                aspect_id: str) -> dict:
+    """引用表对象 → aspect link 的可落盘声明（§三 P1-4「正式 aspect 绑定」）。
+
+    ``table_object_key`` 与源对象清单的 ``table:`` / ``title:`` 对象身份**同源**
+    （``SOI.table_object_key``），使「目标对象 → 清单"已获得"」两处用同一把钥匙对账。
+    """
+    return {
+        "aspect_id": aspect_id,
+        "target_object_id": obj.table_object_id,
+        "assembly_id": obj.assembly_id,
+        "table_object_key": SOI.table_object_key(obj.table_title),
+        "table_title": obj.table_title,
+        "object_schema_version": obj.object_schema_version,
+        "binding_version": obj.binding_version,
+        "anchor_evidence_id": obj.anchor_evidence_id,
+        "anchor_material_id": obj.anchor_material_id,
+        "target_evidence_id": obj.target_evidence_id,
+        "target_material_id": (obj.component_material_ids[0]
+                               if obj.component_material_ids else ""),
+        "component_evidence_ids": list(obj.component_evidence_ids),
+        "dependency_fingerprint": obj.dependency_fingerprint,
+    }
+
+
 def _build_flattened_table_assemblies(
         materials: tuple[TS.ResearchMaterial, ...],
-        blocks_by_evidence_id: dict[str, EvidenceReadResult]) -> list[TableAssembly]:
+        blocks_by_evidence_id: dict[str, EvidenceReadResult],
+        fragment_texts_by_material_id: dict[str, str] | None = None) -> list[TableAssembly]:
     """§五修复三：从 PDF 摊平段落（evidence_span 但文本像表格行摊平）恢复 TableAssembly 投影。
 
     纯结构（无 LLM/公司/页码规则）：把单个 block 文本按行拆分（真实 PDF 把整张表塞进一个
@@ -742,23 +989,29 @@ def _build_flattened_table_assemblies(
             m.material_id,
         )
 
+    # 每个 span material 的**自身真实正文**：优先取该 material 的片段投影文本
+    # （``fragment_texts_by_material_id``，即其 payload 实际持久化的前缀文本），否则取其所指
+    # Block 的正文。**绝不退化成空串**：片段投影 material 的 Block 不在采纳集合中（该块被主题
+    # 边界截断），旧实现按 evidence_id 查不到 Block 就填入 ""，会在规范源流里凭空插入一个**空
+    # span**，既丢掉主题内前缀（截断摊平表），又把表切成两段各自残缺。
+    frag_texts = fragment_texts_by_material_id or {}
+
+    def _span_text(m: TS.ResearchMaterial) -> str:
+        if m.material_id in frag_texts:
+            return str(frag_texts[m.material_id] or "")
+        b = blocks_by_evidence_id.get(m.authority_assessment.evidence_id)
+        return str(b.text or "") if b is not None else ""
+
     spans = sorted(
         (m for m in materials if m.material_type == "evidence_span"),
         key=_canonical_key)
     ordered = list(spans)
-    texts = [
-        unicodedata.normalize(
-            "NFC",
-            (blocks_by_evidence_id.get(m.authority_assessment.evidence_id).text
-             if blocks_by_evidence_id.get(m.authority_assessment.evidence_id) is not None
-             else "") or "")
-        for m in ordered
-    ]
+    texts = [unicodedata.normalize("NFC", _span_text(m)) for m in ordered]
     tables = recover_flattened_tables(texts)
 
     assemblies: list[TableAssembly] = []
     for t in tables:
-        a = _build_flattened_table_assembly(t, ordered, blocks_by_evidence_id)
+        a = _build_flattened_table_assembly(t, ordered, blocks_by_evidence_id, texts)
         if a is not None:
             assemblies.append(a)
     return assemblies
@@ -766,7 +1019,8 @@ def _build_flattened_table_assemblies(
 
 def _build_flattened_table_assembly(
         table: dict, ordered: list[TS.ResearchMaterial],
-        blocks_by_evidence_id: dict[str, EvidenceReadResult]) -> TableAssembly | None:
+        blocks_by_evidence_id: dict[str, EvidenceReadResult],
+        span_texts: list[str]) -> TableAssembly | None:
     """由 ``recover_flattened_tables`` 的恢复结果 + 有序材料投影 flattened_table_recovery。
 
     只有「有表头且有数据行」才产出（诚实缺口：仅表头/仅数据行不伪造投影）。component 只
@@ -792,20 +1046,29 @@ def _build_flattened_table_assembly(
     header_page = (ordered[table["header_text_index"]].authority_assessment.page
                    if table.get("header_text_index") is not None
                    and 0 <= table["header_text_index"] < len(ordered) else None)
+    # §四：**续页 span** = 重复表头 / 跨页数据行 / 跨页合计 三类真实结构所在 span 的并集
+    # （与恢复侧记录同一索引集合，不复制第二套判定）。它们共同构成 continued 的见证集合。
+    # 同页的合计行**不是**续表（它只是本页表体的闭合行）→ 归 body，绝不冒充 continuation。
+    cont_indices = sorted(set(table.get("repeated_header_text_indices") or ())
+                          | {ri for ri in (table.get("row_text_indices") or [])
+                             if _span_page(ordered, ri) not in (None, header_page)}
+                          | ({table["total_text_index"]}
+                             if table.get("total_text_index") is not None
+                             and _span_page(ordered, table["total_text_index"])
+                             not in (None, header_page) else set()))
     body_ids: list[str] = []
     continuation_ids: list[str] = []
-    for ri in table.get("row_text_indices") or []:
-        ev = _ev(ri)
-        if ev is None:
+    for ri in list(table.get("row_text_indices") or []) + (
+            [table["total_text_index"]] if table.get("total_text_index") is not None else []):
+        if ri in set(cont_indices):
             continue
-        m = ordered[ri]
-        if header_page is not None and m.authority_assessment.page == header_page:
+        ev = _ev(ri)
+        if ev is not None:
             body_ids.append(ev)
-        else:
+    for ci in cont_indices:
+        ev = _ev(ci)
+        if ev is not None:
             continuation_ids.append(ev)
-    total_ev = _ev(table.get("total_text_index"))
-    if total_ev is not None:
-        continuation_ids.append(total_ev)
 
     root = component[0]
     # P1-3：单个摊平 block 内可恢复出**多张不同表**（如研发投入表 + 现金流表同段摊平），
@@ -830,9 +1093,13 @@ def _build_flattened_table_assembly(
         recovery_status=table.get("recovery_status", "ok"),
         recovery_issue=table.get("recovery_issue"),
     )
-    # §修复 C：附「同一张表」续表证明（无真实续表 → sample_not_obtained，不伪造接受）。
-    return replace(asm, continuation_proof=build_table_continuation_proof(
-        asm, blocks_by_evidence_id))
+    # §修复 C / §四：附「同一张表」续表证明（无真实续表 → sample_not_obtained，不伪造接受）。
+    # 摊平表的表身份只能来自**恢复出的结构**（段落块没有 structured_payload 表题/单位/列），
+    # 因此走恢复侧结构见证；结构化表链仍走 structured_payload 见证（互不影响）。
+    proof = _flattened_continuation_proof(
+        asm, table=table, ordered=ordered, span_texts=span_texts,
+        blocks_by_evidence_id=blocks_by_evidence_id, cont_indices=cont_indices)
+    return replace(asm, continuation_proof=proof)
 
 
 def _normalize_table_identity(title: str | None) -> str:
@@ -868,13 +1135,168 @@ def _structured_row_widths(b: EvidenceReadResult | None) -> tuple[int, ...]:
     return ()
 
 
+def _span_page(ordered: list[TS.ResearchMaterial], i) -> int | None:
+    if i is None or not (0 <= i < len(ordered)):
+        return None
+    return ordered[i].authority_assessment.page
+
+
+def _flattened_continuation_proof(
+        assembly: TableAssembly, *, table: dict,
+        ordered: list[TS.ResearchMaterial], span_texts: list[str],
+        blocks_by_evidence_id: dict[str, EvidenceReadResult],
+        cont_indices: list[int]) -> TableContinuationProof:
+    """摊平表（PDF 段落恢复）跨页续表证明（§四）：身份来自**恢复出的结构** + 真实 span 文本。
+
+    摊平段落块没有 ``structured_payload`` 的 table_title/unit/cells，旧实现直接读
+    structured_payload，会让**任何**真实摊平续表结构性判 invalid（表题不一致 + 单位不兼容）。
+    本函数只用真实、可复核的事实逐条对账，绝不采信自报字段：
+
+    1. 同表身份：恢复出非空表题 + **首个续页 span 重复本表表头行**（PDF 续页重排表头，通用
+       续表标记；列切分与恢复侧共用 ``SE.continuation_span_facts``，不复制第二套规则）；
+    2. 单位连续：续页 span 未声明与本表冲突的单位；
+    3. 列兼容：续页段（重复表头之后、下一张表题/表后正文之前）内数据行与合计行列宽 == 表头列数；
+    4. 行列连续：恢复出的数据行列宽一致且 == 表头列数；
+    5. 每个续页 span 必须贡献真实结构（重复表头/数据行/合计/单位），**空 span 不得冒充续页**；
+    6. 续页 span evidence 互异且不同于表头 span；
+    7. 同 document_id + document_version；边界相邻（跨页 +1 或同页后一 span）；
+       section_path 在本表表头 span 与全部续页 span 上一致（无中介主题/章节边界）。
+    """
+    header_idx = table.get("header_text_index")
+    header_m = ordered[header_idx] if isinstance(header_idx, int) and 0 <= header_idx < len(ordered) else None
+    header_ev = assembly.header_evidence_id
+    header_page = _span_page(ordered, header_idx)
+    header_b = blocks_by_evidence_id.get(header_ev or "")
+    header_headers = tuple(assembly.headers or ())
+    # 用于「续页是否重排本表表头」核对的是**物理表头行**（源文本中真实出现），不是合并后的表头。
+    header_rows = [tuple(h) for h in (table.get("header_cell_rows") or [])] \
+        or ([header_headers] if header_headers else [])
+    unit = _normalize_unit(assembly.unit)
+
+    cont_evs: list[str] = []
+    facts: list[dict] = []
+    section_ok = True
+    document_ok = True
+    boundary_ok = True
+    prev_page = header_page
+    header_doc = header_b.document_id if header_b is not None else ""
+    header_dv = header_b.document_version if header_b is not None else ""
+    header_sp = header_b.section_path if header_b is not None else None
+
+    for i in cont_indices:
+        ev = ordered[i].authority_assessment.evidence_id
+        b = blocks_by_evidence_id.get(ev)
+        text = span_texts[i] if 0 <= i < len(span_texts) else ""
+        f = SE.continuation_span_facts(text, header_rows)
+        page = ordered[i].authority_assessment.page
+        width_ok = all(w == len(header_headers) for w in f["data_row_widths"]) and (
+            f["closure_width"] is None or f["closure_width"] == len(header_headers))
+        unit_conflict = [u for u in f["unit_lines"] if _normalize_unit(u) != unit]
+        contributed = bool(f["header_repeat_matched"] or f["data_row_widths"]
+                           or f["closure_width"] is not None or f["unit_lines"])
+        # 边界相邻：跨页 +1，或同页的后续 span（规范源顺序保证 i 递增）。
+        adjacent = (page == prev_page + 1) or (page == prev_page)
+        if b is not None:
+            document_ok = document_ok and bool(
+                b.document_id == header_doc and b.document_version == header_dv)
+            section_ok = section_ok and bool(
+                header_sp is not None and b.section_path == header_sp)
+        else:
+            # 续页 span 的真实块不可读 → 无法见证同文档/同章节（fail-closed，不假设成立）。
+            document_ok = False
+            section_ok = False
+        boundary_ok = boundary_ok and adjacent
+        prev_page = page
+        if ev:
+            cont_evs.append(ev)
+        facts.append({
+            "text_index": i, "evidence_id": ev, "page": page,
+            "block_index": (b.block_index if b is not None else None),
+            "section_path": (list(b.section_path) if b is not None else None),
+            "header_repeat_matched": f["header_repeat_matched"],
+            "unit_lines": list(f["unit_lines"]), "unit_conflict": unit_conflict,
+            "data_row_widths": list(f["data_row_widths"]),
+            "closure_width": f["closure_width"], "has_prose": f["has_prose"],
+            "column_width_ok": width_ok, "contributed_structure": contributed,
+            "adjacent_to_previous": adjacent,
+        })
+
+    cont_evs = list(dict.fromkeys(cont_evs))
+    first_repeat = bool(facts) and bool(facts[0]["header_repeat_matched"])
+    title_compatible = bool(_normalize_table_identity(assembly.table_title)) and first_repeat
+    unit_compatible = all(not f["unit_conflict"] for f in facts)
+    column_compatible = all(f["column_width_ok"] for f in facts)
+    row_lens = {len(r) for r in (assembly.rows or ())}
+    row_column_continuity = bool(assembly.rows) and len(row_lens) == 1 \
+        and row_lens == {len(header_headers)}
+    all_contributed = bool(facts) and all(f["contributed_structure"] for f in facts)
+    distinct = (
+        bool(cont_evs) and bool(header_ev)
+        and all(e != header_ev for e in cont_evs) and len(set(cont_evs)) == len(cont_evs))
+    cross_page = any(p != header_page for p in (f["page"] for f in facts))
+
+    issues: list[str] = []
+    if not title_compatible:
+        issues.append("续页 span 未重复本表表头行（或表题缺失）")
+    if not unit_compatible:
+        issues.append("单位不兼容")
+    if not column_compatible:
+        issues.append("列不兼容")
+    if not row_column_continuity:
+        issues.append("行列不连续")
+    if not all_contributed:
+        issues.append("续页 span 未贡献任何真实结构（空 span 不得冒充续页）")
+    if not distinct:
+        issues.append("续块身份重复或同表头")
+    if not cross_page:
+        issues.append("非跨页续表")
+    if not document_ok:
+        issues.append("续页 span 不同文档/版本或块不可读")
+    if not boundary_ok:
+        issues.append("续页 span 与前一 span 边界不相邻")
+    if not section_ok:
+        issues.append("表头 span 与续页 span 之间存在主题/章节边界")
+    if assembly.recovery_status != "ok":
+        issues.append(f"恢复状态 {assembly.recovery_status}")
+
+    return TableContinuationProof(
+        normalized_title=_normalize_table_identity(assembly.table_title),
+        header_evidence_id=header_ev,
+        continuation_evidence_ids=tuple(cont_evs),
+        header_page=header_page,
+        continuation_pages=tuple(f["page"] for f in facts),
+        title_compatible=title_compatible,
+        unit_compatible=unit_compatible,
+        column_compatible=column_compatible,
+        row_column_continuity=row_column_continuity,
+        final_recovery_status=assembly.recovery_status,
+        issue="; ".join(issues),
+        recovered_title=_normalize_table_identity(assembly.table_title),
+        recovered_unit=unit,
+        recovered_headers=header_headers,
+        recovered_row_count=len(assembly.rows or ()),
+        recovered_total=tuple(assembly.total_row or ()) or None,
+        component_order=tuple(assembly.component_material_ids or ()),
+        continued_from_chain=(),
+        continued_from_verified=None,
+        identity_source=IDENTITY_SOURCE_RECOVERED,
+        header_repeat_verified=first_repeat,
+        boundary_consecutive=boundary_ok,
+        section_path_shared=section_ok,
+        same_document_verified=document_ok,
+        span_facts=tuple(facts),
+    )
+
+
 def build_table_continuation_proof(
         assembly: TableAssembly,
         blocks_by_evidence_id: dict[str, EvidenceReadResult]) -> TableContinuationProof:
     """从 TableAssembly + 其 Block 确定性构造跨页续表「同一张表」证明（§修复 C）。
 
     纯结构（无 LLM/公司/页码规则）：归一化表题、单位、列名、行宽、续块身份/页面全部来自
-    Block 真实结构。不满足任一条件 → proof.valid == False；无真实续表 → sample_not_obtained。
+    Block 真实结构；**恢复后的结构**（表题/单位/表头/数据行/合计/component 顺序）如实进入
+    证明；每个续块的 **真实 ``continued_from``** 被正式读取并逐块验证其指向前一块。
+    不满足任一条件 → proof.valid == False；无真实续表 → sample_not_obtained。
     """
     title = _normalize_table_identity(assembly.table_title)
     header_b = blocks_by_evidence_id.get(assembly.header_evidence_id or "")
@@ -886,6 +1308,29 @@ def build_table_continuation_proof(
     cont_blocks = [blocks_by_evidence_id.get(eid) for eid in cont_evs]
     cont_blocks = [b for b in cont_blocks if b is not None]
     cont_pages = tuple(b.page_number for b in cont_blocks)
+
+    # -- 真实 continued_from 链：逐块读取 + 验证其指向前一块的表身份 --
+    # 顺序为「表头 → 各续块」（与 component 顺序一致）。声明了 continued_from 的块必须
+    # 指向链上前一块；未声明的块在证明中如实记为 None（绝不伪称已支持）。
+    chain: list[dict] = []
+    prev_id = table_id_of(header_b)
+    declared = 0
+    chain_ok = True
+    for eid, b in zip(cont_evs, cont_blocks):
+        cf = continued_from_of(b)
+        this_id = table_id_of(b)
+        ok = True
+        if cf is not None:
+            declared += 1
+            ok = bool(prev_id) and cf == prev_id
+            if not ok:
+                chain_ok = False
+        chain.append({"evidence_id": eid, "continued_from": cf,
+                      "table_id": this_id, "matches_previous": ok})
+        if this_id:
+            prev_id = this_id
+    # 未声明任何 continued_from → 无法由该字段见证（诚实记 None，不以「无字段」冒充已验证）。
+    continued_from_verified: bool | None = None if declared == 0 else bool(chain_ok)
 
     # 1. 同表身份：每个续块归一化表题 == header 表题。
     title_compatible = bool(title) and all(
@@ -934,6 +1379,8 @@ def build_table_continuation_proof(
         issues.append("非跨页续表")
     if assembly.recovery_status != "ok":
         issues.append(f"恢复状态 {assembly.recovery_status}")
+    if continued_from_verified is False:
+        issues.append("continued_from 链不指向前一块")
 
     return TableContinuationProof(
         normalized_title=title,
@@ -947,6 +1394,14 @@ def build_table_continuation_proof(
         row_column_continuity=row_column_continuity,
         final_recovery_status=assembly.recovery_status,
         issue="; ".join(issues),
+        recovered_title=_normalize_table_identity(assembly.table_title),
+        recovered_unit=unit,
+        recovered_headers=tuple(assembly.headers or ()),
+        recovered_row_count=len(assembly.rows or ()),
+        recovered_total=tuple(assembly.total_row or ()) or None,
+        component_order=tuple(assembly.component_material_ids or ()),
+        continued_from_chain=tuple(chain),
+        continued_from_verified=continued_from_verified,
     )
 
 

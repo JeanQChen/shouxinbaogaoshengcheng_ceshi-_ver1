@@ -1,0 +1,31 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "5c71e18b6374e5af01564139db0051b40a130ccc24fc6429dc285b7851cfda97",
+  "entries": [
+    {
+      "case_id": "financial-notes-1",
+      "company_id": "300750",
+      "aspect_id": "company_finance.notes_to_financial_statements",
+      "query": "财务附注（合并财务报表项目注释）",
+      "evidence_id": "e6b14793486ce974a8291e94f1489b05",
+      "document_id": "NDSD_2024_year",
+      "document_version": "sha256-b4f1713d7b821eb0",
+      "evidence_set_version": "set-501395a7ad5a",
+      "page_number": 166,
+      "block_index": 0,
+      "section_path": [
+        "合并财务报表项目注释"
+      ],
+      "evidence_type": "paragraph",
+      "source_content_hash": "a4b075dfd3c750930f942f720234182d6eef44403db4693e66639ee2ea5bd94d",
+      "selection_reason": "真实财务附注：合并财务报表项目注释（货币资金/交易性金融资产/应收票据，含 单位：千元/表头/表体/合计），非主营业务表",
+      "text": "七、合并财务报表项目注释\n\n1、货币资金\n\n单位：千元\n  项目  期末余额  期初余额\n 库存现金  373  1,277\n 银行存款  274,816,769  238,458,317\n\n其他货币资金  28,694,852  25,846,921\n 合计  303,511,993  264,306,515\n  其中：存放在境外的款项总额  35,198,866  20,416,787\n\n说明：期末除保证金  22,319,711千元、质押定期存款  1,019,843千元外，不存在质押或冻结、或存放在境外且资金汇回受到\n限制的款项。\n\n2、交易性金融资产\n\n单位：千元\n  项目  期末余额  期初余额\n 银行理财产品及结构性存款  14,282,253  7,767\n 合计  14,282,253  7,767\n\n3、应收票据\n\n（1） 应收票据分类列示\n\n单位：千元\n  项目  期末余额  期初余额\n 银行承兑票据  130,403  1,751,725\n 合计  130,403  1,751,725\n\n（2） 期末公司已质押的应收票据\n\n单位：千元\n  项目  期末已质押金额\n 银行承兑票据  130,403\n 合计  130,403\n\n说明：期末用于质押或担保的应收票据详见 “第十节 财务报告”之“ 七、合并财务报表项目注释”“24、所有权或使用权受到\n限制的资产”。\n\n4、应收账款\n\n（1） 按账龄披露\n\n单位：千元\n\n166",
+      "source_name": "NDSD_2024_year.pdf",
+      "source_tool": "search_evidence",
+      "rank": 1,
+      "score": 1.0,
+      "is_current_document": true,
+      "is_current_set": true
+    }
+  ]
+}

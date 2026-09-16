@@ -1,0 +1,56 @@
+[
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-8598026babf35bdd5b094206fd0f3f66",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-af87f339b162b419086ddde2e2c0cd1f",
+    "role": "context_candidate",
+    "disposition": "context_candidate",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "evidence_id": "049de1a26d73f3e89611679694ff4f06",
+        "direction": "",
+        "disposition": "context_candidate",
+        "reason_code": "mixed_block_context_candidate"
+      }
+    ],
+    "seed_reachability": [
+      "c783f2277baa5eda1659bc5c3fab5d46"
+    ]
+  },
+  {
+    "aspect_id": "company_subsidiaries.major_subsidiaries",
+    "material_id": "mat-bda123b2364cfda1c60bfcff6e40e109",
+    "role": "source",
+    "disposition": "seed",
+    "boundary_disposition_identity": [
+      {
+        "aspect_id": "company_subsidiaries.major_subsidiaries",
+        "evidence_id": "467120b8407bbbea6a6684303b632147",
+        "direction": "",
+        "disposition": "seed",
+        "reason_code": "seed"
+      }
+    ],
+    "seed_reachability": [
+      "467120b8407bbbea6a6684303b632147"
+    ]
+  }
+]

@@ -1,8 +1,10 @@
 # R1-B 实施计划：唯一 TopicResearchPack schema + Pack Store + checkpoint
 
-> 面向执行者：Claude Code · 待人工 + Codex 审核，审核通过前不得开始编码
-> 版本：v0.1 · 2026-09-13
-> 状态：**仅计划，未编码、未接线、未 commit**
+> **HISTORICAL IMPLEMENTATION BASELINE / SUCCESSOR NOTE（2026-09-16）**：R1-B 已实施并关闭，本文保留当时 schema、Store、checkpoint 和 migration 事实，不重新执行。树结构调整若需增加 `outline_id/node_id/span offsets/table_object_id` 等 locator/payload 身份，必须按 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md) 发布版本化兼容 successor schema 与 append-only migration；不得原地改写 R1-B 历史 schema 或 migration。
+
+> 历史编制时面向执行者：Claude Code · 当时待人工 + Codex 审核
+> 历史版本：v0.1 · 2026-09-13
+> 历史编制时状态：**仅计划，未编码、未接线、未 commit**；当前真实状态只看顶部 successor note 与 `V2_TODO.md`
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、任务书 §3/§5/§8/§9、冻结后 `templates/contracts/standard_v3.yaml`（Contract v2 + `r1_architecture_constraints`）
 
 ---

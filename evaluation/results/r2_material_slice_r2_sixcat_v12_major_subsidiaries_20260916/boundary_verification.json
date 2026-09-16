@@ -1,0 +1,154 @@
+{
+  "boundary_verification_algorithm": "document_heading_structure_boundary_verification",
+  "boundary_verification_version": "1",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "aspects": [
+    {
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "records": [
+        {
+          "aspect_id": "company_subsidiaries.major_subsidiaries",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "6933e7772da9e387d328ab1db4175ec169481f62ddc1486fca32d12fcf7a6245",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+          ],
+          "heading_levels": [],
+          "topic_level": null,
+          "topic_level_source": "unknown",
+          "in_topic_anchor": "",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "2328744a66448487b5b83c4e941f8a6459427ea30338f571d42c82262fcf3a29",
+          "fragment_trace_fingerprint": "69a0f767bde3b4d461b3b524e02f5aa6ff6904c215ad52519bb3bfc7b71cfb3d",
+          "unread_scope": {
+            "reason": null,
+            "budget_axis": null,
+            "stop_reason": null,
+            "directions": [
+              {
+                "direction": "adjacent_blocks_after",
+                "target": "",
+                "budget_axis": "adjacent_blocks_after",
+                "reason": "boundary",
+                "stop_reason": "seed block forward boundary: 六、公司治理及内控制度"
+              }
+            ]
+          },
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "boundary_semantics_not_verified: policy_never_discriminates",
+          "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+          "verification": {
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "verified": false,
+            "reason": "policy_never_discriminates",
+            "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+            "cases": [
+              {
+                "heading": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+                "level": null,
+                "relation": "topic_heading",
+                "source": "section_path"
+              }
+            ]
+          },
+          "seed_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+          "case_id": "candidate-13"
+        },
+        {
+          "aspect_id": "company_subsidiaries.major_subsidiaries",
+          "document_id": "NDSD_2024_year",
+          "document_version": "sha256-b4f1713d7b821eb0",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "2ccfc45ab49e09aa9521414c8f7e1a1fbe0d63de458efbe47b06830abc50e245",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "在其他主体中的权益"
+          ],
+          "heading_levels": [],
+          "topic_level": 2,
+          "topic_level_source": "section_path_leaf",
+          "in_topic_anchor": "",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "42c3b1e9c8db3a53b62149ef9bc112f6a3f4340373e212adbbfd52b6887b2939",
+          "fragment_trace_fingerprint": "69a0f767bde3b4d461b3b524e02f5aa6ff6904c215ad52519bb3bfc7b71cfb3d",
+          "unread_scope": {
+            "reason": null,
+            "budget_axis": null,
+            "stop_reason": null,
+            "directions": [
+              {
+                "direction": "adjacent_blocks_after",
+                "target": "",
+                "budget_axis": "adjacent_blocks_after",
+                "reason": "boundary",
+                "stop_reason": "seed block forward boundary: 十、在其他主体中的权益"
+              }
+            ]
+          },
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "no_in_topic_anchor: 未观察到任何可归入主题内的标题锚点",
+          "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+          "verification": {
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+            "cases": [
+              {
+                "heading": "十、在其他主体中的权益",
+                "level": 2,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "1、在子公司中的权益",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（1） 主要子公司情况",
+                "level": 5,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "2、在子公司的所有者权益份额发生变化且仍控制子公司的交易",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（1） 在子公司所有者权益份额发生变化的情况说明",
+                "level": 5,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "467120b8407bbbea6a6684303b632147",
+          "case_id": "candidate-15"
+        }
+      ]
+    }
+  ]
+}

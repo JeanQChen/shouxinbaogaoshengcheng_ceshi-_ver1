@@ -24,7 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness.credit_semantics import (
     AUTHORITY_VALID,
+    FROZEN_TOTAL_CREDIT_LINE,
+    FROZEN_UNUSED_CREDIT,
+    FROZEN_USED_CREDIT,
     NOT_OBTAINED_WORDING,
+    RECONCILE_SCOPE_FIELDS,
     SEMANTIC_TYPE_ACTUAL_GRANTED_TOTAL,
     SEMANTIC_TYPE_AUTHORIZED_APPLICATION_CEILING,
     SEMANTIC_TYPE_UNUSED_CREDIT,
@@ -36,10 +40,12 @@ from harness.credit_semantics import (
     SUCCESSOR_AUTHORIZED_APPLICATION_CEILING,
     TEXT_CORRECTION_CORRECT,
     TEXT_CORRECTION_WRONG,
+    blocking_impact,
     classify_semantic_type,
     credit_aspect_dual_axis,
     credit_dependency_fingerprint,
     dual_axis_for_fact,
+    frozen_credit_aspects,
     reconcile_used_unused,
     successor_changelist,
 )
@@ -134,8 +140,11 @@ def main() -> dict:
     check(reconcile_used_unused(used, unused) == "scope_not_reconciled",
           "反例#3：used 与 unused 口径不一致 → scope_not_reconciled（不求和/求差）")
     # 同口径 → reconciled（证明函数不是无条件拒绝）。
-    check(reconcile_used_unused(used, dict(used)) == "reconciled",
-          "反例#3：同口径 → reconciled")
+    _FULL = {"entity_scope": "公司及控股子公司", "facility_scope": "综合授信额度",
+             "consolidation": "consolidated", "currency": "CNY", "as_of": "2025-12-31",
+             "period": "2025", "document": "NDSD_KCZ_2026"}
+    check(reconcile_used_unused(_FULL, dict(_FULL)) == "reconciled",
+          "反例#3：同完整口径 → reconciled")
     check(reconcile_used_unused({}, {}) == "scope_not_reconciled",
           "E.7：used/unused 双方皆空 → scope_not_reconciled（空==空 不算对账）")
     check(reconcile_used_unused({"entity_scope": "公司及控股子公司"}, {}) == "scope_not_reconciled",
@@ -196,21 +205,121 @@ def main() -> dict:
           "changelist：hard_rules 含实际获批总额缺口绝不标 authority_failed")
 
     # ------------------------------------------------------------------
-    # 6. E.11：credit_dependency_fingerprint 绑定三版本（bump 版本 → 指纹变化）
+    # 6. E.11/E.3：credit_dependency_fingerprint 绑定三版本 + Contract/SourcePolicy/R2
+    #    dependency + 材料 run 身份（bump 任一 → 指纹变化）
     # ------------------------------------------------------------------
-    fp = credit_dependency_fingerprint(extraction_version="2", semantics_version="2",
-                                       authority_version="1")
+    _RUN_FP = "a" * 64
+    _MANIFEST_FP = "b" * 64
+
+    def _fp(ext="2", sem="2", auth="1", run_fp=_RUN_FP, manifest_fp=_MANIFEST_FP):
+        return credit_dependency_fingerprint(
+            extraction_version=ext, semantics_version=sem, authority_version=auth,
+            runner_dependency_fingerprint=run_fp, material_run_manifest_fingerprint=manifest_fp)
+
+    fp = _fp()
     check(len(fp) == 64 and all(c in "0123456789abcdef" for c in fp),
           "E.11：依赖指纹为 64-hex")
-    check(fp == credit_dependency_fingerprint(extraction_version="2", semantics_version="2",
-                                              authority_version="1"),
-          "E.11：依赖指纹确定性（同输入同输出）")
-    check(fp != credit_dependency_fingerprint(extraction_version="1", semantics_version="2",
-                                              authority_version="1"),
-          "E.11：bump extractor 版本 → 依赖指纹变化（旧事实可区分）")
-    check(fp != credit_dependency_fingerprint(extraction_version="2", semantics_version="1",
-                                              authority_version="1"),
-          "E.11：bump semantics 版本 → 依赖指纹变化")
+    check(fp == _fp(), "E.11：依赖指纹确定性（同输入同输出）")
+    check(fp != _fp(ext="1"), "E.11：bump extractor 版本 → 依赖指纹变化（旧事实可区分）")
+    check(fp != _fp(sem="1"), "E.11：bump semantics 版本 → 依赖指纹变化")
+    check(fp != _fp(auth="0"), "E.11：bump authority 版本 → 依赖指纹变化")
+    check(fp != _fp(run_fp="c" * 64),
+          "E.3：换 R2 dependency 指纹（Contract/SourcePolicy/R2 实现）→ 授信依赖指纹变化")
+    check(fp != _fp(manifest_fp="d" * 64),
+          "E.3：换材料 run manifest 指纹（Pack/run 身份）→ 授信依赖指纹变化")
+
+    # ------------------------------------------------------------------
+    # 7. E.5：conflict / not_obtained / value=None 绝不升为 supports
+    # ------------------------------------------------------------------
+    ax_no = dual_axis_for_fact("company_debt_credit.used_credit",
+                               semantic_type=SEMANTIC_TYPE_USED_CREDIT,
+                               authority_valid=True, scope_closed=True, not_obtained=True)
+    check(ax_no.semantic_status == SUPPORT_NOT_OBTAINED,
+          "E.5：not_obtained 事实（value=None）绝不升为 supports → not_obtained")
+    ax_conf = dual_axis_for_fact("company_debt_credit.used_credit",
+                                 semantic_type=SEMANTIC_TYPE_USED_CREDIT,
+                                 authority_valid=True, scope_closed=True,
+                                 conflict_status="multi_source_conflict")
+    check(ax_conf.semantic_status == SUPPORT_NOT_OBTAINED,
+          "E.5：multi_source_conflict 事实绝不升为 supports → not_obtained")
+    st_no = credit_aspect_dual_axis("company_debt_credit.used_credit", (
+        {"semantic_type": SEMANTIC_TYPE_USED_CREDIT, "authority_valid": True,
+         "scope_closed": True, "value": None, "not_obtained": True},))
+    check(st_no["semantic_status"] == SUPPORT_NOT_OBTAINED,
+          "E.5：aspect 级双轴：not_obtained 事实 → not_obtained（非 supports）")
+    st_vn = credit_aspect_dual_axis("company_debt_credit.used_credit", (
+        {"semantic_type": SEMANTIC_TYPE_USED_CREDIT, "authority_valid": True,
+         "scope_closed": True, "value": None},))
+    check(st_vn["semantic_status"] == SUPPORT_NOT_OBTAINED,
+          "E.5：aspect 级双轴：value=None（显式缺口）→ not_obtained（非 supports）")
+    st_conf = credit_aspect_dual_axis("company_debt_credit.used_credit", (
+        {"semantic_type": SEMANTIC_TYPE_USED_CREDIT, "authority_valid": True,
+         "scope_closed": True, "value": "1亿元",
+         "conflict_status": "multi_source_conflict"},))
+    check(st_conf["semantic_status"] == SUPPORT_NOT_OBTAINED,
+          "E.5：aspect 级双轴：conflict 事实 → not_obtained（非 supports）")
+    # 合法路径不被破坏：真值 + 语义相符 + 口径闭合 → 仍 supports。
+    check(credit_aspect_dual_axis("company_debt_credit.used_credit", (
+        {"semantic_type": SEMANTIC_TYPE_USED_CREDIT, "authority_valid": True,
+         "scope_closed": True, "value": "1亿元"},))["semantic_status"] == SUPPORT_SUPPORTS,
+        "E.5：真值 + 语义相符 + 口径闭合 → 仍 supports（合法路径不破坏）")
+
+    # ------------------------------------------------------------------
+    # 8. E.6：used/unused 任一关键口径字段缺失 → 绝不 reconciled
+    # ------------------------------------------------------------------
+    check(RECONCILE_SCOPE_FIELDS == (
+        "entity_scope", "facility_scope", "consolidation", "currency",
+        "as_of", "period", "document"),
+        "E.6：对账关键口径字段集合显式导出（7 字段）")
+    partial = {"entity_scope": "公司及控股子公司", "facility_scope": "综合授信额度"}
+    check(reconcile_used_unused(partial, dict(partial)) == "scope_not_reconciled",
+          "E.6：双方同样缺 consolidation/currency/as_of/period/document → 绝不 reconciled")
+    check(reconcile_used_unused({k: "x" for k in RECONCILE_SCOPE_FIELDS},
+                                {k: "x" for k in RECONCILE_SCOPE_FIELDS}) == "reconciled",
+          "E.6：7 字段全齐且一致 → reconciled（函数不无条件拒绝）")
+    one_missing = {k: "x" for k in RECONCILE_SCOPE_FIELDS}
+    del one_missing["currency"]
+    check(reconcile_used_unused(one_missing, {k: "x" for k in RECONCILE_SCOPE_FIELDS})
+          == "scope_not_reconciled",
+          "E.6：任一侧缺 1 个关键字段 → scope_not_reconciled")
+
+    # ------------------------------------------------------------------
+    # 9. E.8：原 total/used/unused 的阻断影响从冻结 Contract 读取（非硬编码 supporting）
+    # ------------------------------------------------------------------
+    fa = frozen_credit_aspects()
+    check(set(fa) == {FROZEN_TOTAL_CREDIT_LINE, FROZEN_USED_CREDIT, FROZEN_UNUSED_CREDIT},
+          "E.8：从冻结 Contract 读到 3 个原授信 aspect")
+    check(fa[FROZEN_TOTAL_CREDIT_LINE]["blocking_policy"] == ["REPORT_BLOCKED"],
+          "E.8：total_credit_line 的 blocking_policy 从冻结 Contract 加载 = REPORT_BLOCKED")
+    check(fa[FROZEN_USED_CREDIT]["blocking_policy"] == ["REPORT_BLOCKED"]
+          and fa[FROZEN_UNUSED_CREDIT]["blocking_policy"] == ["REPORT_BLOCKED"],
+          "E.8：used/unused 的 blocking_policy 从冻结 Contract 加载 = REPORT_BLOCKED")
+    check(all(fa[a]["missing_policy"] == "transfer_human" for a in fa),
+          "E.8：3 个原授信 aspect 的 missing_policy 从冻结 Contract 加载 = transfer_human")
+    check(all("转人工" in fa[a]["missing_policy_text"] for a in fa),
+          "E.8：missing_policy 文本从冻结 Contract 的 missing_policies 注册表解析（转人工/阻断）")
+
+    bi_blocked = blocking_impact(FROZEN_TOTAL_CREDIT_LINE,
+                                 semantic_status=SUPPORT_NOT_OBTAINED,
+                                 authority_status=AUTHORITY_VALID)
+    check(bi_blocked["blocking"] is True
+          and bi_blocked["blocking_policy"] == ["REPORT_BLOCKED"],
+          "E.8：total_credit_line 未取得 → 按冻结 Contract 阻断（REPORT_BLOCKED）")
+    check(bi_blocked["missing_policy"] == "transfer_human",
+          "E.8：阻断时 missing_policy=transfer_human（转人工，不静默继续）")
+    bi_ok = blocking_impact(FROZEN_TOTAL_CREDIT_LINE, semantic_status=SUPPORT_SUPPORTS,
+                            authority_status=AUTHORITY_VALID)
+    check(bi_ok["blocking"] is False,
+          "E.8：已取得（supports）→ 不阻断")
+    bi_new = blocking_impact(SUCCESSOR_AUTHORIZED_APPLICATION_CEILING,
+                             semantic_status=SUPPORT_NOT_OBTAINED,
+                             authority_status=AUTHORITY_VALID)
+    check(bi_new["in_frozen_contract"] is False and bi_new["blocking"] is False,
+          "E.8：新增 authorized_application_ceiling 不在冻结 Contract → supporting/不阻断")
+    cl_new = successor_changelist()
+    check(cl_new["frozen_credit_aspects"][FROZEN_TOTAL_CREDIT_LINE]["blocking_policy"]
+          == ["REPORT_BLOCKED"],
+          "E.8：changelist 携带冻结 Contract 阻断影响（非硬编码 supporting）")
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 

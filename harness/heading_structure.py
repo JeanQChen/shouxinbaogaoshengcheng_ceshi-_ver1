@@ -97,11 +97,16 @@ def leading_heading_level(line: str | None) -> int | None:
 
 @dataclass(frozen=True)
 class HeadingSpan:
-    """文本中的一个标题片段（``offset`` 为编号起始字符位置）。"""
+    """文本中的一个标题片段（``offset`` 为编号起始字符位置）。
+
+    ``end`` 为标题**所在行**的结束字符位置（不含换行），用于在原文中切出
+    「标题之后」的主题内区域（向后方向片段投影需要它）。
+    """
 
     offset: int
     level: int
     heading: str          # 编号所在行的完整文本（截断到 80 字符）
+    end: int = 0          # 标题行结束字符位置（不含换行）；0 表示未计算
 
 
 def iter_heading_spans(text: str | None) -> list[HeadingSpan]:
@@ -126,7 +131,8 @@ def iter_heading_spans(text: str | None) -> list[HeadingSpan]:
         line = s[m.start():].split("\n", 1)[0].strip()
         if not line:
             continue
-        spans.append(HeadingSpan(offset=m.start(), level=level, heading=line[:80]))
+        spans.append(HeadingSpan(offset=m.start(), level=level, heading=line[:80],
+                                 end=m.start() + len(s[m.start():].split("\n", 1)[0])))
     return spans
 
 
@@ -169,19 +175,17 @@ def topic_level_of(text: str | None, section_path: tuple[str, ...] | None) -> tu
 
     ``source`` 取值：
     - ``section_path_leaf``：在文本中找到与 ``section_path`` 叶子同名的标题（最可信）；
-    - ``first_heading``：退化为文本首个标题的层级（文档层级单调前提下的保守上界）；
-    - ``unknown``：文本中没有任何可识别标题（无层级权威 → 不做结构性关闭）。
+    - ``unknown``：该文本中没有可用的层级权威（**绝不**退化为「首个标题的层级」猜测：
+      猜测层级若偏浅 → 兄弟小节正文混入主题材料；偏深 → 主题内子标题被误判为兄弟标题、
+      产生假失败与静默丢材料。层级未知时不做结构性关闭，由同一 aspect/文档版本的其它
+      seed 文本提供权威层级，见 :func:`topic_level_from_seed_set`）。
 
     绝不使用固定页码 / 公司名 / 主题词典；只用文档自身编号形式。
     """
     spans = iter_heading_spans(text)
     if not spans:
         return None, "unknown"
-    leaf = ""
-    for seg in reversed(tuple(section_path or ())):
-        if seg and seg.strip():
-            leaf = seg.strip()
-            break
+    leaf = _topic_leaf(section_path)
     if leaf:
         leaf_body = _strip_leading_numbering(leaf)
         for span in spans:
@@ -190,7 +194,36 @@ def topic_level_of(text: str | None, section_path: tuple[str, ...] | None) -> tu
                 continue
             if body == leaf_body or body.startswith(leaf_body) or leaf_body.startswith(body):
                 return span.level, "section_path_leaf"
-    return spans[0].level, "first_heading"
+    return None, "unknown"
+
+
+def _topic_leaf(section_path: tuple[str, ...] | None) -> str:
+    """``section_path`` 中最深的一段非空文本（主题小节标题的来源）。"""
+    for seg in reversed(tuple(section_path or ())):
+        if seg and str(seg).strip():
+            return str(seg).strip()
+    return ""
+
+
+def topic_level_from_seed_set(seed_texts: tuple[str, ...] | list[str],
+                              section_path: tuple[str, ...] | None
+                              ) -> tuple[int | None, str]:
+    """由**同一 aspect / 同一文档版本**的全部 seed 文本确定主题小节标题层级。
+
+    主题小节标题文本由 ``section_path`` 叶子给出；只要**任一条** seed 文本真实包含该标题，
+    其编号层级就是该文档自身结构给出的主题层级（同文档版本内层级唯一）。找不到 →
+    ``(None, "unknown")``：无权威层级，绝不猜测、绝不虚构结构性关闭。
+
+    确定性：按 ``seed_texts`` 顺序取首个命中（同层级时结果相同）。
+    """
+    leaf = _topic_leaf(section_path)
+    if not leaf:
+        return None, "unknown"
+    for text in tuple(seed_texts or ()):
+        level, source = topic_level_of(text, section_path)
+        if level is not None and source == "section_path_leaf":
+            return level, "aspect_seed_document_structure"
+    return None, "unknown"
 
 
 def sibling_or_outer(level: int | None, topic_level: int | None) -> bool:

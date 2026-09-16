@@ -1,0 +1,15 @@
+{
+  "manifest_version": "1",
+  "fingerprint": "de4fabe4fb2f3e8574c31f1d349167be9298d64486f093bc6d97b1eadf654b86",
+  "entries": [
+    {
+      "case_id": "fixture-generic-company-1",
+      "aspect_id": "company_business_main.main_business",
+      "evidence_id": "2109887f173b802cef307a5328356ead",
+      "resolved": true,
+      "resolution": "verified",
+      "message": "completed within source boundary",
+      "material_count": 1
+    }
+  ]
+}

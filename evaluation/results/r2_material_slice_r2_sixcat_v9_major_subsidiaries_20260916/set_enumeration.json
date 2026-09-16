@@ -1,0 +1,52 @@
+{
+  "company_subsidiaries.major_subsidiaries": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "多 document_version 共存，不合并为单一完整集合（每版本独立枚举，见 per_version）",
+    "merged": false,
+    "per_version": [
+      {
+        "document_id": "NDSD_KCZ_2026",
+        "document_version": "sha256-2b3a1fb3de97f23c",
+        "source_boundary": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "未枚举出任何成员",
+          "source_object_inventory": null
+        }
+      },
+      {
+        "document_id": "NDSD_2024_year",
+        "document_version": "sha256-b4f1713d7b821eb0",
+        "source_boundary": "在其他主体中的权益",
+        "result": {
+          "material_type_supported": false,
+          "enumerated_member_ids": [],
+          "payload_hash": "",
+          "boundary_identity": "",
+          "verifier_version": "1",
+          "reason": "未枚举出任何成员",
+          "source_object_inventory": null
+        }
+      }
+    ]
+  },
+  "company_business_main.main_business": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  },
+  "company_competitiveness.core_competitiveness": {
+    "material_type_supported": false,
+    "verifier_version": "1",
+    "reason": "本轮样本未覆盖该 aspect（无 source payload）",
+    "merged": false,
+    "per_version": []
+  }
+}

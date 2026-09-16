@@ -1,7 +1,7 @@
 # Evidence Architecture（Phase 1）开发任务书
 
-> **HISTORICAL / NON-EXECUTABLE。** Phase 1 已关闭；本文只保留当时 Evidence 接口和验收依据。当前 P3R 上下文扩读必须复用已批准 Evidence 接口，不得按本文重新建设第二套索引/检索链。
-> 历史状态：任务书 v0.2，E1-01～E1-05 已确认；允许进入编码前实施计划评审
+> **HISTORICAL / NON-EXECUTABLE。** Phase 1 已关闭；本文只保留当时 Evidence 接口和验收依据。`EvidenceBlock` 继续作为不可变来源/引用锚点；现行树结构后继任务见 [TREE_STRUCTURE_ADJUSTMENT_TASK.md](./TREE_STRUCTURE_ADJUSTMENT_TASK.md)，它以版本化派生层新增 PageLayout/DocumentOutline/OutlineSpan/TableObject，不回写本文历史 Evidence，也不得建设第二套研究运行时。
+> 历史编制时状态：任务书 v0.2，E1-01～E1-05 已确认；当时允许进入编码前实施计划评审；当前不得据此重新执行
 > 所属阶段：`V2_IMPLEMENTATION_PLAN.md` Phase 1  
 > 上位依据：`AGENTS.md`、`DESIGN_V2.md` §5.2、§5.7、§6、§9.5、§13、§16.2、§17 Phase 1  
 > 前置条件：Phase 0A、Phase 0B 已验收关闭

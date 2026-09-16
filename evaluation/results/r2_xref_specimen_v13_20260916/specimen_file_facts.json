@@ -1,0 +1,17 @@
+{
+  "specimen_version": "v13",
+  "frozen_at_utc_iso": "2026-09-16T09:22:26.312711+00:00",
+  "specimen_manifest": {
+    "path": "evaluation/results/r2_xref_specimen_v13_20260916/specimen_manifest.json",
+    "size": 24656,
+    "sha256": "e61aa7aa3fcb9ab2c96dbd1372be7047787bb2cf50a6032e2ea644bf60762751",
+    "mtime_utc": "2026-09-16T09:22:26.330752+00:00"
+  },
+  "readme": {
+    "path": "evaluation/results/r2_xref_specimen_v13_20260916/README.md",
+    "size": 2291,
+    "sha256": "32b0a4c97997559cfbd9f4265dd184b8021076ef90075d561f3c6b109262f774",
+    "mtime_utc": "2026-09-16T09:22:26.332257+00:00"
+  },
+  "note": "本文件在清单写盘**之后**生成；它与 run 侧 run_file_facts.json 共同证明「清单先于 run 存在且未被改写」。"
+}

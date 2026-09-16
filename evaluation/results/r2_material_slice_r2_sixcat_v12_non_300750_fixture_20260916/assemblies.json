@@ -1,0 +1,82 @@
+[
+  {
+    "assembly_id": "asm-b0f0d7a61974ec34c4da75e13b890a7b",
+    "context_parent_id": "mat-af55be316eb53661a2abd589378b922e",
+    "component_material_ids": [
+      "mat-af55be316eb53661a2abd589378b922e"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P1",
+    "table_title": "表 1 主营业务收入构成表",
+    "unit": "万元",
+    "header_evidence_id": "2109887f173b802cef307a5328356ead",
+    "body_evidence_ids": [
+      "2109887f173b802cef307a5328356ead"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "2025年",
+      "2024年"
+    ],
+    "rows": [
+      [
+        "智能装备",
+        "12,000",
+        "10,000"
+      ],
+      [
+        "软件服务",
+        "8,000",
+        "6,500"
+      ]
+    ],
+    "total_row": [
+      "合计",
+      "20,000",
+      "16,500"
+    ],
+    "recovery_status": "ok",
+    "recovery_issue": null,
+    "continuation_proof": {
+      "proof_version": "2",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "表 1 主营业务收入构成表",
+      "header_evidence_id": "2109887f173b802cef307a5328356ead",
+      "continuation_evidence_ids": [],
+      "header_page": 1,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "ok",
+      "issue": "续页 span 未重复本表表头行（或表题缺失）; 续页 span 未贡献任何真实结构（空 span 不得冒充续页）; 续块身份重复或同表头; 非跨页续表",
+      "recovered_title": "表 1 主营业务收入构成表",
+      "recovered_unit": "万元",
+      "recovered_headers": [
+        "项目",
+        "2025年",
+        "2024年"
+      ],
+      "recovered_row_count": 2,
+      "recovered_total": [
+        "合计",
+        "20,000",
+        "16,500"
+      ],
+      "component_order": [
+        "mat-af55be316eb53661a2abd589378b922e"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null,
+      "identity_source": "recovered_structure",
+      "header_repeat_verified": false,
+      "boundary_consecutive": true,
+      "section_path_shared": true,
+      "same_document_verified": true,
+      "span_facts": []
+    }
+  }
+]

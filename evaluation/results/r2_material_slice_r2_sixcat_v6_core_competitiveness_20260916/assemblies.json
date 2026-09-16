@@ -1,0 +1,233 @@
+[
+  {
+    "assembly_id": "asm-157bc489707c0fb24c3d8c5a1a3c7e59",
+    "context_parent_id": "mat-a29133697a67f465d16617d2cacbbadd",
+    "component_material_ids": [
+      "mat-a29133697a67f465d16617d2cacbbadd"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P26",
+    "table_title": "是 □否",
+    "unit": null,
+    "header_evidence_id": "26a4455f61bd7deed6a866d613999297",
+    "body_evidence_ids": [
+      "26a4455f61bd7deed6a866d613999297"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "行业分类",
+      "项目",
+      "单位",
+      "2025年",
+      "2024年",
+      "同比增减"
+    ],
+    "rows": [
+      [
+        "电池系统",
+        "销售量",
+        "GWh",
+        "661",
+        "475",
+        "39.16%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null,
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "是 □否",
+      "header_evidence_id": "26a4455f61bd7deed6a866d613999297",
+      "continuation_evidence_ids": [],
+      "header_page": 26,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "ok",
+      "issue": "续块身份重复或同表头; 非跨页续表",
+      "recovered_title": "是 □否",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "行业分类",
+        "项目",
+        "单位",
+        "2025年",
+        "2024年",
+        "同比增减"
+      ],
+      "recovered_row_count": 1,
+      "recovered_total": null,
+      "component_order": [
+        "mat-a29133697a67f465d16617d2cacbbadd"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-29bddb9abb0ea071f8b4879a9a654081",
+    "context_parent_id": "mat-5998f52d5168428577d2fd5121c3c006",
+    "component_material_ids": [
+      "mat-5998f52d5168428577d2fd5121c3c006",
+      "mat-0bfbd925089a76a7b0c7f4feee01f092",
+      "mat-07a32171769474ec8ea2323147353867",
+      "mat-404d5db7dd1a779648abff2f506a634c",
+      "mat-06d9d7712a3a95e4a7930b2257f5f128",
+      "mat-670ff301db93ba8f20a44fe65f1e4cb3",
+      "mat-6a290194bcebb8314eafb327890f0fbe",
+      "mat-f3c37afebfc4a7bf38ff72ad8e24cb44",
+      "mat-95ea65c8d6aa9f628b51dce804270d95",
+      "mat-31dee94d42a825c1453f1387236fa065",
+      "mat-0f0403fbd0408635f37ecc8af4f2f83f",
+      "mat-052d9220ee93221d125e35e87f4e0aa0",
+      "mat-cf1ef1ca6b40626cb2542b973df4b7f0",
+      "mat-0b3e918ef629339bd93711b0b0ba3780",
+      "mat-a29133697a67f465d16617d2cacbbadd",
+      "mat-5b9c649f413d0e2027d7729e7936abfa"
+    ],
+    "relation": "cross_page",
+    "boundary_desc": "P18–P27"
+  },
+  {
+    "assembly_id": "asm-4256ea201e9716c51e496c03645b6cb3",
+    "context_parent_id": "mat-052d9220ee93221d125e35e87f4e0aa0",
+    "component_material_ids": [
+      "mat-052d9220ee93221d125e35e87f4e0aa0"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P25",
+    "table_title": "",
+    "unit": null,
+    "header_evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+    "body_evidence_ids": [
+      "5bc9db3b7023dffd19ba1f5ff2e4b295"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "公司需遵守《深圳证券交易所上市公司自律监管指引第",
+      "4号——创业板行业信息披露》中的“锂离子电池产业链相关业务”"
+    ],
+    "rows": [
+      [
+        "境内",
+        "294,060,576",
+        "69.40%",
+        "251,677,045",
+        "69.52%",
+        "16.84%"
+      ],
+      [
+        "境外",
+        "129,641,258",
+        "30.60%",
+        "110,335,509",
+        "30.48%",
+        "17.50%"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "failed",
+    "recovery_issue": "表头 2 列 vs 数据行 6 列 不一致",
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "",
+      "header_evidence_id": "5bc9db3b7023dffd19ba1f5ff2e4b295",
+      "continuation_evidence_ids": [],
+      "header_page": 25,
+      "continuation_pages": [],
+      "title_compatible": false,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "failed",
+      "issue": "表题不一致; 续块身份重复或同表头; 非跨页续表; 恢复状态 failed",
+      "recovered_title": "",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "公司需遵守《深圳证券交易所上市公司自律监管指引第",
+        "4号——创业板行业信息披露》中的“锂离子电池产业链相关业务”"
+      ],
+      "recovered_row_count": 2,
+      "recovered_total": null,
+      "component_order": [
+        "mat-052d9220ee93221d125e35e87f4e0aa0"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  },
+  {
+    "assembly_id": "asm-8875cdab0014ed8d7851bd0ab9956db9",
+    "context_parent_id": "mat-0b3e918ef629339bd93711b0b0ba3780",
+    "component_material_ids": [
+      "mat-0b3e918ef629339bd93711b0b0ba3780"
+    ],
+    "relation": "flattened_table_recovery",
+    "boundary_desc": "P26",
+    "table_title": "5）不同产品或业务的产销情况",
+    "unit": null,
+    "header_evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+    "body_evidence_ids": [
+      "699eed3094e86757d1ad65ff2e57111b"
+    ],
+    "continuation_evidence_ids": [],
+    "headers": [
+      "项目",
+      "产能",
+      "在建产能",
+      "产能利用率",
+      "产量"
+    ],
+    "rows": [
+      [
+        "电池系统（GWh）",
+        "772",
+        "321",
+        "96.9%",
+        "748"
+      ]
+    ],
+    "total_row": null,
+    "recovery_status": "ok",
+    "recovery_issue": null,
+    "continuation_proof": {
+      "proof_version": "1",
+      "valid": false,
+      "sample_not_obtained": true,
+      "normalized_title": "5）不同产品或业务的产销情况",
+      "header_evidence_id": "699eed3094e86757d1ad65ff2e57111b",
+      "continuation_evidence_ids": [],
+      "header_page": 26,
+      "continuation_pages": [],
+      "title_compatible": true,
+      "unit_compatible": true,
+      "column_compatible": true,
+      "row_column_continuity": true,
+      "final_recovery_status": "ok",
+      "issue": "续块身份重复或同表头; 非跨页续表",
+      "recovered_title": "5）不同产品或业务的产销情况",
+      "recovered_unit": "",
+      "recovered_headers": [
+        "项目",
+        "产能",
+        "在建产能",
+        "产能利用率",
+        "产量"
+      ],
+      "recovered_row_count": 1,
+      "recovered_total": null,
+      "component_order": [
+        "mat-0b3e918ef629339bd93711b0b0ba3780"
+      ],
+      "continued_from_chain": [],
+      "continued_from_verified": null
+    }
+  }
+]

@@ -1,0 +1,225 @@
+{
+  "boundary_verification_algorithm": "document_heading_structure_boundary_verification",
+  "boundary_verification_version": "1",
+  "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+  "aspects": [
+    {
+      "aspect_id": "company_subsidiaries.major_subsidiaries",
+      "records": [
+        {
+          "aspect_id": "company_subsidiaries.major_subsidiaries",
+          "document_id": "NDSD_KCZ_2026",
+          "document_version": "sha256-2b3a1fb3de97f23c",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "6933e7772da9e387d328ab1db4175ec169481f62ddc1486fca32d12fcf7a6245",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立"
+          ],
+          "heading_levels": [
+            [
+              "2、控股股东与上市公司的关系",
+              4
+            ]
+          ],
+          "topic_level": 3,
+          "topic_level_source": "first_heading",
+          "in_topic_anchor": "",
+          "sibling_evidence": [],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [
+            {
+              "evidence_id": "2d6cde3c2658626b9b60022c04c3ef66",
+              "direction": "adjacent_blocks_after",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_boundary_out_of_topic",
+              "heading": "2、控股股东与上市公司的关系",
+              "level": 4,
+              "page_number": 42,
+              "block_index": 0
+            }
+          ],
+          "expansion_trace_fingerprint": "fe15788e5946d13369faf1a95cc4dabfe9cb4eea6d7dfebe2fd14d98c5398ab6",
+          "fragment_trace_fingerprint": "b7a5cf65442f35a285c2d565d6323e59e05824a6e70515ae00d4ee2b158b193f",
+          "unread_scope": {
+            "reason": null,
+            "budget_axis": null,
+            "stop_reason": null,
+            "directions": [
+              {
+                "direction": "explicit_reference",
+                "target": "如下表",
+                "budget_axis": "explicit_references",
+                "reason": "dangling_target",
+                "stop_reason": "cross reference target dangling"
+              },
+              {
+                "direction": "explicit_reference:1",
+                "target": "下表",
+                "budget_axis": "explicit_references",
+                "reason": "dangling_target",
+                "stop_reason": "cross reference target dangling"
+              }
+            ]
+          },
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [
+            {
+              "target": "如下表",
+              "direction": "explicit_reference",
+              "reason": "dangling_target",
+              "stop_reason": "cross reference target dangling"
+            },
+            {
+              "target": "下表",
+              "direction": "explicit_reference:1",
+              "reason": "dangling_target",
+              "stop_reason": "cross reference target dangling"
+            }
+          ],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "boundary_semantics_not_verified: sibling_heading_classified_in_topic: （二）发行人重要子公司情况",
+          "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+          "verification": {
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "verified": false,
+            "reason": "sibling_heading_classified_in_topic: （二）发行人重要子公司情况",
+            "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+            "cases": [
+              {
+                "heading": "瑞庭时代（上海）新能源科技有限公  上海市  50,000.0100.0/  设立",
+                "level": 3,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "（二）发行人重要子公司情况",
+                "level": 3,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（三）发行人参股公司情况",
+                "level": 3,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "1、洛阳栾川钼业集团股份有限公司",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "六、公司治理及内控制度",
+                "level": 2,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（一）公司治理结构",
+                "level": 3,
+                "relation": "sibling_or_outer",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "c783f2277baa5eda1659bc5c3fab5d46",
+          "case_id": "candidate-13"
+        },
+        {
+          "aspect_id": "company_subsidiaries.major_subsidiaries",
+          "document_id": "NDSD_2024_year",
+          "document_version": "sha256-b4f1713d7b821eb0",
+          "evidence_set_version": "set-501395a7ad5a",
+          "source_boundary_identity": "2ccfc45ab49e09aa9521414c8f7e1a1fbe0d63de458efbe47b06830abc50e245",
+          "verification_algorithm": "document_heading_structure_boundary_verification",
+          "verification_version": "1",
+          "dependency_fingerprint": "dd0828a231c37d875c6641ad4f116b80529157168c59f38fc8b76222db6b5a96",
+          "section_path": [
+            "在其他主体中的权益"
+          ],
+          "heading_levels": [
+            [
+              "十一、与金融工具相关的风险",
+              2
+            ]
+          ],
+          "topic_level": 2,
+          "topic_level_source": "section_path_leaf",
+          "in_topic_anchor": "",
+          "sibling_evidence": [
+            {
+              "evidence_id": "dc211fa242f7a8e6466c2de7d6029fca",
+              "direction": "adjacent_blocks_after",
+              "relation": "adjacent",
+              "disposition": "outside_boundary_sentinel",
+              "reason_code": "topic_section_closed_sibling_heading",
+              "heading": "十一、与金融工具相关的风险",
+              "level": 2,
+              "page_number": 209,
+              "block_index": 0
+            }
+          ],
+          "parent_evidence": [],
+          "out_of_topic_evidence": [],
+          "expansion_trace_fingerprint": "360ee7dfa00dd6423b4567941c8fd965412ba339c6001e1f0532a43eeb3cfb86",
+          "fragment_trace_fingerprint": "0a07c2fd8419f880703f1b48f2fdf90f23fdd0094fa202e7b27747085ce3a00d",
+          "unread_scope": {},
+          "budget_exhaustion": [],
+          "unresolved_ambiguity": [],
+          "unresolved_reference": [],
+          "unresolved_continuation": [],
+          "status": "incomplete",
+          "reason": "no_in_topic_anchor: 未观察到任何可归入主题内的标题锚点",
+          "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+          "verification": {
+            "aspect_id": "company_subsidiaries.major_subsidiaries",
+            "verified": true,
+            "reason": "document_structure_agrees",
+            "policy_version": "e3b92167c0a37e9935f538029648df1491155839b8a6557469a74ee5471ba802",
+            "cases": [
+              {
+                "heading": "十、在其他主体中的权益",
+                "level": 2,
+                "relation": "topic_heading",
+                "source": "section_path"
+              },
+              {
+                "heading": "1、在子公司中的权益",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（1） 主要子公司情况",
+                "level": 5,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "2、在子公司的所有者权益份额发生变化且仍控制子公司的交易",
+                "level": 4,
+                "relation": "child",
+                "source": "block_heading"
+              },
+              {
+                "heading": "（1） 在子公司所有者权益份额发生变化的情况说明",
+                "level": 5,
+                "relation": "child",
+                "source": "block_heading"
+              }
+            ]
+          },
+          "seed_evidence_id": "467120b8407bbbea6a6684303b632147",
+          "case_id": "candidate-15"
+        }
+      ]
+    }
+  ]
+}

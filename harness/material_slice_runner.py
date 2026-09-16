@@ -27,6 +27,7 @@ import json
 import sys
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -34,6 +35,9 @@ from contracts import loader_v2 as LV2
 from contracts import schema_v2 as SV2
 from contracts import source_policy as SP
 from contracts import validator_v2 as VV2
+from harness import heading_structure as HS
+from harness import run_manifest as RM
+from harness import source_object_inventory as SOI
 from harness import topic_schema as TS
 from harness import topic_store as Store
 from harness.context_expansion import (
@@ -66,6 +70,8 @@ from harness.set_enumeration import (
 from harness.topic_materials import build_material_result
 from harness.topic_boundary import (
     BOUNDARY_POLICY_UNAVAILABLE,
+    BOUNDARY_VERIFICATION_ALGORITHM,
+    BOUNDARY_VERIFICATION_VERSION,
     TOPIC_BOUNDARY_VERSION,
     BoundarySemanticsVerification,
     topic_boundary_coverage,
@@ -549,6 +555,19 @@ def _step_to_dict(step) -> dict:
     tool = step.tool_call
     return {
         "step_index": step.step_index,
+        # §三.3：本步所属的 seed frontier（真实 seed evidence_id）；「续表材料是否由同一
+        # seed/frontier 的扩读得到」必须可判定，绝不把第二 seed 的步骤算作第一 seed 的成果。
+        "seed_evidence_id": getattr(step, "seed_evidence_id", "") or "",
+        # §三.3/§二 P1-A：本步**真实锚点块**身份（读取从哪一块发起）。没有它，「同一
+        # seed/frontier 的续表扩读链」只能靠**缺省字段推断** —— 而 seed 自身的相邻读取
+        # 恰好不带显式锚点参数，其带回来的表头块因此被判为「不在任何 frontier」，
+        # 真实的续表扩读正向样本被误判为未获证。
+        "anchor_evidence_id": getattr(step, "anchor_evidence_id", "") or "",
+        # §二（R2 定点修复）：结构性表引用的**确定性绑定记录**逐字落盘（anchor/marker
+        # occurrence 偏移/目标对象身份与位置/同块或后续块/文档版本集合身份/理由）。
+        # 验收侧据此**独立复算**，绝不只凭「输出属于已采纳材料」判 resolved —— 后者正是
+        # 错误绑定的错误正例（输出的确是真实已采纳材料，但与引用对象不匹配）。
+        "reference_binding": getattr(step, "reference_binding", None) or None,
         "action": step.action,
         "tool_name": tool.tool_name if tool is not None else None,
         "arguments": tool.arguments if tool is not None else {},
@@ -559,24 +578,57 @@ def _step_to_dict(step) -> dict:
 
 
 def _material_boundary_disposition(m: TS.ResearchMaterial,
-                                   boundary_by_evidence: dict | None) -> str:
+                                   boundary_by_aspect_evidence: dict | None,
+                                   aspect_ids: tuple[str, ...] = ()) -> str:
     """修复 A.3：fragment（locator.offset 非 None）的 link disposition 是
     ``fragment_projection``（独立可关联材料）；raw sentinel 的 ``outside_boundary_sentinel``
-    只属于原始完整 block，绝不落到 fragment 上。"""
+    只属于原始完整 block，绝不落到 fragment 上。
+
+    P1-A.4/A.5：查找键为 ``(aspect_id, evidence_id)``，且只在该 material **自身**的
+    aspect 集合内取值 —— 绝不跨 aspect 用 evidence_id 单键合并（同一 evidence 对不同
+    aspect 的边界结论必须互不污染）。
+    """
     loc = m.locator
     if isinstance(loc, TS.EvidenceLocator) and loc.offset is not None:
         return DISPOSITION_FRAGMENT_PROJECTION
     evidence_id = getattr(m.authority_assessment, "evidence_id", "")
-    return (boundary_by_evidence or {}).get(evidence_id, {}).get("disposition", "")
+    best = ""
+    best_rank = -1
+    for aspect_id in aspect_ids or ():
+        bd = (boundary_by_aspect_evidence or {}).get((aspect_id, evidence_id))
+        if not isinstance(bd, dict):
+            continue
+        disp = bd.get("disposition", "")
+        rank = _BOUNDARY_DISPOSITION_RANK.get(disp, -1)
+        if rank > best_rank:
+            best, best_rank = disp, rank
+    return best
+
+
+def _decision_identity_key(d: dict) -> tuple:
+    """边界处置**生产身份**（§四.A.4）：至少含 aspect_id / evidence_id / direction /
+    relation / reason_code / disposition / section_path / content_hash。
+
+    绝不用 evidence_id 单键：同一 evidence 被不同 aspect、以不同方向、得到不同边界结论
+    时身份必须互不相同，否则一条决策会覆盖另一条。
+    """
+    return (d.get("aspect_id", ""), d.get("evidence_id", ""), d.get("direction") or "",
+            d.get("relation", ""), d.get("reason_code", ""), d.get("disposition", ""),
+            tuple(d.get("section_path") or ()), d.get("content_hash", ""))
 
 
 def _material_entry(m: TS.ResearchMaterial, aspect_ids: tuple[str, ...],
-                    boundary_by_evidence: dict | None = None,
+                    boundary_by_aspect_evidence: dict | None = None,
                     role_by_aspect_material: dict | None = None) -> dict:
     auth = m.authority_assessment
     loc = m.locator
     evidence_id = getattr(auth, "evidence_id", "")
-    bd = (boundary_by_evidence or {}).get(evidence_id, {})
+    bd = {}
+    for _aspect_id in aspect_ids or ():
+        cand = (boundary_by_aspect_evidence or {}).get((_aspect_id, evidence_id))
+        if isinstance(cand, dict):
+            bd = _effective_disposition(bd or None, cand)
+    bd = bd or {}
     return {
         "material_id": m.material_id,
         "material_type": m.material_type,
@@ -593,7 +645,8 @@ def _material_entry(m: TS.ResearchMaterial, aspect_ids: tuple[str, ...],
         "authority_verdict": getattr(auth, "verdict", ""),
         # 权威 / 边界成员 / aspect 资格 / supporting 四者分离（§三/§四）：
         # 边界处置与 aspect 角色分开呈现，sentinel/拒绝块绝不进入 material library。
-        "boundary_disposition": _material_boundary_disposition(m, boundary_by_evidence),
+        "boundary_disposition": _material_boundary_disposition(
+            m, boundary_by_aspect_evidence, aspect_ids),
         "boundary_reason_code": bd.get("reason_code", ""),
         # §四修复四：role 键为 (aspect_id, material_id)，同一 material 对 A 可为 source、对 B 可为
         # context_candidate；按 aspect 输出角色映射，不再用单一 material_id → 单一 role 的扁平键。
@@ -662,7 +715,8 @@ def _aspect_state(aspect_id: str, *, material_ids: tuple[str, ...],
 def _enumerate_single_version(aspect_id: str, materials: list,
                               doc_id: str, doc_ver: str, resolver, enumerator,
                               exps: tuple, dep: str,
-                              assemblies: tuple = ()) -> tuple[dict, bool]:
+                              assemblies: tuple = (),
+                              known_material_ids=None) -> tuple[dict, bool]:
     """P1-4：对单一 (document_id, document_version) 的 source materials 枚举一次。
 
     返回 ({"result": SetEnumerationResult.to_dict(), "source_boundary": str},
@@ -708,8 +762,12 @@ def _enumerate_single_version(aspect_id: str, materials: list,
         dependency_fingerprint=dep)
     request = _enumeration_assessment(
         aspect_id, mids, doc_ver, boundary, dep, mids, boundary_proof=boundary_proof)
+    # §四.B.6/B.7：assembly component 外键的存在性宇宙 = **本次运行全部已持久化材料**
+    # （formal + context_candidate），与独立落盘的 source_object_inventory 使用同一集合，
+    # 避免同一份恢复真相在两处得到不同结论。
     enum = enumerator.enumerate(
-        request, source_materials, tuple(resolved_payloads), dep, assemblies)
+        request, source_materials, tuple(resolved_payloads), dep, assemblies,
+        known_material_ids=known_material_ids)
     if enum is None:
         return ({"result": TS.SetEnumerationResult(
             material_type_supported=False,
@@ -731,7 +789,8 @@ def _enumerate_single_version(aspect_id: str, materials: list,
 def _enumerate_set_by_version(aspect_id: str, mids: tuple[str, ...],
                               all_materials: dict, resolver, enumerator,
                               aspect_expansions: dict, dep: str,
-                              assemblies: tuple = ()) -> tuple[dict, bool]:
+                              assemblies: tuple = (),
+                              known_material_ids=None) -> tuple[dict, bool]:
     """P1-4：按单一 document_version 逐版本枚举 set_complete aspect，绝不跨版本合并。
 
     返回 (aggregate_dict, boundary_incomplete)。aggregate_dict 结构：
@@ -758,7 +817,7 @@ def _enumerate_set_by_version(aspect_id: str, mids: tuple[str, ...],
     for (doc_id, doc_ver), version_materials in groups:
         entry, incomplete = _enumerate_single_version(
             aspect_id, version_materials, doc_id, doc_ver, resolver, enumerator,
-            exps, dep, assemblies)
+            exps, dep, assemblies, known_material_ids=known_material_ids)
         per_version.append({
             "document_id": doc_id,
             "document_version": doc_ver,
@@ -801,16 +860,45 @@ _BOUNDARY_DISPOSITION_RANK = {
 # aspect 角色有效值排序（§四：source > supporting(R3 only) > context_candidate）。
 _ROLE_RANK = {"source": 3, "supporting": 2, "context_candidate": 1}
 
+# run manifest 绑定的产物集合（§五.4：run/Pack/依赖身份必须可验证绑定）。
+# 目录内其余文件（md 报告、payload_preview/、tool_audit/）不参与 manifest 指纹。
+RUN_ARTIFACTS = (
+    "seed_manifest.json",
+    "resolved_seed_manifest.json",
+    "seed_discovery_trace.jsonl",
+    "expansion_trace.jsonl",
+    "unread_scope.json",
+    "boundary_decisions.json",
+    "boundary_verification.json",
+    "rolling_read_outcomes.json",
+    "aspect_membership.json",
+    "set_enumeration.json",
+    "source_object_inventory.json",
+    "topic_boundary_coverage.json",
+    "aspect_material_matrix.json",
+    "aspect_links.json",
+    "budget_profile.json",
+    "assemblies.json",
+    "assemblies_superseded.json",
+    "material_index.json",
+)
+
 
 def _effective_disposition(existing: dict | None, bd) -> dict:
     """确定性 effective_disposition 合并（rank-max，first-wins 反例修正）。
 
-    同一 evidence 从多个 seed 得到不同处置时取「更靠内」的处置；绝不因 seed 顺序而漂移。
+    同一 **aspect 内** 的同一 evidence 从多个 seed/方向得到不同处置时取「更靠内」的
+    处置；绝不因 seed 顺序而漂移。调用方必须已按 (aspect_id, evidence_id) 分组 ——
+    绝不跨 aspect 合并（§四.A.5）。``bd`` 可为本模块决策对象或已序列化 dict。
     """
-    cand = {"disposition": bd.disposition, "reason_code": bd.reason_code}
+    if isinstance(bd, dict):
+        cand = {"disposition": bd.get("disposition", ""),
+                "reason_code": bd.get("reason_code", "")}
+    else:
+        cand = {"disposition": bd.disposition, "reason_code": bd.reason_code}
     if existing is None:
         return cand
-    if _BOUNDARY_DISPOSITION_RANK.get(bd.disposition, -1) > \
+    if _BOUNDARY_DISPOSITION_RANK.get(cand["disposition"], -1) > \
             _BOUNDARY_DISPOSITION_RANK.get(existing.get("disposition", ""), -1):
         return cand
     return existing
@@ -866,10 +954,41 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     expansion_steps: list[dict] = []
     unread_scopes: list[dict] = []
     boundary_decisions: list[dict] = []
-    boundary_by_evidence: dict[str, dict] = {}
+    # P1-A.4/A.5：处置查找键 (aspect_id, evidence_id)（绝不跨 aspect 合并）；
+    # 完整生产身份 → 出现记录，供独立验收器交叉校验。
+    boundary_by_aspect_evidence: dict[tuple[str, str], dict] = {}
+    boundary_by_identity: dict[tuple, list[dict]] = {}
     role_by_aspect_material: dict[tuple[str, str], str] = {}
+    # §三 P1-4：引用表对象的方面归属声明（键 = (aspect_id, 目标 material_id) → {object_id: 声明}）。
+    ref_objects_by_aspect_material: dict[tuple[str, str], dict[str, dict]] = {}
+    # 无处落地的引用表对象声明（缺归属行 / 目标 evidence 未采纳）→ 显式披露，绝不静默。
+    ref_link_orphans: list[dict] = []
     # P1-A.2：逐 aspect 的边界资格状态（由扩读路径**实际消费**得到，非事后补写）。
     boundary_status_by_aspect: dict[str, dict] = {}
+    # P1-A.1/A.2/A.3：逐 aspect 运行时派生的 BoundaryVerificationRecord（真实边界验证）。
+    boundary_verification_by_aspect: dict[str, dict] = {}
+    target_outcomes_all: list[dict] = []
+    direction_unread_all: list[dict] = []
+
+    # P1-A.3：主题小节标题层级由**同一 aspect / 同一 document_version 的 seed 文本集**给出
+    # （文档自身编号形式，见 ``heading_structure.topic_level_from_seed_set``）。逐 seed 取
+    # 自身 section_path 叶子在**本批 seed 文本**中的实际标题层级，manifest 顺序确定性取首个命中。
+    # 全批都无法确定 → None：绝不猜层级（猜浅 → 兄弟小节正文混入主题材料；猜深 → 主题内子标题
+    # 被误判为兄弟标题），该 aspect 的边界诚实保持未闭合。
+    seed_texts_by_scope: dict[tuple[str, str, str], list[str]] = {}
+    seed_sections_by_scope: dict[tuple[str, str, str], list[tuple[str, ...]]] = {}
+    for entry in manifest.entries:
+        _key = (entry.aspect_id, entry.document_id or "", entry.document_version or "")
+        seed_texts_by_scope.setdefault(_key, []).append(entry.text or "")
+        seed_sections_by_scope.setdefault(_key, []).append(tuple(entry.section_path or ()))
+    topic_level_by_scope: dict[tuple[str, str, str], int | None] = {}
+    for _key, _texts in seed_texts_by_scope.items():
+        _level: int | None = None
+        for _section in seed_sections_by_scope.get(_key, ()):
+            _level, _ = HS.topic_level_from_seed_set(_texts, _section)
+            if _level is not None:
+                break
+        topic_level_by_scope[_key] = _level
 
     for entry in manifest.entries:
         aspect_seeds.setdefault(entry.aspect_id, []).append(entry.evidence_id)
@@ -902,7 +1021,10 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             document_version=entry.document_version,
             evidence_set_version=entry.evidence_set_version, seed=seed,
             directions=directions, budget=budget_profile(budget_profile_name),
-            dependency_fingerprint=dep, aspect_id=entry.aspect_id)
+            dependency_fingerprint=dep, aspect_id=entry.aspect_id,
+            topic_level_hint=topic_level_by_scope.get(
+                (entry.aspect_id, entry.document_id or "",
+                 entry.document_version or "")))
 
         expansion = expand(request, registry, run_id=run_id)
         seed_budget_records.append({
@@ -925,15 +1047,41 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             "topic_level_source": expansion.topic_level_source,
             "verification": expansion.boundary_verification,
         }
+        # P1-A.1/A.2/A.3：运行时派生的边界验证记录（含身份三元组 + 结构观察 + 结论）。
+        # 同一 aspect 多个 seed → 取**最弱**状态（诚实优先：incomplete/unavailable 胜过 verified），
+        # 身份不合并（每个 seed 一条独立记录）。
+        _rec = dict(getattr(expansion, "boundary_verification_record", {}) or {})
+        if _rec:
+            _rec["seed_evidence_id"] = entry.evidence_id
+            _rec["case_id"] = entry.case_id
+            boundary_verification_by_aspect.setdefault(entry.aspect_id, {})
+            if not boundary_verification_by_aspect[entry.aspect_id]:
+                boundary_verification_by_aspect[entry.aspect_id] = {
+                    "aspect_id": entry.aspect_id, "records": []}
+            boundary_verification_by_aspect[entry.aspect_id]["records"].append(_rec)
+        for _t in getattr(expansion, "target_outcomes", ()) or ():
+            target_outcomes_all.append({**dict(_t), "aspect_id": entry.aspect_id,
+                                        "seed_evidence_id": entry.evidence_id,
+                                        "case_id": entry.case_id})
+        for _u in getattr(expansion, "direction_unread", ()) or ():
+            direction_unread_all.append({**dict(_u), "aspect_id": entry.aspect_id,
+                                         "seed_evidence_id": entry.evidence_id,
+                                         "case_id": entry.case_id})
         for bd in expansion.boundary_decisions:
             d = bd.to_dict()
             # §四：路径化键（aspect_id, seed_evidence_id, evidence_id），保留全部 reachability 决策。
             d["aspect_id"] = entry.aspect_id
             d["seed_evidence_id"] = entry.evidence_id
             boundary_decisions.append(d)
-            # effective_disposition 确定性合并（rank-max，非 first-wins）。
-            boundary_by_evidence[bd.evidence_id] = _effective_disposition(
-                boundary_by_evidence.get(bd.evidence_id), bd)
+            # P1-A.4/A.5：处置合并键为 **(aspect_id, evidence_id)**，绝不跨 aspect 用
+            # evidence_id 单键 rank-max 合并。完整生产身份（含 direction / locator 片段
+            # 身份）另存 boundary_by_identity，供独立验收器交叉校验。
+            _aek = (entry.aspect_id, bd.evidence_id)
+            boundary_by_aspect_evidence[_aek] = _effective_disposition(
+                boundary_by_aspect_evidence.get(_aek), bd)
+            boundary_by_identity.setdefault(_decision_identity_key(d), []).append(
+                {"seed_evidence_id": entry.evidence_id,
+                 "direction": bd.direction, "relation": bd.relation})
             if bd.disposition == DISPOSITION_OUTSIDE_BOUNDARY_SENTINEL:
                 _append_unique(outside_boundary_evidence, entry.aspect_id, bd.evidence_id)
             elif bd.disposition == DISPOSITION_UNREAD_INSIDE_BOUNDARY:
@@ -961,6 +1109,25 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
                 prev = role_by_aspect_material.get(key)
                 if prev is None or _ROLE_RANK.get(link.role, 0) > _ROLE_RANK.get(prev, 0):
                     role_by_aspect_material[key] = link.role
+
+        # §三 P1-4：引用表对象的**正式 aspect 归属声明**挂到其目标 material 的归属行上
+        # （目标 material 一定是该 aspect 的真实材料）。没有归属行 ⇒ 声明无处落地 ⇒
+        # 验收侧按「目标对象缺正式 aspect 绑定」fail-closed，绝不静默丢弃。
+        _expansion_evidence_ids = {str(m.authority_assessment.evidence_id)
+                                   for m in result.materials}
+        for decl in result.reference_table_objects:
+            owner = str(decl.get("target_material_id") or "")
+            owner_evidence = str(decl.get("target_evidence_id") or "")
+            key = (str(decl.get("aspect_id") or ""), owner)
+            if key not in role_by_aspect_material:
+                ref_link_orphans.append({**dict(decl), "reason": "no_aspect_material_link"})
+                continue
+            if owner_evidence not in _expansion_evidence_ids:
+                ref_link_orphans.append(
+                    {**dict(decl), "reason": "target_evidence_not_adopted"})
+                continue
+            ref_objects_by_aspect_material.setdefault(
+                key, {}).setdefault(str(decl.get("target_object_id") or ""), dict(decl))
 
         # payload 单事务原子落盘（幂等复用）。
         if result.payload_records:
@@ -1013,6 +1180,9 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     # 内容 → fail-closed 抛错）。多个 seed 可能派生同一组合投影（同 relation + 同 component
     # material），产物绝不含重复 assembly，且绝不因 seed 顺序漂移。
     all_assemblies = _dedup_assemblies(all_assemblies)
+    # §四修复：**同一源对象的跨 pass 投影收敛为唯一恢复真相**（明细见函数文档）。
+    all_assemblies, superseded_assemblies = _converge_source_object_projections(
+        all_assemblies, all_materials)
     # P1-B.6：清单、枚举门与持久化产物共用**同一份** assembly 记录（单一恢复真相）。
     all_assemblies_dicts = tuple(_assembly_to_dict(a) for a in all_assemblies)
 
@@ -1040,7 +1210,8 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
         mids = tuple(dict.fromkeys(aspect_materials.get(aspect_id, [])))
         aggregate, incomplete = _enumerate_set_by_version(
             aspect_id, mids, all_materials, resolver, enumerator,
-            aspect_expansions, dep, tuple(all_assemblies_dicts))
+            aspect_expansions, dep, tuple(all_assemblies_dicts),
+            known_material_ids=set(all_materials))
         set_results[aspect_id] = aggregate
         if incomplete:
             boundary_incomplete_aspects.add(aspect_id)
@@ -1102,7 +1273,21 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
             "aspect_id": aspect_id,
             "material_id": mid,
             "role": role,
-            "disposition": _material_boundary_disposition(m, boundary_by_evidence),
+            # §三 P1-4：该 (aspect, material) 归属行**拥有**的引用表对象（内容寻址身份 + assembly
+            # + 锚点/标记/occurrence 身份 + component evidence 身份）。按 target_object_id 稳定排序，
+            # 使本行可独立复核「目标对象确有正式 aspect 绑定，且绑定归属正确」。
+            "reference_table_objects": [
+                ref_objects_by_aspect_material[(aspect_id, mid)][oid]
+                for oid in sorted(ref_objects_by_aspect_material.get((aspect_id, mid), {}))],
+            "disposition": _material_boundary_disposition(
+                m, boundary_by_aspect_evidence, (aspect_id,)),
+            "boundary_disposition_identity": [
+                {"aspect_id": aspect_id, "evidence_id": evidence_id,
+                 "direction": cand.get("direction", ""),
+                 "disposition": cand.get("disposition", ""),
+                 "reason_code": cand.get("reason_code", "")}
+                for cand in [boundary_by_aspect_evidence.get((aspect_id, evidence_id))]
+                if isinstance(cand, dict)],
             "seed_reachability": sorted(
                 reach_by_aspect_evidence.get((aspect_id, evidence_id), set())),
         })
@@ -1110,7 +1295,7 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
 
     material_entries = [
         _material_entry(m, tuple(aspect_of_material.get(m.material_id, [])),
-                        boundary_by_evidence, role_by_aspect_material)
+                        boundary_by_aspect_evidence, role_by_aspect_material)
         for m in all_materials.values()
     ]
     material_entries.sort(key=lambda e: (e["material_type"], e["document_id"],
@@ -1146,6 +1331,30 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
         "topic_boundary_version": TOPIC_BOUNDARY_VERSION,
         "decisions": boundary_decisions,
         "policy_status": boundary_status_by_aspect,
+        # §四.A.4/A.5：处置生产身份（aspect_id/evidence_id/direction/relation/reason_code/
+        # disposition/section_path/content_hash）+ 逐 aspect 有效处置（键 (aspect_id, evidence_id)）。
+        "decision_identities": [
+            {"identity": list(k), "occurrences": v}
+            for k, v in sorted(boundary_by_identity.items(), key=lambda kv: kv[0])
+        ],
+        "effective_disposition_by_aspect_evidence": [
+            {"aspect_id": a, "evidence_id": e, "disposition": v.get("disposition", ""),
+             "reason_code": v.get("reason_code", "")}
+            for (a, e), v in sorted(boundary_by_aspect_evidence.items())
+        ],
+    })
+    # §四.A.1–A.3：运行时派生的边界验证记录（逐 aspect，身份独立不合并）。
+    _write_json(out_dir / "boundary_verification.json", {
+        "boundary_verification_algorithm": BOUNDARY_VERIFICATION_ALGORITHM,
+        "boundary_verification_version": BOUNDARY_VERIFICATION_VERSION,
+        "dependency_fingerprint": dep,
+        "aspects": [boundary_verification_by_aspect[a]
+                    for a in sorted(boundary_verification_by_aspect)],
+    })
+    # §四.C.2/C.4：逐引用/续表目标的滚动观察 + 逐方向未读因果链（互不覆盖）。
+    _write_json(out_dir / "rolling_read_outcomes.json", {
+        "targets": target_outcomes_all,
+        "direction_unread": direction_unread_all,
     })
     # §四：四类分离（formal / context_candidate / outside_boundary / unread）显式落盘。
     _write_json(out_dir / "aspect_membership.json", {
@@ -1186,6 +1395,11 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     })
     _write_json(out_dir / "assemblies.json", [
         _assembly_to_dict(a) for a in all_assemblies])
+    # §四：被取代的跨 pass 投影**逐条披露**（单一恢复真相的收敛明细；绝不静默丢弃）。
+    _write_json(out_dir / "assemblies_superseded.json", {
+        "superseded_count": len(superseded_assemblies),
+        "superseded": superseded_assemblies,
+    })
 
     _write_material_index_md(out_dir, material_entries, all_assemblies,
                              all_materials, resolver)
@@ -1212,12 +1426,56 @@ def run_material_slice(run_id: str, manifest: SeedManifest, *,
     _write_json(preview_dir / "_assemblies.json", [
         _assembly_to_dict(a) for a in all_assemblies])
 
+    # -- run manifest：run/Pack/依赖身份（§五.4）必须可验证绑定 --
+    # 产物内容指纹 + 冻结 Contract/SourcePolicy 身份 + R2 dependency 指纹 + 真实计数。
+    # 内容缺口（未读/未解析）如实记录为计数与额外审计，绝不填占位值。
+    artifacts = {
+        name: RM.artifact_fingerprint(out_dir / name) for name in RUN_ARTIFACTS
+    }
+    missing_artifacts = sorted(n for n, fp in artifacts.items() if not fp)
+    run_manifest = RM.build_run_manifest(
+        run_id=run_id,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        seed_manifest_fingerprint=manifest.fingerprint,
+        artifacts=artifacts,
+        counts={
+            "seed_count": len(manifest.entries),
+            "resolved_count": sum(1 for e in resolved_entries if e.get("resolved")),
+            "unresolved_count": sum(1 for e in resolved_entries if not e.get("resolved")),
+            "material_count": len(all_materials),
+            "assembly_count": len(all_assemblies),
+            "assembly_superseded_count": len(superseded_assemblies),
+            "boundary_decision_count": len(boundary_decisions),
+            "unread_scope_count": len(unread_scopes),
+            "rolling_target_count": len(target_outcomes_all),
+            "direction_unread_count": len(direction_unread_all),
+        },
+        harness_db=({"path": str(harness_db)} if harness_db else {}),
+        evidence_db=({"path": str(evidence_db)} if evidence_db else {}),
+        accept_reject_audit={
+            "rejected_aspects": sorted(rejected_aspects),
+            "unread_aspects": sorted(unread_aspects),
+            "boundary_incomplete_aspects": sorted(boundary_incomplete_aspects),
+            "topic_boundary_unavailable_aspects": sorted(
+                topic_boundary_unavailable_aspects),
+            "missing_artifacts": missing_artifacts,
+            # §三 P1-4：无处落地的引用表对象声明（缺 aspect 归属行 / 目标 evidence 未采纳）
+            # → 显式披露；验收侧同样要求「目标对象确有正式 aspect 绑定」，两处都不静默。
+            "reference_object_link_orphans": ref_link_orphans,
+        },
+        extra={"budget_profile_name": budget_profile_name,
+               "budget_profile_version": BUDGET_PROFILE_VERSION})
+    RM.write_run_manifest(out_dir, run_manifest)
+
     return {
         "run_id": run_id, "out_dir": str(out_dir),
         "seed_count": len(manifest.entries),
         "resolved_count": sum(1 for e in resolved_entries if e.get("resolved")),
         "material_count": len(all_materials),
         "assembly_count": len(all_assemblies),
+        "assembly_superseded_count": len(superseded_assemblies),
+        "reference_object_link_orphan_count": len(ref_link_orphans),
+        "run_manifest_fingerprint": run_manifest["run_manifest_fingerprint"],
     }
 
 
@@ -1249,6 +1507,168 @@ def _dedup_assemblies(assemblies: list) -> list:
     return deduped
 
 
+def _component_coverage(mid: str, materials_by_id: dict) -> tuple[str, int]:
+    """component material 的**来源覆盖度**：(evidence_id, fragment_offset)。
+
+    ``fragment_offset`` 为 0/None 表示该 material 是所属 Block 的**完整投影**；> 0 表示它是
+    mixed block 的「主题内前缀片段投影」（同一 Block 的子集文本）。片段投影与其完整投影指同
+    一 evidence_id，完整投影覆盖更多源文本。
+    """
+    m = materials_by_id.get(mid)
+    if m is None:
+        return (f"?{mid}", 0)
+    ev = getattr(m.authority_assessment, "evidence_id", "") or ""
+    off = getattr(m.locator, "offset", None)
+    return (ev, off if isinstance(off, int) and off > 0 else 0)
+
+
+def _projection_coverage(components, materials_by_id: dict) -> dict[str, int]:
+    """投影的**源文本覆盖度**：``evidence_id → 最小 fragment_offset``（越小覆盖越多）。
+
+    component 的 payload 文本 = 该 Block 正文的 ``[0, fragment_offset)`` 前缀（完整投影
+    ``fragment_offset == 0`` → 整块）。同一 evidence_id 在投影内取**最小** offset（覆盖最多的
+    那份），使同一 Block 出现多个投影时按「谁覆盖得更多」比较。
+    """
+    cov: dict[str, int] = {}
+    for mid in components or ():
+        ev, off = _component_coverage(mid, materials_by_id)
+        cov[ev] = min(cov.get(ev, off), off)
+    return cov
+
+
+def _projection_is_complete_over(cand: list, other: list, materials_by_id: dict) -> bool:
+    """``cand`` 是否覆盖 ``other``：other 的每个源 Block 都在 cand 里被等/更多地覆盖。
+
+    形式化：对 other 的每个 ``(evidence_id, offset_o)``，cand 必须含同 evidence_id 且
+    ``offset_c <= offset_o`` 的 component（前缀包含关系）。全部满足 → cand 是同一批源 Block 的
+    更完整投影；否则不可比（``False``）。
+    """
+    cand_cov = _projection_coverage(cand, materials_by_id)
+    for mid in other or ():
+        ev, off = _component_coverage(mid, materials_by_id)
+        if ev not in cand_cov or cand_cov[ev] > off:
+            return False
+    return True
+
+
+def _converge_source_object_projections(
+        assemblies: list, materials_by_id: dict) -> tuple[list, list]:
+    """**同一源对象（同一张表）跨 seed pass 只保留一份恢复真相**（§四）。
+
+    多 seed 扩读会把同一份源 Block 以**不同投影**（完整块 material / 主题内前缀片段 material）
+    带进材料集合；摊平表恢复按 pass 各自构建，于是同一张表会留下多条 assembly。源对象清单把
+    「同一表对象对应 ≥2 条 assembly」判为**重复/错误合并**（recovery_failed），因此必须在持久化
+    前确定性收敛，而不是靠清单侧放行。
+
+    收敛规则（纯结构、确定性、无表号/页码/公司规则）：
+      - 只处理**摊平表恢复**投影（``relation == flattened_table_recovery``）且带表题；
+        组键 = 源对象清单使用的同一表对象键（``SOI.table_object_key``，表号优先，否则表题 slug）；
+      - 组内**恢复结构必须一致**（``SOI.flattened_table_structure_identity`` 判别串相同），
+        结构不同 ⇒ 真不同的表/错误合并 → 原样保留交回清单 fail-closed；
+      - 组内所有 assembly 必须来自**同一 document_id + document_version**（由 component 材料的
+        真实来源判定）；跨文档同名表**绝不收敛**（原样保留 → 清单照旧 fail-closed）；
+      - 组内若存在某条投影**覆盖**其余全部投影（``_projection_is_complete_over``：每个 component
+        都能在对方找到同一 Block 的等/更完整对应），则只保留**覆盖最完整**的那一条；同分时按
+        ``assembly_id`` 取最小（确定性）；
+      - 被取代的投影**逐条披露**（assembly_id / 表题 / component / 取代原因），写入
+        ``assemblies_superseded.json``，绝不静默丢弃；
+      - 无可比关系（互相都不覆盖，例如两张真不同的同名表）→ **原样保留**，交回清单 fail-closed。
+    """
+    groups: dict[str, list] = {}
+    order: list[str] = []
+    for a in assemblies:
+        # 只收敛**摊平表恢复**投影：同一源 Block 的跨 pass 投影差异由「材料覆盖度」确定性裁决。
+        # 结构化表链（table_chain）保持原行为，其重复由源对象清单 fail-closed 报错。
+        if getattr(a, "relation", "") != SOI.FLATTENED_TABLE_RELATION:
+            continue
+        title = getattr(a, "table_title", "") or ""
+        if not title:
+            continue
+        key = SOI.table_object_key(title)
+        if not key:
+            continue
+        groups.setdefault(key, []).append(a)
+        if key not in order:
+            order.append(key)
+
+    superseded: list[dict] = []
+    for key in order:
+        group = groups[key]
+        if len(group) < 2:
+            continue
+        docs = {_assembly_document_identity(a, materials_by_id) for a in group}
+        if len(docs) != 1:
+            continue          # 跨文档同名表：不收敛（清单侧 fail-closed 如实报错）
+        # 只有**恢复结构一致**的投影才可收敛为一份真相；结构不同 ⇒ 真不同的表/错误合并，
+        # 原样保留交回清单 fail-closed（绝不静默合并两张不同的表）。
+        if len({_assembly_structure_signature(a) for a in group}) != 1:
+            continue
+        ranked = sorted(group, key=lambda a: a.assembly_id)
+        winner = None
+        for cand in ranked:
+            others = [o for o in ranked if o is not cand]
+            if others and all(_projection_is_complete_over(
+                    list(cand.component_material_ids),
+                    list(o.component_material_ids), materials_by_id) for o in others):
+                winner = cand
+                break
+        if winner is None:
+            continue          # 无可比关系 → 不合并（交回清单判重复/错误合并）
+        win_cov = _projection_coverage(winner.component_material_ids, materials_by_id)
+        for o in sorted(group, key=lambda a: a.assembly_id):
+            if o.assembly_id == winner.assembly_id:
+                continue
+            less = []
+            for mid in o.component_material_ids:
+                ev, off = _component_coverage(mid, materials_by_id)
+                if ev in win_cov and win_cov[ev] < off:
+                    less.append({"evidence_id": ev,
+                                 "superseded_fragment_offset": off,
+                                 "retained_fragment_offset": win_cov[ev]})
+            superseded.append({
+                "table_object_key": key,
+                "superseded_assembly_id": o.assembly_id,
+                "retained_assembly_id": winner.assembly_id,
+                "table_title": getattr(o, "table_title", ""),
+                "component_material_ids": list(o.component_material_ids),
+                "retained_component_material_ids": list(winner.component_material_ids),
+                "less_covered_blocks": sorted(less, key=lambda d: d["evidence_id"]),
+                "reason": "同一源对象（同一张表）的较不完整投影：同一 Block 的文本覆盖更少"
+                          "（主题内前缀片段投影），已被更完整投影取代；两条投影的恢复结构一致",
+            })
+
+    if not superseded:
+        return list(assemblies), []
+    superseded_ids = {s["superseded_assembly_id"] for s in superseded}
+    out = [a for a in assemblies if a.assembly_id not in superseded_ids]
+    return out, superseded
+
+
+def _assembly_structure_signature(a) -> str:
+    """assembly 的**恢复结构身份**（复用 ``SOI.flattened_table_structure_identity``，无第二套）。"""
+    return SOI.flattened_table_structure_identity({
+        "title": getattr(a, "table_title", "") or "",
+        "unit": getattr(a, "unit", None),
+        "headers": getattr(a, "headers", ()) or (),
+        "rows": getattr(a, "rows", ()) or (),
+        "total_row": getattr(a, "total_row", None),
+    })
+
+
+def _assembly_document_identity(a, materials_by_id: dict) -> tuple[str, str]:
+    """assembly 的文档身份（component 材料的真实 document_id/document_version；缺失 → ""）。"""
+    doc = ""
+    ver = ""
+    for mid in getattr(a, "component_material_ids", ()) or ():
+        m = materials_by_id.get(mid)
+        if m is None:
+            continue
+        aa = getattr(m, "authority_assessment", None)
+        doc = doc or str(getattr(aa, "document_id", "") or "")
+        ver = ver or str(getattr(aa, "document_version", "") or "")
+    return (doc, ver)
+
+
 def _assembly_to_dict(a) -> dict:
     d = {
         "assembly_id": a.assembly_id,
@@ -1257,6 +1677,44 @@ def _assembly_to_dict(a) -> dict:
         "relation": a.relation,
         "boundary_desc": a.boundary_desc,
     }
+    # §三 P1-4：引用目标表对象投影（内容寻址、可复核）。它只由「成功解析 + 目标真的被采纳」
+    # 的绑定记录派生，落盘后由清单/验收按同一份身份逐层复核。必须先于摊平表/表链分支判定：
+    # 两者字段集不同（引用表对象没有 header_evidence_id / continuation_proof 等表链字段）。
+    if getattr(a, "table_object_id", None) is not None:
+        d.update({
+            "table_object_id": a.table_object_id,
+            "object_schema_version": a.object_schema_version,
+            "binding_version": a.binding_version,
+            "table_payload": a.table_payload,
+            "table_title": a.table_title,
+            "unit": a.unit,
+            "headers": [list(h) for h in a.header_rows],
+            "header_decision": a.header_decision,
+            "column_count": a.column_count,
+            "rows": [list(r) for r in a.body_rows],
+            "closure_row": list(a.closure_row),
+            "body_digest": a.body_digest,
+            "structure_rows": a.structure_rows,
+            "anchor_evidence_id": a.anchor_evidence_id,
+            "anchor_material_id": a.anchor_material_id,
+            "target_evidence_id": a.target_evidence_id,
+            "reference_kind": a.reference_kind,
+            "reference_marker": a.reference_marker,
+            "marker_start": a.marker_start,
+            "marker_end": a.marker_end,
+            "reference_occurrence_index": a.reference_occurrence_index,
+            "target_start": a.target_start,
+            "target_end": a.target_end,
+            "target_end_boundary": a.target_end_boundary,
+            "target_closed": a.target_closed,
+            "component_evidence_ids": list(a.component_evidence_ids),
+            "dependency_fingerprint": a.dependency_fingerprint,
+            # 与摊平表恢复共用同一套「结果 ↔ assembly.recovery_status」闭合规则：
+            # 通过全部结构资格判定的引用目标对象即 ok（partial/failed 不会产出投影）。
+            "recovery_status": "ok",
+            "recovery_issue": None,
+        })
+        return d
     if getattr(a, "table_title", None) is not None:
         d.update({
             "table_title": a.table_title, "unit": a.unit,
@@ -1296,6 +1754,26 @@ def _continuation_proof_to_dict(proof) -> dict | None:
         "row_column_continuity": proof.row_column_continuity,
         "final_recovery_status": proof.final_recovery_status,
         "issue": proof.issue,
+        # P1-C.5：恢复后的结构（title / unit / headers / rows / total / component 顺序）。
+        "recovered_title": getattr(proof, "recovered_title", ""),
+        "recovered_unit": getattr(proof, "recovered_unit", ""),
+        "recovered_headers": list(getattr(proof, "recovered_headers", ()) or ()),
+        "recovered_row_count": getattr(proof, "recovered_row_count", 0),
+        "recovered_total": (list(proof.recovered_total)
+                            if getattr(proof, "recovered_total", None) is not None else None),
+        "component_order": list(getattr(proof, "component_order", ()) or ()),
+        # P1-C.6：真实 continued_from 链（逐块读取 + 指向前一块的验证结果）。
+        "continued_from_chain": [dict(c) for c in
+                                 (getattr(proof, "continued_from_chain", ()) or ())],
+        "continued_from_verified": getattr(proof, "continued_from_verified", None),
+        # §四：身份来源（structured_payload | recovered_structure）+ 摊平续表结构见证。
+        # None = 该条件对本次证明不适用（绝不等于通过）；逐 span 事实可人工/Codex 独立复核。
+        "identity_source": getattr(proof, "identity_source", "structured_payload"),
+        "header_repeat_verified": getattr(proof, "header_repeat_verified", None),
+        "boundary_consecutive": getattr(proof, "boundary_consecutive", None),
+        "section_path_shared": getattr(proof, "section_path_shared", None),
+        "same_document_verified": getattr(proof, "same_document_verified", None),
+        "span_facts": [dict(f) for f in (getattr(proof, "span_facts", ()) or ())],
     }
 
 

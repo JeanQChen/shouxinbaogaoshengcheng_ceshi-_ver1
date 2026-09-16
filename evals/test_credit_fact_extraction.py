@@ -13,7 +13,11 @@
 - 完整报告期保留（2025-06-30 不压缩为 2025-12-31）；
 - 标量不可靠提取（同最新报告期多值冲突）→ not_obtained（value=None，显式缺口）；
 - 派生事实经 ``credit_aspect_dual_axis`` 仍得到正确双轴：total_credit_line=not_obtained、
-  used=supports、unused=scope_qualified、authorized_application_ceiling=supports。
+  used_credit=not_obtained（E.7 裸「亿」）、unused_credit=scope_qualified、
+  authorized_application_ceiling=scope_qualified（E.6 as_of 空）。
+- 缺口/冲突事实与正常事实**同一字段集**（反例：缺口事实曾缺 ``scope_closed`` 字段，使
+  ``f.get("scope_closed", True)`` 把显式缺口默认成「口径闭合」，把 used_credit 缺口判成
+  supports；缺口一律不得被默认成闭合）。
 
 全部离线：纯函数，零 LLM/网络/DB。
 """
@@ -28,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evidence import ids
+from harness.credit_authority import ResolvedMaterial as _RM
 from harness.credit_fact_extraction import (
     extract_credit_facts,
     recompute_authority,
@@ -157,11 +162,10 @@ def main() -> dict:
           "拟申请上限口径未闭合（E.6：as_of 空 → 空字段不得闭合；facility/entity/currency 正确）")
 
     used = by_type.get(SEMANTIC_TYPE_USED_CREDIT)
-    check(used is not None and used["value"] == "2918.37亿元",
-          "已使用 = 2918.37亿元")
-    check(used is not None and used["scope_closed"] is False
-          and used["facility_scope"] == "综合授信额度",
-          "已使用口径未闭合（E.6：as_of 空 → 空字段不得闭合；授信额度 → 综合授信口径）")
+    check(used is not None and used["value"] is None and used.get("not_obtained") is True,
+          "已使用：真实原文为裸「亿」（无 人民币/元）→ 币种不明确 → not_obtained（E.7，不回填）")
+    check(used is not None and "币种不明确" in (used.get("not_obtained_reason", "") or ""),
+          "已使用：缺口原因是「币种不明确」（E.7）")
 
     unused = by_type.get(SEMANTIC_TYPE_UNUSED_CREDIT)
     check(unused is not None and unused["value"] == "3,655亿元",
@@ -171,6 +175,17 @@ def main() -> dict:
           and unused["entity_scope"] == "公司"
           and unused["document"] == "NDSD_2025_year",
           "尚未使用口径未闭合（银行借款额度 × 公司 × NDSD_2025_year）")
+
+    # 字段集一致（反例：缺口事实曾缺 scope_closed，导致下游 `f.get("scope_closed", True)`
+    # 把显式缺口默认成「口径闭合」，把 used_credit 缺口聚合判成 supports/口径闭合）。
+    _UNIFORM_KEYS = ("scope_closed", "currency", "as_of", "period", "entity_scope",
+                     "facility_scope", "consolidation", "document")
+    check(all(all(k in f and f[k] is not None for k in _UNIFORM_KEYS) for f in facts),
+          "缺口/正常事实字段集一致且 scope_closed 非 None（不得被下游默认成闭合）")
+    check(used is not None and used["scope_closed"] is False,
+          "已使用（显式缺口）scope_closed=False → 缺口绝不被当成口径闭合")
+    check(all(not (f["not_obtained"] and f["scope_closed"]) for f in facts),
+          "任何缺口事实都不得同时是「口径闭合」")
 
     # provenance：每条事实携带 evidence_id/material_id/document_id+version/locator/双哈希。
     for f in facts:
@@ -188,14 +203,17 @@ def main() -> dict:
     fact_axes = tuple({"semantic_type": f["semantic_type"],
                        "authority_valid": f["authority_valid"],
                        "authority_reason": "",
-                       "scope_closed": f["scope_closed"]} for f in facts)
+                       "scope_closed": f.get("scope_closed", False),
+                       "value": f.get("value"),
+                       "not_obtained": bool(f.get("not_obtained")),
+                       "conflict_status": f.get("conflict_status", "")} for f in facts)
     st_tot = credit_aspect_dual_axis("company_debt_credit.total_credit_line", fact_axes)
     check(st_tot["semantic_status"] == SUPPORT_NOT_OBTAINED
           and st_tot["authority_status"] == "valid",
           "派生事实 → total_credit_line = not_obtained（非 authority_failed）")
     st_used = credit_aspect_dual_axis("company_debt_credit.used_credit", fact_axes)
-    check(st_used["semantic_status"] == SUPPORT_SCOPE_QUALIFIED,
-          "派生事实 → used_credit = scope_qualified（E.6：as_of 空 → 口径未闭合）")
+    check(st_used["semantic_status"] == SUPPORT_NOT_OBTAINED,
+          "派生事实 → used_credit = not_obtained（E.7 裸「亿」币种不明确 → 显式缺口）")
     st_unused = credit_aspect_dual_axis("company_debt_credit.unused_credit", fact_axes)
     check(st_unused["semantic_status"] == SUPPORT_SCOPE_QUALIFIED,
           "派生事实 → unused_credit = scope_qualified")
@@ -315,6 +333,54 @@ def main() -> dict:
     facts_c = extract_credit_facts([ceiling_only])
     check(not any(f["semantic_type"] == SEMANTIC_TYPE_ACTUAL_GRANTED_TOTAL for f in facts_c),
           "E.9：拟申请上限绝不回填为实际获批总额（ceiling 不产出 actual 事实）")
+
+    # ------------------------------------------------------------------
+    # 10. E.4：fragment 事实提取不得接受可变 dict 中后来替换的 text
+    #     （必须从已验证 payload envelope 重取正文）
+    # ------------------------------------------------------------------
+    swap = _mat("m-swap", "NDSD_KCZ_2026", "v", 1, "s",
+                "2025年度拟申请不超过人民币6,000亿元的综合授信额度。")
+    swap["text"] = "2025年度拟申请不超过人民币9,999亿元的综合授信额度。"  # 解析后替换
+    facts_swap = extract_credit_facts([swap])
+    swap_f = next((f for f in facts_swap
+                   if f["semantic_type"] == SEMANTIC_TYPE_AUTHORIZED_APPLICATION_CEILING), None)
+    check(swap_f is None or swap_f.get("value") == "6,000亿元",
+          "E.4：材料 dict 的 text 被事后替换 → 事实仍取权威 payload envelope 正文（非 9,999亿）")
+
+    # ------------------------------------------------------------------
+    # 11. E.7：裸「亿」无可靠币种上下文 → 不得默认 CNY
+    # ------------------------------------------------------------------
+    bare = _mat("m-bare", "NDSD_KCZ_2026", "v", 1, "s",
+                "截至2025年末，公司及控股子公司授信额度已使用2918.37亿。")
+    facts_bare = extract_credit_facts([bare])
+    bare_f = next((f for f in facts_bare
+                   if f["semantic_type"] == SEMANTIC_TYPE_USED_CREDIT), None)
+    check(bare_f is not None and bare_f["value"] is None and bare_f.get("not_obtained") is True,
+          "E.7：裸「亿」（无 人民币/元/外币标记）→ 币种不明确 → not_obtained（绝不默认 CNY）")
+    check(bare_f is not None and "币种不明确" in (bare_f.get("not_obtained_reason", "") or ""),
+          "E.7：裸「亿」缺口原因是「币种不明确」（显式缺口，不回填）")
+    bare_bad = next((f for f in facts_bare
+                     if f["semantic_type"] == SEMANTIC_TYPE_USED_CREDIT
+                     and f.get("currency") == "CNY"), None)
+    check(bare_bad is None, "E.7：裸「亿」绝不产出 currency=CNY 的事实")
+    # 可靠上下文（含「元」或「人民币」）仍判定为 CNY（不误伤合法路径）。
+    ok_ctx = _mat("m-ok", "NDSD_KCZ_2026", "v", 1, "s",
+                  "截至2025年末，公司及控股子公司授信额度已使用2918.37亿元。")
+    ok_f = next((f for f in extract_credit_facts([ok_ctx])
+                 if f["semantic_type"] == SEMANTIC_TYPE_USED_CREDIT), None)
+    check(ok_f is not None and ok_f["value"] == "2918.37亿元" and ok_f["currency"] == "CNY",
+          "E.7：含「元」的匹配域（可靠上下文）仍判定 CNY")
+
+    # ------------------------------------------------------------------
+    # 12. E.4：fragment offset 非严格内部 / 片段正文与 payload 不符 → 不可采纳
+    # ------------------------------------------------------------------
+    for bad_off in (-1, 0):
+        fd = _mat("m-frag", "NDSD_KCZ_2026", "v", 1, "s", "片段正文。")
+        fd["locator"] = dict(fd["locator"], offset=bad_off)
+        check(extract_credit_facts([fd]) == [],
+              f"E.4：offset={bad_off} 非严格内部截断点 → 材料不可采纳（不产出事实）")
+    check(getattr(_RM, "__dataclass_params__").frozen is True,
+          "E.4：ResolvedMaterial 为不可变（frozen）typed 材料，正文不可事后替换")
 
     return {"passed": passed, "failed": failed, "skipped": skipped, "details": details}
 

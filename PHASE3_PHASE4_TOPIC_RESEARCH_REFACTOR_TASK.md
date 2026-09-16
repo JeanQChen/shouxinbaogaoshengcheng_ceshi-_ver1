@@ -1,9 +1,9 @@
 # Phase 3R / Phase 4R：Topic Research 与章节内容完整性重整任务书
 
 > 面向执行者：Claude Code
-> 版本：v1.2 · 2026-09-13
-> 状态：**权威实施任务书；R0 已收口（正式唯一链护栏 + Contract 来源身份严格 fail-closed）；R1-A 已批准并冻结（已按职责提交，未接线）；R1 其余（Pack schema/Store、迁移方案）与 R2～R7 按各批计划与授权推进**
-> 上位依据：`AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` v0.7、`V2_IMPLEMENTATION_PLAN.md` v0.5、`templates/contracts/standard_v2.yaml`（历史兼容 Contract v1；R1 必须发布兼容 Contract v2，具体载体/命名按获批计划确定）
+> 版本：v1.3 · 2026-09-16
+> 状态：**权威父级任务书；R0、R1-A、R1-B 已关闭，R2 基础能力保留；“树结构调整”已批准并成为 R3 前强制门。当前唯一可执行子任务为 `TREE_STRUCTURE_ADJUSTMENT_TASK.md`，R3～R7 暂停。**
+> 上位依据：`AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md` v0.9、`V2_IMPLEMENTATION_PLAN.md` v0.7、冻结 Contract/SourcePolicy/WritingSpec/PresentationProfile（本轮不得修改）
 > 目标：修复所有正式 Topic 的“有材料但研究结果过短、P4 只消费简短答案、章节像断言清单、外部检索价值没有进入报告”的系统性问题
 > 优先级：面试 Demo 可讲解与内容可信 > 继续堆功能 > 追求完整平台化
 
@@ -47,6 +47,8 @@ R0 不永久冻结 Router 必须位于 Harness 外。P3R 目标调用栈为 `ser
 - P4 只能把少量原子 Claim 重新排列，无法凭空恢复主营业务模式、产业链、行业供需、并购/处罚等完整叙述；
 - 外部搜索的候选、fetch、snapshot 和来源等级虽有审计，却没有按 aspect 稳定沉淀成可写事实；
 - fail-closed 阻止了错误内容，但也让“安全”被误当成“研究完成”。
+- 当前 `EvidenceBlock` 主要由页内文本按固定长度/分隔规则产生，可能同时包含多个一级至小标题，或把一个表格的题名、表头、表体和表后分析拆散；`section_path + 相邻块` 因而不能稳定代表业务材料边界。
+- 目录页、PDF 书签和正文小标题尚未形成统一、版本化的文档结构；继续围绕个别 seed、页码和哨兵修补扩读边界，只会把样本缺陷转移到下一类 Topic。
 
 这不是宁德时代、主营业务或行业两个样例的专属问题，也不能靠逐章手写 Prompt、统一放大 top-k/预算或只改发布态 Renderer 根治。
 
@@ -60,9 +62,12 @@ R0 不永久冻结 Router 必须位于 Harness 外。P3R 目标调用栈为 `ser
 SectionContract / SectionTask
   → P4 Worker 编排外壳
   → Harness TopicResearchRequirement + Aspect 待办/缺口调度
-  → InformationNeed / Router / ToolRegistry
+  → immutable EvidenceBlock provenance
+  → PageLayout / DocumentOutline
+  → OutlineNode candidate → OutlineSpan / TableObject
+  → InformationNeed / Router / ToolRegistry（同一正式链）
   → ResearchOutcome（原子运行记录）
-  → inspect + 受控上下文扩读 + 事实校验
+  → inspect tree-bounded materials + fallback expansion + 事实校验
   → TopicResearchPack（P3 正式交付）
   → 同一 P4 Worker writer 阶段
   → SectionClaim + NarrativeParagraph + Table + Unresolved
@@ -104,7 +109,9 @@ SectionContract / SectionTask
 
 ### 3.2 最小正式数据模型
 
-字段名可在计划中按现有代码风格细化，但业务语义不得缩减。以下 dataclass 为**历史示意字段名**；唯一强类型 schema 以 `R1B_IMPLEMENTATION_PLAN.md` §1（落点 `harness/topic_schema.py`）为唯一规范，本文不维护第二份完整 schema。已把松散字段替换为强类型引用，并对 Pack 补上 process/coverage 双轴状态。
+字段名可在计划中按现有代码风格细化，但业务语义不得缩减。以下 dataclass 为**历史示意字段名**；唯一强类型 Pack schema 以 R1-B 已落库的 `harness/topic_schema.py` 为兼容基础，本文不维护第二份完整 schema。已把松散字段替换为强类型引用，并对 Pack 补上 process/coverage 双轴状态。
+
+“树结构调整”新增的 `PageLayout`、`DocumentOutline`、`OutlineSpan`、`TableObject` 属于来源结构层与材料层的配套对象，不构成第四种 Pack，也不得形成第二套 Router / Harness / Retriever / ToolRegistry 运行时。R1-B schema 保留为历史兼容基础；若其 locator、payload 或 provenance 字段不足以承载树结构身份，必须通过后继版本与追加式 migration 演进，不得原地改写历史 schema、migration 或既有 Pack。
 
 ```python
 @dataclass(frozen=True)
@@ -255,9 +262,11 @@ class NarrativeParagraph:
 
 ## 4. Contract 与 aspect 规则
 
-### 4.1 先做全量映射审计
+### 4.1 全量映射审计（R1 历史设计，已完成）
 
-对 `standard_v2.yaml` 的 52 问生成机器可读审计表，逐 question/aspect 检查：
+> 本节保留 R1 为什么需要从 v1 演进的设计依据，不是当前树结构任务的重新执行指令。R1-A 已发布并冻结 `templates/contracts/standard_v3.yaml`（Contract v2）及审计产物；树结构任务的 `AspectNavigationProfile` 只能从该冻结 v2 和公司无关的版本化通用词汇规则派生。`standard_v2.yaml` 仅作固定哈希的 V1 兼容/历史对照，不得据此重启 52 问拆分或修改冻结资产。
+
+R1 当时对 `standard_v2.yaml` 的 52 问生成机器可读审计表，逐 question/aspect 检查：
 
 - aspect 是否具有稳定身份，而不是仅自由文本；
 - 需要的材料类型：本地叙述、表格/附注、结构化字段/指标、外部来源、事件/负面核验；
@@ -268,7 +277,7 @@ class NarrativeParagraph:
 
 52 问全部参与 aspect/evidence/display 语义审计，但不代表 52 问全部强行进入 Topic Harness：公司与行业等开放研究 Topic 由 Harness 产出 `TopicResearchPack`；财务确定性 Workflow 继续产出 `FinancialFactPack`，只将需要 Evidence 原因说明/附注/审计意见的 aspect 接到材料层，并投影到统一 Fact Registry；综合评价仍属于 Phase 5。
 
-现有 v1 已由真实纵向样本和文档审计确认存在实质性粒度/来源语义缺口，R1 **必须**发布兼容的 Contract schema/version v2 和迁移/兼容测试；仅语义已经完整的字段可通过兼容派生器复用。禁止直接改写、重标或删除 v1，R1 未完成人工聚焦复核不得进入 R2。
+现有 v1 当时已由真实纵向样本和文档审计确认存在实质性粒度/来源语义缺口，因此 R1 已发布兼容的 Contract schema/version v2 和迁移/兼容测试；仅语义已经完整的字段通过兼容派生器复用。v1 继续禁止直接改写、重标或删除；该历史门已完成，不在树结构任务中重开。
 
 ### 4.2 示例不是专用规则
 
@@ -298,15 +307,17 @@ class NarrativeParagraph:
 
 ### 5.2 本地命中后的受控扩读
 
-命中 Evidence 后，按以下优先顺序扩读：
+正式主路径先将 Contract aspect 映射为候选 `OutlineNode`，再读取该节点或必要子树中的 `OutlineSpan` / `TableObject`。标题、路径、确定性导航简介与表题的相似度只用于候选定位，不能直接证明 aspect covered、set_complete 或结论成立。
 
-1. 同一 `document_version`、同一 `section_path` 的相邻块；
-2. 被截断段落的前后连续块；
-3. 表题、单位、表头、数据块、跨页续表；
-4. 原文明确出现“详见/参见/续表/如下”等交叉引用时跟随到目标；
-5. 对列表、业务流程、变化原因等，读到语义闭合或章节边界。
+读取顺序：
 
-必须停止于：进入无关标题/章节、跨 document_version、连续扩读无新增相关事实、达到 context window 或 Topic 硬预算。Trace 保存 seed evidence、扩读 material、边界原因、未读范围和去重 identity。禁止简单固定“往后 N 页”作为唯一规则。
+1. 命中节点的标题路径、正文 spans、直接子节点及其 typed relations；
+2. 与节点绑定的 `TableObject`，表格文字与说明文字分开检索、通过关系组合；
+3. 原文明确出现“详见/参见/续表/如下”等引用时，按 `ReferenceEdge` 跟随到目标节点/span/table；
+4. 标题树缺失、低置信、内容落入 `unassigned` 或旧资料只具备 Evidence 坐标时，才使用同一文档版本内相邻块/页的有界 fallback；
+5. 本地标题树、全文、祖先/子节点、`unassigned`、其他本地文档、TableObject 与结构化数据均无合格材料后，才按 SourcePolicy 进入外部研究。
+
+节点默认止于下一个同级或更高层标题；同名标题以完整路径和源坐标区分。必须停止于：离开目标节点/允许子树、跨 document_version、连续扩读无新增相关事实、达到 context window 或 Topic 硬预算。Trace 保存候选 node、采用 span/table、底层 Evidence、fallback 原因、未读范围和去重 identity。禁止简单固定“往后 N 页”作为主规则。
 
 ### 5.3 事实抽取与保留
 
@@ -440,6 +451,34 @@ Section Evaluator 除既有安全规则外，新增以下章级确定性/半确�
 
 **出口：** 段落截断、同章节连续块、表题/表头/续表、交叉引用、边界停止、去重、不同文档版本隔离全部覆盖；RAG 调用仍走正式接口并有日志。
 
+**R2 完成定义（2026-09-16 冻结，覆盖此前所有「六类 material 全部 complete/accepted」表述）：**
+
+- R2 验收采用**三轴状态模型**并分别落盘：`material_state` ∈ {complete, partial, boundary_incomplete, not_obtained, unsupported, invalid}；`capability_verdict` ∈ {PASS, FAIL, NOT_TESTED}；`report_impact` ∈ {blocking, non_blocking, audit_only}。三轴分别建模，**禁止三条轴自动互相映射**（合法示例：`boundary_incomplete / PASS / blocking`；`not_obtained / PASS / non_blocking`）。
+- `capability_verdict = PASS` 只表示系统正确、可复核地得出了材料状态，**不代表材料完整，也不代表报告可发布**；诚实的 `boundary_incomplete / not_obtained / unsupported` 可以是 `capability_verdict = PASS`，且**不自动构成代码缺陷**。failed gate 只表达能力门或完整性门失败。
+- **R2 不以全部 material complete/accepted 为关闭条件**；R2 只负责材料构建、受控上下文扩读、边界证明、持久化与材料能力验收。
+- 授信币种解释与授信事实语义、`used/unused` 业务对账、冲突事实双轴、授信 `REPORT_BLOCKED` 映射、授信正式 Writer/报告展示属于 **R3 正式事实形成与 Pack 状态**职责，R2 不做、不代做。
+- 现存授信双轴预览保留为 **evaluation diagnostic / R3 candidate**，不是 R2 关闭门，不得宣称正式运行链接线完成；历史预览与相关代码不删除、不回滚。
+- 不得修改冻结的 Contract / SourcePolicy / WritingSpec / PresentationProfile，也不得通过放宽 authority、`set_complete`、来源边界或 hash 校验提高完成率。
+
+**2026-09-16 后继裁决：** R2 的只读访问、payload/Pack Store、双哈希、authority、trace、显式引用和 fail-closed 机制继续作为基础；“一个正式材料等于一个完整 EvidenceBlock”“以 section_path/相邻块猜主要边界”不再是现行主路径。历史 R2 代码、迁移和结果保留，不得重写；相邻扩读降为树结构不可用时的 fallback。
+
+### R2-T：树结构调整（R3 前强制门）
+
+**权威子任务：** `TREE_STRUCTURE_ADJUSTMENT_TASK.md`。
+
+**建议模块：** 版本化 `PageLayout` / `DocumentOutline` / `OutlineNode` / `OutlineSpan` / `TableObject` schema、builder、Store、indexer 与现有 Retriever/ToolRegistry adapter；具体路径必须在编码前实施计划中对照现有代码确定，禁止另建研究运行时。
+
+**出口：**
+
+- 从原始电子 PDF 构建完整页面布局；目录/书签仅作候选，正文一级至小标题、编号连续性和版式负责确认；目录误判不得丢正文。
+- 标题树覆盖正文；低置信内容归最近可信祖先或显式 `unassigned`，不得静默丢失。
+- 一个旧 Evidence 跨多个标题时以字符范围映射为多个 span，且可无损回查；必要时为当前文档版本追加新的 evidence set，不覆盖历史 set。
+- `TableObject` 独立表达表题、单位、物理表头、表体、合计、续表及 component provenance；它是 Evidence-backed read model，不取得 FinancialSnapshot 权威。
+- 正式本地检索索引并返回 node/span/table；Contract 相似度只产生候选，覆盖仍由事实、引用、权威、充分性与 coverage rule 判定。
+- Pack locator/payload、dependency fingerprint、stale、checkpoint 与 P4 provenance 有版本化兼容方案；旧 Pack 与历史结果保持可读。
+- 三份真实文档、主营业务/核心竞争力/主要子公司/财务附注和非 300750 fixture 通过人工可读纵向验收。未通过不得进入 R3。
+
+
 ### R3：aspect 调度、Topic runtime 与预算
 
 **建议文件：** `harness/topic_runtime.py`，扩展现有 policy/checkpoint/trace，不复制 Router/Registry。
@@ -496,6 +535,11 @@ R7 的人工确认是验收人员对持久化产物的离线检查，不是产�
 - 找到一条相关 Evidence 但另一个 required aspect 未覆盖，Topic 不能 FULL；
 - inspect 后扩读补齐列表/流程；遇新章节及时停止；
 - 表题、单位和数据分块仍能恢复完整 table context；
+- 目录页与正文标题树对齐；目录关键词误命中不得整页丢失；正文小标题、重复标题路径和层级关系可复核；
+- 一个旧 Evidence 同时含两个以上标题时被切为独立 spans，按源顺序拼接可无损重构原文；所有正文均归属节点或显式 `unassigned`；
+- 表题、单位、物理表头、表体、合计和跨页续表形成稳定 TableObject，component provenance 可回查，表格说明文字不与表体混成一个检索对象；
+- 正式 Retriever 返回 node/span/table；跨标题整块 Evidence 不得直接进入 Pack/Writer；导航简介不得作为 Claim 引用；
+- Outline/span/table/extractor/index 版本变化进入 dependency fingerprint 并使相关 current Pack stale，旧 Evidence/Pack/结果仍可读取；
 - 外部搜索有多个候选，首个 blocked 后换源；fetch 成功但 snapshot 失败不可采纳；
 - 尚有低价值未抓候选时，另一 P0 aspect 仍可发新查询；
 - 动态预算任一维度绝不 max+1；fetch 预留 snapshot；单次运行及系统恢复累计不清零；不要求用户触发继续生成；
@@ -528,12 +572,17 @@ R7 的人工确认是验收人员对持久化产物的离线检查，不是产�
 1. `test(phase4): 正式唯一主链护栏`（R0 现有改动按实际文件拆分）；
 2. `docs/contracts: Topic aspect/evidence 映射审计`；
 3. `feat(harness): TopicResearchPack schema + store`；
-4. `feat(harness): bounded context expansion + material builder`；
-5. `feat(harness): aspect scheduler + topic budget/checkpoint`；
-6. `feat(harness): aspect-aware external funnel`；
-7. `feat(sections): TopicResearchPack consumer + narrative writer`；
-8. `test(integration): cross-topic P3R/P4R quality gates`；
-9. `docs(phase3-phase4): real vertical-slice acceptance`。
+4. `feat(harness): bounded context expansion + material builder`（历史 R2 基础，保留）；
+5. `feat(document-structure): versioned PageLayout + DocumentOutline`；
+6. `feat(document-structure): OutlineSpan + TableObject + Store/migration`；
+7. `feat(retrieval): tree-aware node/span/table indexing and retrieval`；
+8. `feat(harness): tree material adapter + Pack identity/version integration`；
+9. `test(document-structure): real outline/span/table vertical gates`；
+10. `feat(harness): aspect scheduler + topic budget/checkpoint`（树结构门通过后）；
+11. `feat(harness): aspect-aware external funnel`；
+12. `feat(sections): TopicResearchPack consumer + narrative writer`；
+13. `test(integration): cross-topic P3R/P4R quality gates`；
+14. `docs(phase3-phase4): real vertical-slice acceptance`。
 
 一个 commit 一个职责。每个核心模块须有 `python -m ... --self-check` 或明确 CLI；每批先跑专项，再跑完整 eval。真实 LLM/博查只在 R7，且每个样本使用新 run_id、保留旧结果、不连续烧调用调 Prompt。
 
@@ -541,22 +590,22 @@ R7 的人工确认是验收人员对持久化产物的离线检查，不是产�
 
 ## 10. 当前批次计划与人工门
 
-R0 已关闭，不得重新盘点或实现。R1-A 已批准并冻结、已按职责提交、尚未接线正式运行时；R1-B 已正式关闭（schema v2 + migration 2 + set_complete 独立枚举 + SourcePolicyRef 唯一绑定，完整离线 eval 4467/0/0）。Claude Code 在进入下一批前，先完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、`contracts/sc_decisions.yaml`、`FORMULA_REVIEW.md`、两份 confirmed Contract review、正式 Contract、当前 worktree/diff（如有），以及 P3/P4 相关实现。**先不调用真实 LLM/博查；R2 计划已获人工 + Codex 批准、进入编码。R3～R7 每批仍须先输出计划并等待批准。** 当前计划必须逐项回答：
+R0、R1-A、R1-B 的关闭状态保留，不重新盘点或实现；R2 的只读、Store、权威、哈希、trace 与 fail-closed 基础保留，但旧材料边界主路径已由树结构调整取代。Claude Code 在进入下一批前，必须完整阅读 `AGENTS.md`、`DOCUMENTATION_INDEX.md`、`DESIGN_V2.md`、`V2_IMPLEMENTATION_PLAN.md`、`V2_TODO.md`、本任务书、`TREE_STRUCTURE_ADJUSTMENT_TASK.md`、冻结 Contract/SourcePolicy/WritingSpec/PresentationProfile、当前 worktree/diff，以及 Evidence/parser/retrieval/Pack/P4 相关实现。**当前只允许先输出“树结构调整逐文件实施计划 + 架构冲突/兼容迁移审计”，不得直接编码；不调用真实 LLM/博查。计划经用户与 Codex 批准后才能实施，树结构真实验收通过前不进入 R3～R7。** 当前计划必须逐项回答：
 
-1. R1-A 已冻结、已按职责提交、R1-B 已正式关闭；R2 计划已获批准、进入编码。R2 计划的逐文件归属、材料构建/扩读语义和架构边界是否符合上位设计、哪些项仍需业务确认；
-2. 三套相近材料对象的逐字段映射，以及最终唯一对象放在哪个模块；
-3. 52 问 aspect/evidence/display 审计产物格式；现有 Contract 过粗项如何通用拆分；`standard_v3.yaml`/`contract_version=v2`（或有充分迁移理由的等价新文件）及历史 manifest/loader 兼容方式；search/fetch capability 与 Rules-internal snapshot 如何表达；
-4. Pack schema、Store/migration、稳定 ID、指纹、checkpoint、系统故障恢复和只读加载；其中恢复接口不得暴露为当前 UI 的用户续跑动作；
-5. 上下文扩读算法的入口、边界、预算、去重和 Trace；
-6. aspect 调度状态机及如何避免“一 aspect 一搜索”和“任意答案提前结束”；
-7. Topic 动态预算各档明确数值、执行前预留和系统内部恢复语义；当前面试版禁止用户触发 continue/resume；
-8. 外部候选优先级、换源、来源政策和 provider 质量归因；
-9. P4 正式 Worker 如何校验完整 Pack 集，并按唯一机器可读资产中的版本化 WritingSpec/PresentationProfile 从 Pack 生成 Claim/Paragraph/Table；其 canonical 路径、loader/validator/version/fingerprint；哪些旧 Prompt/template/path 删除或 deprecated；
-10. 财务主表、附注 Evidence 与不可计算指标的边界；
-11. 专项/集成/真实纵向样本、指标和人工门；
-12. 每批文件、CLI、commit、预计时间、停止条件和禁止改动。
+1. `PageLayout`、`DocumentOutline`、`OutlineNode`、`OutlineSpan`、`TableObject` 的 public types、稳定身份、版本、Store、CLI 与只读边界；
+2. 目录/书签候选如何由正文大小标题、小标题、编号连续性、字体/坐标/缩进和阅读顺序确认；低置信及未归属内容如何 fail-closed；
+3. `AspectNavigationProfile` 如何只从冻结 Contract v2 与公司无关的版本化通用词汇规则派生，并绑定算法/词汇/Contract 指纹；本轮不得拆改 52 问、187 aspects 或四份冻结资产；
+4. 历史 Evidence、evidence set、索引、R1-B/R2 Pack schema/Store/migration、locator/payload、checkpoint 如何兼容；哪些需要 successor schema/migration，哪些只加依赖版本；
+5. 现有 Retriever/ToolRegistry 唯一正式链如何索引/返回 node/span/table；相邻扩读保留在哪些 fallback 条件、预算和 Trace 中；
+6. 标题节点导航简介如何确定性抽取并回指原文；简介不可用如何显式记录；简介及标题只用于候选排序、不得成为事实或覆盖证明；
+7. raw PDF layout 文本与历史 Evidence 规范化文本如何通过版本化 alignment 记录对齐；无法唯一对齐时如何 fail-closed 或追加新 evidence set；
+8. fallback 仍如何产出精确 `OutlineSpan` 而不是整块 Evidence，以及为何 fallback/unassigned 不能单独证明 `set_complete`；
+9. 财务主表、附注 Evidence-backed note facts、普通业务 `TableObject` 的权威边界及文字/表格分读关系；本轮只做结构与 provenance，不实现 R3 事实调度或 R5 Writer；
+10. 标题树、跨标题 span、真实 TableObject、正文零静默丢失、树感知检索、Pack/P4 provenance、三份真实文档逐份处理和非 300750 fixture 的专项/集成/真实纵向样本与人工门；
+11. 每批文件、CLI、migration、commit、预计时间、停止条件和禁止改动；尤其证明不会创建第二套 Retriever/Harness/ToolRegistry，也不会修改冻结资产；
+12. 将 aspect scheduler/动态预算、外部漏斗、正式 Writer 与财务报告展示列为 R3～R5 的未来接口影响清单即可，本轮不得设计或实现这些后续能力。
 
-计划中如果仍以“改几个 Prompt、增加 top-k/轮数、再跑宁德时代”作为主方案，应自行判定为不合格并重写。输出计划后停止，等待人工批准。
+计划中如果仍以“继续修 seed/页码/哨兵、增加相邻读取半径/top-k/轮数、只跑宁德时代”作为主方案，应自行判定为不合格并重写。输出计划后停止，等待人工批准。
 
 ---
 
